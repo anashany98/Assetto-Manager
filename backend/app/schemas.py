@@ -78,6 +78,7 @@ class LapTimeBase(BaseModel):
     track_config: Optional[str] = None
     lap_time: int
     sectors: List[int]
+    telemetry_data: Optional[str] = None
     is_valid: bool
     timestamp: datetime
 
@@ -94,6 +95,7 @@ class SessionResultCreate(BaseModel):
 
 class LeaderboardEntry(BaseModel):
     rank: int
+    lap_id: int
     driver_name: str
     car_model: str
     lap_time: int

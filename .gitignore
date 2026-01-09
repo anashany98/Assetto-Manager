@@ -1,0 +1,29 @@
+# Caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Environments
+.venv/
+env/
+venv/
+ENV/
+
+# Database
+*.db
+*.sqlite3
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Agent build artifacts
+build/
+dist/
+*.spec

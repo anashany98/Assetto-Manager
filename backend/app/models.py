@@ -112,6 +112,7 @@ class LapTime(Base):
     
     lap_time = Column(Integer, index=True) # Time in milliseconds
     sectors = Column(String) # JSON string of sector times
+    telemetry_data = Column(String, nullable=True) # JSON string of speed/rpm trace
     
     is_valid = Column(Boolean, default=True) # Cuts/Penalties invalidate lap
     timestamp = Column(DateTime)

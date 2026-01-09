@@ -47,6 +47,7 @@ def upload_session_result(
             track_name=lap.track_name,
             lap_time=lap.lap_time,
             sectors=str(lap.sectors), # Store list as string
+            telemetry_data=lap.telemetry_data,
             is_valid=lap.is_valid,
             timestamp=lap.timestamp
         )
@@ -122,6 +123,7 @@ def get_leaderboard(
     for idx, row in enumerate(results):
         leaderboard.append(schemas.LeaderboardEntry(
             rank=idx + 1,
+            lap_id=row.id,
             driver_name=row.driver_name,
             car_model=row.car_model,
             lap_time=row.lap_time,
@@ -144,6 +146,17 @@ def get_active_combinations(db: Session = Depends(database.get_db)):
     ).distinct().all()
     
     return [{"track": row.track_name} for row in results]
+
+@router.get("/lap/{lap_id}/telemetry")
+def get_lap_telemetry(lap_id: int, db: Session = Depends(database.get_db)):
+    """
+    Get the heavy JSON telemetry trace for a specific lap.
+    """
+    lap = db.query(models.LapTime).filter(models.LapTime.id == lap_id).first()
+    if not lap or not lap.telemetry_data:
+        raise HTTPException(status_code=404, detail="Telemetry data not found")
+    
+    return json.loads(lap.telemetry_data)
 
 @router.get("/details/{track_name}/{driver_name}", response_model=schemas.DriverDetails)
 def get_driver_details(
@@ -345,6 +358,33 @@ def seed_data(count: int = 50, db: Session = Depends(database.get_db)):
             s2 = lap_time // 3 + random.randint(-200, 200)
             s3 = lap_time - s1 - s2
             
+            # Generate Telemetry Trace (Mock Speed Curve)
+            telemetry_trace = []
+            num_points = 200 # 200 points for the chart
+            for step in range(num_points):
+                # Simple physics simulation: Accel -> Brake -> Corner -> Accel
+                progress = step / num_points
+                
+                # Mock Speed: Base + Sine waves to simulate corners
+                import math
+                base_speed = 150
+                corner_factor = math.sin(progress * math.pi * 4) * 80 # 2 corners
+                noise = random.randint(-5, 5)
+                
+                speed = max(50, min(350, base_speed + corner_factor + noise))
+                
+                # RPM follows speed roughly
+                rpm = int(3000 + (speed / 350) * 5000)
+                gear = int(1 + (speed / 60))
+                
+                telemetry_trace.append({
+                    "t": int((lap_time / num_points) * step),
+                    "s": int(speed),
+                    "r": rpm,
+                    "g": min(8, gear),
+                    "n": round(progress, 3)
+                })
+            
             new_lap = models.LapTime(
                 session_id=new_session.id,
                 driver_name=driver,
@@ -352,6 +392,7 @@ def seed_data(count: int = 50, db: Session = Depends(database.get_db)):
                 track_name=track,
                 lap_time=lap_time,
                 sectors=json.dumps([s1, s2, s3]),
+                telemetry_data=json.dumps(telemetry_trace),
                 is_valid=random.random() > 0.1, # 90% valid
                 timestamp=session_date + timedelta(minutes=i*2)
             )

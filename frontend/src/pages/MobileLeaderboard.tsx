@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTelemetry } from '../hooks/useTelemetry';
-import { Car, Search, Trophy, MapPin, Zap, Activity as ActivityIcon, Share2, X, Gauge } from 'lucide-react';
+import { Car, Search, Trophy, MapPin, Zap, Activity as ActivityIcon, Share2, X, Gauge, LineChart as ChartIcon } from 'lucide-react';
+import { TelemetryChart } from '../components/TelemetryChart';
 import { cn } from '../lib/utils';
 import axios from 'axios';
 import html2canvas from 'html2canvas';
@@ -12,6 +13,7 @@ interface LeaderboardEntry {
     car_model: string;
     track_name: string;
     lap_time: number;
+    lap_id: number;
     timestamp: string;
     gap_to_first?: number;
     sectors?: number[];
@@ -289,6 +291,7 @@ export default function MobileLeaderboard() {
 
     // UI States
     const [selectedPilot, setSelectedPilot] = useState<string | null>(null);
+    const [selectedAnalysisLap, setSelectedAnalysisLap] = useState<number | null>(null);
 
     // Queries
     const { data: leaderboard, isLoading } = useQuery({
@@ -475,6 +478,18 @@ export default function MobileLeaderboard() {
                                             <div className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mt-0.5">
                                                 {formatDate(entry.timestamp)}
                                             </div>
+                                            {entry.lap_id && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setSelectedAnalysisLap(entry.lap_id);
+                                                    }}
+                                                    className="mt-2 text-xs flex items-center justify-end space-x-1 text-blue-500 hover:text-blue-400 transition-colors"
+                                                >
+                                                    <ChartIcon size={12} />
+                                                    <span className="font-bold uppercase">Ver Telemetría</span>
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
 
@@ -547,7 +562,34 @@ export default function MobileLeaderboard() {
 
             {/* Profile Modal */}
             {selectedPilot && <PilotProfileContent driverName={selectedPilot} onClose={() => setSelectedPilot(null)} />}
+
+            {/* Telemetry Analysis Modal */}
+            {selectedAnalysisLap && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-gray-900 border border-white/10 rounded-2xl w-full max-w-lg p-4 shadow-2xl relative">
+                        <button
+                            onClick={() => setSelectedAnalysisLap(null)}
+                            className="absolute top-4 right-4 text-gray-500 hover:text-white"
+                        >
+                            <X size={20} />
+                        </button>
+
+                        <h2 className="text-lg font-black italic uppercase tracking-tight text-white mb-1">Análisis de Telemetría</h2>
+                        <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-6">Velocidad vs Tiempo</p>
+
+                        <TelemetryChart lapId={selectedAnalysisLap} />
+
+                        <div className="mt-4 flex justify-end">
+                            <button
+                                onClick={() => setSelectedAnalysisLap(null)}
+                                className="text-xs font-bold text-gray-500 hover:text-white uppercase tracking-widest"
+                            >
+                                Cerrar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     );
 }
-
