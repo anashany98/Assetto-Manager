@@ -1,0 +1,41 @@
+{
+    "track": "monza",
+    "track_config": "gp",
+    "car": "ferrari_488_gt3",
+    "sessionType": "Q",
+    "players": [
+        {
+            "name": "Javi_Test_Driver",
+            "bestLap": 108500,
+            "laps": [
+                {
+                    "time": 109000,
+                    "sectors": [
+                        35000,
+                        40000,
+                        34000
+                    ],
+                    "isValid": true
+                },
+                {
+                    "time": 108500,
+                    "sectors": [
+                        34500,
+                        39500,
+                        34500
+                    ],
+                    "isValid": true
+                },
+                {
+                    "time": 107000,
+                    "sectors": [
+                        34000,
+                        39000,
+                        34000
+                    ],
+                    "isValid": false
+                }
+            ]
+        }
+    ]
+}
