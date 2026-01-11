@@ -745,7 +745,7 @@ export default function MobileLeaderboard() {
                                             </div>
                                             {entry.lap_id && (
                                                 <div className="flex justify-end space-x-2 mt-2">
-                                                    <button
+                                                    {/* <button
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             handleOpenReplay(entry.lap_id);
@@ -754,7 +754,7 @@ export default function MobileLeaderboard() {
                                                     >
                                                         <PlayCircle size={12} />
                                                         <span className="font-bold uppercase">Replay 3D</span>
-                                                    </button>
+                                                    </button> */}
                                                 </div>
                                             )}
                                         </div>

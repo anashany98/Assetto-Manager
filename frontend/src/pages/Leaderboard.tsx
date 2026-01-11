@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Car, MapPin, Activity, RefreshCw } from 'lucide-react';
+import { Car, MapPin, Activity, RefreshCw, PlusCircle } from 'lucide-react';
 import { cn } from '../lib/utils';
 import axios from 'axios';
 import { useLocation } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
+import ManualEntryModal from '../components/ManualEntryModal';
 
 interface LeaderboardEntry {
     rank: number;
@@ -95,10 +96,11 @@ export default function LeaderboardPage() {
     const isTVMode = location.pathname.startsWith('/tv');
 
     // State
-    const [selectedTrack, setSelectedTrack] = useState('monza');
+    const [selectedTrack, setSelectedTrack] = useState('Monza');
     const [selectedCar, setSelectedCar] = useState<string | null>(null);
     const [selectedPeriod, setSelectedPeriod] = useState('all'); // all, month, week, today
     const [rotationIndex, setRotationIndex] = useState(0);
+    const [isManualModalOpen, setIsManualModalOpen] = useState(false);
 
     // Fetch Active Combos for Rotation
     const { data: combinations } = useQuery({
@@ -269,6 +271,17 @@ export default function LeaderboardPage() {
                     {/* Filters - Only for local station view, hidden on TV */}
                     {!isTVMode && (
                         <div className="flex items-center space-x-4">
+                            {/* Manual Entry Button */}
+                            <button
+                                onClick={() => setIsManualModalOpen(true)}
+                                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold uppercase tracking-wide flex items-center transition-colors shadow-lg shadow-blue-600/20"
+                            >
+                                <PlusCircle size={16} className="mr-2" />
+                                Registrar Tiempo
+                            </button>
+
+                            <div className="w-px h-6 bg-gray-700 mx-2"></div>
+
                             {/* Car Info */}
                             {selectedCar && (
                                 <div className="px-3 py-1 bg-gray-700 rounded-lg border border-gray-600 flex items-center">
@@ -456,6 +469,12 @@ export default function LeaderboardPage() {
                     </div>
                 </div>
             </div>
+
+            <ManualEntryModal
+                isOpen={isManualModalOpen}
+                onClose={() => setIsManualModalOpen(false)}
+                preselectedTrack={selectedTrack}
+            />
         </div>
 
     );

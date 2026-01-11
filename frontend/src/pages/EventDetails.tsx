@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { getEvent } from '../api/events';
 import { TournamentLeaderboard } from '../components/TournamentLeaderboard';
 import TournamentBracket from '../components/TournamentBracket';
-import { Calendar, MapPin, Trophy, Clock, Users, ArrowLeft } from 'lucide-react';
+import TournamentAdmin from '../components/TournamentAdmin';
+import { Calendar, MapPin, Trophy, Clock, Users, ArrowLeft, MonitorPlay } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '../lib/utils';
 
@@ -11,7 +12,7 @@ export default function EventDetails() {
     const { id } = useParams<{ id: string }>();
     const eventId = parseInt(id || '0');
 
-    const [activeTab, setActiveTab] = useState<'leaderboard' | 'bracket'>('leaderboard');
+    const [activeTab, setActiveTab] = useState<'leaderboard' | 'bracket' | 'admin'>('leaderboard');
 
     const { data: event, isLoading: loadingEvent } = useQuery({
         queryKey: ['event', eventId],
@@ -42,7 +43,7 @@ export default function EventDetails() {
                             <h1 className="text-4xl font-black text-gray-900 mb-2 uppercase tracking-tight">{event.name}</h1>
                             <p className="text-gray-500 text-lg mb-6">{event.description}</p>
 
-                            <div className="flex flex-wrap gap-6 text-gray-600">
+                            <div className="flex flex-wrap gap-6 text-gray-600 items-center">
                                 <div className="flex items-center bg-gray-100 px-4 py-2 rounded-lg">
                                     <Calendar className="mr-2 text-blue-500" size={20} />
                                     <span className="font-semibold">{new Date(event.start_date).toLocaleDateString()}</span>
@@ -59,6 +60,14 @@ export default function EventDetails() {
                                         {event.status === 'active' ? 'En Curso' : event.status === 'completed' ? 'Finalizado' : 'Próximamente'}
                                     </span>
                                 </div>
+
+                                <Link
+                                    to={`/tv/bracket/${eventId}`}
+                                    className="flex items-center bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-black transition-colors shadow-lg ml-2"
+                                >
+                                    <MonitorPlay className="mr-2" size={20} />
+                                    <span className="font-bold">Ver en TV</span>
+                                </Link>
                             </div>
                         </div>
                         {event.status === 'active' && (
@@ -84,6 +93,12 @@ export default function EventDetails() {
                 >
                     <Users size={20} /> Eliminatorias
                 </button>
+                <button
+                    onClick={() => setActiveTab('admin')}
+                    className={`pb-4 px-2 font-bold text-lg border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'admin' ? 'border-red-600 text-red-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+                >
+                    <Trophy size={20} /> Gestión (Admin)
+                </button>
             </div>
 
             {/* Content */}
@@ -94,9 +109,13 @@ export default function EventDetails() {
                         eventName={event.name}
                         description={event.description}
                     />
-                ) : (
+                ) : activeTab === 'bracket' ? (
                     <div className="p-4 bg-gray-900 rounded-b-xl h-full min-h-[500px]">
                         <TournamentBracket eventId={eventId} isAdmin={true} />
+                    </div>
+                ) : (
+                    <div className="p-8 bg-gray-900 rounded-b-xl h-full min-h-[500px]">
+                        <TournamentAdmin eventId={eventId} />
                     </div>
                 )}
             </div>

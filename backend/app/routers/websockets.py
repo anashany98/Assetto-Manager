@@ -1,7 +1,11 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 from typing import List, Dict, Any
 import json
 import logging
+from sqlalchemy.orm import Session
+from ..database import SessionLocal
+from .. import crud, schemas, models
+from datetime import datetime
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -49,24 +53,21 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
+# Dependency to get DB session (created manually within async context if needed, but here we use a fresh session for each operation)
+def get_db_session():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
 @router.websocket("/ws/telemetry/client")
 async def websocket_client_endpoint(websocket: WebSocket):
     await manager.connect_client(websocket)
     try:
         while True:
-            # Clients (Frontend) usually just listen, but might send "subscribe" messages later
-            # For now we just keep the connection open
-            # data = await websocket.receive_text()  <-- This blocks and expects data. If client sends nothing, it might timeout or close?
-            # Instead, just wait forever until disconnect
-            # Instead, just wait forever until disconnect
-            # await websocket.receive_text()
-            
-            # Simple keepalive loop with heartbeat
-            import asyncio
-            while True:
-                await asyncio.sleep(5)
-                # Send heartbeat to keep connection alive and avoid 1006
-                await websocket.send_text(json.dumps({"type": "ping"}))
+            # Wait for any message from the client (e.g. keepalives or commands)
+            await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect_client(websocket)
     except Exception as e:
@@ -79,13 +80,54 @@ async def websocket_agent_endpoint(websocket: WebSocket):
     try:
         while True:
             # Agents stream JSON data
-            data = await websocket.receive_text()
-            # Broadcast immediately to all clients
-            # We could parse here to validate or just passthrough for performance
-            # Passthrough is faster for high frequency
-            await manager.broadcast(data)
+            raw_data = await websocket.receive_text()
+            
+            # 1. Broadcast immediately to all clients (Live visual updates)
+            await manager.broadcast(raw_data)
+            
+            # 2. Process for Auto-Lap (Backend Logic)
+            try:
+                data = json.loads(raw_data)
+                
+                # Check if this message indicates a LAP COMPLETION
+                # The agent plugin should send a specific event type or we detect 'lap_completed': true
+                # For now, let's assume the agent sends specific event metadata
+                
+                if data.get("event") == "LapCompleted":
+                    # Extract necessary info
+                    # Expected format: { "event": "LapCompleted", "driver_name": "...", "car_model": "...", "track_name": "...", "lap_time": 123456, "sectors": [1,2,3] }
+                    
+                    driver_name = data.get("driver_name", "Unknown Driver")
+                    car_model = data.get("car_model", "unknown_car")
+                    track_name = data.get("track_name", "unknown_track")
+                    lap_time = data.get("lap_time", 0)
+                    
+                    if lap_time > 0:
+                        # Save to DB
+                        db = SessionLocal()
+                        try:
+                            # Create SessionResult object
+                            session_data = schemas.SessionResultCreate(
+                                driver_name=driver_name,
+                                car_model=car_model,
+                                track_name=track_name,
+                                best_lap=lap_time,
+                                date=datetime.utcnow(),
+                                session_type="practice", # Default
+                                track_config=None
+                            )
+                            crud.create_session_result(db=db, session=session_data)
+                            logger.info(f"Auto-saved lap for {driver_name}: {lap_time}ms")
+                        finally:
+                            db.close()
+                            
+            except json.JSONDecodeError:
+                pass # Ignore invalid JSON
+            except Exception as e:
+                logger.error(f"Error processing stats: {e}")
+                
     except WebSocketDisconnect:
         manager.disconnect_agent(websocket)
     except Exception as e:
-        logger.error(f"Agent WS error: {e}")
+        logger.error(f"Agent WS Context Error: {e}", exc_info=True)
         manager.disconnect_agent(websocket)

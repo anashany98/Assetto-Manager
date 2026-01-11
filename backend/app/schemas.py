@@ -279,7 +279,7 @@ class ComparisonStats(BaseModel):
 
 class DriverComparison(BaseModel):
     track_name: str
-    car_model: str
+    car_model: Optional[str] = None
     driver_1: ComparisonStats
     driver_2: ComparisonStats
     time_gap: int # Gap between best laps

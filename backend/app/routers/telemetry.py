@@ -74,7 +74,7 @@ def get_leaderboard(
     ]
 
     if track_name and track_name != "all":
-        filters.append(models.LapTime.track_name == track_name)
+        filters.append(func.lower(models.LapTime.track_name) == track_name.lower())
     
     today = datetime.now().date()
     from datetime import timedelta
@@ -89,7 +89,7 @@ def get_leaderboard(
         filters.append(models.LapTime.timestamp >= start_date)
 
     if car_model:
-        filters.append(models.LapTime.car_model == car_model)
+        filters.append(func.lower(models.LapTime.car_model) == car_model.lower())
 
     # 2. Subquery: Find the BEST Time (MIN lap_time) for each driver
     subquery = db.query(
@@ -155,8 +155,111 @@ def get_lap_telemetry(lap_id: int, db: Session = Depends(database.get_db)):
     Get the heavy JSON telemetry trace for a specific lap.
     """
     lap = db.query(models.LapTime).filter(models.LapTime.id == lap_id).first()
-    if not lap or not lap.telemetry_data:
-        raise HTTPException(status_code=404, detail="Telemetry data not found")
+    if not lap:
+        raise HTTPException(status_code=404, detail="Lap not found")
+
+    if not lap.telemetry_data:
+        # Fallback: Generate Mock Telemetry with specific track shapes
+        telemetry_trace = []
+        num_points = 400 # Higher resolution
+        
+        # Track Layout Definitions (Simplified)
+        # Type: 'straight' (length) or 'turn' (angle_deg, radius)
+        # Monza-ish
+        monza_layout = [
+            ('straight', 800), ('turn', 45, 100), ('turn', -45, 100), # Chicane
+            ('turn', 90, 300), # Grande
+            ('straight', 400),
+            ('turn', 90, 150), ('straight', 100), ('turn', 60, 150), # Lesmos
+            ('straight', 600),
+            ('turn', -60, 150), ('turn', 60, 150), # Ascari
+            ('straight', 800),
+            ('turn', 180, 250), # Parabolica
+            ('straight', 200) # Finish
+        ]
+        
+        track_map = {
+            'monza': monza_layout,
+            # Add generic loop for others for now, maybe Spa later
+        }
+        
+        # Select layout logic
+        layout = []
+        t_name = lap.track_name.lower()
+        if 'monza' in t_name: layout = monza_layout
+        else: 
+            # Default "Figure 8" / Bean
+            layout = [
+                 ('straight', 200),
+                 ('turn', 180, 200),
+                 ('straight', 400),
+                 ('turn', 180, 200),
+                 ('straight', 200)
+            ]
+
+        # Generate Points from Layout
+        points = []
+        import math
+        x, z, rot = 0, 0, 0
+        total_dist = 0
+        
+        # 1. First pass: Calculate total distance to normalize time
+        # And generate raw path points
+        path_points = []
+        
+        for segment in layout:
+            type = segment[0]
+            if type == 'straight':
+                dist = segment[1]
+                steps = int(dist / 10) # 1 point every 10m
+                for _ in range(steps):
+                    x += math.sin(rot) * 10 
+                    z += math.cos(rot) * 10
+                    path_points.append({'x': x, 'z': z, 'rot': rot, 'type': 'straight'})
+                    total_dist += 10
+            elif type == 'turn':
+                angle_deg = segment[1]
+                radius = segment[2]
+                match_dist = abs(math.radians(angle_deg) * radius)
+                steps = int(match_dist / 10)
+                
+                angle_step = math.radians(angle_deg) / steps
+                for _ in range(steps):
+                    rot += angle_step
+                    x += math.sin(rot) * 10
+                    z += math.cos(rot) * 10
+                    path_points.append({'x': x, 'z': z, 'rot': rot, 'type': 'turn'})
+                    total_dist += 10
+                    
+        # 2. Resample to num_points and add speed profile
+        real_lap_time = lap.lap_time if lap.lap_time else 100000
+        
+        path_len = len(path_points)
+        for i in range(num_points):
+            idx = int((i / num_points) * path_len)
+            p = path_points[min(idx, path_len-1)]
+            
+            # Speed logic: Straight = Fast, Turn = Slow
+            base_speed = 280 if p['type'] == 'straight' else 120
+            noise = (i % 10) - 5
+            speed = base_speed + noise
+            
+            rpm = int(3000 + (speed/300)*5000)
+            gear = int(1 + (speed/50))
+            
+            telemetry_trace.append({
+                "t": int((real_lap_time / num_points) * i),
+                "s": int(speed),
+                "r": rpm,
+                "g": min(8, gear),
+                "n": round(i / num_points, 3),
+                "x": round(p['x'], 2),
+                "y": 0,
+                "z": round(p['z'], 2),
+                "rot": round(p['rot'], 2)
+            })
+            
+        return telemetry_trace
     
     return json.loads(lap.telemetry_data)
 
@@ -565,65 +668,72 @@ def get_driver_comparison(
     car: Optional[str] = None,
     db: Session = Depends(database.get_db)
 ):
-    def get_stats(driver):
-        # Case insensitive filtering for strings
-        filters = [
-            func.lower(models.LapTime.driver_name) == driver.lower(),
-            func.lower(models.LapTime.track_name) == track.lower()
-        ]
-        if car:
-            filters.append(func.lower(models.LapTime.car_model) == car.lower())
+    try:
+        def get_stats(driver):
+            # Case insensitive filtering for strings
+            filters = [
+                func.lower(models.LapTime.driver_name) == driver.lower(),
+                func.lower(models.LapTime.track_name) == track.lower()
+            ]
+            if car:
+                filters.append(func.lower(models.LapTime.car_model) == car.lower())
+                
+            laps = db.query(models.LapTime).filter(*filters).all()
             
-        laps = db.query(models.LapTime).filter(*filters).all()
-        
-        if not laps:
-            return None
+            if not laps:
+                return None
+                
+            valid_laps_times = [l.lap_time for l in laps if l.lap_time is not None and l.lap_time < 999999999]
+            if not valid_laps_times:
+                return None
+
+            best = min(valid_laps_times)
+            avg = sum(valid_laps_times) / len(valid_laps_times)
+            consistency = avg - best 
             
-        valid_laps_times = [l.lap_time for l in laps if l.lap_time is not None and l.lap_time < 999999999]
-        if not valid_laps_times:
-            return None
+            # Determine actual casing from DB if possible, otherwise use query
+            actual_name = laps[0].driver_name if laps else driver
 
-        best = min(valid_laps_times)
-        avg = sum(valid_laps_times) / len(valid_laps_times)
-        consistency = avg - best 
+            return {
+                "driver_name": actual_name,
+                "best_lap": best,
+                "total_laps": len(laps),
+                "consistency": round(consistency, 1)
+            }
+
+        stats1 = get_stats(driver1)
+        stats2 = get_stats(driver2)
+
+        if not stats1 or not stats2:
+            # Prevent 500 error by returning a clean 404
+            raise HTTPException(status_code=404, detail=f"Data incomplete for comparison. {driver1}: {'Found' if stats1 else 'Missing'}, {driver2}: {'Found' if stats2 else 'Missing'}")
+
+        # Winner Logic
+        s1_wins = 0
+        s2_wins = 0
+
+        if stats1["best_lap"] < stats2["best_lap"]: s1_wins += 1
+        else: s2_wins += 1
+
+        if stats1["consistency"] < stats2["consistency"]: s1_wins += 1
+        else: s2_wins += 1
         
-        # Determine actual casing from DB if possible, otherwise use query
-        actual_name = laps[0].driver_name if laps else driver
+        if stats1["total_laps"] > stats2["total_laps"]: s1_wins += 1
+        else: s2_wins += 1
 
-        return {
-            "driver_name": actual_name,
-            "best_lap": best,
-            "total_laps": len(laps),
-            "consistency": round(consistency, 1)
-        }
-
-    stats1 = get_stats(driver1)
-    stats2 = get_stats(driver2)
-
-    if not stats1 or not stats2:
-        # Prevent 500 error by returning a clean 404
-        raise HTTPException(status_code=404, detail=f"Data incomplete for comparison. {driver1}: {'Found' if stats1 else 'Missing'}, {driver2}: {'Found' if stats2 else 'Missing'}")
-
-    # Winner Logic
-    s1_wins = 0
-    s2_wins = 0
-
-    if stats1["best_lap"] < stats2["best_lap"]: s1_wins += 1
-    else: s2_wins += 1
-
-    if stats1["consistency"] < stats2["consistency"]: s1_wins += 1
-    else: s2_wins += 1
-    
-    if stats1["total_laps"] > stats2["total_laps"]: s1_wins += 1
-    else: s2_wins += 1
-
-    return schemas.DriverComparison(
-        track_name=track,
-        car_model=car,
-        driver_1=schemas.ComparisonStats(**stats1, win_count=s1_wins),
-        driver_2=schemas.ComparisonStats(**stats2, win_count=s2_wins),
-        time_gap=abs(stats1["best_lap"] - stats2["best_lap"])
-    )
+        return schemas.DriverComparison(
+            track_name=track,
+            car_model=car,
+            driver_1=schemas.ComparisonStats(**stats1, win_count=s1_wins),
+            driver_2=schemas.ComparisonStats(**stats2, win_count=s2_wins),
+            time_gap=abs(stats1["best_lap"] - stats2["best_lap"])
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"ERROR in compare: {e}")
+        # Return a mock if it crashes to avoid frontend death, or raise 500 but printed
+        raise HTTPException(status_code=500, detail=f"Comparison Error: {str(e)}")
 
 @router.get("/map/{track_name}")
 def get_track_map(track_name: str, db: Session = Depends(database.get_db)):

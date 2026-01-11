@@ -19,23 +19,36 @@ interface GhostViewerProps {
 }
 
 function CarModel({ position, rotation }: { position: [number, number, number], rotation: [number, number, number] }) {
+    const wheelGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.4, 16);
+    const wheelMat = new THREE.MeshStandardMaterial({ color: "#111", roughness: 0.9 });
+
     return (
         <group position={position} rotation={rotation}>
             {/* Body */}
-            <mesh position={[0, 0.5, 0]} castShadow>
-                <boxGeometry args={[1.8, 0.8, 4.5]} />
-                <meshStandardMaterial color="red" metalness={0.6} roughness={0.2} />
+            <mesh position={[0, 0.6, 0]} castShadow>
+                <boxGeometry args={[1.9, 0.6, 4.6]} />
+                <meshStandardMaterial color="#ef4444" metalness={0.7} roughness={0.2} envMapIntensity={1} />
             </mesh>
             {/* Cabin */}
-            <mesh position={[0, 1.0, -0.5]}>
-                <boxGeometry args={[1.6, 0.6, 2]} />
-                <meshStandardMaterial color="#333" />
+            <mesh position={[0, 1.1, -0.3]}>
+                <boxGeometry args={[1.5, 0.55, 2.2]} />
+                <meshStandardMaterial color="#1f2937" roughness={0.5} />
             </mesh>
-            {/* Spoile r*/}
-            <mesh position={[0, 0.9, 2.1]}>
-                <boxGeometry args={[1.8, 0.1, 0.5]} />
-                <meshStandardMaterial color="black" />
+            {/* Spoiler */}
+            <mesh position={[0, 1.0, 2.2]}>
+                <boxGeometry args={[1.9, 0.1, 0.6]} />
+                <meshStandardMaterial color="#000" />
             </mesh>
+
+            {/* Wheels */}
+            {/* Front Left */}
+            <mesh geometry={wheelGeo} material={wheelMat} rotation={[0, 0, Math.PI / 2]} position={[-0.9, 0.35, -1.4]} castShadow />
+            {/* Front Right */}
+            <mesh geometry={wheelGeo} material={wheelMat} rotation={[0, 0, Math.PI / 2]} position={[0.9, 0.35, -1.4]} castShadow />
+            {/* Rear Left */}
+            <mesh geometry={wheelGeo} material={wheelMat} rotation={[0, 0, Math.PI / 2]} position={[-0.9, 0.35, 1.4]} castShadow />
+            {/* Rear Right */}
+            <mesh geometry={wheelGeo} material={wheelMat} rotation={[0, 0, Math.PI / 2]} position={[0.9, 0.35, 1.4]} castShadow />
         </group>
     );
 }
@@ -43,14 +56,15 @@ function CarModel({ position, rotation }: { position: [number, number, number], 
 function TrackPath({ points }: { points: ReplayPoint[] }) {
     const lineGeometry = useMemo(() => {
         const curve = new THREE.CatmullRomCurve3(
-            points.map(p => new THREE.Vector3(p.x, p.y, p.z))
+            points.map(p => new THREE.Vector3(p.x, p.y, p.z)),
+            true // Closed loop
         );
-        return new THREE.TubeGeometry(curve, points.length, 0.5, 8, false);
+        return new THREE.TubeGeometry(curve, points.length * 2, 4, 8, true);
     }, [points]);
 
     return (
-        <mesh geometry={lineGeometry} position={[0, 0.1, 0]}>
-            <meshBasicMaterial color="gray" opacity={0.3} transparent />
+        <mesh geometry={lineGeometry} position={[0, -0.1, 0]} receiveShadow>
+            <meshStandardMaterial color="#333" roughness={0.9} />
         </mesh>
     );
 }

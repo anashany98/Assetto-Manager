@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
-import { Swords, Trophy, Flame } from 'lucide-react';
+import { Swords, Trophy, Flame, Activity } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
@@ -11,6 +11,8 @@ const API_URL = window.location.hostname === 'localhost' || window.location.host
     : window.location.origin.includes('loca.lt')
         ? 'https://khaki-donkeys-share.loca.lt'
         : `http://${window.location.hostname}:8000`;
+
+const WS_URL = API_URL.replace('http', 'ws') + '/ws/telemetry/client';
 
 // --- COMPONENTS ---
 
@@ -110,6 +112,9 @@ function BattleArena({ query }: { query: URLSearchParams }) {
     const d2 = query.get('p2')!;
     const track = query.get('track')!;
 
+    const [live1, setLive1] = useState<any>(null);
+    const [live2, setLive2] = useState<any>(null);
+
     // Fetch Comparison
     const { data: stats, isLoading, error } = useQuery({
         queryKey: ['battle', d1, d2, track],
@@ -117,8 +122,30 @@ function BattleArena({ query }: { query: URLSearchParams }) {
             const res = await axios.get(`${API_URL}/telemetry/compare/${d1}/${d2}`, { params: { track } });
             return res.data;
         },
-        refetchInterval: 5000 // Live updates!
+        refetchInterval: 10000 // Slow poll for aggregate updates
     });
+
+    // WebSocket Connection
+    useEffect(() => {
+        const ws = new WebSocket(WS_URL);
+
+        ws.onopen = () => {
+            console.log("Battle Mode: WebSocket Connected");
+        };
+
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                // Assume data has { driver_name, speed, rpm, gear, ... }
+                if (data.driver_name === d1) setLive1(data);
+                if (data.driver_name === d2) setLive2(data);
+            } catch (e) {
+                console.error("WS Parse Error", e);
+            }
+        };
+
+        return () => ws.close();
+    }, [d1, d2]);
 
     if (isLoading) return <div className="min-h-screen bg-black flex items-center justify-center text-white text-2xl font-black animate-pulse uppercase">Calculando Probabilidades...</div>;
     if (error) return <div className="min-h-screen bg-black flex items-center justify-center text-red-500 font-bold">Error: Datos insuficientes para generar la batalla</div>;
@@ -155,8 +182,9 @@ function BattleArena({ query }: { query: URLSearchParams }) {
                         <span className="text-sm text-gray-400 font-mono uppercase tracking-widest">{stats.track_name}</span>
                     </div>
                 </div>
-                <div className="px-6 py-2 bg-yellow-500/10 border border-yellow-500/30 rounded-full">
-                    <span className="text-yellow-500 font-bold font-mono tracking-widest animate-pulse">LIVE COMPARISON</span>
+                <div className="flex items-center gap-2 px-6 py-2 bg-yellow-500/10 border border-yellow-500/30 rounded-full">
+                    <Activity className="w-4 h-4 text-yellow-500 animate-pulse" />
+                    <span className="text-yellow-500 font-bold font-mono tracking-widest text-xs">LIVE TELEMETRY</span>
                 </div>
             </header>
 
@@ -172,13 +200,17 @@ function BattleArena({ query }: { query: URLSearchParams }) {
                     <div className="mb-6">
                         <div className="text-blue-500 font-bold tracking-widest text-sm mb-1">BLUE CORNER</div>
                         <h2 className="text-6xl font-black uppercase tracking-tighter text-white">{s1.driver_name}</h2>
-                        <div className="text-gray-400 text-xl font-medium mt-1">Total Laps: {s1.total_laps}</div>
+
+                        {/* Live Telemetry Box */}
+                        <div className="mt-4 flex justify-end gap-4">
+                            <LiveStat label="SPEED" value={live1?.speed || 0} unit="KM/H" color="text-blue-400" />
+                            <LiveStat label="GEAR" value={live1?.gear || 'N'} color="text-white" />
+                        </div>
                     </div>
 
                     <div className="space-y-6">
                         <StatRow label="BEST LAP" value={formatTime(s1.best_lap)} isWin={s1.best_lap < s2.best_lap} color="text-blue-400" align="right" />
                         <StatRow label="CONSISTENCY" value={s1.consistency.toFixed(1)} isWin={s1.consistency < s2.consistency} color="text-blue-400" align="right" unit="ms var" />
-                        <StatRow label="WIN SCORE" value={s1.win_count} isWin={s1.win_count > s2.win_count} color="text-blue-400" align="right" size="lg" />
                     </div>
                 </motion.div>
 
@@ -190,9 +222,9 @@ function BattleArena({ query }: { query: URLSearchParams }) {
                     </div>
                     {/* GAP INDICATOR */}
                     <div className="bg-gray-800 rounded-lg px-4 py-2 border border-gray-700 text-center w-48">
-                        <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">DIFFERENCE</div>
+                        <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">GAP</div>
                         <div className="text-2xl font-mono font-black text-white">
-                            +{formatTime(stats.time_gap)}
+                            +{formatTime(Math.abs(stats.time_gap))}
                         </div>
                     </div>
                     <div className="w-1 h-32 bg-gradient-to-t from-transparent via-white/20 to-transparent mt-8"></div>
@@ -207,13 +239,17 @@ function BattleArena({ query }: { query: URLSearchParams }) {
                     <div className="mb-6">
                         <div className="text-red-500 font-bold tracking-widest text-sm mb-1">RED CORNER</div>
                         <h2 className="text-6xl font-black uppercase tracking-tighter text-white">{s2.driver_name}</h2>
-                        <div className="text-gray-400 text-xl font-medium mt-1">Total Laps: {s2.total_laps}</div>
+
+                        {/* Live Telemetry Box */}
+                        <div className="mt-4 flex justify-start gap-4">
+                            <LiveStat label="SPEED" value={live2?.speed || 0} unit="KM/H" color="text-red-400" />
+                            <LiveStat label="GEAR" value={live2?.gear || 'N'} color="text-white" />
+                        </div>
                     </div>
 
                     <div className="space-y-6">
                         <StatRow label="BEST LAP" value={formatTime(s2.best_lap)} isWin={s2.best_lap < s1.best_lap} color="text-red-400" align="left" />
                         <StatRow label="CONSISTENCY" value={s2.consistency.toFixed(1)} isWin={s2.consistency < s1.consistency} color="text-red-400" align="left" unit="ms var" />
-                        <StatRow label="WIN SCORE" value={s2.win_count} isWin={s2.win_count > s1.win_count} color="text-red-400" align="left" size="lg" />
                     </div>
                 </motion.div>
             </main>
@@ -238,6 +274,16 @@ function StatRow({ label, value, isWin, color, align, unit, size = 'md' }: any) 
     )
 }
 
+function LiveStat({ label, value, unit, color }: any) {
+    return (
+        <div className="bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 min-w-[80px] text-center">
+            <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">{label}</div>
+            <div className={`${color} font-mono font-black text-xl`}>
+                {value} <span className="text-[10px] text-gray-600">{unit}</span>
+            </div>
+        </div>
+    )
+}
 
 export default function BattleMode() {
     const [searchParams] = useSearchParams();

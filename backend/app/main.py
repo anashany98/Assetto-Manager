@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import engine, Base
-from .routers import stations, mods, telemetry, websockets, settings, profiles, events, config_manager, championships, integrations
+from .routers import stations, mods, telemetry, websockets, settings, profiles, events, config_manager, championships, integrations, tournament
 
 # Create Tables
 Base.metadata.create_all(bind=engine)
@@ -60,6 +60,8 @@ app.include_router(config_manager.router)
 app.include_router(championships.router)
 app.include_router(integrations.router)
 app.include_router(websockets.router)
+app.include_router(tournament.router)
+
 
 @app.get("/")
 async def root():
