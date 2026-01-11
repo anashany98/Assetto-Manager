@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { API_URL } from '../api/stations';
+
 
 export interface TelemetryPacket {
     station_id: string;
@@ -13,6 +13,16 @@ export interface TelemetryPacket {
     track: string;
     driver: string;
     normalized_pos: number;
+    gas?: number;
+    brake?: number;
+    steer?: number;
+    g_lat?: number;
+    g_lon?: number;
+    tyre_temp?: number;
+    x?: number;
+    y?: number;
+    z?: number;
+    timestamp?: number;
 }
 
 export const useTelemetry = () => {
@@ -21,10 +31,21 @@ export const useTelemetry = () => {
     const ws = useRef<WebSocket | null>(null);
 
     useEffect(() => {
-        // Construct WS URL from API_URL
-        // Remove trailing slash if exists
-        const baseUrl = API_URL.replace(/\/$/, "");
-        const wsUrl = baseUrl.replace("http", "ws") + "/ws/telemetry/client";
+        // Dynamic WS URL logic
+        const isSecure = window.location.protocol === 'https:';
+        const isLocal = window.location.hostname === 'localhost';
+
+        let wsUrl = '';
+
+        if (isLocal) {
+            wsUrl = `ws://${window.location.hostname}:8000/ws/telemetry/client`;
+        } else {
+            // Remote (Tunnel)
+            // Force WSS if page is loaded via HTTPS (which localtunnel is)
+            const protocol = isSecure ? 'wss' : 'ws';
+            // Must use the BACKEND tunnel URL here
+            wsUrl = `${protocol}://khaki-donkeys-share.loca.lt/ws/telemetry/client`;
+        }
 
         const connect = () => {
             console.log("Connecting to Telemetry WS:", wsUrl);
@@ -35,11 +56,15 @@ export const useTelemetry = () => {
                 setIsConnected(true);
             };
 
-            ws.current.onclose = () => {
-                console.log("Telemetry WS Closed");
+            ws.current.onclose = (event) => {
+                console.log("Telemetry WS Closed", event.code, event.reason);
                 setIsConnected(false);
                 // Reconnect after delay
                 setTimeout(connect, 3000);
+            };
+
+            ws.current.onerror = (error) => {
+                console.error("Telemetry WS Error:", error);
             };
 
             ws.current.onmessage = (event) => {
@@ -48,7 +73,7 @@ export const useTelemetry = () => {
                     if (data.type === 'telemetry') {
                         setLiveCars(prev => ({
                             ...prev,
-                            [data.station_id]: data
+                            [data.station_id]: { ...data, timestamp: Date.now() }
                         }));
                     }
                 } catch (e) {

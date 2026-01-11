@@ -10,19 +10,25 @@ interface LeaderboardEntry {
     rank: number;
     driver_name: string;
     car_model: string;
+    track_name: string;
     lap_time: number;
-    date: string;
+    timestamp: string;
     gap: number;
 }
 
-const API_URL = `http://${window.location.hostname}:8000`;
+const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? `http://${window.location.hostname}:8000`
+    : window.location.origin.includes('loca.lt')
+        ? 'https://khaki-donkeys-share.loca.lt' // Backend Tunnel
+        : `http://${window.location.hostname}:8000`;
 
 const getLeaderboard = async (track: string, car: string | null, period: string) => {
     const params = new URLSearchParams();
+    if (track && track !== 'all') params.append('track_name', track);
     if (car) params.append('car_model', car);
     if (period) params.append('period', period);
 
-    const response = await axios.get(`${API_URL}/telemetry/leaderboard/${track}?${params.toString()}`);
+    const response = await axios.get(`${API_URL}/telemetry/leaderboard?${params.toString()}`);
     return response.data;
 };
 
@@ -65,7 +71,14 @@ const TrackMap = ({ track }: { track: string }) => {
         }
     };
 
-    if (!isVisible) return null;
+    if (!isVisible) {
+        return (
+            <div className="w-full h-full flex flex-col items-center justify-center text-gray-600 opacity-50 border-2 border-dashed border-gray-700 rounded-xl">
+                <MapPin size={48} className="mb-2" />
+                <span className="text-xs font-bold uppercase">Mapa no disponible</span>
+            </div>
+        );
+    }
 
     return (
         <img
@@ -207,7 +220,7 @@ export default function LeaderboardPage() {
     // Build Dynamic News Items based on Toggles
     const newsItems: string[] = [
         `🏆 RÉCORD DE PISTA: ${leaderboard?.[0] ? `${leaderboard[0].driver_name} (${formatTime(leaderboard[0].lap_time)})` : "VACANTE"}`,
-        `📍 CIRCUITO: ${selectedTrack.toUpperCase()}`,
+        `📍 CIRCUITO: ${(selectedTrack || '').toUpperCase()}`,
         "🌡️ ESTADO POSIBLE: PISTA ÓPTIMA",
     ];
 
@@ -215,10 +228,10 @@ export default function LeaderboardPage() {
         newsItems.push(`🥇 PILOTO MÁS ACTIVO: ${stats.top_driver}`);
 
     if (getSetting('show_stats_track', 'true') === 'true' && stats?.most_popular_track)
-        newsItems.push(`🔥 PISTA MÁS JUGADA: ${stats.most_popular_track.toUpperCase()}`);
+        newsItems.push(`🔥 PISTA MÁS JUGADA: ${(stats.most_popular_track || '').toUpperCase()}`);
 
     if (getSetting('show_stats_car', 'true') === 'true' && stats?.most_popular_car)
-        newsItems.push(`🏎️ COCHE FAVORITO: ${stats.most_popular_car.replace(/_/g, ' ').toUpperCase()}`);
+        newsItems.push(`🏎️ COCHE FAVORITO: ${(stats.most_popular_car || '').replace(/_/g, ' ').toUpperCase()}`);
 
     if (getSetting('show_stats_sessions', 'true') === 'true' && stats?.total_sessions > 0)
         newsItems.push(`📊 TOTAL SESIONES: ${stats.total_sessions}`);
@@ -227,7 +240,7 @@ export default function LeaderboardPage() {
         newsItems.push(`🆕 ÚLTIMO RÉCORD: ${stats.latest_record}`);
 
     if (getSetting('show_promo', 'true') === 'true')
-        newsItems.push(`📢 PRÓXIMO EVENTO: ${promoText.toUpperCase()}`);
+        newsItems.push(`📢 PRÓXIMO EVENTO: ${(promoText || '').toUpperCase()}`);
 
     return (
         <div
@@ -251,14 +264,7 @@ export default function LeaderboardPage() {
 
                 <div className="flex items-center space-x-6">
                     {/* QR Code for Mobile Access - Always Visible or just on TV */}
-                    <div className="hidden md:flex flex-col items-center bg-white p-2 rounded-lg shadow-lg">
-                        <QRCodeSVG
-                            value={`http://${window.location.hostname}:5173/mobile`}
-                            size={64}
-                            level="M"
-                        />
-                        <span className="text-[9px] text-gray-900 font-bold uppercase mt-1 tracking-wider">Unirse</span>
-                    </div>
+
 
                     {/* Filters - Only for local station view, hidden on TV */}
                     {!isTVMode && (
@@ -295,7 +301,7 @@ export default function LeaderboardPage() {
 
             <div className="flex-1 flex overflow-hidden">
                 {/* Visual Section - Fixed width for TV */}
-                <div className="w-1/4 bg-gray-800/50 p-6 border-r border-gray-700 flex flex-col relative">
+                <div className="w-1/4 bg-gray-800/50 p-6 pb-20 border-r border-gray-700 flex flex-col relative">
                     <div className="absolute inset-0 opacity-5 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
 
                     <div className="relative z-10 flex-1 flex flex-col">
@@ -317,36 +323,36 @@ export default function LeaderboardPage() {
                             </div>
 
                             {/* QR Box */}
-                            {getSetting('show_qr', 'false') === 'true' && (
-                                <div className="flex-1 bg-gray-900/50 rounded-2xl border border-gray-700 p-6 flex flex-col items-center justify-center relative overflow-hidden group">
-                                    <div className="absolute inset-0 bg-blue-600/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                    <div className="bg-white p-3 rounded-2xl shadow-2xl relative z-10 lg:scale-125 transition-transform group-hover:scale-140">
-                                        <QRCodeSVG
-                                            value={getSetting('bar_public_url', 'http://localhost:5173/mobile')}
-                                            size={128}
-                                            level="H"
-                                            includeMargin={false}
-                                        />
-                                    </div>
-                                    <div className="mt-8 text-center relative z-10">
-                                        <p className="text-blue-400 font-black text-sm uppercase tracking-[0.3em] animate-pulse">Ver en móvil</p>
-                                        <p className="text-blue-300 text-[11px] font-black uppercase mt-1 tracking-[0.15em] opacity-80">Escanea para seguir tiempos</p>
-                                    </div>
+                            {/* QR Box - Always Visible as per design */}
+                            <div className="flex-1 bg-gray-900/50 rounded-2xl border border-gray-700 p-6 flex flex-col items-center justify-center relative overflow-hidden group">
+                                <div className="absolute inset-0 bg-blue-600/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                <div className="bg-white p-3 rounded-2xl shadow-2xl relative z-10 lg:scale-125 transition-transform group-hover:scale-140">
+                                    <QRCodeSVG
+                                        value={getSetting('bar_public_url', 'http://localhost:5173/mobile')}
+                                        size={160}
+                                        level="H"
+                                        includeMargin={false}
+                                    />
                                 </div>
-                            )}
-                        </div>
-
-                        {/* Rotation Info - Moved below the boxes */}
-                        <div className="mt-4 shrink-0">
-                            {isTVMode && (
-                                <div className="flex items-center justify-center space-x-2 text-gray-700 text-[8px] font-bold uppercase tracking-widest">
-                                    <RefreshCw size={8} className="animate-spin opacity-50" />
-                                    <span className="opacity-40">Actualización en Vivo</span>
+                                <div className="mt-8 text-center relative z-10">
+                                    <p className="text-blue-400 font-black text-sm uppercase tracking-[0.3em] animate-pulse">Ver en móvil</p>
+                                    <p className="text-blue-300 text-[11px] font-black uppercase mt-1 tracking-[0.15em] opacity-80">Escanea para seguir tiempos</p>
                                 </div>
-                            )}
+                            </div>
                         </div>
                     </div>
+
+                    {/* Rotation Info - Moved below the boxes */}
+                    <div className="mt-4 shrink-0">
+                        {isTVMode && (
+                            <div className="flex items-center justify-center space-x-2 text-gray-700 text-[8px] font-bold uppercase tracking-widest">
+                                <RefreshCw size={8} className="animate-spin opacity-50" />
+                                <span className="opacity-40">Actualización en Vivo</span>
+                            </div>
+                        )}
+                    </div>
                 </div>
+
 
                 {/* Ranking Table - Fixed width for TV */}
                 <div className="w-3/4 flex flex-col bg-gray-900 pb-16">
@@ -404,7 +410,7 @@ export default function LeaderboardPage() {
                                                 {entry.driver_name}
                                             </div>
                                             <div className="text-xs text-gray-500 font-mono mt-1">
-                                                {new Date(entry.date).toLocaleDateString()}
+                                                {new Date(entry.timestamp).toLocaleDateString()}
                                             </div>
                                         </td>
                                         <td className="px-6 py-5">
@@ -432,24 +438,25 @@ export default function LeaderboardPage() {
                         </table>
                     </div>
                 </div>
+            </div>
 
-                {/* NEWS TICKER */}
-                <div className="absolute bottom-0 left-0 right-0 h-14 bg-blue-900 border-t-4 border-blue-600 flex items-center z-50 shadow-[0_-5px_20px_rgba(0,0,0,0.5)]">
-                    <div className="px-6 bg-blue-800 h-full flex items-center font-black italic uppercase z-10 shadow-lg">
-                        <span className="">NOTICIAS</span>
-                    </div>
-                    <div className="flex-1 overflow-hidden relative h-full flex items-center">
-                        <div className="animate-marquee whitespace-nowrap flex space-x-12 absolute">
-                            {[...newsItems, ...newsItems, ...newsItems].map((item, i) => (
-                                <span key={i} className="text-lg font-bold text-white uppercase tracking-wider flex items-center">
-                                    <span className="w-2 h-2 bg-blue-400 rounded-full mr-4 animate-pulse"></span>
-                                    {item}
-                                </span>
-                            ))}
-                        </div>
+            {/* NEWS TICKER */}
+            <div className="absolute bottom-0 left-0 right-0 h-14 bg-blue-900 border-t-4 border-blue-600 flex items-center z-50 shadow-[0_-5px_20px_rgba(0,0,0,0.5)]">
+                <div className="px-6 bg-blue-800 h-full flex items-center font-black italic uppercase z-10 shadow-lg">
+                    <span className="">NOTICIAS</span>
+                </div>
+                <div className="flex-1 overflow-hidden relative h-full flex items-center">
+                    <div className="animate-marquee whitespace-nowrap flex space-x-12 absolute">
+                        {[...newsItems, ...newsItems, ...newsItems].map((item, i) => (
+                            <span key={i} className="text-lg font-bold text-white uppercase tracking-wider flex items-center">
+                                <span className="w-2 h-2 bg-blue-400 rounded-full mr-4 animate-pulse"></span>
+                                {item}
+                            </span>
+                        ))}
                     </div>
                 </div>
             </div>
         </div>
+
     );
 }

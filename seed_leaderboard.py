@@ -47,6 +47,57 @@ def seed_data(count=50):
             db.commit()
             db.refresh(new_session)
             
+            # Generate fake telemetry data (advanced)
+            import json
+            import math
+            telemetry_points = []
+            
+            # Simple simulation state
+            speed = 100
+            rpm = 4000
+            gear = 2
+            tyre_temp = 80.0
+            
+            for t in range(0, lap_time, 200): # 5Hz points
+                progress = t / lap_time
+                
+                # Simulate a lap with corners (sine wave steering)
+                steer = math.sin(progress * 20) # -1 to 1
+                
+                # Gas/Brake logic based on steer (slow down in corners)
+                if abs(steer) > 0.4:
+                    gas = 0.1
+                    brake = abs(steer) * 0.8
+                    speed = max(50, speed - 2)
+                    rpm = max(3000, rpm - 100)
+                else:
+                    gas = 0.9 + random.random() * 0.1
+                    brake = 0
+                    speed = min(320, speed + 2)
+                    rpm = min(8500, rpm + 100)
+                    
+                # G-Forces
+                g_lat = steer * 2.5 # ~2.5G lateral max
+                g_lon = (gas * 1.0) - (brake * 2.0) # Accel vs Decel
+                
+                # Tyre Temps (heat up in corners/braking)
+                heat_factor = abs(g_lat) + abs(g_lon)
+                tyre_temp = (tyre_temp * 0.95) + (70 + heat_factor * 10) * 0.05
+                
+                telemetry_points.append({
+                    "t": t,
+                    "s": int(speed), 
+                    "r": int(rpm), 
+                    "g": int(gear), 
+                    "n": progress,
+                    "gas": round(gas, 2),
+                    "brk": round(brake, 2),
+                    "str": round(steer, 2),
+                    "gl": round(g_lat, 2),
+                    "gn": round(g_lon, 2),
+                    "tt": round(tyre_temp, 1)
+                })
+
             # Create Lap
             new_lap = models.LapTime(
                 session_id=new_session.id,
@@ -55,6 +106,7 @@ def seed_data(count=50):
                 track_name=track,
                 lap_time=lap_time,
                 sectors="[]",
+                telemetry_data=json.dumps(telemetry_points),
                 is_valid=True,
                 timestamp=new_session.date
             )

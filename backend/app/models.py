@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Table
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+from datetime import datetime
 from .database import Base
 
 # Association table for Profile <-> Mod
@@ -16,6 +17,21 @@ mod_dependencies = Table(
     Column('parent_mod_id', Integer, ForeignKey('mods.id'), primary_key=True),
     Column('child_mod_id', Integer, ForeignKey('mods.id'), primary_key=True)
 )
+
+class Driver(Base):
+    __tablename__ = "drivers"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True) # Matches driver_name in generic stats
+    vms_id = Column(String, unique=True, nullable=True, index=True) # Linked ID from VMS 5.0
+    email = Column(String, nullable=True)
+    
+    # Cache stats
+    total_laps = Column(Integer, default=0)
+    safety_rating = Column(Integer, default=1000)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
 class Station(Base):
     __tablename__ = "stations"
@@ -53,6 +69,22 @@ class Profile(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
+# Association table for Mod <-> Tags
+mod_tags = Table(
+    'mod_tags', Base.metadata,
+    Column('mod_id', Integer, ForeignKey('mods.id'), primary_key=True),
+    Column('tag_id', Integer, ForeignKey('tags.id'), primary_key=True)
+)
+
+class Tag(Base):
+    __tablename__ = "tags"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True)
+    color = Column(String, default="#3b82f6") # Hex color for UI
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
 class Mod(Base):
     __tablename__ = "mods"
 
@@ -66,6 +98,7 @@ class Mod(Base):
     
     is_active = Column(Boolean, default=False) # Needs approval
     status = Column(String, default="processing") # processing, approved, rejected
+    size_bytes = Column(Integer, default=0) # Size in bytes for management
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -77,12 +110,17 @@ class Mod(Base):
         secondaryjoin="Mod.id==mod_dependencies.c.child_mod_id",
         backref="required_by"
     )
+    
+    tags = relationship("Tag", secondary=mod_tags, backref="mods")
 
 class SessionResult(Base):
     __tablename__ = "session_results"
 
     id = Column(Integer, primary_key=True, index=True)
     station_id = Column(Integer, ForeignKey('stations.id'))
+    
+    # Event Linkage (Optional)
+    event_id = Column(Integer, ForeignKey('events.id'), nullable=True, index=True)
     
     # Metadata
     track_name = Column(String, index=True)
@@ -98,6 +136,45 @@ class SessionResult(Base):
     best_lap = Column(Integer) # Time in milliseconds
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    event = relationship("Event", back_populates="sessions")
+
+class Championship(Base):
+    __tablename__ = "championships"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    description = Column(String, nullable=True)
+    start_date = Column(DateTime, default=datetime.utcnow)
+    end_date = Column(DateTime, nullable=True)
+    is_active = Column(Boolean, default=True)
+    
+    events = relationship("Event", back_populates="championship")
+
+class Event(Base):
+    __tablename__ = "events"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    description = Column(String) # Changed from nullable=True
+    
+    track = Column(String) # Replaced track_name
+    car = Column(String) # Replaced allowed_cars
+
+    championship_id = Column(Integer, ForeignKey("championships.id"), nullable=True)
+    championship = relationship("Championship", back_populates="events")
+    
+    start_date = Column(DateTime, default=datetime.utcnow) # Added default
+    end_date = Column(DateTime)
+    
+    is_active = Column(Boolean, default=True)
+    status = Column(String, default="upcoming") # upcoming, active, completed
+    
+    rules = Column(String, nullable=True) # JSON rules (max_laps, etc)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    sessions = relationship("SessionResult", back_populates="event")
 
 class LapTime(Base):
     __tablename__ = "lap_times"

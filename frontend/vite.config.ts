@@ -5,6 +5,10 @@ import { defineConfig } from "vite"
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  server: {
+    host: true, // Allow external access
+    allowedHosts: true, // Allow tunneling
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

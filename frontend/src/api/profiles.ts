@@ -1,7 +1,11 @@
 import axios from 'axios';
 import type { Mod } from './mods';
 
-const API_URL = 'http://localhost:8000';
+const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? `http://${window.location.hostname}:8000`
+    : window.location.origin.includes('loca.lt')
+        ? 'https://khaki-donkeys-share.loca.lt'
+        : `http://${window.location.hostname}:8000`;
 
 export interface Profile {
     id: number;

@@ -11,14 +11,28 @@ echo (Keep this window open)
 echo.
 
 cd /d "%~dp0"
-call .venv\Scripts\activate.bat || echo Venv not found, trying system python...
 
-start "AC Backend" python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
+REM Auto-Install Check
+if not exist .venv (
+    echo First run detected! launching installer...
+    call install.bat
+)
+
+call .venv\Scripts\activate.bat || echo Venv not found, trying system python...
 
 echo.
 echo Starting Frontend...
 cd frontend
 start "AC Frontend" npm run dev -- --host
+cd ..
+
+:START_BACKEND
+echo Starting Backend Watchdog...
+start "AC Backend" /wait cmd /c "python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload"
+
+echo [WARNING] Backend crashed or closed. Restarting in 5 seconds...
+timeout /t 5
+goto START_BACKEND
 
 echo.
 echo SYSTEM RUNNING.

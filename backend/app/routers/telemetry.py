@@ -126,8 +126,9 @@ def get_leaderboard(
             lap_id=row.id,
             driver_name=row.driver_name,
             car_model=row.car_model,
+            track_name=row.track_name,
             lap_time=row.lap_time,
-            date=row.timestamp, # Using full timestamp
+            timestamp=row.timestamp,
             gap=row.lap_time - best_overall if idx > 0 else 0
         ))
         
@@ -140,12 +141,13 @@ def get_active_combinations(db: Session = Depends(database.get_db)):
     Used for Auto-Rotation on TV (Track Rotation Only).
     """
     results = db.query(
-        models.LapTime.track_name
+        models.LapTime.track_name,
+        models.LapTime.car_model
     ).filter(
         models.LapTime.is_valid == True
     ).distinct().all()
     
-    return [{"track": row.track_name} for row in results]
+    return [{"track_name": row.track_name, "car_model": row.car_model} for row in results]
 
 @router.get("/lap/{lap_id}/telemetry")
 def get_lap_telemetry(lap_id: int, db: Session = Depends(database.get_db)):
@@ -304,13 +306,38 @@ def get_pilot_profile(driver_name: str, db: Session = Depends(database.get_db)):
     # 5. Total KM (approx 5km per lap)
     total_km = total_laps * 4.8 
 
+    # 6. Active Days (Count unique dates)
+    # SQLite distinct date count workaround or just python set
+    dates_query = db.query(models.SessionResult.date).filter(models.SessionResult.driver_name == driver_name).all()
+    active_days = len(set([d[0].date() for d in dates_query]))
+
+    # 7. Recent Sessions
+    recent_sessions_db = db.query(models.SessionResult).filter(
+        models.SessionResult.driver_name == driver_name
+    ).order_by(desc(models.SessionResult.date)).limit(10).all()
+
+    recent_sessions = []
+    for s in recent_sessions_db:
+        # Count laps for this session
+        laps_count = db.query(models.LapTime).filter(models.LapTime.session_id == s.id).count()
+        recent_sessions.append(schemas.SessionSummary(
+            session_id=s.id,
+            track_name=s.track_name,
+            car_model=s.car_model,
+            date=s.date,
+            best_lap=s.best_lap,
+            laps_count=laps_count
+        ))
+
     return schemas.PilotProfile(
         driver_name=driver_name,
         total_laps=total_laps,
         total_km=round(total_km, 1),
         favorite_car=favorite_car,
         avg_consistency=round(avg_consistency, 1),
-        records=track_records
+        active_days=active_days,
+        records=track_records,
+        recent_sessions=recent_sessions
     )
 
 @router.post("/seed")
@@ -377,12 +404,24 @@ def seed_data(count: int = 50, db: Session = Depends(database.get_db)):
                 rpm = int(3000 + (speed / 350) * 5000)
                 gear = int(1 + (speed / 60))
                 
+                # Mock 3D coordinates (Simple Oval)
+                angle = progress * math.pi * 2
+                radius = 100 # meters
+                x = math.cos(angle) * radius
+                z = math.sin(angle) * radius
+                rotation = angle + math.pi / 2 # Tangent to circle
+                
                 telemetry_trace.append({
                     "t": int((lap_time / num_points) * step),
                     "s": int(speed),
                     "r": rpm,
                     "g": min(8, gear),
-                    "n": round(progress, 3)
+                    "n": round(progress, 3),
+                    # 3D Data
+                    "x": round(x, 2),
+                    "y": 0,
+                    "z": round(z, 2),
+                    "rot": round(rotation, 2)
                 })
             
             new_lap = models.LapTime(
@@ -402,6 +441,51 @@ def seed_data(count: int = 50, db: Session = Depends(database.get_db)):
         
     db.commit()
     return {"message": f"Seeded {count} random laps with sectors across sessions"}
+
+@router.get("/drivers", response_model=List[schemas.DriverSummary])
+def get_all_drivers(db: Session = Depends(database.get_db)):
+    """
+    Get a list of all drivers with summary statistics.
+    """
+    # Get all unique drivers
+    drivers = db.query(models.LapTime.driver_name).distinct().all()
+    driver_names = [d[0] for d in drivers]
+    
+    summaries = []
+    
+    for name in driver_names:
+        # 1. Total Laps
+        total_laps = db.query(models.LapTime).filter(models.LapTime.driver_name == name).count()
+        
+        # 2. Favorite Car
+        fav_car_row = db.query(
+            models.LapTime.car_model, 
+            func.count(models.LapTime.id).label('count')
+        ).filter(models.LapTime.driver_name == name).group_by(models.LapTime.car_model).order_by(desc('count')).first()
+        favorite_car = fav_car_row[0] if fav_car_row else "Unknown"
+        
+        # 3. Last Seen
+        last_lap = db.query(models.LapTime.timestamp).filter(models.LapTime.driver_name == name).order_by(desc(models.LapTime.timestamp)).first()
+        last_seen = last_lap[0] if last_lap else datetime.now()
+        
+        # 4. Rank Tier (Simple Logic)
+        if total_laps > 500: rank = "Alien"
+        elif total_laps > 100: rank = "Pro"
+        elif total_laps > 20: rank = "Amateur"
+        else: rank = "Rookie"
+        
+        summaries.append(schemas.DriverSummary(
+            driver_name=name,
+            total_laps=total_laps,
+            favorite_car=favorite_car,
+            last_seen=last_seen,
+            rank_tier=rank
+        ))
+        
+    # Sort by total laps (Activity)
+    summaries.sort(key=lambda x: x.total_laps, reverse=True)
+    
+    return summaries
 
 @router.get("/stats", response_model=schemas.LeaderboardStats)
 def get_teleboard_stats(db: Session = Depends(database.get_db)):
@@ -437,6 +521,108 @@ def get_teleboard_stats(db: Session = Depends(database.get_db)):
         most_popular_car=most_popular_car[0] if most_popular_car else "N/A",
         total_sessions=total_sessions,
         latest_record=f"{latest.driver_name} ({latest.track_name})" if latest else "Sin datos"
+    )
+
+@router.get("/hall_of_fame", response_model=List[schemas.HallOfFameCategory])
+def get_hall_of_fame(db: Session = Depends(database.get_db)):
+    # 1. Get unique Track/Car combinations
+    combinations = db.query(
+        models.LapTime.track_name, 
+        models.LapTime.car_model
+    ).distinct().all()
+
+    hall_of_fame = []
+
+    for track, car in combinations:
+        # 2. Get top 3 for this combo
+        top_laps = db.query(models.LapTime).filter(
+            models.LapTime.track_name == track,
+            models.LapTime.car_model == car
+        ).order_by(asc(models.LapTime.lap_time)).limit(3).all()
+
+        records = [
+            schemas.HallOfFameEntry(
+                driver_name=lap.driver_name,
+                lap_time=lap.lap_time,
+                date=lap.timestamp
+            ) for lap in top_laps
+        ]
+
+        if records:
+            hall_of_fame.append(schemas.HallOfFameCategory(
+                track_name=track,
+                car_model=car,
+                records=records
+            ))
+
+    return hall_of_fame
+
+@router.get("/compare/{driver1}/{driver2}", response_model=schemas.DriverComparison)
+def get_driver_comparison(
+    driver1: str, 
+    driver2: str, 
+    track: str, 
+    car: Optional[str] = None,
+    db: Session = Depends(database.get_db)
+):
+    def get_stats(driver):
+        # Case insensitive filtering for strings
+        filters = [
+            func.lower(models.LapTime.driver_name) == driver.lower(),
+            func.lower(models.LapTime.track_name) == track.lower()
+        ]
+        if car:
+            filters.append(func.lower(models.LapTime.car_model) == car.lower())
+            
+        laps = db.query(models.LapTime).filter(*filters).all()
+        
+        if not laps:
+            return None
+            
+        valid_laps_times = [l.lap_time for l in laps if l.lap_time is not None and l.lap_time < 999999999]
+        if not valid_laps_times:
+            return None
+
+        best = min(valid_laps_times)
+        avg = sum(valid_laps_times) / len(valid_laps_times)
+        consistency = avg - best 
+        
+        # Determine actual casing from DB if possible, otherwise use query
+        actual_name = laps[0].driver_name if laps else driver
+
+        return {
+            "driver_name": actual_name,
+            "best_lap": best,
+            "total_laps": len(laps),
+            "consistency": round(consistency, 1)
+        }
+
+    stats1 = get_stats(driver1)
+    stats2 = get_stats(driver2)
+
+    if not stats1 or not stats2:
+        # Prevent 500 error by returning a clean 404
+        raise HTTPException(status_code=404, detail=f"Data incomplete for comparison. {driver1}: {'Found' if stats1 else 'Missing'}, {driver2}: {'Found' if stats2 else 'Missing'}")
+
+    # Winner Logic
+    s1_wins = 0
+    s2_wins = 0
+
+    if stats1["best_lap"] < stats2["best_lap"]: s1_wins += 1
+    else: s2_wins += 1
+
+    if stats1["consistency"] < stats2["consistency"]: s1_wins += 1
+    else: s2_wins += 1
+    
+    if stats1["total_laps"] > stats2["total_laps"]: s1_wins += 1
+    else: s2_wins += 1
+
+    return schemas.DriverComparison(
+        track_name=track,
+        car_model=car,
+        driver_1=schemas.ComparisonStats(**stats1, win_count=s1_wins),
+        driver_2=schemas.ComparisonStats(**stats2, win_count=s2_wins),
+        time_gap=abs(stats1["best_lap"] - stats2["best_lap"])
     )
 
 @router.get("/map/{track_name}")

@@ -295,13 +295,13 @@ class TelemetryThread(threading.Thread):
                 await asyncio.sleep(5) # Reconnect delay
 
     def upload_lap_data(self, current_data):
+        # We must NOT block the async loop with requests.post
+        # Schedule the upload in a separate thread
+        loop = asyncio.get_event_loop()
+        loop.run_in_executor(None, self._do_upload_lap, current_data, self.current_lap_buffer)
+
+    def _do_upload_lap(self, current_data, buffer_snapshot):
         try:
-            # Construct Payload matching SessionResultCreate
-            # We treat every lap as a mini-session update for now
-            
-            # Simple downsampling to avoid 5MB JSON payloads?
-            # 10 Hz for 2 min lap = 1200 points. ~100KB. It's fine.
-            
             import datetime
             
             payload = {
@@ -309,34 +309,24 @@ class TelemetryThread(threading.Thread):
                 "track_name": current_data.get("track", "unknown"),
                 "car_model": current_data.get("car", "unknown"),
                 "driver_name": current_data.get("driver", "Unknown"),
-                "session_type": "Practice", # hardcoded for now, read from AC later
+                "session_type": "Practice", 
                 "date": datetime.datetime.now().isoformat(),
-                "best_lap": 0, # Session best, not strictly needed for this call
+                "best_lap": 0,
                 "laps": [
                     {
                         "driver_name": current_data.get("driver", "Unknown"),
                         "car_model": current_data.get("car", "unknown"),
                         "track_name": current_data.get("track", "unknown"),
-                        "lap_time": self.current_lap_buffer[-1]['t'] if self.current_lap_buffer else 0, # Use last sample time or 0
-                        # Note: current_lap_buffer[-1]['t'] is actually the LAST time of the PREVIOUS lap, roughly. 
-                        # Ideally AC gives us "lastLapTime". 
-                        # But for now this is close enough (-100ms).
-                        
-                        "sectors": [0,0,0], # Todo: Extract sectors
-                        "is_valid": True, # Todo: Check validity
+                        "lap_time": buffer_snapshot[-1]['t'] if buffer_snapshot else 0,
+                        "sectors": [0,0,0], 
+                        "is_valid": True,
                         "timestamp": datetime.datetime.now().isoformat(),
-                        "telemetry_data": json.dumps(self.current_lap_buffer)
+                        "telemetry_data": json.dumps(buffer_snapshot)
                     }
                 ]
             }
             
-            # We should try to get the REAL last lap time if possible
-            # current_data may have 'iLastTime' if we mapped it? 
-            # In ac_telemetry.py we map 'lap_time_ms' to iCurrentTime. 
-            # We don't have iLastTime exposed yet.
-            # Using buffer tail is acceptable for V1.
-            
-            logger.info("Uploading Lap Telemetry...")
+            logger.info("Uploading Lap Telemetry (Async)...")
             requests.post(f"{self.http_url}/telemetry/session", json=payload, timeout=5)
             logger.info("Leaf Uploaded.")
             

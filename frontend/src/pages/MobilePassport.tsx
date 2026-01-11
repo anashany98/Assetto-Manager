@@ -1,0 +1,215 @@
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Search, Trophy, Car, ChevronRight, Share2, Award } from 'lucide-react';
+import axios from 'axios';
+import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
+
+// --- API ---
+// We reuse the existing API logic but ensure it uses the window location for robustness
+const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? `http://${window.location.hostname}:8000`
+    : window.location.origin.includes('loca.lt')
+        ? 'https://khaki-donkeys-share.loca.lt'
+        : `http://${window.location.hostname}:8000`;
+
+const getAllDrivers = async () => {
+    const response = await axios.get(`${API_URL}/telemetry/drivers`);
+    return response.data;
+};
+
+const getDriverProfile = async (name: string) => {
+    const response = await axios.get(`${API_URL}/telemetry/pilot/${name}`);
+    return response.data;
+};
+
+export default function MobilePassport() {
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedDriver, setSelectedDriver] = useState<string | null>(null);
+
+    // Fetch All Drivers for Search
+    const { data: drivers, isLoading: isLoadingList } = useQuery({
+        queryKey: ['drivers'],
+        queryFn: getAllDrivers
+    });
+
+    // Fetch Specific Driver Profile
+    const { data: profile } = useQuery({
+        queryKey: ['driverProfile', selectedDriver],
+        queryFn: () => getDriverProfile(selectedDriver!),
+        enabled: !!selectedDriver
+    });
+
+    // Filter Logic
+    const filteredDrivers = useMemo(() => {
+        if (!drivers) return [];
+        return drivers.filter((d: any) =>
+            d.driver_name.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }, [drivers, searchTerm]);
+
+    const handleBack = () => {
+        setSelectedDriver(null);
+        setSearchTerm('');
+    };
+
+    // --- VIEW: DRIVER PROFILE (The "Passport") ---
+    if (selectedDriver && profile) {
+        return (
+            <div className="min-h-screen bg-gray-950 text-white pb-safe">
+                {/* Header */}
+                <div className="sticky top-0 z-20 bg-gray-900/80 backdrop-blur-md border-b border-gray-800 px-4 py-3 flex items-center justify-between">
+                    <button
+                        onClick={handleBack}
+                        className="p-2 -ml-2 text-gray-400 hover:text-white"
+                    >
+                        <ChevronRight className="rotate-180" size={24} />
+                    </button>
+                    <span className="font-bold text-sm tracking-widest uppercase">Driver Passport</span>
+                    <button className="p-2 -mr-2 text-blue-400">
+                        <Share2 size={20} />
+                    </button>
+                </div>
+
+                {/* Main Card */}
+                <div className="p-4 space-y-4">
+                    {/* Identity Card */}
+                    <div className="bg-gradient-to-br from-blue-900/40 to-gray-900 border border-blue-500/30 rounded-2xl p-6 relative overflow-hidden shadow-2xl">
+                        <div className="absolute top-0 right-0 p-2 opacity-10">
+                            <Trophy size={120} />
+                        </div>
+
+                        <div className="relative z-10 flex flex-col items-center">
+                            <div className="w-20 h-20 rounded-full bg-gray-800 border-2 border-blue-400 flex items-center justify-center text-3xl font-black mb-3 shadow-lg">
+                                {profile.driver_name.charAt(0).toUpperCase()}
+                            </div>
+                            <h1 className="text-2xl font-black uppercase tracking-tight text-center">{profile.driver_name}</h1>
+                            <div className="mt-2 px-3 py-1 bg-blue-600/20 border border-blue-500/50 rounded-full text-blue-300 text-xs font-bold uppercase tracking-widest">
+                                {profile.total_laps > 100 ? "Pro Driver" : "Rookie"}
+                            </div>
+                        </div>
+
+                        {/* Quick Stats Grid */}
+                        <div className="grid grid-cols-3 gap-2 mt-6 border-t border-white/10 pt-4">
+                            <div className="text-center">
+                                <div className="text-gray-400 text-[10px] uppercase font-bold">Vueltas</div>
+                                <div className="text-xl font-mono font-bold">{profile.total_laps}</div>
+                            </div>
+                            <div className="text-center border-l border-white/10">
+                                <div className="text-gray-400 text-[10px] uppercase font-bold">Km Totales</div>
+                                <div className="text-xl font-mono font-bold">{profile.total_km}</div>
+                            </div>
+                            <div className="text-center border-l border-white/10">
+                                <div className="text-gray-400 text-[10px] uppercase font-bold">Consist.</div>
+                                <div className="text-xl font-mono font-bold text-green-400">{profile.avg_consistency}%</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Recent Sessions List */}
+                    <div className="space-y-3">
+                        <h3 className="text-gray-400 text-xs font-bold uppercase tracking-widest ml-1">Últimas Sesiones</h3>
+                        {profile.recent_sessions?.map((session: any, i: number) => (
+                            <div key={i} className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-center justify-between">
+                                <div>
+                                    <div className="font-bold text-sm uppercase">{session.track_name}</div>
+                                    <div className="text-xs text-gray-500 flex items-center mt-1">
+                                        <Car size={10} className="mr-1" />
+                                        {session.car_model.replace(/_/g, ' ')}
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-blue-400 font-mono font-bold text-sm">
+                                        {Math.floor(session.best_lap / 60000)}:
+                                        {Math.floor((session.best_lap % 60000) / 1000).toString().padStart(2, '0')}.
+                                        {(session.best_lap % 1000).toString().padStart(3, '0')}
+                                    </div>
+                                    <div className="text-[10px] text-gray-600 mt-1">{new Date(session.date).toLocaleDateString()}</div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Stats Chart */}
+                    <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+                        <h3 className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-4">Progresión (Últimas 5)</h3>
+                        <div className="h-32">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={profile.recent_sessions.slice(0, 5).reverse()}>
+                                    <XAxis hide />
+                                    <Tooltip
+                                        contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151' }}
+                                        labelStyle={{ color: '#9CA3AF' }}
+                                        cursor={{ fill: 'transparent' }}
+                                    />
+                                    <Bar dataKey="best_lap" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // --- VIEW: SEARCH LIST (Home) ---
+    return (
+        <div className="min-h-screen bg-gray-950 text-white flex flex-col">
+            {/* Search Header */}
+            <div className="p-6 pb-2 sticky top-0 bg-gray-950 z-10">
+                <h1 className="text-3xl font-black text-white mb-1 uppercase tracking-tighter">
+                    <span className="text-blue-600">Assetto</span>
+                    <span className="ml-1">Passport</span>
+                </h1>
+                <p className="text-gray-500 text-sm mb-6">Tu carrera digital comienza aquí.</p>
+
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
+                    <input
+                        type="text"
+                        placeholder="Buscar piloto..."
+                        className="w-full bg-gray-900 border border-gray-800 rounded-xl pl-10 pr-4 py-3 text-white placeholder-gray-600 focus:ring-2 focus:ring-blue-600 outline-none transition-all"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+            </div>
+
+            {/* List */}
+            <div className="flex-1 px-4 py-4 overflow-y-auto space-y-3">
+                {isLoadingList ? (
+                    <div className="text-center text-gray-600 py-10 animate-pulse">Cargando pilotos...</div>
+                ) : filteredDrivers?.length === 0 ? (
+                    <div className="text-center text-gray-600 py-10">
+                        <p>No se encontraron pilotos.</p>
+                    </div>
+                ) : (
+                    filteredDrivers?.map((driver: any) => (
+                        <button
+                            key={driver.driver_name}
+                            onClick={() => setSelectedDriver(driver.driver_name)}
+                            className="w-full bg-gray-900 hover:bg-gray-800 border border-gray-800 hover:border-blue-500/30 rounded-xl p-4 flex items-center justify-between transition-all group"
+                        >
+                            <div className="flex items-center">
+                                <div className="w-10 h-10 rounded-full bg-gray-800 group-hover:bg-blue-900/30 flex items-center justify-center text-gray-400 group-hover:text-blue-400 font-black mr-3 transition-colors">
+                                    {driver.driver_name.charAt(0).toUpperCase()}
+                                </div>
+                                <div className="text-left">
+                                    <div className="font-bold text-white group-hover:text-blue-400 transition-colors uppercase">{driver.driver_name}</div>
+                                    <div className="text-xs text-gray-500 flex items-center">
+                                        <Award size={10} className="mr-1" />
+                                        {driver.rank_tier} • {driver.total_laps} Laps
+                                    </div>
+                                </div>
+                            </div>
+                            <ChevronRight size={18} className="text-gray-600 group-hover:text-blue-500" />
+                        </button>
+                    ))
+                )}
+            </div>
+
+            <div className="p-4 text-center text-[10px] text-gray-700 font-mono uppercase">
+                Powered by Assetto Manager
+            </div>
+        </div>
+    );
+}

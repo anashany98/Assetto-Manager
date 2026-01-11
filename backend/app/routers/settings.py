@@ -23,6 +23,10 @@ def get_setting(key: str, db: Session = Depends(database.get_db)):
 
 @router.post("/")
 def update_setting(setting_data: schemas.GlobalSettingsBase, db: Session = Depends(database.get_db)):
+    import logging
+    logger = logging.getLogger("api.settings")
+    logger.info(f"Updating setting: {setting_data.key} -> {setting_data.value}")
+
     existing = db.query(models.GlobalSettings).filter(models.GlobalSettings.key == setting_data.key).first()
     if existing:
         existing.value = setting_data.value

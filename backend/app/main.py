@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import engine, Base
-from .routers import stations, mods, telemetry, websockets, settings, profiles
+from .routers import stations, mods, telemetry, websockets, settings, profiles, events, config_manager, championships, integrations
 
 # Create Tables
 Base.metadata.create_all(bind=engine)
@@ -14,6 +14,23 @@ app = FastAPI(
     description="API for managing Assetto Corsa mods and simulators",
     version="0.1.0"
 )
+
+# Global Exception Handler
+from fastapi.responses import JSONResponse
+from fastapi import Request
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Global Exception: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"message": "Internal Server Error. The system recovered automatically.", "detail": str(exc)},
+    )
 
 # Ensure storage directory exists
 os.makedirs("backend/storage", exist_ok=True)
@@ -33,12 +50,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(stations.router)
-app.include_router(mods.router)
 app.include_router(profiles.router)
-app.include_router(websockets.router, tags=["websockets"])
-app.include_router(telemetry.router)
+app.include_router(mods.router)
 app.include_router(settings.router)
+app.include_router(stations.router)
+app.include_router(telemetry.router)
+app.include_router(events.router)
+app.include_router(config_manager.router)
+app.include_router(championships.router)
+app.include_router(integrations.router)
+app.include_router(websockets.router)
 
 @app.get("/")
 async def root():

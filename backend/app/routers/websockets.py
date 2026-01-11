@@ -56,8 +56,17 @@ async def websocket_client_endpoint(websocket: WebSocket):
         while True:
             # Clients (Frontend) usually just listen, but might send "subscribe" messages later
             # For now we just keep the connection open
-            data = await websocket.receive_text()
-            # Optional: handle client messages (e.g. ping)
+            # data = await websocket.receive_text()  <-- This blocks and expects data. If client sends nothing, it might timeout or close?
+            # Instead, just wait forever until disconnect
+            # Instead, just wait forever until disconnect
+            # await websocket.receive_text()
+            
+            # Simple keepalive loop with heartbeat
+            import asyncio
+            while True:
+                await asyncio.sleep(5)
+                # Send heartbeat to keep connection alive and avoid 1006
+                await websocket.send_text(json.dumps({"type": "ping"}))
     except WebSocketDisconnect:
         manager.disconnect_client(websocket)
     except Exception as e:

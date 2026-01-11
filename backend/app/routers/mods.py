@@ -5,6 +5,7 @@ import shutil
 import zipfile
 import os
 import json
+import patoolib
 from pathlib import Path
 from .. import models, schemas, database
 # Import shared hashing module (needs sys path adjustment or package install, using relative import for now if possible or dynamic)
@@ -25,40 +26,58 @@ router = APIRouter(
 STORAGE_DIR = Path("backend/storage/mods")
 STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 
-@router.post("/upload", response_model=schemas.Mod)
-async def upload_mod(
-    file: UploadFile = File(...), 
-    name: str = Form(None), # Optional
-    type: str = Form(None), # Optional
-    version: str = Form(None), # Optional
-    db: Session = Depends(database.get_db)
-):
-    # Validar extensión .rar
-    if file.filename.lower().endswith('.rar'):
-        raise HTTPException(status_code=400, detail="Archivos .rar no soportados. Por favor usa .zip")
-
+def process_mod_file(file_path: Path, original_filename: str, db: Session, user_provided_name: str = None, user_provided_type: str = None, user_provided_version: str = None):
+    # Validar extensión
+    filename_lower = original_filename.lower()
+    
     # Defaults
-    detected_name = name if name and name.strip() else file.filename.replace(".zip", "")
-    detected_type = type if type and type.strip() else "unknown"
-    detected_version = version if version and version.strip() else "1.0"
-
-    # 1. Save Zip File
-    safe_filename = file.filename.replace(" ", "_").replace("..", "") # Basic sanitization
-    mod_dir = STORAGE_DIR / detected_name.replace(" ", "_")
+    detected_name = user_provided_name if user_provided_name and user_provided_name.strip() else original_filename.rsplit(".", 1)[0]
+    detected_type = user_provided_type if user_provided_type and user_provided_type.strip() else "unknown"
+    detected_version = user_provided_version if user_provided_version and user_provided_version.strip() else "1.0"
+    
+    # Create Mod Directory
+    safe_filename = original_filename.replace(" ", "_").replace("..", "")
+    # Use a unique folder name to prevent collisions if same mod name uploads twice? 
+    # For now, append timestamp or just overwrite? Let's keep existing logic but careful.
+    mod_dir_name = detected_name.replace(" ", "_")
+    mod_dir = STORAGE_DIR / mod_dir_name
+    
+    # Handle collision: append number
+    counter = 1
+    while mod_dir.exists():
+        mod_dir = STORAGE_DIR / f"{mod_dir_name}_{counter}"
+        counter += 1
+        
     mod_dir.mkdir(exist_ok=True)
     
-    zip_path = mod_dir / safe_filename
+    # Move/Copy archive to storage
+    final_archive_path = mod_dir / safe_filename
     
-    with open(zip_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-        
+    # If source is already in STORAGE (e.g. from upload buffer save), we move it?
+    # Or we assume file_path is the TEMP path.
+    # In upload_mod, we wrote to mod_dir directly.
+    # In import, we might need to move.
+    
+    # Let's standardize: The caller places the file in a temp spot or we move it here.
+    # Actually, simpler: Caller passes path to existing file. We copy/move it to mod_dir.
+    if file_path != final_archive_path:
+        shutil.move(str(file_path), str(final_archive_path))
+
     # 2. Extract content
     extract_dir = mod_dir / "content"
     extract_dir.mkdir(exist_ok=True)
     
     try:
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            zip_ref.extractall(extract_dir)
+        if filename_lower.endswith('.zip'):
+            with zipfile.ZipFile(final_archive_path, 'r') as zip_ref:
+                zip_ref.extractall(extract_dir)
+        else:
+            # RAR / 7Z via patool
+            try:
+                patoolib.extract_archive(str(final_archive_path), outdir=str(extract_dir), verbosity=-1)
+            except Exception as e:
+                logger.error(f"Extraction failed: {e}")
+                raise Exception(f"Error al descomprimir: {str(e)}")
             
         # --- SMART DETECTION START ---
         # Recursively search for ui_car.json or ui_track.json to identify content
@@ -66,65 +85,13 @@ async def upload_mod(
         # Walk through extracted files
         for root, dirs, files in os.walk(extract_dir):
             if "ui_car.json" in files:
-                # It's a CAR
-                detected_type = "car"
-                try:
-                    with open(os.path.join(root, "ui_car.json"), 'r', encoding='utf-8') as f:
-                        data = json.load(f)
-                        if "name" in data:
-                            detected_name = data["name"]
-                        if "version" in data and not version: # Only override if user didn't specify
-                            detected_version = data["version"]
-                except Exception as e:
-                    print(f"Error reading ui_car.json: {e}")
-                
-                # RESTRUCTURING: Move to content/cars/{folder_name}
-                ui_dir = Path(root)
-                car_dir = ui_dir.parent
-                
-                target_base = Path(extract_dir) / "content" / "cars"
-                
-                if "content" not in car_dir.parts and "cars" not in car_dir.parts:
-                    target_base.mkdir(parents=True, exist_ok=True)
-                    target_path = target_base / car_dir.name
-                    
-                    if not target_path.exists():
-                        try:
-                            shutil.move(str(car_dir), str(target_path))
-                            logger.info(f"Restructured Car to: {target_path}")
-                        except Exception as e:
-                             print(f"Failed to move car: {e}")
-                break # Stop searching
+                detect_result = _handle_smart_detection(root, extract_dir, "car", files, detected_name, detected_version, user_provided_version)
+                detected_name, detected_type, detected_version = detect_result
+                break
                 
             elif "ui_track.json" in files:
-                # It's a TRACK
-                detected_type = "track"
-                try:
-                    with open(os.path.join(root, "ui_track.json"), 'r', encoding='utf-8') as f:
-                        data = json.load(f)
-                        if "name" in data:
-                            detected_name = data["name"]
-                        if "version" in data and not version:
-                            detected_version = data["version"]
-                except Exception as e:
-                     print(f"Error reading ui_track.json: {e}")
-                    
-                # RESTRUCTURING: Move to content/tracks/{folder_name}
-                ui_dir = Path(root)
-                track_dir = ui_dir.parent
-                
-                target_base = Path(extract_dir) / "content" / "tracks"
-                
-                if "content" not in track_dir.parts and "tracks" not in track_dir.parts:
-                    target_base.mkdir(parents=True, exist_ok=True)
-                    target_path = target_base / track_dir.name
-                    
-                    if not target_path.exists():
-                        try:
-                            shutil.move(str(track_dir), str(target_path))
-                            logger.info(f"Restructured Track to: {target_path}")
-                        except Exception as e:
-                             print(f"Failed to move track: {e}")
+                detect_result = _handle_smart_detection(root, extract_dir, "track", files, detected_name, detected_version, user_provided_version)
+                detected_name, detected_type, detected_version = detect_result
                 break
         # --- SMART DETECTION END ---
 
@@ -133,30 +100,198 @@ async def upload_mod(
         
         # 4. Create DB Entry
         new_mod = models.Mod(
-            name=detected_name, # Use Real Name if found
-            type=detected_type, # Use Detected Type
+            name=detected_name, 
+            type=detected_type, 
             version=detected_version,
             source_path=str(extract_dir),
-            manifest=json.dumps(manifest), # Store as JSON string
-            status="approved" # Auto-approve for MVP
+            manifest=json.dumps(manifest),
+            status="approved"
         )
+        
+        # Check if mod with same name exists? 
+        # For now, just add.
         
         db.add(new_mod)
         db.commit()
         db.refresh(new_mod)
+
+        # 5. AUTO-TAGGING
+        _apply_auto_tags(db, new_mod, detected_type, detected_name)
         
         return new_mod
 
     except zipfile.BadZipFile:
+        shutil.rmtree(mod_dir, ignore_errors=True)
         raise HTTPException(status_code=400, detail="Invalid zip file")
     except Exception as e:
-        # Cleanup on error
         shutil.rmtree(mod_dir, ignore_errors=True)
-        raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
+        # Re-raise to caller
+        raise e
+
+def _handle_smart_detection(root, extract_dir, type_str, files, current_name, current_version, user_version_override):
+    detected_name = current_name
+    detected_version = current_version
+    detected_type = type_str
+    
+    json_filename = "ui_car.json" if type_str == "car" else "ui_track.json"
+    
+    try:
+        with open(os.path.join(root, json_filename), 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            if "name" in data:
+                detected_name = data["name"]
+            if "version" in data and not user_version_override: 
+                detected_version = data["version"]
+    except Exception as e:
+        print(f"Error reading {json_filename}: {e}")
+    
+    # RESTRUCTURING
+    ui_dir = Path(root)
+    content_dir = ui_dir.parent
+    
+    target_base = Path(extract_dir) / "content" / (type_str + "s") # cars or tracks
+    
+    if "content" not in content_dir.parts and (type_str + "s") not in content_dir.parts:
+        target_base.mkdir(parents=True, exist_ok=True)
+        target_path = target_base / content_dir.name
+        
+        if not target_path.exists():
+            try:
+                shutil.move(str(content_dir), str(target_path))
+                logger.info(f"Restructured {type_str} to: {target_path}")
+            except Exception as e:
+                    print(f"Failed to move {type_str}: {e}")
+                    
+    return detected_name, detected_type, detected_version
+
+def _apply_auto_tags(db, mod, type_str, name):
+    try:
+        tags_to_add = []
+        
+        if type_str == "car":
+            tags_to_add.append(("Car", "#3b82f6")) 
+        elif type_str == "track":
+            tags_to_add.append(("Track", "#10b981")) 
+
+        name_lower = name.lower()
+        brands = [
+            ("Ferrari", "#ef4444"), ("Porsche", "#eab308"), ("BMW", "#3b82f6"),
+            ("Mercedes", "#06b6d4"), ("Audi", "#64748b"), ("Lamborghini", "#fbbf24"),
+            ("Honda", "#ef4444"), ("Toyota", "#ef4444"), ("Nissan", "#ef4444"),
+            ("McLaren", "#f97316"), ("F1", "#ef4444"), ("GT3", "#ec4899"),
+            ("Drift", "#8b5cf6"), ("JDM", "#ec4899")
+        ]
+        
+        for brand, color in brands:
+            if brand.lower() in name_lower:
+                tags_to_add.append((brand, color))
+                
+        for tag_name, tag_color in tags_to_add:
+            tag = db.query(models.Tag).filter(models.Tag.name == tag_name).first()
+            if not tag:
+                tag = models.Tag(name=tag_name, color=tag_color)
+                db.add(tag)
+                db.commit()
+                db.refresh(tag)
+            
+            if tag not in mod.tags:
+                mod.tags.append(tag)
+        
+        db.commit()
+    except Exception as e:
+        logger.error(f"Auto-tagging failed: {e}")
+
+
+@router.post("/upload", response_model=schemas.Mod)
+def upload_mod(
+    file: UploadFile = File(...), 
+    name: str = Form(None), 
+    type: str = Form(None), 
+    version: str = Form(None), 
+    db: Session = Depends(database.get_db)
+):
+    # Validation logic
+    filename_lower = file.filename.lower()
+    if not (filename_lower.endswith('.zip') or filename_lower.endswith('.rar') or filename_lower.endswith('.7z')):
+        raise HTTPException(status_code=400, detail="Formato no soportado")
+
+    total, used, free = shutil.disk_usage(STORAGE_DIR)
+    if free < 2 * 1024 * 1024 * 1024: 
+        raise HTTPException(status_code=507, detail="Espacio en disco insuficiente")
+
+    # Temp save location before processing
+    temp_dir = STORAGE_DIR / "temp_uploads"
+    temp_dir.mkdir(exist_ok=True)
+    temp_path = temp_dir / file.filename.replace(" ", "_")
+    
+    with open(temp_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    try:
+        mod = process_mod_file(temp_path, file.filename, db, name, type, version)
+        # Cleanup temp dir parent if empty? No, just leave dir.
+        return mod
+    except Exception as e:
+        if temp_path.exists():
+            os.remove(temp_path)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/{mod_id}")
+def delete_mod(mod_id: int, db: Session = Depends(database.get_db)):
+    mod = db.query(models.Mod).filter(models.Mod.id == mod_id).first()
+    if not mod:
+        raise HTTPException(status_code=404, detail="Mod not found")
+    
+    # 1. Delete actual files
+    try:
+        mod_path = Path(mod.source_path)
+        if mod_path.exists():
+            shutil.rmtree(mod_path)
+    except Exception as e:
+        logger.error(f"Error deleting files for mod {mod_id}: {e}")
+        # We continue to delete from DB even if file deletion fails/partial
+        
+    # 2. Delete from DB
+    db.delete(mod)
+    db.commit()
+    
+    return {"status": "deleted", "id": mod_id}
+
+@router.put("/{mod_id}/toggle")
+def toggle_mod(mod_id: int, db: Session = Depends(database.get_db)):
+    mod = db.query(models.Mod).filter(models.Mod.id == mod_id).first()
+    if not mod:
+        raise HTTPException(status_code=404, detail="Mod not found")
+        
+    mod.is_active = not mod.is_active
+    db.commit()
+    db.refresh(mod)
+    
+    return mod
 
 @router.get("/", response_model=List[schemas.Mod])
-def list_mods(skip: int = 0, limit: int = 100, db: Session = Depends(database.get_db)):
-    return db.query(models.Mod).offset(skip).limit(limit).all()
+def list_mods(
+    search: str = None,
+    type: str = None,
+    tag: str = None, # Tag Name
+    skip: int = 0, 
+    limit: int = 100, 
+    db: Session = Depends(database.get_db)
+):
+    query = db.query(models.Mod)
+    
+    if search:
+        search_filter = f"%{search}%"
+        query = query.filter(models.Mod.name.ilike(search_filter))
+        
+    if type and type != "all":
+        query = query.filter(models.Mod.type == type)
+        
+    if tag:
+        # Join with tags table
+        query = query.join(models.Mod.tags).filter(models.Tag.name == tag)
+        
+    return query.offset(skip).limit(limit).all()
 
 @router.post("/{mod_id}/dependencies", response_model=schemas.Mod)
 def add_mod_dependency(
@@ -266,3 +401,66 @@ def get_mod_metadata(mod_id: int, db: Session = Depends(database.get_db)):
         pass # Path issue
 
     return metadata
+
+@router.get("/disk_usage")
+def get_disk_usage(db: Session = Depends(database.get_db)):
+    total_size = 0
+    for dirpath, dirnames, filenames in os.walk(STORAGE_DIR):
+        for f in filenames:
+            fp = os.path.join(dirpath, f)
+            # slip past if unopenable
+            try:
+                total_size += os.path.getsize(fp)
+            except OSError:
+                continue
+                
+    return {"total_size_bytes": total_size, "pretty": f"{total_size / (1024*1024*1024):.2f} GB"}
+
+# --- TAGS ENDPOINTS ---
+
+@router.post("/tags", response_model=schemas.Tag)
+def create_tag(tag: schemas.TagCreate, db: Session = Depends(database.get_db)):
+    # Check if exists
+    existing = db.query(models.Tag).filter(models.Tag.name == tag.name).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Tag already exists")
+        
+    new_tag = models.Tag(name=tag.name, color=tag.color)
+    db.add(new_tag)
+    db.commit()
+    db.refresh(new_tag)
+    return new_tag
+
+@router.get("/tags", response_model=List[schemas.Tag])
+def list_tags(db: Session = Depends(database.get_db)):
+    return db.query(models.Tag).all()
+
+@router.post("/{mod_id}/tags/{tag_id}", response_model=schemas.Mod)
+def add_tag_to_mod(mod_id: int, tag_id: int, db: Session = Depends(database.get_db)):
+    mod = db.query(models.Mod).filter(models.Mod.id == mod_id).first()
+    tag = db.query(models.Tag).filter(models.Tag.id == tag_id).first()
+    
+    if not mod or not tag:
+        raise HTTPException(status_code=404, detail="Mod or Tag not found")
+        
+    if tag not in mod.tags:
+        mod.tags.append(tag)
+        db.commit()
+        db.refresh(mod)
+        
+    return mod
+
+@router.delete("/{mod_id}/tags/{tag_id}", response_model=schemas.Mod)
+def remove_tag_from_mod(mod_id: int, tag_id: int, db: Session = Depends(database.get_db)):
+    mod = db.query(models.Mod).filter(models.Mod.id == mod_id).first()
+    tag = db.query(models.Tag).filter(models.Tag.id == tag_id).first()
+    
+    if not mod or not tag:
+        raise HTTPException(status_code=404, detail="Mod or Tag not found")
+        
+    if tag in mod.tags:
+        mod.tags.remove(tag)
+        db.commit()
+        db.refresh(mod)
+        
+    return mod
