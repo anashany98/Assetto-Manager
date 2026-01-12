@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getEvents, createEvent, type Event } from '../api/events';
+import type { Event } from '../types';
+import { getEvents, createEvent } from '../api/events';
 import { useState } from 'react';
 import { Calendar, Clock, MapPin, Trophy, Plus, X, MonitorPlay } from 'lucide-react';
 import { cn } from '../lib/utils';

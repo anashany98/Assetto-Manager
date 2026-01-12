@@ -47,10 +47,9 @@ def _deploy_task(stations: List[models.Station], db: Session):
         logger.warning("No content to deploy (backend/storage/mods/content missing)")
         return
 
-    # MAX WORKERS: 3 concurrent copies
-    # 3x Robocopy is enough to saturate a standard SATA SSD or 1Gbps Link
-    # Too many workers = Disk Trashing (Head jumping) -> Slower overall
-    MAX_WORKERS = 3
+    # MAX WORKERS: 5 concurrent copies (User Configured for 5 Servers)
+    # Ensure Network/Disk can handle 5x Robocopy streams.
+    MAX_WORKERS = 5
     
     logger.info(f"Starting PARALLEL deployment to {len(stations)} stations (Threads: {MAX_WORKERS})...")
     

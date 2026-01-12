@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { API_URL } from '../config';
-import { Trophy, Shuffle, Save, AlertCircle } from 'lucide-react';
+import { Trophy, Shuffle } from 'lucide-react'; // Save, AlertCircle removed
 
 export default function TournamentAdmin({ eventId }: { eventId: number }) {
     const queryClient = useQueryClient();

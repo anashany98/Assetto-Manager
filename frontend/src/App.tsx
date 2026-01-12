@@ -1,5 +1,4 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import React from 'react';
 import Layout from './components/Layout';
 import ErrorBoundary from './components/ErrorBoundary';
 
@@ -22,6 +21,8 @@ import LandingPage from './pages/LandingPage';
 import TournamentTV from './pages/TournamentTV';
 import MobileLeaderboard from './pages/MobileLeaderboard';
 import MobilePassport from './pages/MobilePassport';
+import LiveMapPage from './pages/LiveMapPage';
+import HistoryPage from './pages/HistoryPage';
 
 function App() {
   return (
@@ -38,6 +39,7 @@ function App() {
             <Route path="/events/:id" element={<EventDetails />} />
             <Route path="/championships" element={<ChampionshipsPage />} />
             <Route path="/championships/:id" element={<ChampionshipDetails />} />
+            <Route path="/history" element={<HistoryPage />} />
             <Route path="/mods" element={<ModsLibrary />} />
 
             {/* System */}
@@ -50,6 +52,7 @@ function App() {
             <Route path="/hall-of-fame" element={<HallOfFame />} />
             <Route path="/kiosk" element={<LandingPage />} />
             <Route path="/battle" element={<BattleMode />} />
+            <Route path="/live-map" element={<LiveMapPage />} />
 
             {/* TV & Mobile (Handled by Layout to hide sidebar) */}
             <Route path="/tv/leaderboard" element={<Leaderboard />} />

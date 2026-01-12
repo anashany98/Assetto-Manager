@@ -1,7 +1,7 @@
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getPilotProfile } from '../api/telemetry';
-import { ArrowLeft, History, Calendar } from 'lucide-react';
+import { ArrowLeft, History as HistoryIcon, Calendar } from 'lucide-react';
 import {
     ResponsiveContainer, Tooltip, RadarChart, PolarGrid,
     PolarAngleAxis, PolarRadiusAxis, Radar, LineChart,
@@ -69,19 +69,21 @@ export default function DriverPassport() {
                         <div className="grid grid-cols-2 gap-4 text-left bg-black/20 p-4 rounded-xl">
                             <div>
                                 <div className="text-xs text-gray-500 font-bold uppercase">Victorias</div>
-                                <div className="text-xl font-mono font-bold text-yellow-500">0</div>
+                                <div className="text-xl font-mono font-bold text-yellow-500">{profile.total_wins}</div>
                             </div>
                             <div>
                                 <div className="text-xs text-gray-500 font-bold uppercase">Podios</div>
-                                <div className="text-xl font-mono font-bold text-gray-300">0</div>
+                                <div className="text-xl font-mono font-bold text-gray-300">{profile.total_podiums}</div>
                             </div>
                             <div>
                                 <div className="text-xs text-gray-500 font-bold uppercase">Carreras</div>
-                                <div className="text-xl font-mono font-bold text-white">{profile.total_laps || 0}</div>
+                                <div className="text-xl font-mono font-bold text-white">{profile.total_laps || 0}</div> {/* Still using total_laps as proxy for experience, can be total_races if added to API */}
                             </div>
                             <div>
-                                <div className="text-xs text-gray-500 font-bold uppercase">Licencia</div>
-                                <div className="text-xl font-mono font-bold text-green-400">A</div>
+                                <div className="text-xs text-gray-500 font-bold uppercase">ELO Rating</div>
+                                <div className={`text-xl font-mono font-bold ${profile.elo_rating >= 1500 ? 'text-purple-400' : 'text-green-400'}`}>
+                                    {Math.round(profile.elo_rating)}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -167,7 +169,7 @@ export default function DriverPassport() {
             <div className="bg-gray-900 rounded-2xl shadow-sm border border-gray-800 overflow-hidden">
                 <div className="p-6 border-b border-gray-800 flex justify-between items-center">
                     <h2 className="text-gray-300 font-bold flex items-center gap-2">
-                        <History className="text-blue-500" />
+                        <HistoryIcon className="text-blue-500" />
                         Historial de Sesiones
                     </h2>
                 </div>

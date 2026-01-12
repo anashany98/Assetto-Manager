@@ -135,7 +135,16 @@ export function TelemetryChart({ lapId, compareLapId }: TelemetryChartProps) {
                             <XAxis dataKey="dist" hide />
                             <YAxis yAxisId="left" stroke="#9CA3AF" fontSize={10} domain={[0, 'auto']} tickFormatter={(val) => `${val}`} />
                             <YAxis yAxisId="right" orientation="right" stroke="#6B7280" fontSize={10} domain={[0, 9000]} hide />
-                            <Tooltip contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px', fontSize: '12px' }} itemStyle={{ color: '#F3F4F6' }} labelStyle={{ display: 'none' }} />
+                            <Tooltip
+                                contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px', fontSize: '12px' }}
+                                itemStyle={{ color: '#F3F4F6' }}
+                                labelStyle={{ display: 'none' }}
+                                formatter={(value: any, name: any) => {
+                                    if (name === 'Velocidad' || name === 'Comparativa') return [`${Math.round(Number(value))} km/h`, name];
+                                    if (name === 'RPM') return [Math.round(Number(value)), name];
+                                    return [value, name];
+                                }}
+                            />
                             <Legend iconSize={8} wrapperStyle={{ fontSize: '10px' }} />
 
                             <Line yAxisId="left" type="monotone" dataKey="speed" stroke="#EAB308" strokeWidth={2} dot={false} name="Velocidad" animationDuration={500} />

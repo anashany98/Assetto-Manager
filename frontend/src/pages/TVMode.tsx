@@ -115,11 +115,55 @@ export const TVMode = () => {
                 );
             case 'LIVE_MAP':
                 return (
-                    <div className="h-full w-full relative">
-                        <div className="absolute top-8 left-8 z-10 bg-red-600 animate-pulse px-4 py-2 rounded-lg font-black text-white text-2xl uppercase tracking-widest shadow-lg">
-                            🔴 En Vivo
+                    <div className="h-full w-full relative grid grid-cols-12 gap-4 p-8">
+                        {/* Left: Map */}
+                        <div className="col-span-8 h-full">
+                            <LiveMap drivers={Object.values(liveCars).map((c: any) => ({
+                                id: c.station_id,
+                                name: c.driver || 'Desconocido',
+                                x: c.x || 0,
+                                z: c.z || 0,
+                                normPos: c.normalized_pos || 0,
+                                color: c.station_id === 1 ? '#ef4444' : c.station_id === 2 ? '#3b82f6' : c.station_id === 3 ? '#22c55e' : '#eab308',
+                                isOnline: true
+                            }))} trackName={Object.values(liveCars)[0]?.track || 'Circuito'} />
                         </div>
-                        <LiveMap cars={Object.values(liveCars)} trackName="monza" />
+
+                        {/* Right: Driver Status Cards */}
+                        <div className="col-span-4 flex flex-col space-y-4 overflow-hidden">
+                            <h2 className="text-xl font-black italic tracking-tighter text-yellow-500 uppercase">Estado de Pista</h2>
+                            {Object.values(liveCars).slice(0, 4).map((car: any) => (
+                                <div key={car.station_id} className="bg-gray-900/80 border-l-4 border-yellow-500 p-4 rounded-r-xl shadow-xl transition-all hover:translate-x-1">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div className="font-black text-lg uppercase leading-none tracking-tighter italic">{car.driver}</div>
+                                        <div className="text-[10px] bg-yellow-500 text-black px-1.5 py-0.5 rounded font-black italic">{Math.round(car.speed_kmh)} KM/H</div>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-2 text-[8px] uppercase font-bold text-gray-400">
+                                        <div className="bg-white/5 p-1 px-2 rounded">
+                                            <div className="text-gray-500">Motor</div>
+                                            <div className={car.engine_temp > 100 ? 'text-red-500' : 'text-white'}>{Math.round(car.engine_temp || 0)}°C</div>
+                                        </div>
+                                        <div className="bg-white/5 p-1 px-2 rounded">
+                                            <div className="text-gray-500">Combustible</div>
+                                            <div className="text-white">{Math.round(car.fuel || 0)}L</div>
+                                        </div>
+                                        <div className="bg-white/5 p-1 px-2 rounded">
+                                            <div className="text-gray-500">Daño</div>
+                                            <div className={car.damage?.some((d: number) => d > 0.1) ? 'text-red-500' : 'text-green-500'}>
+                                                {car.damage ? Math.round(car.damage.reduce((a: any, b: any) => a + b, 0) * 10) : 0}%
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Tyre Temps Mini Bar */}
+                                    <div className="mt-2 flex space-x-1 h-1">
+                                        {(car.tyre_temp || [0, 0, 0, 0]).map((t: number, i: number) => (
+                                            <div key={i} className="flex-1 rounded-full" style={{ backgroundColor: t > 100 ? '#ef4444' : t > 80 ? '#22c55e' : '#3b82f6' }} />
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 );
             case 'COUNTDOWN':

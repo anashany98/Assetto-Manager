@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
+// import { getEvents, createEvent } from '../api/events';     
+// import type { Event } from '../types';
 
 
 export interface TelemetryPacket {
@@ -29,55 +31,56 @@ export const useTelemetry = () => {
     const [liveCars, setLiveCars] = useState<Record<string, TelemetryPacket>>({});
     const [isConnected, setIsConnected] = useState(false);
     const ws = useRef<WebSocket | null>(null);
+    const reconnectTimeout = useRef<number | null>(null);
 
     useEffect(() => {
-        // Dynamic WS URL logic
         const isSecure = window.location.protocol === 'https:';
-        const isLocal = window.location.hostname === 'localhost';
-
+        const wsProtocol = isSecure ? 'wss' : 'ws';
         let wsUrl = '';
 
-        if (isLocal) {
-            wsUrl = `ws://${window.location.hostname}:8000/ws/telemetry/client`;
+        if (window.location.hostname.endsWith('loca.lt')) {
+            wsUrl = `${wsProtocol}://${window.location.hostname}/ws/telemetry/client`;
         } else {
-            // Remote (Tunnel)
-            // Force WSS if page is loaded via HTTPS (which localtunnel is)
-            const protocol = isSecure ? 'wss' : 'ws';
-            // Must use the BACKEND tunnel URL here
-            wsUrl = `${protocol}://khaki-donkeys-share.loca.lt/ws/telemetry/client`;
+            // Force 127.0.0.1 to avoid localhost/IPv6 issues in browser
+            wsUrl = `${wsProtocol}://127.0.0.1:8000/ws/telemetry/client`;
         }
 
         const connect = () => {
-            console.log("Connecting to Telemetry WS:", wsUrl);
-            ws.current = new WebSocket(wsUrl);
+            if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current);
 
-            ws.current.onopen = () => {
-                console.log("Telemetry WS Open");
+            console.log(`Telemetry: Connecting to ${wsUrl}...`);
+            const socket = new WebSocket(wsUrl);
+            ws.current = socket;
+
+            socket.onopen = () => {
+                console.log("Telemetry: Connected");
                 setIsConnected(true);
             };
 
-            ws.current.onclose = (event) => {
-                console.log("Telemetry WS Closed", event.code, event.reason);
+            socket.onclose = (event) => {
                 setIsConnected(false);
-                // Reconnect after delay
-                setTimeout(connect, 3000);
+                if (event.code !== 1000) {
+                    console.warn(`Telemetry: Closed (${event.code}). Retrying...`);
+                    reconnectTimeout.current = window.setTimeout(connect, 3000);
+                }
             };
 
-            ws.current.onerror = (error) => {
-                console.error("Telemetry WS Error:", error);
+            socket.onerror = (_error) => {
+                // Error log usually followed by onclose
+                console.error("Telemetry: Connection Error");
             };
 
-            ws.current.onmessage = (event) => {
+            socket.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    if (data.type === 'telemetry') {
+                    if (data.type === 'telemetry' && data.station_id) {
                         setLiveCars(prev => ({
                             ...prev,
                             [data.station_id]: { ...data, timestamp: Date.now() }
                         }));
                     }
                 } catch (e) {
-                    console.error("WS Parse Error", e);
+                    // Silently ignore parse errors
                 }
             };
         };
@@ -85,8 +88,17 @@ export const useTelemetry = () => {
         connect();
 
         return () => {
+            if (reconnectTimeout.current) window.clearTimeout(reconnectTimeout.current);
             if (ws.current) {
-                ws.current.close();
+                // Prevent "closed before established" warnings by ignoring the onclose handler if closing manually
+                ws.current.onclose = null;
+                ws.current.onerror = null;
+
+                // Only close if it's not already closed or closing
+                if (ws.current.readyState === WebSocket.OPEN || ws.current.readyState === WebSocket.CONNECTING) {
+                    ws.current.close();
+                }
+                ws.current = null;
             }
         };
     }, []);

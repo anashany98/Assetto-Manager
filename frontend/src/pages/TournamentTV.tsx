@@ -2,7 +2,7 @@ import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { API_URL } from '../config';
-import { Trophy, Users, MonitorPlay } from 'lucide-react';
+import { Trophy, Users } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useEffect, useState } from 'react';
 
@@ -36,7 +36,7 @@ export default function TournamentTV() {
     });
 
     // Fetch Bracket Data (Backend)
-    const { data: bracketData, isLoading: loadingBracket } = useQuery({
+    const { data: bracketData } = useQuery({
         queryKey: ['bracket', eventId],
         queryFn: async () => {
             const res = await axios.get(`${API_URL}/tournaments/${eventId}/bracket`);
@@ -104,7 +104,7 @@ export default function TournamentTV() {
 
                                 {/* Matches */}
                                 <div className="flex flex-col justify-around flex-1 relative">
-                                    {round.map((match, matchIndex) => (
+                                    {round.map((match, _matchIndex) => (
                                         <MatchCard key={match.id} match={match} isFinal={roundIndex === bracket.rounds.length - 1} />
                                     ))}
                                 </div>

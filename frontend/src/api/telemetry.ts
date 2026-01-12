@@ -28,3 +28,10 @@ export const uploadSession = async (data: any) => {
     const res = await axios.post(`${API_URL}/session`, data);
     return res.data;
 };
+
+export const getRecentSessions = async (filters: { track_name?: string, driver_name?: string, car_model?: string, limit?: number } = {}) => {
+    const res = await axios.get(`${API_URL}/sessions`, {
+        params: filters
+    });
+    return res.data;
+};

@@ -24,6 +24,7 @@ export interface ChampionshipStanding {
     events_participated: number;
     wins: number;
     podiums: number;
+    best_lap_ever?: number;
 }
 
 export const getChampionships = async () => {
@@ -48,5 +49,10 @@ export const addEventToChampionship = async (champId: number, eventId: number) =
 
 export const getChampionshipStandings = async (id: number) => {
     const response = await axios.get<ChampionshipStanding[]>(`${API_URL}/${id}/standings`);
+    return response.data;
+};
+
+export const linkSessionToEvent = async (champId: number, eventId: number, sessionId: number) => {
+    const response = await axios.post(`${API_URL}/${champId}/events/${eventId}/link-session/${sessionId}`);
     return response.data;
 };

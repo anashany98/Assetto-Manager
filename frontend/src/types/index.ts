@@ -68,6 +68,9 @@ export interface PilotProfile {
     active_days: number;
     records: TrackRecord[];
     recent_sessions: SessionSummary[];
+    total_wins: number;
+    total_podiums: number;
+    elo_rating: number;
 }
 
 export interface DriverDetails {

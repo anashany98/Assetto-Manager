@@ -1,305 +1,174 @@
-import React, { useRef, useEffect, useState } from 'react';
-import type { TelemetryPacket } from '../hooks/useTelemetry';
-import { Activity, X } from 'lucide-react';
+import React, { useEffect, useRef } from 'react';
+
+interface DriverPosition {
+    id: number;
+    name: string;
+    x: number;
+    z: number;
+    normPos: number;
+    color: string;
+    isOnline: boolean;
+}
 
 interface LiveMapProps {
-    cars: TelemetryPacket[];
+    cars?: any[]; // Allow cars prop (TelemetryPacket)
+    drivers?: DriverPosition[]; // Legacy support
     trackName: string;
 }
 
-interface Point {
-    x: number;
-    z: number;
-}
+const TRACK_REGISTRY: Record<string, { path: string, viewBox: string }> = {
+    "Nürburgring Nordschleife": {
+        path: "M 241,475 C 236,470 232,465 228,458 C 218,442 220,438 214,435 C 210,433 205,434 200,443 C 190,460 180,470 165,475 C 145,482 135,478 125,470 C 110,458 100,440 95,420 C 90,400 92,385 102,370 C 115,350 135,335 155,325 C 180,312 210,312 235,320 C 255,327 270,340 280,360 C 290,380 292,395 288,410 C 285,425 275,440 260,455 C 250,465 245,472 241,475 M 241,475 L 350,475 C 370,475 390,465 400,450 C 415,425 420,400 415,370 C 410,340 390,310 360,290 C 330,270 290,265 260,275 C 230,285 200,310 180,340 C 160,370 150,400 155,430 C 160,460 175,485 200,500 C 225,515 255,520 285,515 C 315,510 345,495 365,475 C 385,455 400,430 405,400 C 410,370 405,340 390,310 C 375,280 350,255 320,240 C 290,225 255,220 220,225 C 185,230 150,245 125,270 C 100,295 85,325 80,360 C 75,395 80,430 95,460 C 110,490 135,515 170,530 C 205,545 245,550 285,545 C 325,540 360,525 385,505 C 410,485 430,460 440,430 C 450,400 450,370 440,340 C 430,310 410,280 380,260 C 350,240 310,230 270,235 C 230,240 190,255 160,280 C 130,305 110,335 100,370 C 90,405 90,440 105,475 C 120,510 145,540 180,560 C 215,580 260,585 300,580 C 340,575 380,560 410,535 C 440,510 460,480 470,445 C 480,410 480,370 465,335 C 450,300 425,270 390,250 C 355,230 310,220 265,225 C 220,230 175,245 140,275 C 105,305 80,340 70,380 C 60,420 60,465 75,505 C 90,545 120,580 160,605 C 200,630 250,640 300,635 C 350,630 395,610 430,580 C 465,550 490,510 500,465 C 510,420 505,375 485,335 C 465,295 430,265 385,245 C 340,225 285,220 235,230 C 185,240 140,260 105,295 C 70,330 45,370 35,420 C 25,470 30,520 50,565 C 70,610 105,650 150,675 C 195,700 250,710 305,705 C 360,700 410,680 450,650 C 490,620 520,580 535,530 C 550,480 550,430 535,385 C 510,340 475,305 430,285 C 385,265 330,260 275,270 C 220,280 170,305 130,345 C 90,385 60,435 50,490 C 40,545 45,605 65,655 C 85,705 125,745 175,770 C 225,795 285,805 345,800 C 405,795 460,775 505,740 C 550,705 585,655 600,600 C 615,545 615,485 595,435 C 575,385 535,345 480,325 C 425,305 365,300 305,310 L 241,475",
+        viewBox: "0 0 700 900"
+    }
+};
 
-interface ScreenCar {
-    cx: number;
-    cy: number;
-    station_id: string;
-}
-
-export const LiveMap: React.FC<LiveMapProps> = ({ cars, trackName }) => {
+export const LiveMap: React.FC<LiveMapProps> = ({ drivers, cars, trackName }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const [pathPoints, setPathPoints] = useState<Point[]>([]);
-    const [lastTrack, setLastTrack] = useState<string>(trackName);
-    const [selectedCarId, setSelectedCarId] = useState<string | null>(null);
-    const screenCars = useRef<ScreenCar[]>([]); // Store screen positions for click detection
+    const containerRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
-        if (trackName !== lastTrack) {
-            setPathPoints([]);
-            setLastTrack(trackName);
-        }
-    }, [trackName, lastTrack]);
+    // Merge or select data source
+    const activeDrivers = drivers || cars?.map((c: any) => ({
+        id: c.station_id || Math.random(),
+        name: c.driver_name || "Unknown",
+        x: c.x || 0,
+        z: c.z || 0,
+        normPos: c.n || 0,
+        color: 'red', // Default
+        isOnline: true
+    })) || [];
 
-    useEffect(() => {
-        // Update path from all cars
-        cars.forEach(car => {
-            if (car.x !== undefined && car.z !== undefined) {
-                setPathPoints(prev => {
-                    const last = prev[prev.length - 1];
-                    if (!last) return [...prev, { x: car.x!, z: car.z! }];
-
-                    const dist = Math.sqrt(Math.pow(last.x - car.x!, 2) + Math.pow(last.z - car.z!, 2));
-                    if (dist > 5) { // 5m filter
-                        if (prev.length > 5000) {
-                            return [...prev.slice(1), { x: car.x!, z: car.z! }];
-                        }
-                        return [...prev, { x: car.x!, z: car.z! }];
-                    }
-                    return prev;
-                });
-            }
-        });
-    }, [cars]);
-
-    // Draw Loop
     useEffect(() => {
         const canvas = canvasRef.current;
-        if (!canvas) return;
+        const container = containerRef.current;
+        if (!canvas || !container) return;
+
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        // Clear
-        ctx.fillStyle = '#111827';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Auto Scale
-        let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+        const trackData = TRACK_REGISTRY[trackName];
 
-        pathPoints.forEach(p => {
-            if (p.x < minX) minX = p.x;
-            if (p.x > maxX) maxX = p.x;
-            if (p.z < minZ) minZ = p.z;
-            if (p.z > maxZ) maxZ = p.z;
-        });
+        const handleResize = () => {
+            const dpr = window.devicePixelRatio || 1;
+            const rect = container.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+            render();
+        };
 
-        // Also consider current car positions for bounds
-        cars.forEach(c => {
-            if (c.x !== undefined && c.z !== undefined) {
-                if (c.x < minX) minX = c.x;
-                if (c.x > maxX) maxX = c.x;
-                if (c.z < minZ) minZ = c.z;
-                if (c.z > maxZ) maxZ = c.z;
-            }
-        });
+        const render = () => {
+            const rect = container.getBoundingClientRect();
+            const width = rect.width;
+            const height = rect.height;
+            ctx.clearRect(0, 0, width, height);
 
-        if (minX === Infinity) {
-            ctx.fillStyle = '#6B7280';
-            ctx.font = '10px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText("Esperando coches...", canvas.width / 2, canvas.height / 2);
-            return;
-        }
+            const centerX = width / 2;
+            const centerY = height / 2;
 
-        const padding = 20;
-        const width = maxX - minX || 1;
-        const height = maxZ - minZ || 1;
+            // Adjust scale based on track complexity
+            const scale = trackData ? Math.min(width / 600, height / 800) * 0.8 : Math.min(width / 400, height / 300) * 1.2;
 
-        const canvasRatio = canvas.width / canvas.height;
-        const trackRatio = width / height;
+            const drawPath = () => {
+                if (trackData) {
+                    const p = new Path2D(trackData.path);
+                    ctx.translate(centerX - 300 * scale, centerY - 450 * scale);
+                    ctx.scale(scale, scale);
+                    ctx.stroke(p);
+                    ctx.scale(1 / scale, 1 / scale);
+                    ctx.translate(-(centerX - 300 * scale), -(centerY - 450 * scale));
+                } else {
+                    // Fallback to D-shape
+                    ctx.moveTo(centerX - 120 * scale, centerY - 80 * scale);
+                    ctx.lineTo(centerX + 80 * scale, centerY - 80 * scale);
+                    ctx.bezierCurveTo(centerX + 160 * scale, centerY - 80 * scale, centerX + 160 * scale, centerY + 80 * scale, centerX + 80 * scale, centerY + 80 * scale);
+                    ctx.lineTo(centerX - 120 * scale, centerY + 80 * scale);
+                    ctx.bezierCurveTo(centerX - 180 * scale, centerY + 80 * scale, centerX - 180 * scale, centerY - 80 * scale, centerX - 120 * scale, centerY - 80 * scale);
+                    ctx.stroke();
+                }
+            };
 
-        let scale = 1;
-        if (trackRatio > canvasRatio) {
-            scale = (canvas.width - padding * 2) / width;
-        } else {
-            scale = (canvas.height - padding * 2) / height;
-        }
-
-        const transformX = (x: number) => (x - minX) * scale + padding + (canvas.width - padding * 2 - width * scale) / 2;
-        const transformZ = (z: number) => (z - minZ) * scale + padding + (canvas.height - padding * 2 - height * scale) / 2;
-
-        // Draw Track Path
-        if (pathPoints.length > 1) {
+            // 1. Blue Glow
+            ctx.shadowBlur = 0;
             ctx.beginPath();
-            ctx.strokeStyle = '#374151';
-            ctx.lineWidth = 3;
+            ctx.strokeStyle = 'rgba(59, 130, 246, 0.2)';
+            ctx.lineWidth = 35 * (trackData ? 1 : scale);
             ctx.lineJoin = 'round';
             ctx.lineCap = 'round';
+            drawPath();
 
-            pathPoints.forEach((p, i) => {
-                const cx = transformX(p.x);
-                const cy = transformZ(p.z);
-                if (i === 0) ctx.moveTo(cx, cy);
-                else ctx.lineTo(cx, cy);
-            });
-            ctx.stroke();
-        }
+            // 2. Main Track
+            ctx.beginPath();
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 25 * (trackData ? 1 : scale);
+            drawPath();
 
-        // Draw Cars
-        screenCars.current = []; // Clear current frame cars
-        cars.forEach((car, index) => {
-            if (car.x !== undefined && car.z !== undefined) {
-                const cx = transformX(car.x);
-                const cy = transformZ(car.z);
+            // 3. Inner border
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+            ctx.lineWidth = 22 * (trackData ? 1 : scale);
+            drawPath();
 
-                // Save for click detection
-                screenCars.current.push({ cx, cy, station_id: car.station_id });
+            // 4. Center Line
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+            ctx.setLineDash([10, 15]);
+            ctx.lineWidth = 1;
+            drawPath();
+            ctx.setLineDash([]);
 
-                // Colors
-                const colors = ['#EAB308', '#EF4444', '#3B82F6', '#22C55E', '#A855F7'];
-                const color = colors[index % colors.length];
+            // Draw Drivers (Simplified position mapping for Nordschleife)
+            // For now we use the same X,Z mapping, but scaled
+            activeDrivers.forEach(driver => {
+                if (!driver.isOnline) return;
 
-                // Selected Halo
-                if (selectedCarId === car.station_id) {
-                    ctx.beginPath();
-                    ctx.strokeStyle = '#FFF';
-                    ctx.lineWidth = 1;
-                    ctx.setLineDash([2, 2]);
-                    ctx.arc(cx, cy, 12, 0, Math.PI * 2);
-                    ctx.stroke();
-                    ctx.setLineDash([]);
-                }
+                const screenX = centerX + (driver.x) * (trackData ? scale * 0.5 : scale * 0.9);
+                const screenZ = centerY + (driver.z) * (trackData ? scale * 0.5 : scale * 0.9);
 
-                // Dot
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = driver.color;
+                ctx.fillStyle = driver.color;
                 ctx.beginPath();
-                ctx.fillStyle = color;
-                ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+                ctx.arc(screenX, screenZ, 7 * scale, 0, Math.PI * 2);
                 ctx.fill();
 
-                // Ring
-                ctx.beginPath();
-                ctx.strokeStyle = '#FFF';
-                ctx.lineWidth = 1.5;
-                ctx.arc(cx, cy, 7, 0, Math.PI * 2);
-                ctx.stroke();
-
-                // Name
-                ctx.fillStyle = '#FFF';
-                ctx.font = 'bold 12px sans-serif'; // Bigger font
-                ctx.textAlign = 'center';
-                ctx.shadowColor = 'black';
-                ctx.shadowBlur = 4;
-                ctx.fillText(car.driver || 'Driver', cx, cy - 12);
                 ctx.shadowBlur = 0;
-            }
-        });
+                ctx.fillStyle = 'white';
+                ctx.beginPath();
+                ctx.arc(screenX, screenZ, 3 * scale, 0, Math.PI * 2);
+                ctx.fill();
 
-    }, [pathPoints, cars, selectedCarId]);
+                const tagWidth = ctx.measureText(driver.name).width + 10;
+                ctx.fillStyle = 'rgba(0,0,0,0.8)';
+                ctx.roundRect(screenX - tagWidth / 2, screenZ - 25 * scale, tagWidth, 14 * scale, 4);
+                ctx.fill();
 
-    const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-        const rect = canvasRef.current?.getBoundingClientRect();
-        if (!rect) return;
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+                ctx.fillStyle = 'white';
+                ctx.font = `black ${Math.round(9 * scale)}px Inter, sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.fillText(driver.name, screenX, screenZ - 15 * scale);
+            });
+        };
 
-        // Find clicked car
-        const clicked = screenCars.current.find(c => {
-            const dist = Math.sqrt(Math.pow(c.cx - x, 2) + Math.pow(c.cy - y, 2));
-            return dist < 20; // 20px hit radius
-        });
-
-        if (clicked) {
-            setSelectedCarId(clicked.station_id);
-        } else {
-            // Click background to deselect
-            setSelectedCarId(null);
-        }
-    };
-
-    const selectedCar = cars.find(c => c.station_id === selectedCarId);
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, [activeDrivers, trackName]);
 
     return (
-        <div className="w-full h-full relative rounded-lg overflow-hidden border border-white/5 bg-gray-900 shadow-2xl">
-            <canvas
-                ref={canvasRef}
-                width={800} // Higher res
-                height={600}
-                className="w-full h-full object-contain cursor-crosshair"
-                onClick={handleCanvasClick}
-            />
-
-            {/* Overlay Info */}
-            <div className="absolute top-4 left-4 flex gap-4 pointer-events-none">
-                <div className="bg-black/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 text-xs text-gray-400 font-mono flex items-center gap-2">
-                    <Activity size={12} className="text-green-500 animate-pulse" />
-                    LIVE DATA
+        <div ref={containerRef} className="relative w-full h-full bg-transparent overflow-hidden">
+            <div className="absolute top-4 left-6 flex items-center space-x-3 pointer-events-none z-10">
+                <div className="flex -space-x-1">
+                    {[1, 2, 3].map(i => (
+                        <div key={i} className="w-1.5 h-6 bg-yellow-500/20 skew-x-[-20deg]" />
+                    ))}
                 </div>
+                <span className="text-xs uppercase font-black tracking-[0.2em] text-white/20 italic">
+                    Vector Intelligence Track: {trackName}
+                </span>
             </div>
-
-            {/* Telemetry Card */}
-            {selectedCar && (
-                <div className="absolute top-4 right-4 w-64 bg-black/90 backdrop-blur-xl rounded-xl border border-white/10 p-4 shadow-2xl animate-in slide-in-from-right-4">
-                    <div className="flex justify-between items-start mb-4 border-b border-white/10 pb-3">
-                        <div>
-                            <h3 className="text-white font-bold text-lg leading-none">{selectedCar.driver}</h3>
-                            <p className="text-gray-400 text-xs mt-1 truncate max-w-[150px]">{selectedCar.car}</p>
-                        </div>
-                        <button
-                            onClick={() => setSelectedCarId(null)}
-                            className="text-gray-500 hover:text-white transition-colors"
-                        >
-                            <X size={16} />
-                        </button>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                        <div className="bg-gray-800/50 p-2 rounded-lg text-center">
-                            <div className="text-gray-500 text-[10px] uppercase font-bold">Velocidad</div>
-                            <div className="text-2xl font-black text-white font-mono leading-none my-1">
-                                {Math.round(selectedCar.speed_kmh)}
-                            </div>
-                            <div className="text-gray-500 text-[10px]">km/h</div>
-                        </div>
-                        <div className="bg-gray-800/50 p-2 rounded-lg text-center relative overflow-hidden">
-                            <div className="text-gray-500 text-[10px] uppercase font-bold">Marcha</div>
-                            <div className="text-3xl font-black text-yellow-500 font-mono leading-none my-1">
-                                {selectedCar.gear === 0 ? 'R' : selectedCar.gear === 1 ? 'N' : selectedCar.gear - 1}
-                            </div>
-                            {/* RPM Bar background */}
-                            <div
-                                className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-green-500 via-yellow-500 to-red-500 transition-all duration-75"
-                                style={{ width: `${Math.min(100, (selectedCar.rpm / 8000) * 100)}%` }}
-                            />
-                        </div>
-                    </div>
-
-                    <div className="space-y-2">
-                        {/* RPM */}
-                        <div className="flex justify-between text-[10px] text-gray-400 uppercase font-bold mb-1">
-                            <span>RPM</span>
-                            <span>{Math.round(selectedCar.rpm)}</span>
-                        </div>
-                        <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
-                            <div
-                                className="h-full bg-blue-500 transition-all duration-75 ease-out"
-                                style={{ width: `${Math.min(100, (selectedCar.rpm / 8500) * 100)}%` }}
-                            />
-                        </div>
-
-                        {/* Throttle */}
-                        <div className="flex items-center gap-2 mt-3">
-                            <span className="text-[10px] font-bold text-gray-500 w-8">GAS</span>
-                            <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
-                                <div
-                                    className="h-full bg-green-500 transition-all duration-75 ease-out"
-                                    style={{ width: `${(selectedCar.gas || 0) * 100}%` }}
-                                />
-                            </div>
-                        </div>
-
-                        {/* Brake */}
-                        <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold text-gray-500 w-8">FRE</span>
-                            <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
-                                <div
-                                    className="h-full bg-red-500 transition-all duration-75 ease-out"
-                                    style={{ width: `${(selectedCar.brake || 0) * 100}%` }}
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="mt-4 pt-3 border-t border-white/10 flex justify-between items-center">
-                        <div className="text-[10px] text-gray-500">
-                            V. actual: <span className="text-white font-mono">{selectedCar.lap_time_ms ? (selectedCar.lap_time_ms / 1000).toFixed(1) : '0.0'}s</span>
-                        </div>
-                        <div className="text-[10px] text-gray-500">
-                            Pos: <span className="text-yellow-500 font-bold">P{selectedCar.pos}</span>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <canvas ref={canvasRef} className="block" />
         </div>
     );
 };

@@ -12,7 +12,15 @@ router = APIRouter(
 def register_station(station: schemas.StationCreate, db: Session = Depends(database.get_db)):
     db_station = db.query(models.Station).filter(models.Station.mac_address == station.mac_address).first()
     if db_station:
-        # Update existing registration info if needed
+        # Update existing registration info if IP/Hostname changed
+        if db_station.ip_address != station.ip_address:
+            db_station.ip_address = station.ip_address
+        if db_station.hostname != station.hostname:
+            db_station.hostname = station.hostname
+        # Optional: Reset status to online on fresh register
+        db_station.is_online = True 
+        db.commit()
+        db.refresh(db_station)
         return db_station
     
     new_station = models.Station(**station.model_dump())

@@ -10,8 +10,8 @@ import { HallOfFame } from './HallOfFame';
 import { cn } from '../lib/utils';
 import axios from 'axios';
 import html2canvas from 'html2canvas';
-import GhostViewer from '../components/GhostViewer';
-import { PlayCircle } from 'lucide-react';
+// import GhostViewer from '../components/GhostViewer';
+// import { PlayCircle } from 'lucide-react'; // Removed unused
 
 // Types
 interface LeaderboardEntry {
@@ -495,18 +495,18 @@ export default function MobileLeaderboard() {
     const [viewingTrack, setViewingTrack] = useState<string | null>(null);
 
     // Replay State
-    const [replayData, setReplayData] = useState<any[]>([]);
-    const [showReplay, setShowReplay] = useState(false);
+    // const [replayData, setReplayData] = useState<any[]>([]); 
+    // const [showReplay, setShowReplay] = useState(false);
 
-    const handleOpenReplay = async (lapId: number) => {
-        try {
-            const res = await axios.get(`${API_URL}/telemetry/lap/${lapId}/telemetry`);
-            setReplayData(res.data);
-            setShowReplay(true);
-        } catch (e) {
-            alert("No hay datos de replay para esta vuelta (versión antigua o sin telemetría).");
-        }
-    };
+    // const handleOpenReplay = async (lapId: number) => { ... } // Replay feature pending
+    // try {
+    //     const res = await axios.get(`${API_URL}/telemetry/lap/${lapId}/telemetry`);
+    //     setReplayData(res.data);
+    //     setShowReplay(true);
+    // } catch (e) {
+    //     alert("No hay datos de replay para esta vuelta (versión antigua o sin telemetría).");
+    // }
+    // };
 
 
     // Check if any car is active (assuming single user station for mobile view context usually)
@@ -925,11 +925,11 @@ export default function MobileLeaderboard() {
             }
             {/* Live Dashboard Overlay REMOVED */}
 
-            <GhostViewer
+            {/* <GhostViewer
                 isOpen={showReplay}
                 onClose={() => setShowReplay(false)}
                 data={replayData}
-            />
+            /> */}
         </div >
     );
 }

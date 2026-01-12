@@ -27,3 +27,10 @@ Thumbs.db
 build/
 dist/
 *.spec
+
+# Backend Secrets
+backend/.env
+
+# Local Config
+LOCAL
+NETWORK

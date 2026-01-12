@@ -63,15 +63,18 @@ def get_db_session():
 
 @router.websocket("/ws/telemetry/client")
 async def websocket_client_endpoint(websocket: WebSocket):
+    logger.info("Attempting to connect a new client...")
     await manager.connect_client(websocket)
     try:
         while True:
             # Wait for any message from the client (e.g. keepalives or commands)
-            await websocket.receive_text()
+            data = await websocket.receive_text()
+            # logger.info(f"Received from client: {data}")
     except WebSocketDisconnect:
+        logger.info("Client disconnected gracefully.")
         manager.disconnect_client(websocket)
     except Exception as e:
-        logger.error(f"Client WS error: {e}")
+        logger.error(f"Client WS Error (Critical): {e}")
         manager.disconnect_client(websocket)
 
 @router.websocket("/ws/telemetry/agent")

@@ -18,6 +18,33 @@ logging.basicConfig(
 )
 logger = logging.getLogger("AC-Agent")
 
+# --- Network Log Handler ---
+class NetworkLogHandler(logging.Handler):
+    def __init__(self, server_url):
+        super().__init__()
+        self.server_url = server_url
+        self.agent_name = socket.gethostname()
+
+    def emit(self, record):
+        # Prevent infinite recursion if requests logs something
+        if record.name.startswith("urllib3") or record.name.startswith("requests"):
+            return
+            
+        try:
+            log_data = {
+                "level": record.levelname,
+                "source": f"Agent-{self.agent_name}",
+                "message": record.getMessage(),
+                "details": f"{record.filename}:{record.lineno}"
+            }
+            # Use a short timeout and ignore errors to not block the agent
+            requests.post(f"{self.server_url}/system/logs/", json=log_data, timeout=1)
+        except Exception:
+            pass # Fail silently if backend is down
+
+# We will attach this handler later in main() once we read the config
+# ---------------------------
+
 import os
 from pathlib import Path
 
@@ -186,6 +213,12 @@ import telemetry # Habilitado para gestión de resultados y fusión de telemetr�
 
 def main():
     logger.info("Iniciando Agente AC Manager...")
+    
+    # Attach Network Logger (Only for Warnings/Errors)
+    net_handler = NetworkLogHandler(SERVER_URL)
+    net_handler.setLevel(logging.WARNING) # Sync only important stuff
+    logger.addHandler(net_handler)
+    
     ensure_directories()
     
     station_id = None

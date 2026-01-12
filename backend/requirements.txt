@@ -9,3 +9,5 @@ aiofiles
 psutil
 python-socketio
 patool
+psycopg2-binary
+python-dotenv

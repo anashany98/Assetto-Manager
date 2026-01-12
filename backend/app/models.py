@@ -31,6 +31,12 @@ class Driver(Base):
     name = Column(String, unique=True, index=True)
     country = Column(String, nullable=True)
     metadata_json = Column(JSON, nullable=True) 
+    
+    # Stats
+    elo_rating = Column(Float, default=1200.0)
+    total_wins = Column(Integer, default=0)
+    total_podiums = Column(Integer, default=0)
+    total_races = Column(Integer, default=0) 
 
 class Station(Base):
     __tablename__ = "stations"
@@ -100,6 +106,9 @@ class SessionResult(Base):
     
     session_type = Column(String, default="practice")
     track_config = Column(String, nullable=True)
+    
+    event_id = Column(Integer, ForeignKey("events.id"), nullable=True)
+    event = relationship("Event", backref="results")
 
 class Event(Base):
     __tablename__ = "events"
@@ -115,6 +124,10 @@ class Event(Base):
     rules = Column(JSON, nullable=True) 
     bracket_data = Column(JSON, nullable=True)
     is_active = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, onupdate=datetime.utcnow)
+    
+    championship_id = Column(Integer, ForeignKey("championships.id"), nullable=True)
 
 class LapTime(Base):
     __tablename__ = "laptimes"
@@ -123,15 +136,41 @@ class LapTime(Base):
     lap_number = Column(Integer)
     time = Column(Integer)
     splits = Column(JSON, nullable=True)
+    telemetry_data = Column(JSON, nullable=True)
     valid = Column(Boolean, default=True)
+    
+    session = relationship("SessionResult")
 
 class Championship(Base):
     __tablename__ = "championships"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String)
+    description = Column(String, nullable=True)
+    start_date = Column(DateTime, nullable=True)
+    end_date = Column(DateTime, nullable=True)
+    is_active = Column(Boolean, default=True)
     scoring_rules = Column(JSON, nullable=True) 
+    
+    events = relationship("Event", backref="championship") 
 
 class GlobalSettings(Base):
     __tablename__ = "settings"
     key = Column(String, primary_key=True, index=True)
     value = Column(String) 
+
+class TournamentMatch(Base):
+    __tablename__ = "tournament_matches"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    event_id = Column(Integer, ForeignKey("events.id"))
+    round_number = Column(Integer)
+    match_number = Column(Integer)
+    
+    player1 = Column(String, nullable=True)
+    player2 = Column(String, nullable=True)
+    winner = Column(String, nullable=True)
+    
+    next_match_id = Column(Integer, ForeignKey("tournament_matches.id"), nullable=True)
+    
+    event = relationship("Event")
+    next_match = relationship("TournamentMatch", remote_side=[id]) 

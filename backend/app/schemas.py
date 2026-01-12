@@ -3,12 +3,32 @@ from pydantic import BaseModel, IPvAnyAddress, Field
 from typing import Optional, Literal, List
 from datetime import datetime
 
+from enum import Enum
+
+class ModType(str, Enum):
+    car = "car"
+    track = "track"
+    app = "app"
+    weather = "weather"
+    other = "other"
+
+class EventStatus(str, Enum):
+    upcoming = "upcoming"
+    active = "active"
+    completed = "completed"
+    cancelled = "cancelled"
+
+class SessionType(str, Enum):
+    practice = "practice"
+    qualify = "qualify"
+    race = "race"
+    hotlap = "hotlap"
+
 class StationBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=50)
-    ip_address: str # Keeping as string for flexibility, validate if strict needed
+    ip_address: str 
     mac_address: str
     hostname: str
-
 
 class StationCreate(StationBase):
     pass
@@ -65,7 +85,7 @@ class Tag(TagBase):
 class ModBase(BaseModel):
     name: str
     version: str
-    type: str
+    type: ModType
 
 class ModCreate(ModBase):
     dependency_ids: List[int] = []
@@ -153,16 +173,31 @@ class LapTimeBase(BaseModel):
     timestamp: datetime
 
 class SessionResultCreate(BaseModel):
-    station_id: Optional[int] = None # Can be inferred from token/IP
+    station_id: Optional[int] = None
     event_id: Optional[int] = None
     track_name: str
     track_config: Optional[str] = None
     car_model: str
     driver_name: str
-    session_type: str
+    session_type: SessionType
     date: datetime
     best_lap: int
     laps: List[LapTimeBase] = []
+
+class SessionResult(BaseModel):
+    id: int
+    driver_name: str
+    car_model: str
+    track_name: str
+    best_lap: int
+    sectors: Optional[str] = None
+    date: datetime
+    session_type: SessionType
+    track_config: Optional[str] = None
+    event_id: Optional[int] = None
+
+    class Config:
+        from_attributes = True
 
 class LeaderboardEntry(BaseModel):
     rank: int
@@ -180,8 +215,7 @@ class GlobalSettingsBase(BaseModel):
     value: str
 
 class GlobalSettings(GlobalSettingsBase):
-    id: int
-    updated_at: Optional[datetime]
+    pass
 
     class Config:
         from_attributes = True
@@ -195,7 +229,7 @@ class EventBase(BaseModel):
     end_date: datetime
     track_name: Optional[str] = None
     allowed_cars: Optional[str] = None # JSON string
-    status: Optional[str] = "upcoming"
+    status: Optional[EventStatus] = EventStatus.upcoming
     rules: Optional[str] = None
 
 class EventCreate(EventBase):
@@ -259,6 +293,9 @@ class PilotProfile(BaseModel):
     active_days: int
     records: List[TrackRecord]
     recent_sessions: List[SessionSummary]
+    total_wins: int = 0
+    total_podiums: int = 0
+    elo_rating: float = 1200.0
 
 class HallOfFameEntry(BaseModel):
     driver_name: str

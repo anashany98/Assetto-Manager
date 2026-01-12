@@ -52,7 +52,8 @@ async def upload_logo(file: UploadFile = File(...), db: Session = Depends(databa
     
     # Generate public URL (relative to the server)
     # The /static prefix is mounted to backend/storage
-    logo_url = f"http://localhost:8000/static/branding/logo_{file.filename}"
+    # Use relative URL so frontend can prepend its own host (or window.location)
+    logo_url = f"/static/branding/logo_{file.filename}"
     
     # Update setting
     update_setting(schemas.GlobalSettingsBase(key="bar_logo", value=logo_url), db)

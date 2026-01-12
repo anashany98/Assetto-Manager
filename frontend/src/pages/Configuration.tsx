@@ -4,11 +4,12 @@ import { Server, Monitor, Edit2, CheckCircle, WifiOff, Wifi, Image as ImageIcon,
 import { useState, useRef } from 'react';
 import { cn } from '../lib/utils';
 import axios from 'axios';
+import { LogViewer } from '../components/LogViewer';
 
 export default function Configuration() {
     const queryClient = useQueryClient();
     const { data: stations, isLoading, error } = useQuery({ queryKey: ['stations'], queryFn: getStations });
-    const [activeTab, setActiveTab] = useState<'stations' | 'branding'>('stations');
+    const [activeTab, setActiveTab] = useState<'stations' | 'branding' | 'logs'>('stations');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Simulator Editing State
@@ -92,6 +93,11 @@ export default function Configuration() {
                         onClick={() => setActiveTab('branding')}
                         className={cn("px-6 py-2.5 rounded-xl text-sm font-black transition-all uppercase tracking-widest", activeTab === 'branding' ? "bg-gray-700 shadow-lg text-blue-400 border border-gray-600" : "text-gray-500 hover:text-gray-300")}>
                         Branding (Bar)
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('logs')}
+                        className={cn("px-6 py-2.5 rounded-xl text-sm font-black transition-all uppercase tracking-widest", activeTab === 'logs' ? "bg-gray-700 shadow-lg text-purple-400 border border-gray-600" : "text-gray-500 hover:text-gray-300")}>
+                        Logs del Sistema
                     </button>
                 </div>
             </div>
@@ -184,6 +190,10 @@ export default function Configuration() {
                             </p>
                         </div>
                     )}
+                </div>
+            ) : activeTab === 'logs' ? (
+                <div className="max-w-5xl">
+                    <LogViewer />
                 </div>
             ) : (
                 <div className="space-y-8 max-w-5xl">
@@ -448,7 +458,8 @@ export default function Configuration() {
                         </div>
                     </div>
                 </div>
-            )}
-        </div>
+            )
+            }
+        </div >
     );
 }

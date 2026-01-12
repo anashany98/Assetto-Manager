@@ -7,11 +7,12 @@ import { getStations, updateStation, type Station } from '../api/stations';
 
 // Icons
 import {
-    Layout, Monitor, Wifi, WifiOff, Edit2, Server, CheckCircle,
-    ImageIcon, Activity, Upload, QrCode, Car, Gamepad2, Volume2,
-    Truck, Settings as SettingsIcon, Sliders, Save, Plus, FileText,
-    Trash2, Lock, Unlock, MonitorPlay, Globe
+    Truck, Settings as SettingsIcon, Plus, FileText,
+    Layout, Monitor, Wifi, WifiOff, Edit2, CheckCircle,
+    Activity, Upload, QrCode, Gamepad2, Volume2,
+    Trash2, Lock, Unlock, MonitorPlay, Globe, Terminal
 } from 'lucide-react';
+import { LogViewer } from '../components/LogViewer';
 
 // --- SUB-COMPONENTS FROM CONFIGPAGE ---
 // (We keep SpecializedEditor here or move to a separate file, keeping here for simplicity)
@@ -19,7 +20,7 @@ function SpecializedEditor({ category, content, onUpdate }: { category: string, 
     // Re-using the exact logic from ConfigPage for consistency
     if (category === 'gameplay') {
         const assists = content['ASSISTS'] || {};
-        const race = content['RACE'] || {};
+        // const race = content['RACE'] || {};
         return (
             <div className="space-y-8">
                 <div className="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-sm">
@@ -99,7 +100,7 @@ const AC_CATEGORIES = [
 
 export default function SettingsPage() {
     const queryClient = useQueryClient();
-    const [activeTab, setActiveTab] = useState<'branding' | 'stations' | 'game'>('branding');
+    const [activeTab, setActiveTab] = useState<'branding' | 'stations' | 'game' | 'logs'>('branding');
 
     // --- BRANDING STATE ---
     const { data: branding } = useQuery({ queryKey: ['settings'], queryFn: async () => (await axios.get(`${API_URL}/settings`)).data });
@@ -120,7 +121,7 @@ export default function SettingsPage() {
     };
 
     // --- STATIONS STATE ---
-    const { data: stations, isLoading: loadingStations } = useQuery({ queryKey: ['stations'], queryFn: getStations });
+    const { data: stations } = useQuery({ queryKey: ['stations'], queryFn: getStations });
     const [editingId, setEditingId] = useState<number | null>(null);
     const [editForm, setEditForm] = useState<{ name: string, ip: string }>({ name: '', ip: '' });
     const stationMutation = useMutation({
@@ -183,7 +184,8 @@ export default function SettingsPage() {
                     {[
                         { id: 'branding', label: 'Marca y TV', icon: Layout },
                         { id: 'stations', label: 'Simuladores', icon: MonitorPlay },
-                        { id: 'game', label: 'Assetto Corsa', icon: Gamepad2 }
+                        { id: 'game', label: 'Assetto Corsa', icon: Gamepad2 },
+                        { id: 'logs', label: 'Logs Sistema', icon: Terminal }
                     ].map(tab => (
                         <button
                             key={tab.id}
@@ -382,6 +384,13 @@ export default function SettingsPage() {
                                 )}
                             </div>
                         </div>
+                    </div>
+                )}
+
+                {/* --- TAB: LOGS --- */}
+                {activeTab === 'logs' && (
+                    <div className="max-w-5xl animate-in fade-in duration-300">
+                        <LogViewer />
                     </div>
                 )}
             </div>

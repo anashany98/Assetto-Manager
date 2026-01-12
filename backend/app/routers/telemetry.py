@@ -21,14 +21,14 @@ def upload_session_result(
 ):
     # 1. Create Session Record
     new_session = models.SessionResult(
-        station_id=session_data.station_id,
         track_name=session_data.track_name,
         track_config=session_data.track_config,
         car_model=session_data.car_model,
         driver_name=session_data.driver_name,
         session_type=session_data.session_type,
         date=session_data.date,
-        best_lap=session_data.best_lap
+        best_lap=session_data.best_lap,
+        event_id=session_data.event_id
     )
     db.add(new_session)
     db.commit()
@@ -42,14 +42,11 @@ def upload_session_result(
             
         new_lap = models.LapTime(
             session_id=new_session.id,
-            driver_name=lap.driver_name,
-            car_model=lap.car_model,
-            track_name=lap.track_name,
-            lap_time=lap.lap_time,
-            sectors=str(lap.sectors), # Store list as string
+            lap_number=0, 
+            time=lap.lap_time,
+            splits=str(lap.sectors),
             telemetry_data=lap.telemetry_data,
-            is_valid=lap.is_valid,
-            timestamp=lap.timestamp
+            valid=lap.is_valid
         )
         db.add(new_lap)
     
@@ -70,45 +67,50 @@ def get_leaderboard(
     """
     # 1. Base Filter Conditions
     filters = [
-        models.LapTime.is_valid == True
+        models.LapTime.valid == True
     ]
 
     if track_name and track_name != "all":
-        filters.append(func.lower(models.LapTime.track_name) == track_name.lower())
+        filters.append(func.lower(models.SessionResult.track_name) == track_name.lower())
     
     today = datetime.now().date()
     from datetime import timedelta
     
     if period == "today":
-        filters.append(models.LapTime.timestamp >= datetime.combine(today, datetime.min.time()))
+        filters.append(models.SessionResult.date >= datetime.combine(today, datetime.min.time()))
     elif period == "week":
         start_date = datetime.now() - timedelta(days=7)
-        filters.append(models.LapTime.timestamp >= start_date)
+        filters.append(models.SessionResult.date >= start_date)
     elif period == "month":
         start_date = datetime.now() - timedelta(days=30)
-        filters.append(models.LapTime.timestamp >= start_date)
+        filters.append(models.SessionResult.date >= start_date)
 
     if car_model:
-        filters.append(func.lower(models.LapTime.car_model) == car_model.lower())
+        filters.append(func.lower(models.SessionResult.car_model) == car_model.lower())
 
-    # 2. Subquery: Find the BEST Time (MIN lap_time) for each driver
+    # 2. Subquery: Find the BEST Time (MIN time) for each driver
+    # We must join LapTime -> SessionResult to get Driver Name
     subquery = db.query(
-        models.LapTime.driver_name,
-        func.min(models.LapTime.lap_time).label('best_time')
-    ).filter(*filters).group_by(models.LapTime.driver_name).subquery()
+        models.SessionResult.driver_name,
+        func.min(models.LapTime.time).label('best_time')
+    ).join(models.SessionResult, models.LapTime.session_id == models.SessionResult.id).\
+    filter(*filters).group_by(models.SessionResult.driver_name).subquery()
 
-    # 3. Main Query: Join back to get the FULL row (Correct Car, Date, etc.)
-    # We join on Driver Name AND the Best Time.
+    # 3. Main Query: Join back to get the FULL row
     query = db.query(
-        models.LapTime
+        models.LapTime,
+        models.SessionResult
+    ).join(
+        models.SessionResult, 
+        models.LapTime.session_id == models.SessionResult.id
     ).join(
         subquery,
-        (models.LapTime.driver_name == subquery.c.driver_name) & 
-        (models.LapTime.lap_time == subquery.c.best_time)
+        (models.SessionResult.driver_name == subquery.c.driver_name) & 
+        (models.LapTime.time == subquery.c.best_time)
     ).filter(*filters)
     
     # Order by Best Time ASC (Fastest on top)
-    query = query.order_by(asc(models.LapTime.lap_time))
+    query = query.order_by(asc(models.LapTime.time))
     query = query.limit(limit)
     
     results = query.all()
@@ -118,18 +120,19 @@ def get_leaderboard(
     if not results:
         return []
 
-    best_overall = results[0].lap_time
+    # results is a list of tuples (LapTime, SessionResult) because we queried both models
+    best_overall = results[0][0].time
 
-    for idx, row in enumerate(results):
+    for idx, (lap, session) in enumerate(results):
         leaderboard.append(schemas.LeaderboardEntry(
             rank=idx + 1,
-            lap_id=row.id,
-            driver_name=row.driver_name,
-            car_model=row.car_model,
-            track_name=row.track_name,
-            lap_time=row.lap_time,
-            timestamp=row.timestamp,
-            gap=row.lap_time - best_overall if idx > 0 else 0
+            lap_id=lap.id,
+            driver_name=session.driver_name,
+            car_model=session.car_model,
+            track_name=session.track_name,
+            lap_time=lap.time,
+            timestamp=session.date,
+            gap=lap.time - best_overall if idx > 0 else 0
         ))
         
     return leaderboard
@@ -140,11 +143,16 @@ def get_active_combinations(db: Session = Depends(database.get_db)):
     Returns unique Active Tracks that have at least one valid lap.
     Used for Auto-Rotation on TV (Track Rotation Only).
     """
+    """
+    Returns unique Active Tracks that have at least one valid lap.
+    Used for Auto-Rotation on TV (Track Rotation Only).
+    """
     results = db.query(
-        models.LapTime.track_name,
-        models.LapTime.car_model
-    ).filter(
-        models.LapTime.is_valid == True
+        models.SessionResult.track_name,
+        models.SessionResult.car_model
+    ).join(models.LapTime, models.SessionResult.id == models.LapTime.session_id).\
+    filter(
+        models.LapTime.valid == True
     ).distinct().all()
     
     return [{"track_name": row.track_name, "car_model": row.car_model} for row in results]
@@ -185,7 +193,8 @@ def get_lap_telemetry(lap_id: int, db: Session = Depends(database.get_db)):
         
         # Select layout logic
         layout = []
-        t_name = lap.track_name.lower()
+        # Access track name via session relationship
+        t_name = lap.session.track_name.lower() if lap.session else "unknown"
         if 'monza' in t_name: layout = monza_layout
         else: 
             # Default "Figure 8" / Bean
@@ -275,14 +284,14 @@ def get_driver_details(
     Includes sectors, optimal lap, consistency and history.
     """
     filters = [
-        models.LapTime.track_name == track_name,
-        models.LapTime.driver_name == driver_name
+        models.SessionResult.track_name == track_name,
+        models.SessionResult.driver_name == driver_name
     ]
     if car_model:
-        filters.append(models.LapTime.car_model == car_model)
+        filters.append(models.SessionResult.car_model == car_model)
 
     # Get all laps for this driver
-    laps = db.query(models.LapTime).filter(*filters).order_by(desc(models.LapTime.timestamp)).all()
+    laps = db.query(models.LapTime).join(models.SessionResult).filter(*filters).order_by(desc(models.SessionResult.date)).all()
     
     if not laps:
         raise HTTPException(status_code=404, detail="Driver telemetry not found")
@@ -338,8 +347,8 @@ def get_driver_details(
     return schemas.DriverDetails(
         driver_name=driver_name,
         track_name=track_name,
-        car_model=best_lap_obj.car_model,
-        best_lap=best_lap_obj.lap_time,
+        car_model=best_lap_obj.session.car_model,
+        best_lap=best_lap_obj.time,
         best_sectors=best_sectors,
         optimal_lap=optimal_lap,
         consistency_score=round(consistency_score, 1),
@@ -355,48 +364,50 @@ def get_pilot_profile(driver_name: str, db: Session = Depends(database.get_db)):
     The "Racing Passport".
     """
     # 1. Total Laps
-    total_laps = db.query(models.LapTime).filter(models.LapTime.driver_name == driver_name).count()
+    total_laps = db.query(models.LapTime).join(models.SessionResult).filter(models.SessionResult.driver_name == driver_name).count()
     if total_laps == 0:
         raise HTTPException(status_code=404, detail="Pilot profile not found")
 
     # 2. Favorite Car (Most used)
     fav_car_row = db.query(
-        models.LapTime.car_model, 
+        models.SessionResult.car_model, 
         func.count(models.LapTime.id).label('count')
-    ).filter(models.LapTime.driver_name == driver_name).group_by(models.LapTime.car_model).order_by(desc('count')).first()
+    ).join(models.LapTime).filter(models.SessionResult.driver_name == driver_name).group_by(models.SessionResult.car_model).order_by(desc('count')).first()
     favorite_car = fav_car_row[0] if fav_car_row else "Unknown"
 
     # 3. Best Records per Track
     # Subquery to find best time per track for this driver
     subq = db.query(
-        models.LapTime.track_name,
-        func.min(models.LapTime.lap_time).label('best_time')
-    ).filter(
-        models.LapTime.driver_name == driver_name,
-        models.LapTime.is_valid == True
-    ).group_by(models.LapTime.track_name).subquery()
+        models.SessionResult.track_name,
+        func.min(models.LapTime.time).label('best_time')
+    ).join(models.LapTime).filter(
+        models.SessionResult.driver_name == driver_name,
+        models.LapTime.valid == True
+    ).group_by(models.SessionResult.track_name).subquery()
 
-    records_query = db.query(models.LapTime).join(
+    records_query = db.query(models.LapTime, models.SessionResult).join(
+        models.SessionResult
+    ).join(
         subq,
-        (models.LapTime.track_name == subq.c.track_name) &
-        (models.LapTime.lap_time == subq.c.best_time)
-    ).filter(models.LapTime.driver_name == driver_name)
+        (models.SessionResult.track_name == subq.c.track_name) &
+        (models.LapTime.time == subq.c.best_time)
+    ).filter(models.SessionResult.driver_name == driver_name)
 
     track_records = []
-    for r in records_query.all():
+    for lap, session in records_query.all():
         track_records.append(schemas.TrackRecord(
-            track_name=r.track_name,
-            best_lap=r.lap_time,
-            car_model=r.car_model,
-            date=r.timestamp
+            track_name=session.track_name,
+            best_lap=lap.time,
+            car_model=session.car_model,
+            date=session.date
         ))
 
     # 4. Global Consistency (Avg of consistency scores)
     # We estimate it by taking the last 50 laps and calculating std_dev
-    recent_laps = db.query(models.LapTime.lap_time).filter(
-        models.LapTime.driver_name == driver_name,
-        models.LapTime.is_valid == True
-    ).order_by(desc(models.LapTime.timestamp)).limit(50).all()
+    recent_laps = db.query(models.LapTime.time).join(models.SessionResult).filter(
+        models.SessionResult.driver_name == driver_name,
+        models.LapTime.valid == True
+    ).order_by(desc(models.SessionResult.date)).limit(50).all()
     
     avg_consistency = 100.0
     if len(recent_laps) > 1:
@@ -432,6 +443,16 @@ def get_pilot_profile(driver_name: str, db: Session = Depends(database.get_db)):
             laps_count=laps_count
         ))
 
+    # 8. Get Driver Stats (ELO, Wins, Podiums)
+    driver_obj = db.query(models.Driver).filter(models.Driver.name == driver_name).first()
+    
+    # Create driver if not exists (lazy creation on profile view)
+    if not driver_obj:
+        driver_obj = models.Driver(name=driver_name, elo_rating=1200.0)
+        db.add(driver_obj)
+        db.commit()
+        db.refresh(driver_obj)
+
     return schemas.PilotProfile(
         driver_name=driver_name,
         total_laps=total_laps,
@@ -440,7 +461,10 @@ def get_pilot_profile(driver_name: str, db: Session = Depends(database.get_db)):
         avg_consistency=round(avg_consistency, 1),
         active_days=active_days,
         records=track_records,
-        recent_sessions=recent_sessions
+        recent_sessions=recent_sessions,
+        total_wins=driver_obj.total_wins,
+        total_podiums=driver_obj.total_podiums,
+        elo_rating=driver_obj.elo_rating
     )
 
 @router.post("/seed")
@@ -529,14 +553,10 @@ def seed_data(count: int = 50, db: Session = Depends(database.get_db)):
             
             new_lap = models.LapTime(
                 session_id=new_session.id,
-                driver_name=driver,
-                car_model=car,
-                track_name=track,
-                lap_time=lap_time,
-                sectors=json.dumps([s1, s2, s3]),
-                telemetry_data=json.dumps(telemetry_trace),
-                is_valid=random.random() > 0.1, # 90% valid
-                timestamp=session_date + timedelta(minutes=i*2)
+                time=lap_time,
+                splits=json.dumps([s1, s2, s3]),
+                telemetry_data=json.dumps(telemetry_trace), # Now supported
+                valid=random.random() > 0.1, # 90% valid
             )
             db.add(new_lap)
         
@@ -551,24 +571,24 @@ def get_all_drivers(db: Session = Depends(database.get_db)):
     Get a list of all drivers with summary statistics.
     """
     # Get all unique drivers
-    drivers = db.query(models.LapTime.driver_name).distinct().all()
+    drivers = db.query(models.SessionResult.driver_name).distinct().all()
     driver_names = [d[0] for d in drivers]
     
     summaries = []
     
     for name in driver_names:
         # 1. Total Laps
-        total_laps = db.query(models.LapTime).filter(models.LapTime.driver_name == name).count()
+        total_laps = db.query(models.LapTime).join(models.SessionResult).filter(models.SessionResult.driver_name == name).count()
         
         # 2. Favorite Car
         fav_car_row = db.query(
-            models.LapTime.car_model, 
+            models.SessionResult.car_model, 
             func.count(models.LapTime.id).label('count')
-        ).filter(models.LapTime.driver_name == name).group_by(models.LapTime.car_model).order_by(desc('count')).first()
+        ).join(models.LapTime).filter(models.SessionResult.driver_name == name).group_by(models.SessionResult.car_model).order_by(desc('count')).first()
         favorite_car = fav_car_row[0] if fav_car_row else "Unknown"
         
         # 3. Last Seen
-        last_lap = db.query(models.LapTime.timestamp).filter(models.LapTime.driver_name == name).order_by(desc(models.LapTime.timestamp)).first()
+        last_lap = db.query(models.SessionResult.date).filter(models.SessionResult.driver_name == name).order_by(desc(models.SessionResult.date)).first()
         last_seen = last_lap[0] if last_lap else datetime.now()
         
         # 4. Rank Tier (Simple Logic)
@@ -590,6 +610,23 @@ def get_all_drivers(db: Session = Depends(database.get_db)):
     
     return summaries
 
+@router.get("/sessions", response_model=List[schemas.SessionResult])
+def get_recent_sessions(
+    track_name: Optional[str] = None,
+    driver_name: Optional[str] = None,
+    car_model: Optional[str] = None,
+    limit: int = 50,
+    db: Session = Depends(database.get_db)
+):
+    query = db.query(models.SessionResult)
+    if track_name:
+        query = query.filter(models.SessionResult.track_name == track_name)
+    if driver_name:
+        query = query.filter(models.SessionResult.driver_name == driver_name)
+    if car_model:
+        query = query.filter(models.SessionResult.car_model == car_model)
+    return query.order_by(desc(models.SessionResult.date)).limit(limit).all()
+
 @router.get("/stats", response_model=schemas.LeaderboardStats)
 def get_teleboard_stats(db: Session = Depends(database.get_db)):
     """
@@ -599,55 +636,55 @@ def get_teleboard_stats(db: Session = Depends(database.get_db)):
     
     # Most Popular Track
     most_popular_track = db.query(
-        models.LapTime.track_name, 
+        models.SessionResult.track_name, 
         func.count(models.LapTime.id).label('count')
-    ).group_by(models.LapTime.track_name).order_by(func.count(models.LapTime.id).desc()).first()
+    ).join(models.LapTime).group_by(models.SessionResult.track_name).order_by(func.count(models.LapTime.id).desc()).first()
 
     # Most Popular Car
     most_popular_car = db.query(
-        models.LapTime.car_model, 
+        models.SessionResult.car_model, 
         func.count(models.LapTime.id).label('count')
-    ).group_by(models.LapTime.car_model).order_by(func.count(models.LapTime.id).desc()).first()
+    ).join(models.LapTime).group_by(models.SessionResult.car_model).order_by(func.count(models.LapTime.id).desc()).first()
 
     # Top Driver (Fastest overall on a weighted scale or just driver with most sessions)
     top_driver = db.query(
-        models.LapTime.driver_name,
+        models.SessionResult.driver_name,
         func.count(models.LapTime.id).label('count')
-    ).group_by(models.LapTime.driver_name).order_by(func.count(models.LapTime.id).desc()).first()
+    ).join(models.LapTime).group_by(models.SessionResult.driver_name).order_by(func.count(models.LapTime.id).desc()).first()
 
     # Latest Record
-    latest = db.query(models.LapTime).order_by(models.LapTime.timestamp.desc()).first()
+    latest = db.query(models.LapTime).join(models.SessionResult).order_by(models.SessionResult.date.desc()).first()
 
     return schemas.LeaderboardStats(
         top_driver=top_driver[0] if top_driver else "N/A",
         most_popular_track=most_popular_track[0] if most_popular_track else "N/A",
         most_popular_car=most_popular_car[0] if most_popular_car else "N/A",
         total_sessions=total_sessions,
-        latest_record=f"{latest.driver_name} ({latest.track_name})" if latest else "Sin datos"
+        latest_record=f"{latest.session.driver_name} ({latest.session.track_name})" if latest else "Sin datos"
     )
 
 @router.get("/hall_of_fame", response_model=List[schemas.HallOfFameCategory])
 def get_hall_of_fame(db: Session = Depends(database.get_db)):
     # 1. Get unique Track/Car combinations
     combinations = db.query(
-        models.LapTime.track_name, 
-        models.LapTime.car_model
-    ).distinct().all()
+        models.SessionResult.track_name, 
+        models.SessionResult.car_model
+    ).join(models.LapTime).distinct().all()
 
     hall_of_fame = []
 
     for track, car in combinations:
         # 2. Get top 3 for this combo
-        top_laps = db.query(models.LapTime).filter(
-            models.LapTime.track_name == track,
-            models.LapTime.car_model == car
-        ).order_by(asc(models.LapTime.lap_time)).limit(3).all()
+        top_laps = db.query(models.LapTime).join(models.SessionResult).filter(
+            models.SessionResult.track_name == track,
+            models.SessionResult.car_model == car
+        ).order_by(asc(models.LapTime.time)).limit(3).all()
 
         records = [
             schemas.HallOfFameEntry(
-                driver_name=lap.driver_name,
-                lap_time=lap.lap_time,
-                date=lap.timestamp
+                driver_name=lap.session.driver_name,
+                lap_time=lap.time,
+                date=lap.session.date
             ) for lap in top_laps
         ]
 
@@ -657,7 +694,7 @@ def get_hall_of_fame(db: Session = Depends(database.get_db)):
                 car_model=car,
                 records=records
             ))
-
+    
     return hall_of_fame
 
 @router.get("/compare/{driver1}/{driver2}", response_model=schemas.DriverComparison)
@@ -672,18 +709,18 @@ def get_driver_comparison(
         def get_stats(driver):
             # Case insensitive filtering for strings
             filters = [
-                func.lower(models.LapTime.driver_name) == driver.lower(),
-                func.lower(models.LapTime.track_name) == track.lower()
+                func.lower(models.SessionResult.driver_name) == driver.lower(),
+                func.lower(models.SessionResult.track_name) == track.lower()
             ]
             if car:
-                filters.append(func.lower(models.LapTime.car_model) == car.lower())
+                filters.append(func.lower(models.SessionResult.car_model) == car.lower())
                 
-            laps = db.query(models.LapTime).filter(*filters).all()
+            laps = db.query(models.LapTime).join(models.SessionResult).filter(*filters).all()
             
             if not laps:
                 return None
                 
-            valid_laps_times = [l.lap_time for l in laps if l.lap_time is not None and l.lap_time < 999999999]
+            valid_laps_times = [l.time for l in laps if l.time is not None and l.time < 999999999]
             if not valid_laps_times:
                 return None
 
@@ -692,7 +729,7 @@ def get_driver_comparison(
             consistency = avg - best 
             
             # Determine actual casing from DB if possible, otherwise use query
-            actual_name = laps[0].driver_name if laps else driver
+            actual_name = laps[0].session.driver_name if laps else driver
 
             return {
                 "driver_name": actual_name,
