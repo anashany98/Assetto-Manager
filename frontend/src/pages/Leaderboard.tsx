@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Car, MapPin, Activity, RefreshCw, PlusCircle } from 'lucide-react';
+import { Car, MapPin, Activity, RefreshCw, PlusCircle, X, BarChart2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import axios from 'axios';
 import { useLocation } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import ManualEntryModal from '../components/ManualEntryModal';
+import { TelemetryChart } from '../components/TelemetryChart';
 
 interface LeaderboardEntry {
     rank: number;
@@ -15,6 +16,7 @@ interface LeaderboardEntry {
     lap_time: number;
     timestamp: string;
     gap: number;
+    lap_id: number;
 }
 
 const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
@@ -102,6 +104,10 @@ export default function LeaderboardPage() {
     const [rotationIndex, setRotationIndex] = useState(0);
     const [isManualModalOpen, setIsManualModalOpen] = useState(false);
 
+    // Telemetry State
+    const [selectedLapId, setSelectedLapId] = useState<number | null>(null);
+    const [compareLapId, setCompareLapId] = useState<number | null>(null);
+
     // Fetch Active Combos for Rotation
     const { data: combinations } = useQuery({
         queryKey: ['combinations'], // Fetch active car/track combos
@@ -129,7 +135,7 @@ export default function LeaderboardPage() {
         setSelectedCar(null);
     }, [rotationIndex, combinations, isTVMode]);
 
-    const { data: leaderboard, isLoading } = useQuery({
+    const { data: leaderboard, isLoading } = useQuery<LeaderboardEntry[]>({
         queryKey: ['leaderboard', selectedTrack, selectedCar, selectedPeriod],
         queryFn: () => getLeaderboard(selectedTrack, selectedCar, selectedPeriod),
         refetchInterval: 5000
@@ -438,11 +444,21 @@ export default function LeaderboardPage() {
                                             </div>
                                         </td>
                                         <td className="px-6 py-5 text-right">
-                                            <div className={cn(
-                                                "font-mono font-bold text-sm tabular-nums px-2 py-1 rounded inline-block",
-                                                index === 0 ? "text-yellow-500 bg-yellow-500/10" : "text-red-400 bg-red-400/10"
-                                            )}>
-                                                {formatGap(entry.lap_time - leaderboard[0].lap_time)}
+                                            <div className="flex items-center justify-end space-x-3">
+                                                <div className={cn(
+                                                    "font-mono font-bold text-sm tabular-nums px-2 py-1 rounded inline-block",
+                                                    index === 0 ? "text-yellow-500 bg-yellow-500/10" : "text-red-400 bg-red-400/10"
+                                                )}>
+                                                    {formatGap(entry.lap_time - leaderboard[0].lap_time)}
+                                                </div>
+
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setSelectedLapId(entry.lap_id); }}
+                                                    className="p-2 bg-gray-700 hover:bg-blue-600 rounded text-gray-400 hover:text-white transition-colors group/btn"
+                                                    title="Ver Telemetría"
+                                                >
+                                                    <BarChart2 size={16} />
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
@@ -475,7 +491,54 @@ export default function LeaderboardPage() {
                 onClose={() => setIsManualModalOpen(false)}
                 preselectedTrack={selectedTrack}
             />
-        </div>
 
+            {/* TELEMETRY MODAL */}
+            {selectedLapId && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                    <div className="bg-gray-900 w-full max-w-5xl rounded-2xl shadow-2xl border border-gray-700 flex flex-col max-h-[90vh]">
+                        <div className="flex items-center justify-between p-4 border-b border-gray-800">
+                            <h3 className="text-xl font-black italic uppercase text-white flex items-center">
+                                <Activity className="mr-2 text-yellow-500" />
+                                Análisis de Telemetría
+                            </h3>
+                            <button
+                                onClick={() => { setSelectedLapId(null); setCompareLapId(null); }}
+                                className="p-2 hover:bg-gray-800 rounded-full text-gray-400 hover:text-white transition-colors"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="p-4 flex-1 overflow-y-auto">
+                            <div className="flex items-center space-x-4 mb-4">
+                                <div className="flex-1 bg-gray-800 p-3 rounded border border-gray-700">
+                                    <span className="text-[10px] uppercase font-bold text-gray-500 block">Vuelta Principal</span>
+                                    <span className="text-lg font-bold text-yellow-500">
+                                        {leaderboard?.find(l => l.lap_id === selectedLapId)?.driver_name}
+                                    </span>
+                                </div>
+                                <div className="flex-1 bg-gray-800 p-3 rounded border border-gray-700">
+                                    <span className="text-[10px] uppercase font-bold text-gray-500 block">Comparar con...</span>
+                                    <select
+                                        className="w-full bg-transparent text-white font-bold outline-none border-none p-0 focus:ring-0 cursor-pointer"
+                                        value={compareLapId || ""}
+                                        onChange={(e) => setCompareLapId(e.target.value ? Number(e.target.value) : null)}
+                                    >
+                                        <option value="">-- Seleccionar Rival --</option>
+                                        {leaderboard?.filter(l => l.lap_id !== selectedLapId).map(l => (
+                                            <option key={l.lap_id} value={l.lap_id} className="bg-gray-900">
+                                                {l.rank}. {l.driver_name} ({formatTime(l.lap_time)})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <TelemetryChart lapId={selectedLapId} compareLapId={compareLapId || undefined} />
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
     );
 }

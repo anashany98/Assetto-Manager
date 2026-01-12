@@ -7,12 +7,27 @@ from datetime import datetime
 
 logger = logging.getLogger("AC-Agent.Telemetry")
 
+# Almacén de telemetría en memoria: { lap_index (int): [puntos_telemetria] }
+# Se rellena desde main.py usando memoria compartida
+_telemetry_buffer = {}
+
+def save_lap_telemetry(lap_idx, data):
+    """
+    Guarda la traza de telemetría de una vuelta completada.
+    Llamado desde main.py cuando Shared Memory detecta fin de vuelta.
+    """
+    _telemetry_buffer[lap_idx] = data
+    # Limpieza básica: mantener solo ultimas 20 vueltas para evitar fugas de memoria
+    if len(_telemetry_buffer) > 20:
+        oldest = min(_telemetry_buffer.keys())
+        del _telemetry_buffer[oldest]
+    logger.info(f"Telemetría guardada para vuelta {lap_idx} ({len(data)} puntos)")
+
 def find_race_out_file():
     """
-    Locate race_out.json in standard Assetto Corsa documents folder.
+    Localiza race_out.json en la carpeta de documentos de Assetto Corsa.
     """
-    # Standard path: Documents/Assetto Corsa/out/race_out.json
-    # We will use a mock path for this local agent if not found
+    # Ruta estándar: Documents/Assetto Corsa/out/race_out.json
     
     docs_path = Path.home() / "Documents" / "Assetto Corsa" / "out"
     game_file = docs_path / "race_out.json"
@@ -20,8 +35,7 @@ def find_race_out_file():
     if game_file.exists():
         return game_file
         
-    # Fallback to local 'mock' file for development/testing
-    # Look in the same directory as this script (agent/)
+    # Fallback para desarrollo/testing local
     mock_file = Path(__file__).parent / "mock_race_out.json"
     if mock_file.exists():
         return mock_file
@@ -30,30 +44,20 @@ def find_race_out_file():
 
 def parse_and_send_telemetry(file_path, server_url, station_id):
     """
-    Read race_out.json, parse it, and send to server if it's new.
+    Lee race_out.json, lo procesa y envía al servidor.
+    Intenta fusionar con datos de telemetría en buffer.
     """
     try:
-        # 1. Read File
-        # Use 'utf-8-sig' to handle potential BOM from game files
+        # 1. Leer Archivo
         with open(file_path, 'r', encoding='utf-8-sig') as f:
             data = json.load(f)
             
-        # 2. Extract Session Info
-        # Mapping AC JSON fields to our Schema
-        # Note: AC JSON structure varies, this is a best-effort standard mapping
+        # 2. Extraer Información de Sesión
+        # Mapeo de campos JSON de AC a nuestro Schema
         
-        # Example AC Structure (simplified):
-        # {
-        #   "track": "monza",
-        #   "car": "ferrari_488_gt3",
-        #   "players": [
-        #       { "name": "Player", "bestLap": 105000, "laps": [ { "time": 105000, "sectors": [30000, 40000, 35000], "isValid": true } ] }
-        #   ],
-        #   "sessionType": "Q"
-        # }
-        
-        # We assume single player for the bar station
+        # Asumimos un solo jugador para la estación
         player = data.get("players", [{}])[0]
+        player_laps = player.get("laps", [])
         
         payload = {
             "station_id": station_id,
@@ -62,35 +66,46 @@ def parse_and_send_telemetry(file_path, server_url, station_id):
             "car_model": data.get("car", player.get("car", "unknown")),
             "driver_name": player.get("name", "Unknown Driver"),
             "session_type": data.get("sessionType", "P"), # P, Q, R
-            "date": datetime.now().isoformat(), # Use current upload time as session time
+            "date": datetime.now().isoformat(),
             "best_lap": player.get("bestLap", 0),
             "laps": []
         }
         
-        for lap in player.get("laps", []):
+        for idx, lap in enumerate(player_laps):
+            # Intentar buscar telemetría en el buffer
+            # El índice en race_out debería coincidir con el contador de vueltas secuencial
+            # Pero race_out a veces limpia vueltas inválidas? Depende de la config.
+            # Asumiremos coincidencia por índice 0-based.
+            
+            tele_data = _telemetry_buffer.get(idx, [])
+            
+            # Si no hay datos por indice, quizás por coincidencia de tiempo? (Más complejo, v2)
+            # Para esta versión, confiamos en el orden secuencial.
+            
             payload["laps"].append({
                 "driver_name": payload["driver_name"],
                 "car_model": payload["car_model"],
                 "track_name": payload["track_name"],
                 "lap_time": lap.get("time", 0),
-                "sectors": lap.get("sectors", []),
-                "is_valid": lap.get("isValid", True), # Assume valid if missing
-                "timestamp": datetime.now().isoformat() # Approx
+                "sectors": lap.get("sectors", []), # Array de tiempos de sector
+                "is_valid": lap.get("isValid", True),
+                "timestamp": datetime.now().isoformat(), # Aproximado
+                "telemetry_data": json.dumps(tele_data) if tele_data else None
             })
             
-        # 3. Send to Server
-        logger.info(f"Uploading session for {payload['driver_name']} at {payload['track_name']}...")
+        # 3. Enviar al Servidor
+        logger.info(f"Subiendo sesión de {payload['driver_name']} en {payload['track_name']}...")
         response = requests.post(f"{server_url}/telemetry/session", json=payload, timeout=10)
         response.raise_for_status()
-        logger.info("Telemetry upload successful!")
+        logger.info("¡Subida de telemetría exitosa!")
         
         return True
 
     except Exception as e:
-        logger.error(f"Failed to process telemetry: {e}")
+        logger.error(f"Error procesando telemetría: {e}")
         return False
 
-# Function to check for updates
+# Función para verificar actualizaciones
 _last_mtime = 0
 
 def check_for_new_results(server_url, station_id):
@@ -103,10 +118,10 @@ def check_for_new_results(server_url, station_id):
     try:
         mtime = os.path.getmtime(file_path)
         if mtime > _last_mtime:
-            # File has changed/is new
-            logger.info("New race result detected!")
+            # Archivo modificado o nuevo
+            logger.info("¡Nuevo resultado de carrera detectado!")
             
-            # small delay to ensure write complete
+            # Pequeña espera para asegurar escritura completa
             import time
             time.sleep(1) 
             
@@ -114,4 +129,5 @@ def check_for_new_results(server_url, station_id):
                 _last_mtime = mtime
                 
     except Exception as e:
-        logger.error(f"Error checking file results: {e}")
+        logger.error(f"Error verificando archivo de resultados: {e}")
+

@@ -182,14 +182,15 @@ def send_heartbeat(station_id, status="online"):
         logger.error(f"Heartbeat failed: {e}")
 
 # import telemetry # Disabled in favor of Shared Memory Upload
+import telemetry # Habilitado para gestión de resultados y fusión de telemetría
 
 def main():
-    logger.info("Starting AC Manager Agent...")
+    logger.info("Iniciando Agente AC Manager...")
     ensure_directories()
     
     station_id = None
     
-    # Registration Loop...
+    # Bucle de Registro...
     while station_id is None:
         station_data = register_agent()
         if station_data:
@@ -197,27 +198,28 @@ def main():
         else:
             time.sleep(5)
     
-    # Start Telemetry Streamer
+    # Iniciar Streamer de Telemetría (Buffer + Envio WS tiempo real)
     telemetry_thread = TelemetryThread(station_id, SERVER_URL)
     telemetry_thread.start()
 
-    # Main Loop
+    # Bucle Principal
     while True:
         try:
-            # Run Sync Check
+            # Verificar Sincronización
             status = synchronize_content(station_id)
             
-            # Check for new Race Results (File Based)
-            # telemetry.check_for_new_results(SERVER_URL, station_id) # Disabled
+            # Verificar Resultados de Carrera (Basado en Archivo)
+            # Esto fusionará la telemetría en buffer con los tiempos oficiales
+            telemetry.check_for_new_results(SERVER_URL, station_id)
             
-            # Send Heartbeat with current status
+            # Enviar Heartbeat
             send_heartbeat(station_id, status or "online")
             
             time.sleep(10) 
         except KeyboardInterrupt:
             break
         except Exception as e:
-            logger.error(f"Main loop error: {e}")
+            logger.error(f"Error en bucle principal: {e}")
             time.sleep(5)
 
 class TelemetryThread(threading.Thread):
@@ -230,7 +232,7 @@ class TelemetryThread(threading.Thread):
         self.running = True
         self.daemon = True
         
-        # Telemetry Buffering
+        # Buffer de Telemetría
         self.current_lap_buffer = []
         self.last_lap_count = -1
         self.last_lap_timestamp = time.time()
@@ -239,13 +241,13 @@ class TelemetryThread(threading.Thread):
         asyncio.run(self.stream_telemetry())
 
     async def stream_telemetry(self):
-        logger.info(f"Connecting to Telemetry WS: {self.server_url}")
+        logger.info(f"Conectando a WS de Telemetría: {self.server_url}")
         while self.running:
             try:
-                # Retry connection loop
+                # Bucle de reconexión
                 async with websockets.connect(self.server_url) as websocket:
-                    logger.info("Telemetry WS Connected")
-                    # Handshake / Identify
+                    logger.info("WS Telemetría Conectado")
+                    # Handshake / Identificación
                     await websocket.send(json.dumps({
                         "type": "identify",
                         "station_id": self.station_id,
@@ -255,83 +257,51 @@ class TelemetryThread(threading.Thread):
                     while self.running:
                         data = self.ac.read_data()
                         if data:
-                            # 1. Stream Real-Time to Backend (for Live View)
+                            # 1. Stream Tiempo Real al Backend (para Live View)
                             data['station_id'] = self.station_id
                             await websocket.send(json.dumps(data))
                             
-                            # 2. Buffer Logic for Analysis/Comparator
+                            # 2. Lógica de Buffer para Análisis/Comparador
                             current_laps = data.get('laps', 0)
                             
-                            # Initialize last_lap_count on first read
+                            # Inicializar contador
                             if self.last_lap_count == -1:
                                 self.last_lap_count = current_laps
                             
-                            # Add sample to buffer
-                            # Optimized sample: t (time), s (speed), r (rpm), g (gear), n (norm_pos)
+                            # Añadir muestra al buffer
+                            # Muestra optimizada: t (tiempo), s (velocidad), r (rpm), g (marcha), n (pos_norm)
                             self.current_lap_buffer.append({
                                 "t": data.get('lap_time_ms', 0),
                                 "s": data.get('speed_kmh', 0),
                                 "r": data.get('rpm', 0),
                                 "g": data.get('gear', 0),
-                                "n": data.get('normalized_pos', 0)
+                                "n": data.get('normalized_pos', 0),
+                                "gas": data.get('gas', 0),
+                                "brk": data.get('brake', 0),
+                                "str": data.get('steer', 0),
+                                "gl": data.get('g_lat', 0),
+                                "gn": data.get('g_lon', 0),
+                                "tt": data.get('tyre_temp', 0)
                             })
                             
-                            # 3. Lap Change Detection
+                            # 3. Detección de Cambio de Vuelta
                             if current_laps > self.last_lap_count:
-                                logger.info(f"Lap Finished! {self.last_lap_count} -> {current_laps}")
+                                logger.info(f"¡Vuelta Terminada! {self.last_lap_count} -> {current_laps}")
                                 
-                                # Upload the PREVIOUS lap (the one in the buffer)
-                                self.upload_lap_data(data)
+                                # Guardar la vuelta completada en el módulo de telemetría
+                                # Usamos last_lap_count como índice (vuelta 0, vuelta 1...)
+                                telemetry.save_lap_telemetry(self.last_lap_count, self.current_lap_buffer)
                                 
-                                # Reset for new lap
+                                # Resetear para nueva vuelta
                                 self.current_lap_buffer = []
                                 self.last_lap_count = current_laps
                                 self.last_lap_timestamp = time.time()
 
-                        # Rate limit 10Hz
+                        # Rate limit 10Hz (0.1s)
                         await asyncio.sleep(0.1)
             except Exception as e:
-                logger.error(f"Telemetry WS Error: {e}")
-                await asyncio.sleep(5) # Reconnect delay
-
-    def upload_lap_data(self, current_data):
-        # We must NOT block the async loop with requests.post
-        # Schedule the upload in a separate thread
-        loop = asyncio.get_event_loop()
-        loop.run_in_executor(None, self._do_upload_lap, current_data, self.current_lap_buffer)
-
-    def _do_upload_lap(self, current_data, buffer_snapshot):
-        try:
-            import datetime
-            
-            payload = {
-                "station_id": self.station_id,
-                "track_name": current_data.get("track", "unknown"),
-                "car_model": current_data.get("car", "unknown"),
-                "driver_name": current_data.get("driver", "Unknown"),
-                "session_type": "Practice", 
-                "date": datetime.datetime.now().isoformat(),
-                "best_lap": 0,
-                "laps": [
-                    {
-                        "driver_name": current_data.get("driver", "Unknown"),
-                        "car_model": current_data.get("car", "unknown"),
-                        "track_name": current_data.get("track", "unknown"),
-                        "lap_time": buffer_snapshot[-1]['t'] if buffer_snapshot else 0,
-                        "sectors": [0,0,0], 
-                        "is_valid": True,
-                        "timestamp": datetime.datetime.now().isoformat(),
-                        "telemetry_data": json.dumps(buffer_snapshot)
-                    }
-                ]
-            }
-            
-            logger.info("Uploading Lap Telemetry (Async)...")
-            requests.post(f"{self.http_url}/telemetry/session", json=payload, timeout=5)
-            logger.info("Leaf Uploaded.")
-            
-        except Exception as e:
-            logger.error(f"Failed to upload lap: {e}")
+                logger.error(f"Error WS Telemetría: {e}")
+                await asyncio.sleep(5) # Delay reconexión
 
 if __name__ == "__main__":
     main()

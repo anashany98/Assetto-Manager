@@ -22,6 +22,10 @@ export const TVMode = () => {
     const { liveCars } = useTelemetry();
     const hasLiveCars = Object.keys(liveCars).length > 0;
 
+    // Get Screen ID from URL
+    const searchParams = new URLSearchParams(window.location.search);
+    const screenId = searchParams.get('screen') || '1';
+
     // Fetch upcoming events
     const { data: upcomingEvents } = useQuery({
         queryKey: ['events', 'upcoming'],
@@ -44,14 +48,18 @@ export const TVMode = () => {
     const { data: settings } = useQuery({
         queryKey: ['settings_tv'],
         queryFn: async () => {
-            const res = await axios.get(`http://${window.location.hostname}:8000/settings`); // Use explicit URL to avoid circular dep
+            const res = await axios.get(`http://${window.location.hostname}:8000/settings`);
             return res.data;
         },
         refetchInterval: 2000
     });
 
-    const tvMode = settings?.find((s: any) => s.key === 'tv_mode')?.value || 'auto';
-    const remoteView = settings?.find((s: any) => s.key === 'tv_view')?.value;
+    // Resolve settings for THIS screen
+    const modeKey = `tv_mode_${screenId}`;
+    const viewKey = `tv_view_${screenId}`;
+
+    const tvMode = settings?.find((s: any) => s.key === modeKey)?.value || 'auto';
+    const remoteView = settings?.find((s: any) => s.key === viewKey)?.value;
 
     // Filter available views based on activity
     let availableViews = VIEWS.slice(); // Copy
@@ -78,10 +86,8 @@ export const TVMode = () => {
     // Manual Override Logic
     useEffect(() => {
         if (tvMode === 'manual' && remoteView) {
-            // Map remote view string to index or handle special cases
             if (remoteView === 'TOURNAMENT') {
-                // Special handling for tournament view?
-                // For now, we don't have it in the main list, so we might need to handle it in render
+                // Special handling if needed
             } else {
                 const idx = availableViews.indexOf(remoteView);
                 if (idx !== -1) setCurrentViewIndex(idx);
@@ -161,17 +167,18 @@ export const TVMode = () => {
 
             case 'VERSUS':
                 if (!activeEvent) return null;
-
-                // We need to know WHO to compare. 
-                // For now, let's hardcode a reliable wrapper or specialized "TournamentVersus" component
-                // But wait, existing logic is clean.
-                // Let's instantiate a wrapper here that fetches leaderboard quickly
                 return (
                     <TournamentVersusWrapper eventId={activeEvent.id} track={activeEvent.track_name} />
                 );
 
             default:
-            // ...
+                return (
+                    <div className="h-full w-full flex items-center justify-center bg-black">
+                        <div className="text-center animate-pulse">
+                            <img src="/logo.png" className="w-32 opacity-50 mx-auto" alt="Logo" />
+                        </div>
+                    </div>
+                );
         }
     };
 
@@ -193,6 +200,11 @@ export const TVMode = () => {
                 </motion.div>
             </AnimatePresence>
 
+            {/* Screen Identity Watermark */}
+            <div className="absolute top-4 right-4 z-50 opacity-30 text-[10px] uppercase font-bold text-white border border-white/30 px-2 py-0.5 rounded">
+                PANTALLA {screenId}
+            </div>
+
             {/* TV Footer / Overlay */}
             <div className="absolute bottom-0 left-0 w-full h-16 bg-gradient-to-t from-black to-transparent z-20 flex items-center justify-between px-8 pb-4">
                 <div className="flex items-center space-x-4">
@@ -200,10 +212,10 @@ export const TVMode = () => {
                     <span className="text-white/50 text-sm font-bold uppercase tracking-widest">Modo Kiosco • Assetto Manager</span>
                 </div>
                 <div className="flex space-x-2">
-                    {availableViews.map((v, i) => (
+                    {availableViews.map((v, _) => (
                         <div
                             key={v}
-                            className={`h-1.5 rounded-full transition-all duration-500 ${i === currentViewIndex ? 'w-8 bg-yellow-500' : 'w-2 bg-gray-700'}`}
+                            className={`h-1.5 rounded-full transition-all duration-500 ${v === activeView ? 'w-8 bg-yellow-500' : 'w-2 bg-gray-700'}`}
                         />
                     ))}
                 </div>

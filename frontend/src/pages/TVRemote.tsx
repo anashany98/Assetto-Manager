@@ -19,6 +19,8 @@ export default function TVRemote() {
     const [pinInput, setPinInput] = useState('');
     const [error, setError] = useState('');
 
+    const [selectedScreen, setSelectedScreen] = useState(1);
+
     // Fetch current settings
     const { data: settings } = useQuery({
         queryKey: ['settings'],
@@ -29,8 +31,16 @@ export default function TVRemote() {
         refetchInterval: 2000
     });
 
-    const tvMode = settings?.find((s: any) => s.key === 'tv_mode')?.value || 'auto';
-    const tvView = settings?.find((s: any) => s.key === 'tv_view')?.value || 'LEADERBOARD';
+    // Helper to get setting value for current screen
+    const getSetting = (keyPrefix: string, def: string) => {
+        // keyPrefix is 'tv_mode' or 'tv_view'
+        // We look for 'tv_mode_1', 'tv_mode_2', etc.
+        const key = `${keyPrefix}_${selectedScreen}`;
+        return settings?.find((s: any) => s.key === key)?.value || def;
+    };
+
+    const tvMode = getSetting('tv_mode', 'auto');
+    const tvView = getSetting('tv_view', 'LEADERBOARD');
 
     const updateSettingMutation = useMutation({
         mutationFn: async ({ key, value }: { key: string, value: string }) => {
@@ -92,11 +102,11 @@ export default function TVRemote() {
     }
 
     const setMode = (mode: 'auto' | 'manual') => {
-        updateSettingMutation.mutate({ key: 'tv_mode', value: mode });
+        updateSettingMutation.mutate({ key: `tv_mode_${selectedScreen}`, value: mode });
     }
 
     const setView = (view: string) => {
-        updateSettingMutation.mutate({ key: 'tv_view', value: view });
+        updateSettingMutation.mutate({ key: `tv_view_${selectedScreen}`, value: view });
         if (tvMode === 'auto') {
             setMode('manual');
         }
@@ -115,7 +125,7 @@ export default function TVRemote() {
                                 <Tv className="mr-2 md:mr-3 text-blue-500" size={24} />
                                 Mando TV
                             </h1>
-                            <p className="text-gray-400 text-xs md:text-sm">Controla la pantalla</p>
+                            <p className="text-gray-400 text-xs md:text-sm">Control de Pantallas</p>
                         </div>
                     </div>
                     <div className="flex items-center space-x-2 text-green-400 text-xs md:text-sm font-bold bg-green-500/10 px-2 md:px-3 py-1 rounded-full border border-green-500/20">
@@ -123,6 +133,24 @@ export default function TVRemote() {
                         <span>ADMIN</span>
                     </div>
                 </header>
+
+                {/* SCREEN SELECTOR */}
+                <div className="flex space-x-2 mb-6 bg-gray-800 p-1.5 rounded-xl">
+                    {[1, 2, 3].map((num) => (
+                        <button
+                            key={num}
+                            onClick={() => setSelectedScreen(num)}
+                            className={cn(
+                                "flex-1 py-3 rounded-lg font-bold text-sm md:text-base transition-all",
+                                selectedScreen === num
+                                    ? "bg-blue-600 text-white shadow"
+                                    : "text-gray-400 hover:text-white hover:bg-gray-700"
+                            )}
+                        >
+                            Pantalla {num}
+                        </button>
+                    ))}
+                </div>
 
                 {/* MODE SELECTOR */}
                 <div className="grid grid-cols-2 gap-3 md:gap-4 mb-6 md:mb-8">
@@ -160,7 +188,7 @@ export default function TVRemote() {
                     "bg-gray-800/50 rounded-3xl p-4 md:p-6 border border-gray-700 transition-all duration-300",
                     tvMode === 'auto' ? "opacity-50 pointer-events-none grayscale" : "opacity-100"
                 )}>
-                    <h2 className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-4">Seleccionar Vista</h2>
+                    <h2 className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-4">Seleccionar Vista (Pantalla {selectedScreen})</h2>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-4">
                         <ControlButton
                             active={tvView === 'LEADERBOARD'}
@@ -223,10 +251,10 @@ export default function TVRemote() {
 
                         {/* Overlay Label */}
                         <div className="absolute bottom-2 left-2 bg-black/80 backdrop-blur px-2 py-1 rounded text-[10px] text-gray-400 font-mono border border-white/10">
-                            VISTA: {tvMode === 'auto' ? 'AUTO' : tvView}
+                            PANTALLA {selectedScreen}: {tvMode === 'auto' ? 'AUTO' : tvView}
                         </div>
                     </div>
-                    <p className="text-center text-xs text-gray-500 mt-2">Vista previa en tiempo real</p>
+                    <p className="text-center text-xs text-gray-500 mt-2">Vista previa - Pantalla {selectedScreen}</p>
                 </div>
             </div>
         </div>

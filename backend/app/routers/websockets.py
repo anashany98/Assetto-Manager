@@ -4,7 +4,7 @@ import json
 import logging
 from sqlalchemy.orm import Session
 from ..database import SessionLocal
-from .. import crud, schemas, models
+from .. import schemas, models
 from datetime import datetime
 
 router = APIRouter()
@@ -106,17 +106,20 @@ async def websocket_agent_endpoint(websocket: WebSocket):
                         # Save to DB
                         db = SessionLocal()
                         try:
-                            # Create SessionResult object
-                            session_data = schemas.SessionResultCreate(
+                            # Create SessionResult object manually (replacing crud)
+                            new_session = models.SessionResult(
                                 driver_name=driver_name,
                                 car_model=car_model,
                                 track_name=track_name,
                                 best_lap=lap_time,
                                 date=datetime.utcnow(),
-                                session_type="practice", # Default
+                                session_type="practice",
                                 track_config=None
                             )
-                            crud.create_session_result(db=db, session=session_data)
+                            db.add(new_session)
+                            db.commit()
+                            db.refresh(new_session)
+                            
                             logger.info(f"Auto-saved lap for {driver_name}: {lap_time}ms")
                         finally:
                             db.close()
