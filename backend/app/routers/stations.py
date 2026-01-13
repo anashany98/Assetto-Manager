@@ -5,6 +5,8 @@ from pathlib import Path
 import os
 from .. import models, schemas, database
 from ..paths import STORAGE_DIR
+from ..utils.wol import send_magic_packet
+from .websockets import manager as ws_manager
 
 router = APIRouter(
     prefix="/stations",
@@ -110,4 +112,54 @@ def get_target_manifest(station_id: int, db: Session = Depends(database.get_db))
         except json.JSONDecodeError:
             continue
             
+            continue
+            
     return master_manifest
+
+@router.post("/{station_id}/shutdown")
+async def shutdown_station(station_id: int, db: Session = Depends(database.get_db)):
+    station = db.query(models.Station).filter(models.Station.id == station_id).first()
+    if not station:
+        raise HTTPException(status_code=404, detail="Station not found")
+        
+    # Send command via WebSocket
+    success = await ws_manager.send_command(station_id, {"command": "shutdown"})
+    
+    if not success:
+        raise HTTPException(status_code=503, detail="Station not connected or failed to receive command")
+        
+    return {"status": "ok", "message": f"Shutdown command sent to {station.name}"}
+
+@router.post("/{station_id}/power-on")
+def power_on_station(station_id: int, db: Session = Depends(database.get_db)):
+    station = db.query(models.Station).filter(models.Station.id == station_id).first()
+    if not station:
+        raise HTTPException(status_code=404, detail="Station not found")
+        
+    if not station.mac_address:
+         raise HTTPException(status_code=400, detail="Station has no MAC address configured")
+    
+    # Send WoL Packet
+    success = send_magic_packet(station.mac_address)
+    
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to send Wake-on-LAN packet")
+        
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to send Wake-on-LAN packet")
+        
+    return {"status": "ok", "message": f"Wake-on-LAN packet sent to {station.mac_address}"}
+
+@router.post("/{station_id}/panic")
+async def panic_station(station_id: int, db: Session = Depends(database.get_db)):
+    station = db.query(models.Station).filter(models.Station.id == station_id).first()
+    if not station:
+        raise HTTPException(status_code=404, detail="Station not found")
+        
+    # Send PARNIC command via WebSocket
+    success = await ws_manager.send_command(station_id, {"command": "panic"})
+    
+    if not success:
+        raise HTTPException(status_code=503, detail="Station not connected or failed to receive command")
+        
+    return {"status": "ok", "message": f"Panic command sent to {station.name}"}

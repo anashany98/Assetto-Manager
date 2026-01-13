@@ -9,6 +9,7 @@ __pycache__/
 env/
 venv/
 ENV/
+.venv_migrate/
 
 # Database
 *.db

@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import engine, Base
-from .routers import stations, mods, telemetry, websockets, settings, profiles, events, config_manager, championships, integrations, tournament, logs
+from .routers import stations, mods, telemetry, websockets, settings, profiles, events, config_manager, championships, integrations, tournament, logs, ads
 from .routers.logs import MemoryLogHandler
 
 # Create Tables
@@ -46,18 +46,24 @@ STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(STORAGE_DIR)), name="static")
 
 # CORS Configuration
-origins = [
-    "http://localhost:3000",  # React Frontend default port
-    "http://localhost:5173",  # Vite default port
-]
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173").split(",")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Admin-Token"],
 )
+
+# Rate Limiting
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.include_router(profiles.router)
 app.include_router(mods.router)
@@ -71,12 +77,13 @@ app.include_router(integrations.router)
 app.include_router(websockets.router)
 app.include_router(tournament.router)
 app.include_router(logs.router)
+app.include_router(ads.router)
 
 
-@app.get("/")
-async def root():
-    # Keep minimal payload to match health checks and automated tests
-    return {"message": "Assetto Corsa Manager API"}
+# @app.get("/")
+# async def root():
+#     # Keep minimal payload to match health checks and automated tests
+#     return {"message": "Assetto Corsa Manager API"}
 
 @app.get("/health")
 async def health_check():

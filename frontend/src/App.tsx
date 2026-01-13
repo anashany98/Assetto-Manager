@@ -1,65 +1,85 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Suspense, lazy } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import ErrorBoundary from './components/ErrorBoundary';
+// Pages - Lazy Loaded
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const ProfilesPage = lazy(() => import('./pages/ProfilesPage'));
+const ModsLibrary = lazy(() => import('./pages/ModsLibrary'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const Configuration = lazy(() => import('./pages/Configuration'));
+const Leaderboard = lazy(() => import('./pages/Leaderboard'));
+const HallOfFame = lazy(() => import('./pages/HallOfFame').then(module => ({ default: module.HallOfFame }))); // Handle named export if needed, assuming default or named
+const EventsPage = lazy(() => import('./pages/EventsPage'));
+const EventDetails = lazy(() => import('./pages/EventDetails'));
+const DriversPage = lazy(() => import('./pages/DriversPage'));
+const DriverPassport = lazy(() => import('./pages/DriverPassport'));
+const ChampionshipsPage = lazy(() => import('./pages/ChampionshipsPage'));
+const ChampionshipDetails = lazy(() => import('./pages/ChampionshipDetails'));
+const TVRemote = lazy(() => import('./pages/TVRemote'));
+const BattleMode = lazy(() => import('./pages/BattleMode'));
+const LandingPage = lazy(() => import('./pages/LandingPage'));
+const TournamentTV = lazy(() => import('./pages/TournamentTV'));
+const MobileLeaderboard = lazy(() => import('./pages/MobileLeaderboard'));
+const MobilePassport = lazy(() => import('./pages/MobilePassport'));
+const LiveMapPage = lazy(() => import('./pages/LiveMapPage'));
+const HistoryPage = lazy(() => import('./pages/HistoryPage'));
+const LapAnalysisPage = lazy(() => import('./pages/LapAnalysisPage'));
+const TVMode = lazy(() => import('./pages/TVMode').then(module => ({ default: module.TVMode })));
 
-// Pages
-import Dashboard from './pages/Dashboard';
-import ProfilesPage from './pages/ProfilesPage';
-import ModsLibrary from './pages/ModsLibrary';
-import SettingsPage from './pages/SettingsPage';
-import Leaderboard from './pages/Leaderboard';
-import { HallOfFame } from './pages/HallOfFame';
-import EventsPage from './pages/EventsPage';
-import EventDetails from './pages/EventDetails';
-import DriversPage from './pages/DriversPage';
-import DriverPassport from './pages/DriverPassport';
-import ChampionshipsPage from './pages/ChampionshipsPage';
-import ChampionshipDetails from './pages/ChampionshipDetails';
-import TVRemote from './pages/TVRemote';
-import BattleMode from './pages/BattleMode';
-import LandingPage from './pages/LandingPage';
-import TournamentTV from './pages/TournamentTV';
-import MobileLeaderboard from './pages/MobileLeaderboard';
-import MobilePassport from './pages/MobilePassport';
-import LiveMapPage from './pages/LiveMapPage';
-import HistoryPage from './pages/HistoryPage';
+// Fallback Loading Component
+const PageLoader = () => (
+  <div className="h-full w-full flex items-center justify-center p-20">
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent"></div>
+  </div>
+);
 
 function App() {
   return (
     <Router>
       <ErrorBoundary>
         <Layout>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/analysis/:id" element={<LapAnalysisPage />} />
 
-            {/* Management */}
-            <Route path="/drivers" element={<DriversPage />} />
-            <Route path="/drivers/:driverName" element={<DriverPassport />} />
-            <Route path="/events" element={<EventsPage />} />
-            <Route path="/events/:id" element={<EventDetails />} />
-            <Route path="/championships" element={<ChampionshipsPage />} />
-            <Route path="/championships/:id" element={<ChampionshipDetails />} />
-            <Route path="/history" element={<HistoryPage />} />
-            <Route path="/mods" element={<ModsLibrary />} />
+              {/* Management */}
+              <Route path="/drivers" element={<DriversPage />} />
+              <Route path="/drivers/:driverName" element={<DriverPassport />} />
+              <Route path="/events" element={<EventsPage />} />
+              <Route path="/events/:id" element={<EventDetails />} />
+              <Route path="/championships" element={<ChampionshipsPage />} />
+              <Route path="/championships/:id" element={<ChampionshipDetails />} />
+              <Route path="/history" element={<HistoryPage />} />
+              <Route path="/mods" element={<ModsLibrary />} />
 
-            {/* System */}
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/profiles" element={<ProfilesPage />} />
+              {/* System */}
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/config" element={<Configuration />} />
+              <Route path="/profiles" element={<ProfilesPage />} />
 
-            {/* Public Views */}
-            <Route path="/remote" element={<TVRemote />} />
-            <Route path="/leaderboard" element={<Leaderboard />} />
-            <Route path="/hall-of-fame" element={<HallOfFame />} />
-            <Route path="/kiosk" element={<LandingPage />} />
-            <Route path="/battle" element={<BattleMode />} />
-            <Route path="/live-map" element={<LiveMapPage />} />
+              {/* Public Views */}
+              <Route path="/remote" element={<TVRemote />} />
+              <Route path="/leaderboard" element={<Leaderboard />} />
+              <Route path="/hall-of-fame" element={<HallOfFame />} />
+              <Route path="/kiosk" element={<LandingPage />} />
+              <Route path="/battle" element={<BattleMode />} />
+              <Route path="/live-map" element={<LiveMapPage />} />
+              <Route path="/tv" element={<TVMode />} />
+              <Route path="/telemetry/:id" element={<LapAnalysisPage />} />
 
-            {/* TV & Mobile (Handled by Layout to hide sidebar) */}
-            <Route path="/tv/leaderboard" element={<Leaderboard />} />
-            <Route path="/tv/bracket/:id" element={<TournamentTV />} />
-            <Route path="/mobile" element={<MobileLeaderboard />} />
-            <Route path="/passport-scanner" element={<MobilePassport />} />
-          </Routes>
+              {/* TV & Mobile (Handled by Layout to hide sidebar) */}
+              <Route path="/tv/leaderboard" element={<Leaderboard />} />
+              <Route path="/tv/bracket/:id" element={<TournamentTV />} />
+              <Route path="/mobile" element={<MobileLeaderboard />} />
+              <Route path="/passport-scanner" element={<MobilePassport />} />
+              <Route path="/tv-mode" element={<TVMode />} />
+
+              {/* Fallback */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
         </Layout>
       </ErrorBoundary>
     </Router>

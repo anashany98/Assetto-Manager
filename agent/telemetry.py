@@ -3,7 +3,7 @@ import json
 import logging
 import requests
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 logger = logging.getLogger("AC-Agent.Telemetry")
 
@@ -75,7 +75,7 @@ def parse_and_send_telemetry(file_path, server_url, station_id):
             "car_model": data.get("car", player.get("car", "unknown")),
             "driver_name": player.get("name", "Unknown Driver"),
             "session_type": session_type,
-            "date": datetime.now().isoformat(),
+            "date": datetime.now(timezone.utc).isoformat(),
             "best_lap": player.get("bestLap", 0),
             "laps": []
         }
@@ -98,7 +98,7 @@ def parse_and_send_telemetry(file_path, server_url, station_id):
                 "lap_time": lap.get("time", 0),
                 "sectors": lap.get("sectors", []), # Array de tiempos de sector
                 "is_valid": lap.get("isValid", True),
-                "timestamp": datetime.now().isoformat(), # Aproximado
+                "timestamp": datetime.now(timezone.utc).isoformat(), # Aproximado
                 "telemetry_data": tele_data if tele_data else None
             })
             

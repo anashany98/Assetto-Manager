@@ -9,7 +9,16 @@ export default function ProfilesPage() {
     const queryClient = useQueryClient();
 
     // Queries
-    const { data: profiles, isLoading: isLoadingProfiles } = useQuery({ queryKey: ['profiles'], queryFn: () => getProfiles() });
+    const { data: profiles, isLoading: isLoadingProfiles } = useQuery({
+        queryKey: ['profiles'],
+        queryFn: async () => {
+            try {
+                const res = await getProfiles();
+                return Array.isArray(res) ? res : [];
+            } catch (e) { return []; }
+        },
+        initialData: []
+    });
     const { data: mods } = useQuery({ queryKey: ['mods'], queryFn: () => getMods() });
     const { data: stations } = useQuery({ queryKey: ['stations'], queryFn: () => getStations() });
 

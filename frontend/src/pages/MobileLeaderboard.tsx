@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTelemetry } from '../hooks/useTelemetry';
-import { Car, Search, Trophy, MapPin, Zap, Activity as ActivityIcon, Share2, X, Gauge, Crown, Settings } from 'lucide-react';
+import PromoCarousel from '../components/PromoCarousel';
+import { Car, Search, Trophy, MapPin, Zap, Activity as ActivityIcon, Share2, X, Crown, Settings } from 'lucide-react';
 import { TelemetryChart } from '../components/TelemetryChart';
 import { SimpleTelemetry } from '../components/SimpleTelemetry';
 import { LiveDashboard } from '../components/LiveDashboard';
@@ -11,6 +12,7 @@ import { cn } from '../lib/utils';
 import axios from 'axios';
 import html2canvas from 'html2canvas';
 import { API_URL } from '../config';
+import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 // import GhostViewer from '../components/GhostViewer';
 // import { PlayCircle } from 'lucide-react'; // Removed unused
 
@@ -112,7 +114,7 @@ const PilotProfileContent = ({ driverName, onClose }: { driverName: string, onCl
         const track = profile?.records?.[0]?.track_name || 'monza';
         const car = profile?.favorite_car || 'abarth500';
 
-        console.log(`Comparing ${driverName} vs ${opp} on ${track} w/ ${car}`);
+        // Compared log removed
 
         try {
             const res = await axios.get(`${API_URL}/telemetry/compare/${encodeURIComponent(driverName)}/${encodeURIComponent(opp)}?track=${encodeURIComponent(track)}&car=${encodeURIComponent(car)}`);
@@ -163,7 +165,7 @@ const PilotProfileContent = ({ driverName, onClose }: { driverName: string, onCl
                 setShareImage(imgUrl);
             }
         } catch (error) {
-            console.log('Error generating share image:', error);
+            console.error('Error generating share image:', error);
             alert("No se pudo generar la imagen. Texto copiado.");
             navigator.clipboard.writeText(shareText);
         }
@@ -174,7 +176,9 @@ const PilotProfileContent = ({ driverName, onClose }: { driverName: string, onCl
     if (isLoading) return <div className="p-10 text-center text-white">Cargando perfil...</div>;
     if (!profile) return null;
 
+
     if (comparisonData) {
+        // ... (Keep Comparison Logic as is, it's fine)
         return (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-4 overflow-y-auto">
                 <div className="bg-gray-900 w-full max-w-md rounded-3xl overflow-hidden shadow-2xl relative border border-gray-800 animate-in fade-in zoom-in duration-300 p-6">
@@ -264,64 +268,49 @@ const PilotProfileContent = ({ driverName, onClose }: { driverName: string, onCl
                     <X size={20} />
                 </button>
 
-                {/* Header Card */}
-                <div className="relative h-48 bg-gradient-to-br from-yellow-500 to-orange-600 p-6 flex flex-col justify-end" id="social-share-card-header">
-                    {/* Background Pattern */}
-                    <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]" />
+                {/* Identity Card Style Header */}
+                <div className="bg-gradient-to-br from-blue-900/40 to-gray-900 border-b border-blue-500/30 p-6 relative overflow-hidden" id="social-share-card-header">
+                    <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
+                        <Trophy size={120} />
+                    </div>
 
-                    <div className="relative z-10 flex justify-between items-end">
-                        <div className="flex-1">
-                            <div className="flex items-center space-x-2 mb-2">
-                                <span className="px-2 py-0.5 bg-black/30 backdrop-blur-md rounded text-[10px] font-bold text-white uppercase tracking-widest border border-white/10">
-                                    {profile.rank_tier || 'ROOKIE'}
-                                </span>
-                                <span className="px-2 py-0.5 bg-black/30 backdrop-blur-md rounded text-[10px] font-bold text-white uppercase tracking-widest border border-white/10">
-                                    Nvl {Math.floor(profile.total_km / 100) + 1}
-                                </span>
-                            </div>
-                            <h2 className="text-3xl font-black text-white italic tracking-tighter uppercase leading-none drop-shadow-lg">
-                                {profile.driver_name}
-                            </h2>
-                            <p className="text-white/80 text-xs font-bold uppercase tracking-wider mt-1">Piloto Oficial</p>
+                    <div className="relative z-10 flex flex-col items-center">
+                        <div className="w-20 h-20 rounded-full bg-gray-800 border-2 border-blue-400 flex items-center justify-center text-3xl font-black mb-3 shadow-lg">
+                            {profile.driver_name.charAt(0).toUpperCase()}
+                        </div>
+                        <h1 className="text-2xl font-black uppercase tracking-tight text-center text-white">{profile.driver_name}</h1>
+                        <div className="mt-2 px-3 py-1 bg-blue-600/20 border border-blue-500/50 rounded-full text-blue-300 text-xs font-bold uppercase tracking-widest">
+                            {profile.total_laps > 100 ? "Pro Driver" : "Rookie"}
                         </div>
 
                         <button
                             onClick={() => setCompareMode(true)}
-                            className="bg-white/20 backdrop-blur-md hover:bg-white/30 text-white font-bold py-2 px-4 rounded-full text-xs uppercase tracking-widest border border-white/30 shadow-lg transition-all"
+                            className="mt-4 bg-white/10 hover:bg-white/20 text-white font-bold py-1.5 px-4 rounded-full text-[10px] uppercase tracking-widest border border-white/20 transition-all flex items-center gap-2"
                         >
+                            <Zap size={10} />
                             VS Comparar
                         </button>
                     </div>
-                </div>
 
-                {/* Stats Grid */}
-                <div className="p-6 space-y-6">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-gray-800/50 p-4 rounded-2xl border border-gray-700/50 text-center">
-                            <Gauge className="mx-auto text-yellow-500 mb-2" size={24} />
-                            <div className="text-2xl font-black text-white">{profile.avg_consistency}%</div>
-                            <div className="text-[10px] uppercase font-bold text-gray-500 tracking-widest">Consistencia</div>
+                    {/* Quick Stats Grid */}
+                    <div className="grid grid-cols-3 gap-2 mt-6 border-t border-white/10 pt-4">
+                        <div className="text-center">
+                            <div className="text-gray-400 text-[10px] uppercase font-bold">Vueltas</div>
+                            <div className="text-xl font-mono font-bold text-white">{profile.total_laps}</div>
                         </div>
-                        <div className="bg-gray-800/50 p-4 rounded-2xl border border-gray-700/50 text-center">
-                            <MapPin className="mx-auto text-blue-500 mb-2" size={24} />
-                            <div className="text-2xl font-black text-white">{profile.total_km}</div>
-                            <div className="text-[10px] uppercase font-bold text-gray-500 tracking-widest">KM Totales</div>
+                        <div className="text-center border-l border-white/10">
+                            <div className="text-gray-400 text-[10px] uppercase font-bold">Km Totales</div>
+                            <div className="text-xl font-mono font-bold text-white">{profile.total_km}</div>
                         </div>
-                        <div className="bg-gray-800/50 p-4 rounded-2xl border border-gray-700/50 text-center col-span-2 flex items-center justify-between px-6">
-                            <div className="text-left">
-                                <ActivityIcon className="text-green-500 mb-1" size={20} />
-                                <div className="text-xl font-black text-white">{profile.active_days}</div>
-                                <div className="text-[10px] uppercase font-bold text-gray-500 tracking-widest">Días Activo</div>
-                            </div>
-                            <div className="h-8 w-px bg-gray-700" />
-                            <div className="text-right">
-                                <Car className="text-purple-500 mb-1 ml-auto" size={20} />
-                                <div className="text-xs font-bold text-white max-w-[120px] truncate">{(profile.favorite_car || '-').replace(/_/g, ' ')}</div>
-                                <div className="text-[10px] uppercase font-bold text-gray-500 tracking-widest">Coche Fav.</div>
-                            </div>
+                        <div className="text-center border-l border-white/10">
+                            <div className="text-gray-400 text-[10px] uppercase font-bold">Consist.</div>
+                            <div className="text-xl font-mono font-bold text-green-400">{profile.avg_consistency}%</div>
                         </div>
                     </div>
+                </div>
 
+                {/* Content Body */}
+                <div className="p-6 space-y-6">
                     {/* Session History */}
                     <div>
                         <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center">
@@ -351,28 +340,22 @@ const PilotProfileContent = ({ driverName, onClose }: { driverName: string, onCl
                         </div>
                     </div>
 
-                    {/* Records List */}
-                    <div className="space-y-3">
-                        <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-2 flex items-center">
-                            <Trophy size={12} className="mr-1" /> Mejores Marcas
-                        </h3>
-                        {profile.records.slice(0, 3).map((rec: any, idx: number) => (
-                            <div key={idx} className="flex justify-between items-center bg-gray-800 p-3 rounded-xl border border-gray-700/50">
-                                <div className="flex items-center space-x-3">
-                                    <div className={`w-6 h-6 rounded flex items-center justify-center text-[10px] font-black ${idx === 0 ? 'bg-yellow-500 text-black' : 'bg-gray-700 text-gray-400'}`}>
-                                        {idx + 1}
-                                    </div>
-                                    <div>
-                                        <div className="text-xs font-bold text-white uppercase">{rec.track_name.replace(/_/g, ' ')}</div>
-                                        <div className="text-[10px] text-gray-500 truncate w-32">{rec.car_model.replace(/_/g, ' ')}</div>
-                                    </div>
-                                </div>
-                                <div className="text-right">
-                                    <div className="text-sm font-black text-white font-mono">{formatTime(rec.lap_time)}</div>
-                                    <div className="text-[10px] text-gray-500">{formatDate(rec.timestamp)}</div>
-                                </div>
-                            </div>
-                        ))}
+                    {/* Progression Chart */}
+                    <div className="bg-gray-800/30 border border-white/5 rounded-xl p-4">
+                        <h3 className="text-gray-400 text-[10px] font-bold uppercase tracking-widest mb-4">Progresión (Últimas 5)</h3>
+                        <div className="h-32">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={profile.recent_sessions?.slice(0, 5).reverse()}>
+                                    <XAxis hide />
+                                    <Tooltip
+                                        contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151' }}
+                                        labelStyle={{ color: '#9CA3AF' }}
+                                        cursor={{ fill: 'transparent' }}
+                                    />
+                                    <Bar dataKey="best_lap" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
                     </div>
 
                     {/* Action Buttons */}
@@ -527,9 +510,12 @@ export default function MobileLeaderboard() {
     const { data: branding } = useQuery({
         queryKey: ['branding'],
         queryFn: async () => {
-            const res = await axios.get(`${API_URL}/settings/`);
-            return res.data;
-        }
+            try {
+                const res = await axios.get(`${API_URL}/settings/`);
+                return Array.isArray(res.data) ? res.data : [];
+            } catch (e) { return []; }
+        },
+        initialData: []
     });
 
     // Derived State
@@ -760,6 +746,17 @@ export default function MobileLeaderboard() {
                                     <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-blue-500/5 to-transparent skew-x-12 group-hover:from-blue-500/10 transition-all" />
                                 </div>
                             ))}
+
+                            {/* PROMO BANNER */}
+                            <div className="py-4">
+                                <div className="rounded-2xl overflow-hidden shadow-2xl h-32 relative border border-white/5">
+                                    <PromoCarousel />
+                                    {/* Mobile Overlay to reduce size impact */}
+                                    <div className="absolute top-2 right-2 px-2 py-0.5 bg-black/60 backdrop-blur rounded text-[8px] font-bold text-white uppercase tracking-widest border border-white/10 pointer-events-none">
+                                        Patrocinado
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     )
                 ) : currentTab === 'live-map' ? (
@@ -926,6 +923,6 @@ export default function MobileLeaderboard() {
                 onClose={() => setShowReplay(false)}
                 data={replayData}
             /> */}
-        </div >
+        </div>
     );
 }

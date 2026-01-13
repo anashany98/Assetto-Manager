@@ -10,9 +10,10 @@ import {
     Truck, Settings as SettingsIcon, Plus, FileText,
     Layout, Monitor, Wifi, WifiOff, Edit2, CheckCircle,
     Activity, Upload, QrCode, Gamepad2, Volume2,
-    Trash2, Lock, Unlock, MonitorPlay, Globe, Terminal
+    Trash2, MonitorPlay, Globe, Terminal, Megaphone
 } from 'lucide-react';
 import { LogViewer } from '../components/LogViewer';
+import AdsSettings from '../components/AdsSettings';
 
 // --- SUB-COMPONENTS FROM CONFIGPAGE ---
 // (We keep SpecializedEditor here or move to a separate file, keeping here for simplicity)
@@ -100,10 +101,19 @@ const AC_CATEGORIES = [
 
 export default function SettingsPage() {
     const queryClient = useQueryClient();
-    const [activeTab, setActiveTab] = useState<'branding' | 'stations' | 'game' | 'logs'>('branding');
+    const [activeTab, setActiveTab] = useState<'branding' | 'stations' | 'game' | 'logs' | 'ads'>('branding');
 
     // --- BRANDING STATE ---
-    const { data: branding } = useQuery({ queryKey: ['settings'], queryFn: async () => (await axios.get(`${API_URL}/settings`)).data });
+    const { data: branding } = useQuery({
+        queryKey: ['settings'],
+        queryFn: async () => {
+            try {
+                const res = await axios.get(`${API_URL}/settings`);
+                return Array.isArray(res.data) ? res.data : [];
+            } catch (e) { return []; }
+        },
+        initialData: []
+    });
     const updateBranding = useMutation({
         mutationFn: async (data: { key: string, value: string }) => await axios.post(`${API_URL}/settings/`, data),
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['settings'] })
@@ -131,7 +141,6 @@ export default function SettingsPage() {
 
     // --- GAME CONFIG STATE ---
     const [selectedCategory, setSelectedCategory] = useState(AC_CATEGORIES[0].id);
-    const [isAdminMode, setIsAdminMode] = useState(false);
     const [isEditorOpen, setIsEditorOpen] = useState(false);
     const [parsedContent, setParsedContent] = useState<any>({});
     const [newProfileName, setNewProfileName] = useState('');
@@ -164,8 +173,9 @@ export default function SettingsPage() {
         onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['config_profiles'] }); setIsEditorOpen(false); }
     });
 
-    const barName = branding?.find((s: any) => s.key === 'bar_name')?.value || 'VRacing Bar';
-    const barLogo = branding?.find((s: any) => s.key === 'bar_logo')?.value || '/logo.png';
+    const safeBranding = Array.isArray(branding) ? branding : [];
+    const barName = safeBranding.find((s: any) => s.key === 'bar_name')?.value || 'VRacing Bar';
+    const barLogo = safeBranding.find((s: any) => s.key === 'bar_logo')?.value || '/logo.png';
 
     return (
         <div className="h-full flex flex-col bg-gray-950 text-white font-sans overflow-hidden">
@@ -183,6 +193,7 @@ export default function SettingsPage() {
                 <div className="flex bg-gray-800 p-1.5 rounded-2xl border border-gray-700 shadow-sm">
                     {[
                         { id: 'branding', label: 'Marca y TV', icon: Layout },
+                        { id: 'ads', label: 'Promociones', icon: Megaphone },
                         { id: 'stations', label: 'Simuladores', icon: MonitorPlay },
                         { id: 'game', label: 'Assetto Corsa', icon: Gamepad2 },
                         { id: 'logs', label: 'Logs Sistema', icon: Terminal }
@@ -242,12 +253,12 @@ export default function SettingsPage() {
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Mensaje Promocional</label>
                                 <textarea
                                     className="w-full p-4 rounded-xl bg-gray-900 border border-gray-700 text-white font-bold outline-none focus:border-yellow-500 transition-all min-h-[100px]"
-                                    defaultValue={branding?.find((s: any) => s.key === 'promo_text')?.value}
+                                    defaultValue={safeBranding.find((s: any) => s.key === 'promo_text')?.value}
                                     onBlur={e => updateBranding.mutate({ key: 'promo_text', value: e.target.value })}
                                 />
                                 <div className="mt-4 flex items-center justify-between">
                                     <span className="text-sm font-bold text-gray-400">Velocidad</span>
-                                    <input type="range" min="20" max="200" className="w-1/2 accent-yellow-500" defaultValue={branding?.find((s: any) => s.key === 'ticker_speed')?.value || 80} onChange={e => updateBranding.mutate({ key: 'ticker_speed', value: e.target.value })} />
+                                    <input type="range" min="20" max="200" className="w-1/2 accent-yellow-500" defaultValue={safeBranding.find((s: any) => s.key === 'ticker_speed')?.value || 80} onChange={e => updateBranding.mutate({ key: 'ticker_speed', value: e.target.value })} />
                                 </div>
                             </div>
                         </div>
@@ -259,7 +270,7 @@ export default function SettingsPage() {
                                     <label className="block text-xs font-bold text-gray-500 uppercase mb-2">URL Pública</label>
                                     <input
                                         className="w-full p-4 rounded-xl bg-gray-900 border border-gray-700 font-mono text-sm text-blue-300"
-                                        defaultValue={branding?.find((s: any) => s.key === 'bar_public_url')?.value}
+                                        defaultValue={safeBranding.find((s: any) => s.key === 'bar_public_url')?.value}
                                         onBlur={e => updateBranding.mutate({ key: 'bar_public_url', value: e.target.value })}
                                     />
                                     <button
@@ -273,7 +284,7 @@ export default function SettingsPage() {
                                     <QrCode className="text-white" size={32} />
                                     <div>
                                         <p className="text-xs font-bold text-gray-500 uppercase">Mostrar en TV</p>
-                                        <input type="checkbox" className="w-5 h-5 accent-blue-500" defaultChecked={branding?.find((s: any) => s.key === 'show_qr')?.value === 'true'} onChange={e => updateBranding.mutate({ key: 'show_qr', value: e.target.checked ? 'true' : 'false' })} />
+                                        <input type="checkbox" className="w-5 h-5 accent-blue-500" defaultChecked={safeBranding.find((s: any) => s.key === 'show_qr')?.value === 'true'} onChange={e => updateBranding.mutate({ key: 'show_qr', value: e.target.checked ? 'true' : 'false' })} />
                                     </div>
                                 </div>
                             </div>
@@ -284,7 +295,7 @@ export default function SettingsPage() {
                 {/* --- TAB: STATIONS --- */}
                 {activeTab === 'stations' && (
                     <div className="grid gap-4 max-w-5xl animate-in fade-in duration-300">
-                        {stations?.map((station) => (
+                        {Array.isArray(stations) && stations.map((station) => (
                             <div key={station.id} className="bg-gray-800 p-6 rounded-2xl border border-gray-700 flex justify-between items-center">
                                 <div className="flex items-center space-x-6">
                                     <div className={cn("p-4 rounded-xl", station.is_online ? "bg-green-500/10 text-green-400" : "bg-gray-700/50 text-gray-500")}>
@@ -323,66 +334,137 @@ export default function SettingsPage() {
 
                 {/* --- TAB: GAME CONFIG --- */}
                 {activeTab === 'game' && (
-                    <div className="flex flex-col md:flex-row gap-8 h-full animate-in fade-in duration-300">
-                        {/* Sidebar */}
-                        <div className="w-64 space-y-2">
-                            {AC_CATEGORIES.map(cat => (
-                                <button key={cat.id} onClick={() => setSelectedCategory(cat.id)} className={cn("w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all font-bold text-sm", selectedCategory === cat.id ? "bg-gray-800 text-white border border-blue-500 shadow-md" : "text-gray-500 hover:bg-gray-800/50")}>
-                                    <cat.icon size={18} className={selectedCategory === cat.id ? "text-blue-400" : ""} />
-                                    <span>{cat.name}</span>
-                                </button>
-                            ))}
+                    <div className="flex flex-col h-full animate-in fade-in duration-300">
+                        <div className="flex flex-col md:flex-row gap-8 h-full">
+                            {/* Sidebar Categories */}
+                            <div className="w-full md:w-64 space-y-2 shrink-0">
+                                {AC_CATEGORIES.map(cat => (
+                                    <button key={cat.id} onClick={() => setSelectedCategory(cat.id)}
+                                        className={cn(
+                                            "w-full flex items-center space-x-3 px-4 py-4 rounded-xl transition-all font-black uppercase text-sm tracking-wide relative overflow-hidden group",
+                                            selectedCategory === cat.id
+                                                ? "bg-blue-600 text-white shadow-lg shadow-blue-900/50 scale-[1.02] ring-2 ring-blue-400"
+                                                : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white border border-gray-700"
+                                        )}>
+                                        <div className={cn("absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-0 transition-opacity", selectedCategory === cat.id && "opacity-100")} />
+                                        <cat.icon size={20} className={cn("relative z-10", selectedCategory === cat.id ? "text-white" : "text-gray-500 group-hover:text-blue-400")} />
+                                        <span className="relative z-10">{cat.name}</span>
+                                    </button>
+                                ))}
 
-                            <div className="pt-6 mt-6 border-t border-gray-800">
-                                <button onClick={() => deployMutation.mutate()} className={cn("w-full py-4 rounded-xl font-black uppercase text-sm flex justify-center items-center space-x-2 transition-all", Object.keys(selectedProfiles).length > 0 ? "bg-blue-600 text-white shadow-lg hover:scale-105" : "bg-gray-800 text-gray-600 cursor-not-allowed")}>
-                                    <Upload size={18} />
-                                    <span>Desplegar</span>
-                                </button>
-                                <div className="mt-4 space-y-2">
-                                    {Object.entries(selectedProfiles).map(([c, f]) => (
-                                        <div key={c} className="bg-gray-800 px-3 py-2 rounded-lg flex justify-between items-center text-xs">
-                                            <span className="text-gray-400 font-bold uppercase">{c}</span>
-                                            <div className="flex items-center space-x-2 text-white truncate">
-                                                <span className="truncate max-w-[80px]">{f}</span>
-                                                <button onClick={() => { const n = { ...selectedProfiles }; delete n[c]; setSelectedProfiles(n) }} className="text-red-400 font-bold">&times;</button>
+                                <div className="hidden md:block pt-6 mt-6 border-t border-gray-800">
+                                    <button onClick={() => deployMutation.mutate()}
+                                        className={cn(
+                                            "w-full py-5 rounded-xl font-black uppercase text-sm flex justify-center items-center space-x-2 transition-all transform active:scale-95 group relative overflow-hidden",
+                                            Object.keys(selectedProfiles).length > 0
+                                                ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xl shadow-blue-900/30 hover:shadow-blue-500/40 border border-blue-400/30"
+                                                : "bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700"
+                                        )}>
+                                        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
+                                        <div className="absolute -inset-full top-0 block h-full w-1/2 -skew-x-12 bg-gradient-to-r from-transparent to-white opacity-20 group-hover:animate-shine" />
+                                        <Upload size={20} className="relative z-10" />
+                                        <span className="relative z-10">APLICAR CAMBIOS</span>
+                                    </button>
+
+                                    {/* Selection Summary */}
+                                    <div className="mt-6 space-y-3">
+                                        <h4 className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-1">Configuración Actual</h4>
+                                        {Object.entries(selectedProfiles).length === 0 ? (
+                                            <p className="text-xs text-gray-600 italic pl-1">Selecciona perfiles para aplicar...</p>
+                                        ) : (
+                                            Object.entries(selectedProfiles).map(([c, f]) => (
+                                                <div key={c} className="bg-gray-800 p-3 rounded-xl border border-gray-700 flex justify-between items-center group hover:border-blue-500/50 transition-colors">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">{c}</span>
+                                                        <span className="text-xs font-bold text-white truncate max-w-[140px]">{f.replace('.ini', '')}</span>
+                                                    </div>
+                                                    <button onClick={() => { const n = { ...selectedProfiles }; delete n[c]; setSelectedProfiles(n) }}
+                                                        className="text-gray-600 hover:text-red-400 p-1 rounded-md hover:bg-gray-700 transition-colors">
+                                                        &times;
+                                                    </button>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Main Content Areas - Cards Layout */}
+                            <div className="flex-1 bg-gray-950 rounded-3xl p-2 md:p-0 overflow-y-auto">
+                                <div className="flex justify-between items-end mb-8 border-b border-gray-800 pb-4">
+                                    <div>
+                                        <h2 className="text-3xl font-black text-white italic uppercase tracking-tighter">
+                                            {AC_CATEGORIES.find(c => c.id === selectedCategory)?.name}
+                                        </h2>
+                                        <p className="text-gray-400 text-sm font-bold mt-1">Selecciona un perfil predefinido</p>
+                                    </div>
+                                    <button onClick={() => { setNewProfileName(''); setParsedContent({}); setIsEditorOpen(true) }}
+                                        className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase transition-colors border border-gray-700">
+                                        <Plus size={14} /> Crear Nuevo
+                                    </button>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                                    {(profiles?.[selectedCategory] || []).map((file: string) => {
+                                        const isSelected = selectedProfiles[selectedCategory] === file;
+                                        const name = file.replace('.ini', '');
+                                        // Try to derive a "type" for icons
+                                        const isRain = name.toLowerCase().includes('rain') || name.toLowerCase().includes('lluvia');
+                                        const isPro = name.toLowerCase().includes('pro') || name.toLowerCase().includes('hard');
+
+                                        return (
+                                            <div key={file} onClick={() => setSelectedProfiles({ ...selectedProfiles, [selectedCategory]: file })}
+                                                className={cn(
+                                                    "relative group cursor-pointer rounded-2xl p-6 transition-all duration-300 border-2 overflow-hidden",
+                                                    isSelected
+                                                        ? "bg-blue-600 border-blue-400 shadow-2xl shadow-blue-900/40 scale-[1.02]"
+                                                        : "bg-gray-900 border-gray-800 hover:bg-gray-800 hover:border-gray-600 hover:shadow-xl"
+                                                )}>
+                                                {/* Background Pattern/Glow */}
+                                                {isSelected && <div className="absolute -right-10 -top-10 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />}
+
+                                                <div className="flex justify-between items-start mb-4 relative z-10">
+                                                    <div className={cn("p-3 rounded-xl", isSelected ? "bg-white/20 text-white" : "bg-gray-800 text-gray-500 group-hover:text-blue-400 group-hover:bg-gray-700")}>
+                                                        {isRain ? <Activity size={24} /> : isPro ? <Gamepad2 size={24} /> : <FileText size={24} />}
+                                                    </div>
+                                                    <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button onClick={(e) => { e.stopPropagation(); handleEditProfile(file) }} className={cn("p-2 rounded-lg hover:bg-black/20", isSelected ? "text-white hover:text-white" : "text-gray-500 hover:text-white")} title="Editar">
+                                                            <Edit2 size={16} />
+                                                        </button>
+                                                        <button className={cn("p-2 rounded-lg hover:bg-red-500/20 hover:text-red-400", isSelected ? "text-blue-200" : "text-gray-500")} title="Borrar">
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <h3 className={cn("text-xl font-black uppercase tracking-tight mb-2 truncate relative z-10", isSelected ? "text-white" : "text-gray-200")}>
+                                                    {name}
+                                                </h3>
+
+                                                <div className={cn("h-1 w-12 rounded-full mb-4", isSelected ? "bg-white/50" : "bg-gray-700 group-hover:bg-blue-500/50 transition-colors")} />
+
+                                                <div className={cn("text-xs font-bold uppercase tracking-widest flex items-center gap-2", isSelected ? "text-blue-100" : "text-gray-500")}>
+                                                    {isSelected ? (
+                                                        <><CheckCircle size={14} className="text-white" /> Seleccionado</>
+                                                    ) : (
+                                                        "Click para seleccionar"
+                                                    )}
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>
+                    </div>
+                )}
 
-                        {/* Grid */}
-                        <div className="flex-1 bg-gray-900/50 rounded-3xl border border-gray-800 p-6 overflow-y-auto">
-                            <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-xl font-black text-white uppercase">{AC_CATEGORIES.find(c => c.id === selectedCategory)?.name}</h2>
-                                <button onClick={() => setIsAdminMode(!isAdminMode)} className="text-xs font-bold uppercase text-gray-500 hover:text-white flex items-center gap-2">
-                                    {isAdminMode ? <Unlock size={14} /> : <Lock size={14} />} Edición
-                                </button>
-                            </div>
-                            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-                                {(profiles?.[selectedCategory] || []).map((file: string) => (
-                                    <div key={file} onClick={() => setSelectedProfiles({ ...selectedProfiles, [selectedCategory]: file })}
-                                        className={cn("p-5 rounded-2xl border-2 cursor-pointer transition-all hover:scale-[1.02]", selectedProfiles[selectedCategory] === file ? "bg-blue-600 border-blue-500 text-white shadow-lg" : "bg-gray-800 border-transparent text-gray-400 hover:bg-gray-750")}>
-                                        <div className="flex justify-between items-start mb-2">
-                                            <FileText size={20} />
-                                            {isAdminMode && (
-                                                <div className="flex space-x-1">
-                                                    <button onClick={(e) => { e.stopPropagation(); handleEditProfile(file) }} className="p-1 hover:text-white"><Edit2 size={12} /></button>
-                                                    <button className="p-1 hover:text-red-400"><Trash2 size={12} /></button>
-                                                </div>
-                                            )}
-                                        </div>
-                                        <span className="font-bold text-lg block truncate">{file.replace('.ini', '')}</span>
-                                    </div>
-                                ))}
-                                {isAdminMode && (
-                                    <button onClick={() => { setNewProfileName(''); setParsedContent({}); setIsEditorOpen(true) }} className="border-2 border-dashed border-gray-700 rounded-2xl flex flex-col items-center justify-center text-gray-600 hover:border-blue-500 hover:text-blue-500 transition-colors h-[120px]">
-                                        <Plus size={24} className="mb-2" />
-                                        <span className="font-bold text-xs uppercase">Nuevo Perfil</span>
-                                    </button>
-                                )}
-                            </div>
+                {/* --- TAB: ADS --- */}
+                {activeTab === 'ads' && (
+                    <div className="max-w-5xl animate-in fade-in duration-300">
+                        <div className="bg-gray-900/50 p-8 rounded-3xl border border-gray-800">
+                            <p className="text-gray-400 mb-6 text-sm font-medium">Gestiona la publicidad y promociones que aparecen en las pantallas del local (TV Mode).</p>
+                            <AdsSettings />
                         </div>
                     </div>
                 )}

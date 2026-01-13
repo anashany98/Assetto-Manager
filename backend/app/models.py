@@ -1,7 +1,7 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey, Table, JSON
+from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey, Table, JSON, Index
 from sqlalchemy.orm import relationship
 from .database import Base
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Association Tables
 profile_mods = Table(
@@ -52,8 +52,8 @@ class Station(Base):
     is_active = Column(Boolean, default=True)
     is_online = Column(Boolean, default=False)
     status = Column(String, default="offline")
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), onupdate=lambda: datetime.now(timezone.utc))
     
     active_profile_id = Column(Integer, ForeignKey("profiles.id"), nullable=True)
     active_profile = relationship("Profile")
@@ -69,7 +69,7 @@ class Mod(Base):
     source_path = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
     size_bytes = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     
     tags = relationship("Tag", secondary=mod_tags, backref="mods")
     dependencies = relationship(
@@ -85,15 +85,15 @@ class Tag(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True)
     color = Column(String, default="#3b82f6")
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 class Profile(Base):
     __tablename__ = "profiles"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True)
     description = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), onupdate=lambda: datetime.now(timezone.utc))
     
     mods = relationship("Mod", secondary=profile_mods, backref="profiles")
 
@@ -107,7 +107,7 @@ class SessionResult(Base):
     track_name = Column(String, index=True)
     best_lap = Column(Integer) # In milliseconds
     sectors = Column(JSON, nullable=True) 
-    date = Column(DateTime, default=datetime.utcnow)
+    date = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
     
     session_type = Column(String, default="practice")
     track_config = Column(String, nullable=True)
@@ -116,22 +116,26 @@ class SessionResult(Base):
     event = relationship("Event", backref="results")
     station = relationship("Station")
 
+    __table_args__ = (
+        Index('idx_track_car_date', 'track_name', 'car_model', 'date'),
+    )
+
 class Event(Base):
     __tablename__ = "events"
     
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)
     description = Column(String, nullable=True)
-    start_date = Column(DateTime)
-    end_date = Column(DateTime)
+    start_date = Column(DateTime(timezone=True))
+    end_date = Column(DateTime(timezone=True))
     track_name = Column(String, nullable=True)
     allowed_cars = Column(JSON, nullable=True) 
     status = Column(String, default="upcoming") 
     rules = Column(JSON, nullable=True) 
     bracket_data = Column(JSON, nullable=True)
     is_active = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), onupdate=lambda: datetime.now(timezone.utc))
     
     championship_id = Column(Integer, ForeignKey("championships.id"), nullable=True)
 
@@ -143,17 +147,22 @@ class LapTime(Base):
     time = Column(Integer)
     splits = Column(JSON, nullable=True)
     telemetry_data = Column(JSON, nullable=True)
-    valid = Column(Boolean, default=True)
+    valid = Column(Boolean, default=True, index=True)
     
     session = relationship("SessionResult")
+
+    __table_args__ = (
+        Index('idx_session_valid', 'session_id', 'valid'),
+        Index('idx_valid_time', 'valid', 'time'),
+    )
 
 class Championship(Base):
     __tablename__ = "championships"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String)
     description = Column(String, nullable=True)
-    start_date = Column(DateTime, nullable=True)
-    end_date = Column(DateTime, nullable=True)
+    start_date = Column(DateTime(timezone=True), nullable=True)
+    end_date = Column(DateTime(timezone=True), nullable=True)
     is_active = Column(Boolean, default=True)
     scoring_rules = Column(JSON, nullable=True) 
     
@@ -179,4 +188,13 @@ class TournamentMatch(Base):
     next_match_id = Column(Integer, ForeignKey("tournament_matches.id"), nullable=True)
     
     event = relationship("Event")
-    next_match = relationship("TournamentMatch", remote_side=[id]) 
+    next_match = relationship("TournamentMatch", remote_side=[id])
+
+class AdCampaign(Base):
+    __tablename__ = "ad_campaigns"
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, index=True)
+    image_path = Column(String)  # Relative to /storage/ads/
+    is_active = Column(Boolean, default=True)
+    display_duration = Column(Integer, default=15) # Seconds
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

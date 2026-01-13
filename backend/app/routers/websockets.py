@@ -4,8 +4,9 @@ import json
 import logging
 from sqlalchemy.orm import Session
 from ..database import SessionLocal
-from .. import schemas, models
+from .. import models
 from datetime import datetime
+
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -14,7 +15,10 @@ class ConnectionManager:
     def __init__(self):
         # Active connections: list of WebSockets
         self.active_clients: List[WebSocket] = []
-        self.active_agents: List[WebSocket] = []
+        # Map Station ID -> WebSocket
+        self.active_agents: Dict[int, WebSocket] = {}
+        # Reverse map WS -> Station ID for cleanup
+        self.ws_to_station: Dict[WebSocket, int] = {}
         # Last known state per agent (keyed by car/station ID usually, but here we might just store by agent WS)
         self.agent_states: Dict[WebSocket, Any] = {}
 
@@ -23,10 +27,11 @@ class ConnectionManager:
         self.active_clients.append(websocket)
         logger.info(f"Client connected. Total clients: {len(self.active_clients)}")
 
-    async def connect_agent(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_agents.append(websocket)
-        logger.info(f"Agent connected. Total agents: {len(self.active_agents)}")
+    async def register_agent(self, websocket: WebSocket, station_id: int):
+        # Register authenticated/identified agent
+        self.active_agents[station_id] = websocket
+        self.ws_to_station[websocket] = station_id
+        logger.info(f"Agent Registered: Station {station_id}. Total registered agents: {len(self.active_agents)}")
 
     def disconnect_client(self, websocket: WebSocket):
         if websocket in self.active_clients:
@@ -34,11 +39,14 @@ class ConnectionManager:
             logger.info(f"Client disconnected. Total clients: {len(self.active_clients)}")
 
     def disconnect_agent(self, websocket: WebSocket):
-        if websocket in self.active_agents:
-            self.active_agents.remove(websocket)
+        if websocket in self.ws_to_station:
+            station_id = self.ws_to_station[websocket]
+            if station_id in self.active_agents:
+                del self.active_agents[station_id]
+            del self.ws_to_station[websocket]
             if websocket in self.agent_states:
                 del self.agent_states[websocket]
-            logger.info(f"Agent disconnected. Total agents: {len(self.active_agents)}")
+            logger.info(f"Agent Disconnected: Station {station_id}")
 
     async def broadcast(self, message: str):
         # Broadcast message from Agent to all Clients
@@ -49,15 +57,9 @@ class ConnectionManager:
             except Exception:
                 self.disconnect_client(connection)
 
-manager = ConnectionManager()
 
-# Dependency to get DB session (created manually within async context if needed, but here we use a fresh session for each operation)
-def get_db_session():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+
+manager = ConnectionManager()
 
 @router.websocket("/ws/telemetry/client")
 async def websocket_client_endpoint(websocket: WebSocket):
@@ -77,23 +79,30 @@ async def websocket_client_endpoint(websocket: WebSocket):
 
 @router.websocket("/ws/telemetry/agent")
 async def websocket_agent_endpoint(websocket: WebSocket):
-    await manager.connect_agent(websocket)
+    await websocket.accept()
+    # Note: We don't register immediately. We wait for 'identify' message.
+    
     try:
         while True:
             # Agents stream JSON data
             raw_data = await websocket.receive_text()
             
-            # 1. Broadcast immediately to all clients (Live visual updates)
-            await manager.broadcast(raw_data)
-            
-            # 2. Process for Auto-Lap (Backend Logic)
+            # 1. Parse JSON
             try:
                 data = json.loads(raw_data)
                 
-                # Check if this message indicates a LAP COMPLETION
-                # The agent plugin should send a specific event type or we detect 'lap_completed': true
-                # For now, let's assume the agent sends specific event metadata
+                # Handle Identification
+                if data.get("type") == "identify":
+                    station_id = data.get("station_id")
+                    if station_id:
+                        await manager.register_agent(websocket, station_id)
+                    continue
+
+                # 1. Broadcast immediately to all clients (Live visual updates)
+                await manager.broadcast(raw_data)
                 
+                # 2. Process for Auto-Lap (Backend Logic)
+                # Check if this message indicates a LAP COMPLETION
                 if data.get("event") == "LapCompleted":
                     # Extract necessary info
                     # Expected format: { "event": "LapCompleted", "driver_name": "...", "car_model": "...", "track_name": "...", "lap_time": 123456, "sectors": [1,2,3] }
@@ -113,7 +122,7 @@ async def websocket_agent_endpoint(websocket: WebSocket):
                                 car_model=car_model,
                                 track_name=track_name,
                                 best_lap=lap_time,
-                                date=datetime.utcnow(),
+                                date=datetime.now(datetime.timezone.utc),
                                 session_type="practice",
                                 track_config=None
                             )

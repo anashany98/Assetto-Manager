@@ -166,11 +166,14 @@ class LapTimeBase(BaseModel):
     car_model: str
     track_name: str
     track_config: Optional[str] = None
-    lap_time: int
+    time: int = Field(..., alias="lap_time")
     sectors: List[int]
     telemetry_data: Optional[Any] = None
     is_valid: bool
     timestamp: datetime
+
+    class Config:
+        populate_by_name = True
 
 class SessionResultCreate(BaseModel):
     station_id: Optional[int] = None

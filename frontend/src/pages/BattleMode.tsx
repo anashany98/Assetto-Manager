@@ -129,7 +129,7 @@ function BattleArena({ query }: { query: URLSearchParams }) {
         const ws = new WebSocket(WS_URL);
 
         ws.onopen = () => {
-            console.log("Battle Mode: WebSocket Connected");
+            // WebSocket Connected
         };
 
         ws.onmessage = (event) => {

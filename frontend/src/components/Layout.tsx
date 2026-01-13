@@ -53,14 +53,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         queryFn: async () => {
             try {
                 const res = await axios.get(`${API_URL}/settings`);
-                return res.data;
-            } catch (e) { return null; }
+                return Array.isArray(res.data) ? res.data : [];
+            } catch (e) { return []; }
         },
-        retry: 1
+        retry: 1,
+        initialData: []
     });
 
-    const barLogo = branding?.find((s: any) => s.key === 'bar_logo')?.value || '/logo.png';
-    const barName = branding?.find((s: any) => s.key === 'bar_name')?.value || 'VRacing Bar';
+    const safeBranding = Array.isArray(branding) ? branding : [];
+    const barLogo = safeBranding.find((s: any) => s.key === 'bar_logo')?.value || '/logo.png';
+    const barName = safeBranding.find((s: any) => s.key === 'bar_name')?.value || 'VRacing Bar';
 
     if (isTVMode || isMobileView) {
         return (

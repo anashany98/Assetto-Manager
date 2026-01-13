@@ -5,18 +5,33 @@ import socket
 import logging
 import requests
 import uuid
+import datetime
 import json
+from datetime import datetime, timezone
 
 import asyncio
 import threading
 import websockets
 import ac_telemetry
 
-# Configure Logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+class JSONFormatter(logging.Formatter):
+    def format(self, record):
+        log_obj = {
+            "timestamp": datetime.fromtimestamp(record.created, timezone.utc).isoformat(),
+            "level": record.levelname,
+            "name": record.name,
+            "message": record.getMessage(),
+            "module": record.module,
+            "funcName": record.funcName,
+            "lineno": record.lineno
+        }
+        if record.exc_info:
+            log_obj["exception"] = self.formatException(record.exc_info)
+        return json.dumps(log_obj)
+
+handler = logging.StreamHandler()
+handler.setFormatter(JSONFormatter())
+logging.basicConfig(level=logging.INFO, handlers=[handler])
 logger = logging.getLogger("AC-Agent")
 
 # --- Network Log Handler ---
@@ -59,9 +74,12 @@ except ImportError:
     logger.warning("Shared hashing module not found. Sync might fail.")
 
 # Config Loading
+# Config Loading
 CONFIG_FILE = "config.json"
-SERVER_URL = "http://localhost:8000" # Default
-AC_CONTENT_DIR = Path("ac_content_root") # Default
+# Use environment variables for config over hardcoding
+SERVER_URL = os.getenv("SERVER_URL", "http://localhost:8000")
+AC_CONTENT_DIR = Path(os.getenv("AC_CONTENT_DIR", "ac_content_root"))
+
 
 if os.path.exists(CONFIG_FILE):
     try:
@@ -213,10 +231,13 @@ def send_heartbeat(station_id, status="online"):
     except Exception as e:
         logger.error(f"Heartbeat failed: {e}")
 
+
 # import telemetry # Disabled in favor of Shared Memory Upload
 import telemetry # Habilitado para gestión de resultados y fusión de telemetría
 
 def main():
+    logger.info("Iniciando Agente AC Manager...")
+
     logger.info("Iniciando Agente AC Manager...")
     
     # Attach Network Logger (Only for Warnings/Errors)
@@ -292,54 +313,103 @@ class TelemetryThread(threading.Thread):
                         "role": "agent"
                     }))
 
-                    while self.running:
-                        data = self.ac.read_data()
-                        if data:
-                            # 1. Stream Tiempo Real al Backend (para Live View)
-                            data['station_id'] = self.station_id
-                            await websocket.send(json.dumps(data))
-                            
-                            # 2. Lógica de Buffer para Análisis/Comparador
-                            current_laps = data.get('laps', 0)
-                            
-                            # Inicializar contador
-                            if self.last_lap_count == -1:
-                                self.last_lap_count = current_laps
-                            
-                            # Añadir muestra al buffer
-                            # Muestra optimizada: t (tiempo), s (velocidad), r (rpm), g (marcha), n (pos_norm)
-                            self.current_lap_buffer.append({
-                                "t": data.get('lap_time_ms', 0),
-                                "s": data.get('speed_kmh', 0),
-                                "r": data.get('rpm', 0),
-                                "g": data.get('gear', 0),
-                                "n": data.get('normalized_pos', 0),
-                                "gas": data.get('gas', 0),
-                                "brk": data.get('brake', 0),
-                                "str": data.get('steer', 0),
-                                "gl": data.get('g_lat', 0),
-                                "gn": data.get('g_lon', 0),
-                                "tt": data.get('tyre_temp', 0)
-                            })
-                            
-                            # 3. Detección de Cambio de Vuelta
-                            if current_laps > self.last_lap_count:
-                                logger.info(f"¡Vuelta Terminada! {self.last_lap_count} -> {current_laps}")
-                                
-                                # Guardar la vuelta completada en el módulo de telemetría
-                                # Usamos last_lap_count como índice (vuelta 0, vuelta 1...)
-                                telemetry.save_lap_telemetry(self.last_lap_count, self.current_lap_buffer)
-                                
-                                # Resetear para nueva vuelta
-                                self.current_lap_buffer = []
-                                self.last_lap_count = current_laps
-                                self.last_lap_timestamp = time.time()
+                    # Run send and receive loops concurrently
+                    await asyncio.gather(
+                        self.send_loop(websocket),
+                        self.receive_loop(websocket)
+                    )
 
-                        # Rate limit 10Hz (0.1s)
-                        await asyncio.sleep(0.1)
             except Exception as e:
                 logger.error(f"Error WS Telemetría: {e}")
                 await asyncio.sleep(5) # Delay reconexión
+
+    async def send_loop(self, websocket):
+        while self.running:
+            try:
+                data = self.ac.read_data()
+                if data:
+                    # 1. Stream Tiempo Real al Backend (para Live View)
+                    data['station_id'] = self.station_id
+                    await websocket.send(json.dumps(data))
+                    
+                    # 2. Lógica de Buffer para Análisis/Comparador
+                    current_laps = data.get('laps', 0)
+                    
+                    # Inicializar contador
+                    if self.last_lap_count == -1:
+                        self.last_lap_count = current_laps
+                    
+                    # Añadir muestra al buffer
+                    self.current_lap_buffer.append({
+                        "t": data.get('lap_time_ms', 0),
+                        "s": data.get('speed_kmh', 0),
+                        "r": data.get('rpm', 0),
+                        "g": data.get('gear', 0),
+                        "n": data.get('normalized_pos', 0),
+                        "gas": data.get('gas', 0),
+                        "brk": data.get('brake', 0),
+                        "str": data.get('steer', 0),
+                        "gl": data.get('g_lat', 0),
+                        "gn": data.get('g_lon', 0),
+                        "tt": data.get('tyre_temp', 0)
+                    })
+                    
+                    # 3. Detección de Cambio de Vuelta
+                    if current_laps > self.last_lap_count:
+                        logger.info(f"¡Vuelta Terminada! {self.last_lap_count} -> {current_laps}")
+                        
+                        # Guardar la vuelta completada en el módulo de telemetría
+                        telemetry.save_lap_telemetry(self.last_lap_count, self.current_lap_buffer)
+                        
+                        # Resetear para nueva vuelta
+                        self.current_lap_buffer = []
+                        self.last_lap_count = current_laps
+                        self.last_lap_timestamp = time.time()
+
+                # Rate limit 20Hz (0.05s)
+                await asyncio.sleep(0.05)
+            except websockets.ConnectionClosed:
+                break # Exit loop to trigger reconnection
+            except Exception as e:
+                logger.error(f"Error sending telemetry: {e}")
+                break
+
+    async def receive_loop(self, websocket):
+        while self.running:
+            try:
+                msg = await websocket.recv()
+                data = json.loads(msg)
+                command = data.get("command")
+                
+                if command == "shutdown":
+                    logger.info("Received SHUTDOWN command")
+                    if platform.system() == "Windows":
+                        os.system("shutdown /s /t 5 /c \"Apagado remoto desde AC Manager\"")
+                    else:
+                        os.system("shutdown -h now")
+                
+                elif command == "restart":
+                     logger.info("Received RESTART command")
+                     if platform.system() == "Windows":
+                        os.system("shutdown /r /t 5 /c \"Reinicio remoto desde AC Manager\"")
+                     else:
+                        os.system("reboot")
+
+                elif command == "panic":
+                    logger.info("Received PANIC command: Killing Game Processes")
+                    if platform.system() == "Windows":
+                        os.system("taskkill /F /IM acs.exe")
+                        os.system("taskkill /F /IM acs_pro.exe") # Just in case
+                        os.system("taskkill /F /IM \"Content Manager.exe\"")
+                    else:
+                        os.system("pkill -9 acs")
+
+                        
+            except websockets.ConnectionClosed:
+                break
+            except Exception as e:
+                logger.error(f"Error receiving command: {e}")
+                break
 
 if __name__ == "__main__":
     main()

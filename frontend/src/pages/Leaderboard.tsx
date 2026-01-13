@@ -7,6 +7,7 @@ import { useLocation } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import ManualEntryModal from '../components/ManualEntryModal';
 import { TelemetryChart } from '../components/TelemetryChart';
+
 import { API_URL } from '../config';
 
 interface LeaderboardEntry {
@@ -199,9 +200,12 @@ export default function LeaderboardPage() {
     const { data: branding } = useQuery({
         queryKey: ['settings'],
         queryFn: async () => {
-            const res = await axios.get(`${API_URL}/settings`);
-            return res.data;
-        }
+            try {
+                const res = await axios.get(`${API_URL}/settings`);
+                return Array.isArray(res.data) ? res.data : [];
+            } catch (e) { return []; }
+        },
+        initialData: []
     });
 
     // Fetch Global Stats for Ticker
@@ -215,7 +219,8 @@ export default function LeaderboardPage() {
     });
 
     // Configuration Handlers
-    const getSetting = (key: string, defaultVal: string) => branding?.find((s: any) => s.key === key)?.value || defaultVal;
+    const safeBranding = Array.isArray(branding) ? branding : [];
+    const getSetting = (key: string, defaultVal: string) => safeBranding.find((s: any) => s.key === key)?.value || defaultVal;
 
     const tickerSpeed = getSetting('ticker_speed', '80');
     const promoText = getSetting('promo_text', 'BUSCAMOS AL PILOTO MÁS RÁPIDO DEL MES');
@@ -254,7 +259,7 @@ export default function LeaderboardPage() {
             <div className="bg-gray-800 border-b border-gray-700 py-3 px-8 flex justify-between items-center shadow-lg z-10 shrink-0">
                 <div className="flex flex-col items-center">
                     <img
-                        src={branding?.find((s: any) => s.key === 'bar_logo')?.value || '/logo.png'}
+                        src={safeBranding.find((s: any) => s.key === 'bar_logo')?.value || '/logo.png'}
                         alt="Logo"
                         className="h-14 w-auto object-contain drop-shadow-[0_0_15px_rgba(59,130,246,0.2)]"
                         onError={(e) => e.currentTarget.src = 'https://via.placeholder.com/150x50?text=LOGO'}

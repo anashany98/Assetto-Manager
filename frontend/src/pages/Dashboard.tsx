@@ -12,6 +12,10 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getDashboardStats, type DashboardStats } from '../api/dashboard';
+import { getStations } from '../api/stations';
+import { AlertTriangle } from 'lucide-react';
+import axios from 'axios';
+import { API_URL } from '../config';
 
 export default function Dashboard() {
     const { data: stats, isLoading, error } = useQuery<DashboardStats>({
@@ -19,6 +23,23 @@ export default function Dashboard() {
         queryFn: getDashboardStats,
         refetchInterval: 5000
     });
+
+    const { data: stations } = useQuery({
+        queryKey: ['stations'],
+        queryFn: getStations,
+        refetchInterval: 5000
+    });
+
+    const sendPanic = async (id: number, name: string) => {
+        if (confirm(`⚠ PRECAUCIÓN: ¿Estás seguro de enviar la señal de EMERGENCIA a ${name}?\n\nEsto cerrará forzosamente todos los juegos.`)) {
+            try {
+                await axios.post(`${API_URL}/stations/${id}/panic`);
+                alert(`Orden ejecutada: Pánico en ${name}`);
+            } catch (e) {
+                alert("Error al enviar la orden");
+            }
+        }
+    };
 
     if (isLoading) return <div className="p-8 text-white">Cargando centro de mando...</div>;
     if (error) return <div className="p-8 text-red-400">Error conectando con el servidor central.</div>;
@@ -37,15 +58,15 @@ export default function Dashboard() {
                     <p className="text-gray-400 mt-1 font-medium">Panel de control general de la sala</p>
                 </div>
                 <div className="flex items-center gap-4">
-                    <Link 
-                        to="/tv-remote" 
+                    <Link
+                        to="/remote"
                         className="hidden md:flex bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-2 rounded-lg font-bold items-center gap-2 transition-colors border border-gray-700 text-sm"
                     >
                         <Tv size={16} />
                         Mando
                     </Link>
-                    <Link 
-                        to="/tournament-tv/1" 
+                    <Link
+                        to="/tv-mode"
                         target="_blank"
                         className="hidden md:flex bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg font-bold items-center gap-2 transition-colors shadow-lg shadow-blue-600/20 text-sm"
                     >
@@ -164,6 +185,40 @@ export default function Dashboard() {
                             <div className="bg-gray-900 p-3 rounded-lg border border-blue-500/30 text-sm shadow-sm">
                                 <p className="font-bold text-blue-400">Sistema Actualizado</p>
                                 <p className="text-gray-400 text-xs mt-1">Versión v2.1.0 funcionando correctamente.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* STATION CONTROLS & EMERGENCY */}
+                <div className="lg:col-span-3">
+                    <div className="bg-gray-800 rounded-2xl shadow-xl border border-gray-700 overflow-hidden">
+                        <div className="px-6 py-4 border-b border-gray-700 flex justify-between items-center bg-gray-900/50">
+                            <h2 className="font-bold text-white flex items-center gap-2">
+                                <Activity size={20} className="text-blue-500" /> MONITOR DE ESTACIONES Y EMERGENCIA
+                            </h2>
+                        </div>
+                        <div className="p-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {stations?.map((station) => (
+                                    <div key={station.id} className="bg-gray-900 border border-gray-700 rounded-xl p-4 flex items-center justify-between">
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <div className={`w-2 h-2 rounded-full ${station.is_online ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                                                <h3 className="font-bold text-white leading-none">{station.name || `Simulador ${station.id}`}</h3>
+                                            </div>
+                                            <p className="text-xs text-gray-500 font-mono mt-1">{station.ip_address}</p>
+                                        </div>
+                                        <button
+                                            onClick={() => sendPanic(station.id, station.name || `Station ${station.id}`)}
+                                            className="bg-red-500/10 hover:bg-red-600 hover:text-white text-red-500 border border-red-500/30 p-2 rounded-lg transition-all active:scale-95"
+                                            title="Panic Button: Forzar cierre"
+                                        >
+                                            <AlertTriangle size={18} />
+                                        </button>
+                                    </div>
+                                ))}
+                                {stations?.length === 0 && <p className="text-gray-500 italic">No se detectan estaciones.</p>}
                             </div>
                         </div>
                     </div>

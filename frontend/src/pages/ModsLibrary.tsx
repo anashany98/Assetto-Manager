@@ -231,7 +231,8 @@ export default function ModsLibrary() {
     };
 
     // Filter logic
-    const filteredMods = mods?.filter(mod => {
+    const safeMods = Array.isArray(mods) ? mods : [];
+    const filteredMods = safeMods.filter(mod => {
         const matchesType = filterType === 'all' || mod.type === filterType;
         const matchesSearch = mod.name.toLowerCase().includes(searchQuery.toLowerCase());
         return matchesType && matchesSearch;

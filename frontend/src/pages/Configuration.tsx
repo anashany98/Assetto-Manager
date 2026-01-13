@@ -1,16 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getStations, updateStation, type Station } from '../api/stations';
-import { Server, Monitor, Edit2, CheckCircle, WifiOff, Wifi, Image as ImageIcon, Layout, Activity, Upload, QrCode, Car } from 'lucide-react';
+import { Server, Monitor, Edit2, CheckCircle, WifiOff, Wifi, Image as ImageIcon, Layout, Activity, Upload, QrCode, Car, Power, AlertTriangle } from 'lucide-react';
 import { useState, useRef } from 'react';
 import { cn } from '../lib/utils';
 import axios from 'axios';
 import { API_URL } from '../config';
 import { LogViewer } from '../components/LogViewer';
+import AdsSettings from '../components/AdsSettings';
 
 export default function Configuration() {
     const queryClient = useQueryClient();
     const { data: stations, isLoading, error } = useQuery({ queryKey: ['stations'], queryFn: getStations });
-    const [activeTab, setActiveTab] = useState<'stations' | 'branding' | 'logs'>('stations');
+    const [activeTab, setActiveTab] = useState<'stations' | 'branding' | 'logs' | 'ads'>('stations');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Simulator Editing State
@@ -41,9 +42,12 @@ export default function Configuration() {
     const { data: branding } = useQuery({
         queryKey: ['settings'],
         queryFn: async () => {
-            const res = await axios.get(`${API_URL}/settings`);
-            return res.data;
-        }
+            try {
+                const res = await axios.get(`${API_URL}/settings`);
+                return Array.isArray(res.data) ? res.data : [];
+            } catch (e) { return []; }
+        },
+        initialData: []
     });
 
     const updateBranding = useMutation({
@@ -51,6 +55,13 @@ export default function Configuration() {
             await axios.post(`${API_URL}/settings/`, data);
         },
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['settings'] })
+    });
+
+    const powerMutation = useMutation({
+        mutationFn: async ({ id, action }: { id: number; action: 'shutdown' | 'power-on' | 'panic' }) => {
+            await axios.post(`${API_URL}/stations/${id}/${action}`);
+        },
+        onSuccess: () => alert("Comando enviado") // Simple feedback for now
     });
 
     const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -74,8 +85,9 @@ export default function Configuration() {
     if (isLoading) return <div className="p-8 text-gray-500 font-sans">Cargando simuladores...</div>;
     if (error) return <div className="p-8 text-red-500 font-sans">Error al cargar estaciones</div>;
 
-    const barName = branding?.find((s: any) => s.key === 'bar_name')?.value || 'VRacing Bar';
-    const barLogo = branding?.find((s: any) => s.key === 'bar_logo')?.value || '/logo.png';
+    const safeBranding = Array.isArray(branding) ? branding : [];
+    const barName = safeBranding.find((s: any) => s.key === 'bar_name')?.value || 'VRacing Bar';
+    const barLogo = safeBranding.find((s: any) => s.key === 'bar_logo')?.value || '/logo.png';
 
     return (
         <div className="p-8 font-sans text-gray-100">
@@ -94,6 +106,11 @@ export default function Configuration() {
                         onClick={() => setActiveTab('branding')}
                         className={cn("px-6 py-2.5 rounded-xl text-sm font-black transition-all uppercase tracking-widest", activeTab === 'branding' ? "bg-gray-700 shadow-lg text-blue-400 border border-gray-600" : "text-gray-500 hover:text-gray-300")}>
                         Branding (Bar)
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('ads')}
+                        className={cn("px-6 py-2.5 rounded-xl text-sm font-black transition-all uppercase tracking-widest", activeTab === 'ads' ? "bg-gray-700 shadow-lg text-yellow-400 border border-gray-600" : "text-gray-500 hover:text-gray-300")}>
+                        Promociones
                     </button>
                     <button
                         onClick={() => setActiveTab('logs')}
@@ -130,6 +147,23 @@ export default function Configuration() {
                                             <h3 className="text-2xl font-black text-white uppercase tracking-tight">{station.name || `Simulador #${station.id}`}</h3>
                                             <button onClick={() => startEdit(station)} className="opacity-0 group-hover/edit:opacity-100 text-gray-500 hover:text-blue-400 transition-opacity">
                                                 <Edit2 size={16} />
+                                            </button>
+                                            <button
+                                                onClick={() => { if (confirm(`¿Estás seguro de que quieres apagar ${station.name}?`)) powerMutation.mutate({ id: station.id, action: 'shutdown' }) }}
+                                                className="opacity-0 group-hover/edit:opacity-100 flex items-center space-x-1 px-3 py-1 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors text-xs font-bold uppercase tracking-wider"
+                                                title="Apagar simulador"
+                                            >
+                                                <Power size={12} />
+                                                <span>Apagar</span>
+                                            </button>
+                                            {/* PANIC BUTTON */}
+                                            <button
+                                                onClick={() => { if (confirm("¡EMERGENCIA! ¿Forzar cierre del juego?")) powerMutation.mutate({ id: station.id, action: 'panic' }) }}
+                                                className="opacity-0 group-hover/edit:opacity-100 flex items-center space-x-1 px-3 py-1 bg-yellow-500/10 text-yellow-500 rounded-lg hover:bg-yellow-500 hover:text-black transition-colors text-xs font-bold uppercase tracking-wider"
+                                                title="Matar procesos del juego (Panic Button)"
+                                            >
+                                                <AlertTriangle size={12} />
+                                                <span>Panic</span>
                                             </button>
                                         </div>
                                     )}
@@ -195,6 +229,11 @@ export default function Configuration() {
             ) : activeTab === 'logs' ? (
                 <div className="max-w-5xl">
                     <LogViewer />
+                </div>
+            ) : activeTab === 'ads' ? (
+                <div className="max-w-5xl bg-gray-900/50 p-8 rounded-3xl border border-gray-800">
+                    <p className="text-gray-400 mb-6 text-sm">Gestiona la publicidad y promociones que aparecen en las pantallas del local.</p>
+                    <AdsSettings />
                 </div>
             ) : (
                 <div className="space-y-8 max-w-5xl">
@@ -296,7 +335,7 @@ export default function Configuration() {
                             <div>
                                 <label className="flex justify-between text-xs font-black text-gray-500 uppercase tracking-widest mb-3">
                                     <span>Velocidad de Desplazamiento</span>
-                                    <span className="text-blue-400">{branding?.find((s: any) => s.key === 'ticker_speed')?.value || '80'}s</span>
+                                    <span className="text-blue-400">{safeBranding.find((s: any) => s.key === 'ticker_speed')?.value || '80'}s</span>
                                 </label>
                                 <input
                                     type="range"
@@ -304,7 +343,7 @@ export default function Configuration() {
                                     max="200"
                                     step="10"
                                     className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                                    defaultValue={branding?.find((s: any) => s.key === 'ticker_speed')?.value || '80'}
+                                    defaultValue={safeBranding.find((s: any) => s.key === 'ticker_speed')?.value || '80'}
                                     onChange={(e) => updateBranding.mutate({ key: 'ticker_speed', value: e.target.value })}
                                 />
                                 <div className="flex justify-between text-[10px] text-gray-500 font-bold mt-2 uppercase tracking-tighter">
@@ -328,7 +367,7 @@ export default function Configuration() {
                                         <input
                                             type="checkbox"
                                             className="w-5 h-5 rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-blue-500 focus:ring-offset-gray-900"
-                                            defaultChecked={(branding?.find((s: any) => s.key === item.key)?.value || item.val) === 'true'}
+                                            defaultChecked={(safeBranding.find((s: any) => s.key === item.key)?.value || item.val) === 'true'}
                                             onChange={(e) => updateBranding.mutate({ key: item.key, value: e.target.checked ? 'true' : 'false' })}
                                         />
                                     </label>
@@ -339,7 +378,7 @@ export default function Configuration() {
                                 <label className="block text-xs font-black text-gray-500 uppercase tracking-widest mb-3">Mensaje Promocional / Próximo Evento</label>
                                 <textarea
                                     className="w-full p-4 rounded-2xl bg-gray-900 border-2 border-gray-700 shadow-sm focus:ring-4 focus:ring-yellow-900/30 focus:border-yellow-500 transition-all text-lg font-bold text-white outline-none min-h-[100px]"
-                                    defaultValue={branding?.find((s: any) => s.key === 'promo_text')?.value || 'BUSCAMOS AL PILOTO MÁS RÁPIDO DEL MES'}
+                                    defaultValue={safeBranding.find((s: any) => s.key === 'promo_text')?.value || 'BUSCAMOS AL PILOTO MÁS RÁPIDO DEL MES'}
                                     placeholder="Escribe aquí tu promoción..."
                                     onBlur={(e) => updateBranding.mutate({ key: 'promo_text', value: e.target.value })}
                                 />
@@ -354,16 +393,16 @@ export default function Configuration() {
                                 <button
                                     onClick={() => updateBranding.mutate({
                                         key: 'enable_tts',
-                                        value: (branding?.find((s: any) => s.key === 'enable_tts')?.value || 'true') === 'true' ? 'false' : 'true'
+                                        value: (safeBranding.find((s: any) => s.key === 'enable_tts')?.value || 'true') === 'true' ? 'false' : 'true'
                                     })}
                                     className={cn(
                                         "w-12 h-7 rounded-full transition-colors relative shadow-inner",
-                                        (branding?.find((s: any) => s.key === 'enable_tts')?.value || 'true') === 'true' ? "bg-green-500" : "bg-gray-600"
+                                        (safeBranding.find((s: any) => s.key === 'enable_tts')?.value || 'true') === 'true' ? "bg-green-500" : "bg-gray-600"
                                     )}
                                 >
                                     <div className={cn(
                                         "w-5 h-5 bg-white rounded-full absolute top-1 shadow-sm transition-all",
-                                        (branding?.find((s: any) => s.key === 'enable_tts')?.value || 'true') === 'true' ? "left-6" : "left-1"
+                                        (safeBranding.find((s: any) => s.key === 'enable_tts')?.value || 'true') === 'true' ? "left-6" : "left-1"
                                     )} />
                                 </button>
                             </div>
@@ -393,7 +432,7 @@ export default function Configuration() {
                                 <input
                                     type="checkbox"
                                     className="w-5 h-5 rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-blue-500"
-                                    defaultChecked={(branding?.find((s: any) => s.key === 'show_qr')?.value || 'false') === 'true'}
+                                    defaultChecked={(safeBranding.find((s: any) => s.key === 'show_qr')?.value || 'false') === 'true'}
                                     onChange={(e) => updateBranding.mutate({ key: 'show_qr', value: e.target.checked ? 'true' : 'false' })}
                                 />
                             </div>
@@ -407,7 +446,7 @@ export default function Configuration() {
                                 </div>
                                 <input
                                     className="w-full p-4 rounded-2xl bg-gray-900 border-2 border-gray-700 shadow-sm focus:ring-4 focus:ring-blue-900/50 focus:border-blue-500 transition-all font-mono text-sm text-gray-300 outline-none"
-                                    defaultValue={branding?.find((s: any) => s.key === 'bar_public_url')?.value || `${window.location.protocol}//${window.location.host}/mobile`}
+                                    defaultValue={safeBranding.find((s: any) => s.key === 'bar_public_url')?.value || `${window.location.protocol}//${window.location.host}/mobile`}
                                     placeholder="http://192.168.1.XX:5173/mobile"
                                     onBlur={(e) => updateBranding.mutate({ key: 'bar_public_url', value: e.target.value })}
                                 />

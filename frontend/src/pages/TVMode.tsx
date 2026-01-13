@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import Leaderboard from './Leaderboard'; // Default export
-import { HallOfFame } from './HallOfFame'; // Named export
-import { LiveMap } from '../components/LiveMap'; // Reusing existing
+import Leaderboard from './Leaderboard';
+import { HallOfFame } from './HallOfFame';
+import { LiveMap } from '../components/LiveMap';
 import EventCountdown from '../components/EventCountdown';
 import { useQuery } from '@tanstack/react-query';
 import { useTelemetry } from '../hooks/useTelemetry';
@@ -13,10 +13,9 @@ import { TournamentLeaderboard } from '../components/TournamentLeaderboard';
 import { TournamentVersusWrapper } from '../components/TournamentVersusWrapper';
 import TournamentBracket from '../components/TournamentBracket';
 import { Trophy } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 
-
-const VIEWS = ['LEADERBOARD', 'HALL_OF_FAME', 'LIVE_MAP', 'COUNTDOWN', 'TOURNAMENT', 'BRACKET'];
-const ROTATION_INTERVAL = 15000; // Faster rotation 15s
+const VIEWS = ['LEADERBOARD', 'HALL_OF_FAME', 'LIVE_MAP', 'COUNTDOWN', 'TOURNAMENT', 'BRACKET', 'SPONSORSHIP', 'JOIN_QR'];
 
 export const TVMode = () => {
     const [currentViewIndex, setCurrentViewIndex] = useState(0);
@@ -49,21 +48,43 @@ export const TVMode = () => {
     const { data: settings } = useQuery({
         queryKey: ['settings_tv'],
         queryFn: async () => {
-            const res = await axios.get(`${API_URL}/settings`);
-            return res.data;
+            try {
+                const res = await axios.get(`${API_URL}/settings`);
+                return Array.isArray(res.data) ? res.data : [];
+            } catch (e) { return []; }
         },
-        refetchInterval: 2000
+        refetchInterval: 2000,
+        initialData: []
     });
 
     // Resolve settings for THIS screen
     const modeKey = `tv_mode_${screenId}`;
     const viewKey = `tv_view_${screenId}`;
 
-    const tvMode = settings?.find((s: any) => s.key === modeKey)?.value || 'auto';
-    const remoteView = settings?.find((s: any) => s.key === viewKey)?.value;
+    const safeSettings = Array.isArray(settings) ? settings : [];
+
+    const intervalSetting = safeSettings.find((s: any) => s.key === `tv_interval_${screenId}`)?.value;
+    const playlistSetting = safeSettings.find((s: any) => s.key === `tv_playlist_${screenId}`)?.value;
+
+    const tvMode = safeSettings.find((s: any) => s.key === modeKey)?.value || 'auto';
+    const remoteView = safeSettings.find((s: any) => s.key === viewKey)?.value;
+
+    const rotationInterval = intervalSetting ? parseInt(intervalSetting) * 1000 : 15000;
 
     // Filter available views based on activity
     let availableViews = VIEWS.slice(); // Copy
+
+    // Apply Playlist Filter if exists
+    if (playlistSetting) {
+        try {
+            const enabledViews = JSON.parse(playlistSetting);
+            if (Array.isArray(enabledViews) && enabledViews.length > 0) {
+                availableViews = availableViews.filter(v => enabledViews.includes(v));
+            }
+        } catch (e) {
+            console.error("Invalid playlist settings", e);
+        }
+    }
 
     if (!hasLiveCars) {
         availableViews = availableViews.filter(v => v !== 'LIVE_MAP');
@@ -73,27 +94,23 @@ export const TVMode = () => {
         availableViews = availableViews.filter(v => v !== 'COUNTDOWN');
     }
 
+    // fallback if everything is filtered out
+    if (availableViews.length === 0) availableViews = ['LEADERBOARD'];
+
     // Auto Rotation
     useEffect(() => {
         if (tvMode === 'manual') return; // Stop rotation in manual mode
 
         const timer = setInterval(() => {
             setCurrentViewIndex(prev => (prev + 1) % availableViews.length);
-        }, ROTATION_INTERVAL);
+        }, rotationInterval);
 
         return () => clearInterval(timer);
-    }, [availableViews.length, tvMode]);
+    }, [availableViews.length, tvMode, rotationInterval]);
 
     // Manual Override Logic
     useEffect(() => {
-        if (tvMode === 'manual' && remoteView) {
-            if (remoteView === 'TOURNAMENT') {
-                // Special handling if needed
-            } else {
-                const idx = availableViews.indexOf(remoteView);
-                if (idx !== -1) setCurrentViewIndex(idx);
-            }
-        }
+        // Optional handling for manual overrides
     }, [tvMode, remoteView, availableViews]);
 
     const activeView = (tvMode === 'manual' && remoteView) ? remoteView : availableViews[currentViewIndex];
@@ -101,6 +118,7 @@ export const TVMode = () => {
     const getCurrentComponent = () => {
         switch (activeView) {
             case 'LEADERBOARD':
+                // ... (existing Leaderboard case)
                 return (
                     <div className="h-full overflow-hidden transform scale-90 origin-top">
                         <div className="pointer-events-none">
@@ -109,12 +127,14 @@ export const TVMode = () => {
                     </div>
                 );
             case 'HALL_OF_FAME':
+                // ... (existing HallOfFame case)
                 return (
                     <div className="h-full overflow-hidden transform scale-90 origin-top">
                         <HallOfFame />
                     </div>
                 );
             case 'LIVE_MAP':
+                // ... (existing LiveMap case)
                 return (
                     <div className="h-full w-full relative grid grid-cols-12 gap-4 p-8">
                         {/* Left: Map */}
@@ -168,6 +188,7 @@ export const TVMode = () => {
                     </div>
                 );
             case 'COUNTDOWN':
+                // ... (existing Countdown case)
                 return nextEvent ? (
                     <div className="h-full w-full">
                         <EventCountdown
@@ -176,8 +197,8 @@ export const TVMode = () => {
                         />
                     </div>
                 ) : null;
-
             case 'TOURNAMENT':
+                // ... (existing Tournament case)
                 if (!activeEvent) {
                     return (
                         <div className="h-full w-full flex items-center justify-center bg-gray-900">
@@ -196,8 +217,8 @@ export const TVMode = () => {
                         description={activeEvent.description}
                     />
                 );
-
             case 'BRACKET':
+                // ... (existing Bracket case)
                 if (!activeEvent) return null;
                 return (
                     <div className="h-full w-full p-8 flex flex-col">
@@ -209,12 +230,20 @@ export const TVMode = () => {
                         </div>
                     </div>
                 );
-
             case 'VERSUS':
+                // ... (existing Versus case)
                 if (!activeEvent) return null;
                 return (
                     <TournamentVersusWrapper eventId={activeEvent.id} track={activeEvent.track_name} />
                 );
+
+            // --- NEW VIEWS ---
+            case 'SPONSORSHIP':
+                return <AdsView />;
+
+            case 'JOIN_QR':
+                const publicUrl = safeSettings.find((s: any) => s.key === 'bar_public_url')?.value || window.location.origin + '/mobile';
+                return <JoinView url={publicUrl} />;
 
             default:
                 return (
@@ -268,3 +297,121 @@ export const TVMode = () => {
         </div>
     );
 };
+
+// --- HELPER COMPONENTS ---
+
+function AdsView() {
+    const { data: ads, isLoading } = useQuery({
+        queryKey: ['ads', 'active'],
+        queryFn: async () => {
+            const res = await axios.get(`${API_URL}/ads/active`);
+            return res.data;
+        },
+        refetchInterval: 30000
+    });
+
+    const [currentAdIndex, setCurrentAdIndex] = useState(0);
+
+    useEffect(() => {
+        if (!ads || ads.length === 0) return;
+
+        const duration = (ads?.[currentAdIndex]?.display_duration || 10) * 1000;
+        const timer = setTimeout(() => {
+            setCurrentAdIndex((prev) => (prev + 1) % ads.length);
+        }, duration);
+
+        return () => clearTimeout(timer);
+    }, [currentAdIndex, ads]);
+
+    if (isLoading) return null;
+    if (!ads || ads.length === 0) {
+        return (
+            <div className="h-full flex items-center justify-center">
+                <p className="text-gray-600 uppercase tracking-widest font-bold">Espacio Publicitario Disponible</p>
+            </div>
+        );
+    }
+
+    const currentAd = ads[currentAdIndex];
+
+    return (
+        <div className="h-full w-full relative">
+            <AnimatePresence mode='wait'>
+                <motion.div
+                    key={currentAd.id}
+                    initial={{ opacity: 0, scale: 1.05 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 1 }}
+                    className="absolute inset-0"
+                >
+                    <img
+                        src={`${API_URL}/static/${currentAd.image_path}`}
+                        className="w-full h-full object-cover"
+                        alt={currentAd.title}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex flex-col justify-end p-12">
+                        <h2 className="text-4xl md:text-6xl font-black text-white uppercase tracking-tighter mb-2 drop-shadow-lg">{currentAd.title}</h2>
+                    </div>
+                </motion.div>
+            </AnimatePresence>
+        </div>
+    );
+}
+
+function JoinView({ url }: { url: string }) {
+    return (
+        <div className="h-full w-full flex items-center justify-center bg-gray-900 relative overflow-hidden">
+            {/* Background Effects */}
+            <div className="absolute inset-0 opacity-20">
+                <div className="absolute top-0 left-0 w-96 h-96 bg-blue-600 rounded-full blur-[100px] -translate-x-1/2 -translate-y-1/2" />
+                <div className="absolute bottom-0 right-0 w-96 h-96 bg-purple-600 rounded-full blur-[100px] translate-x-1/2 translate-y-1/2" />
+            </div>
+
+            <div className="relative z-10 flex flex-col md:flex-row items-center gap-12 p-8 max-w-6xl w-full">
+
+                <div className="flex-1 text-center md:text-left space-y-6">
+                    <div className="inline-block px-4 py-1 rounded-full bg-blue-500/20 text-blue-400 font-bold uppercase tracking-widest text-sm mb-2 border border-blue-500/30">
+                        Portal del Piloto
+                    </div>
+                    <h1 className="text-5xl md:text-7xl font-black text-white uppercase tracking-tighter leading-none">
+                        Únete a la <br /> <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">Carrera</span>
+                    </h1>
+                    <p className="text-xl text-gray-400 max-w-lg">
+                        Escanea el código para ver tus estadísticas en tiempo real, comparar tiempos y acceder a tu pasaporte de piloto.
+                    </p>
+                    <div className="flex items-center space-x-4 justify-center md:justify-start pt-4">
+                        <div className="flex -space-x-3">
+                            <div className="w-10 h-10 rounded-full bg-gray-700 border-2 border-gray-900" />
+                            <div className="w-10 h-10 rounded-full bg-gray-600 border-2 border-gray-900" />
+                            <div className="w-10 h-10 rounded-full bg-gray-500 border-2 border-gray-900 flex items-center justify-center text-[10px] font-bold text-gray-900">+50</div>
+                        </div>
+                        <span className="text-sm font-bold text-gray-500 uppercase tracking-widest">Pilotos Conectados</span>
+                    </div>
+                </div>
+
+                <div className="flex-1 flex justify-center">
+                    <div className="p-8 bg-white rounded-3xl shadow-2xl shadow-blue-500/20 transform rotate-3 transition-transform hover:rotate-0 duration-500">
+                        <QRCodeSVG
+                            value={url}
+                            size={300}
+                            level="H"
+                            imageSettings={{
+                                src: "/logo.png",
+                                x: undefined,
+                                y: undefined,
+                                height: 40,
+                                width: 40,
+                                excavate: true,
+                            }}
+                        />
+                        <div className="text-center mt-4">
+                            <p className="text-black font-black text-xl uppercase tracking-widest">Escanéame</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    );
+}

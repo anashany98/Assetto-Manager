@@ -34,7 +34,7 @@ export function TelemetryChart({ lapId, compareLapId }: TelemetryChartProps) {
     const { data: mainLap, isLoading: loadingMain } = useQuery({
         queryKey: ['telemetry', lapId],
         queryFn: async () => {
-            console.log(`Fetching telemetry for lap ${lapId}...`);
+            // Fetching telemetry
             try {
                 const res = await axios.get<TelemetryPoint[]>(`${API_URL}/telemetry/lap/${lapId}/telemetry`);
                 return res.data;

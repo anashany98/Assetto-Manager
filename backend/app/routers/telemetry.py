@@ -1,21 +1,31 @@
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, Header
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func, asc, desc
-from typing import List, Optional
+from typing import List, Optional, Union, Any
 from .. import models, schemas, database
 from ..paths import STORAGE_DIR
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import os
 import json
 import math
+import logging
+
+# Magic Numbers / Constants
+DEFAULT_LAP_LENGTH_KM = 4.8
+CONSISTENCY_STD_DEV_DIVISOR = 50
+TELEMETRY_POINTS_PER_LAP = 200
+MIN_CONSISTENCY_SCORE = 0
+MAX_CONSISTENCY_SCORE = 100
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/telemetry",
     tags=["telemetry"]
 )
 
-def _coerce_json_value(value):
+def _coerce_json_value(value: Optional[Union[dict, list, str]]) -> Optional[Union[dict, list]]:
     if value is None:
         return None
     if isinstance(value, (dict, list)):
@@ -24,8 +34,8 @@ def _coerce_json_value(value):
         try:
             return json.loads(value)
         except Exception:
-            return value
-    return value
+            return None # Return None on failure to ensure safety
+    return None
 
 def _coerce_splits(value):
     if value is None:
@@ -40,47 +50,76 @@ def _coerce_splits(value):
             return []
     return []
 
+
+def calculate_consistency_score(times: List[int]) -> float:
+    """
+    Calculates a consistency score (0-100) based on lap time standard deviation.
+    Higher is better (more consistent).
+    """
+    if len(times) < 2:
+        return 100.0
+        
+    avg_lap = sum(times) / len(times)
+    # Standard deviation (simplified)
+    variance = sum((t - avg_lap) ** 2 for t in times) / len(times)
+    std_dev = math.sqrt(variance)
+    
+    # Mapping std_dev to 0-100 score. 
+    # A 1 second (1000ms) std_dev is "Okay" (90 pts). 5 seconds (5000ms) is very inconsistent/crashy.
+    # CONSISTENCY_STD_DEV_DIVISOR should be imported or defined in scope.
+    # It is defined at module level.
+    
+    score = max(
+        MIN_CONSISTENCY_SCORE, 
+        min(MAX_CONSISTENCY_SCORE, MAX_CONSISTENCY_SCORE - (std_dev / CONSISTENCY_STD_DEV_DIVISOR))
+    )
+    return float(score)
+
 @router.post("/session", status_code=201)
 def upload_session_result(
     session_data: schemas.SessionResultCreate, 
     db: Session = Depends(database.get_db)
 ):
-    # 1. Create Session Record
-    new_session = models.SessionResult(
-        station_id=session_data.station_id,
-        track_name=session_data.track_name,
-        track_config=session_data.track_config,
-        car_model=session_data.car_model,
-        driver_name=session_data.driver_name,
-        session_type=session_data.session_type,
-        date=session_data.date,
-        best_lap=session_data.best_lap,
-        event_id=session_data.event_id
-    )
-    db.add(new_session)
-    db.commit()
-    db.refresh(new_session)
-    
-    # 2. Process Laps
-    for idx, lap in enumerate(session_data.laps, start=1):
-        if not lap.is_valid:
-            continue # We only store valid laps for leaderboards to save space? Or store all?
-            # Storing only valid ones for V1 efficiency.
-
-        telemetry_payload = _coerce_json_value(lap.telemetry_data)
-            
-        new_lap = models.LapTime(
-            session_id=new_session.id,
-            lap_number=idx,
-            time=lap.lap_time,
-            splits=lap.sectors,
-            telemetry_data=telemetry_payload,
-            valid=lap.is_valid
+    try:
+        # 1. Create Session Record
+        new_session = models.SessionResult(
+            station_id=session_data.station_id,
+            track_name=session_data.track_name,
+            track_config=session_data.track_config,
+            car_model=session_data.car_model,
+            driver_name=session_data.driver_name,
+            session_type=session_data.session_type,
+            date=session_data.date, # Pydantic should handle timezone parsing if ISO format
+            best_lap=session_data.best_lap,
+            event_id=session_data.event_id
         )
-        db.add(new_lap)
+        db.add(new_session)
+        db.flush() # Get ID without committing
+        
+        # 2. Process Laps
+        for idx, lap in enumerate(session_data.laps, start=1):
+            if not lap.is_valid:
+                continue # We only store valid laps for leaderboards to save space? Or store all?
+                # Storing only valid ones for V1 efficiency.
     
-    db.commit()
-    return {"status": "ok", "session_id": new_session.id}
+            telemetry_payload = _coerce_json_value(lap.telemetry_data)
+                
+            new_lap = models.LapTime(
+                session_id=new_session.id,
+                lap_number=idx,
+                time=lap.time,
+                splits=lap.sectors,
+                telemetry_data=telemetry_payload,
+                valid=lap.is_valid
+            )
+            db.add(new_lap)
+        
+        db.commit()
+        return {"status": "ok", "session_id": new_session.id}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to upload session: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/leaderboard", response_model=List[schemas.LeaderboardEntry])
 def get_leaderboard(
@@ -102,16 +141,15 @@ def get_leaderboard(
     if track_name and track_name != "all":
         filters.append(func.lower(models.SessionResult.track_name) == track_name.lower())
     
-    today = datetime.now().date()
-    from datetime import timedelta
+    today = datetime.now(timezone.utc).date()
     
     if period == "today":
-        filters.append(models.SessionResult.date >= datetime.combine(today, datetime.min.time()))
+        filters.append(models.SessionResult.date >= datetime.combine(today, datetime.min.time(), tzinfo=timezone.utc))
     elif period == "week":
-        start_date = datetime.now() - timedelta(days=7)
+        start_date = datetime.now(timezone.utc) - timedelta(days=7)
         filters.append(models.SessionResult.date >= start_date)
     elif period == "month":
-        start_date = datetime.now() - timedelta(days=30)
+        start_date = datetime.now(timezone.utc) - timedelta(days=30)
         filters.append(models.SessionResult.date >= start_date)
 
     if car_model:
@@ -310,7 +348,22 @@ def get_driver_details(
 ):
     """
     Get deep analytics for a specific driver and track.
-    Includes sectors, optimal lap, consistency and history.
+
+    Args:
+        track_name: Name of the track to filter by
+        driver_name: Name of the driver
+        car_model: Optional car model filter
+        db: Database session (injected by FastAPI)
+
+    Returns:
+        DriverDetails: Complete driver analytics including:
+            - Best lap time and sectors
+            - Optimal (theoretical) lap
+            - Consistency score (0-100)
+            - Lap history
+
+    Raises:
+        HTTPException: 404 if no telemetry data found for driver
     """
     filters = [
         models.SessionResult.track_name == track_name,
@@ -356,18 +409,10 @@ def get_driver_details(
 
     # 3. Consistency Score
     # How much the lap times deviate from the average?
-    if len(valid_laps) > 1:
-        times = [l.time for l in valid_laps]
-        avg_lap = sum(times) / len(times)
-        # Standard deviation (simplified)
-        variance = sum((t - avg_lap) ** 2 for t in times) / len(times)
-        std_dev = math.sqrt(variance)
-        
-        # Mapping std_dev to 0-100 score. 
-        # A 1 second (1000ms) std_dev is "Okay" (90 pts). 5 seconds (5000ms) is very inconsistent/crashy.
-        consistency_score = max(0, min(100, 100 - (std_dev / 50))) 
-    else:
-        consistency_score = 100.0
+    # 3. Consistency Score
+    # How much the lap times deviate from the average?
+    times = [l.time for l in valid_laps]
+    consistency_score = calculate_consistency_score(times)
 
     # 4. History (Last 10 laps for the chart, even invalid ones for context?) 
     # Let's keep valid history for the "progress" chart
@@ -382,6 +427,7 @@ def get_driver_details(
         optimal_lap=optimal_lap,
         consistency_score=round(consistency_score, 1),
         lap_history=lap_history,
+
         total_laps=len(laps),
         invalid_laps=len(laps) - len(valid_laps)
     )
@@ -405,7 +451,6 @@ def get_pilot_profile(driver_name: str, db: Session = Depends(database.get_db)):
     favorite_car = fav_car_row[0] if fav_car_row else "Unknown"
 
     # 3. Best Records per Track
-    # Subquery to find best time per track for this driver
     subq = db.query(
         models.SessionResult.track_name,
         func.min(models.LapTime.time).label('best_time')
@@ -432,7 +477,6 @@ def get_pilot_profile(driver_name: str, db: Session = Depends(database.get_db)):
         ))
 
     # 4. Global Consistency (Avg of consistency scores)
-    # We estimate it by taking the last 50 laps and calculating std_dev
     recent_laps = db.query(models.LapTime.time).join(models.SessionResult).filter(
         models.SessionResult.driver_name == driver_name,
         models.LapTime.valid == True
@@ -447,35 +491,41 @@ def get_pilot_profile(driver_name: str, db: Session = Depends(database.get_db)):
         avg_consistency = max(0, min(100, 100 - (std_dev / 100)))
 
     # 5. Total KM (approx 5km per lap)
-    total_km = total_laps * 4.8 
+    total_km = total_laps * DEFAULT_LAP_LENGTH_KM
 
     # 6. Active Days (Count unique dates)
-    # SQLite distinct date count workaround or just python set
     dates_query = db.query(models.SessionResult.date).filter(models.SessionResult.driver_name == driver_name).all()
     active_days = len(set([d[0].date() for d in dates_query]))
 
-    # 7. Recent Sessions
-    recent_sessions_db = db.query(models.SessionResult).filter(
+    # 7. Recent Sessions (Optimized N+1)
+    recent_sessions_db = db.query(
+        models.SessionResult,
+        func.count(models.LapTime.id).label('laps_count')
+    ).outerjoin(
+        models.LapTime, 
+        models.LapTime.session_id == models.SessionResult.id
+    ).filter(
         models.SessionResult.driver_name == driver_name
-    ).order_by(desc(models.SessionResult.date)).limit(10).all()
+    ).group_by(
+        models.SessionResult.id
+    ).order_by(
+        desc(models.SessionResult.date)
+    ).limit(10).all()
 
     recent_sessions = []
-    for s in recent_sessions_db:
-        # Count laps for this session
-        laps_count = db.query(models.LapTime).filter(models.LapTime.session_id == s.id).count()
+    for s, laps_count in recent_sessions_db:
         recent_sessions.append(schemas.SessionSummary(
             session_id=s.id,
             track_name=s.track_name,
             car_model=s.car_model,
             date=s.date,
             best_lap=s.best_lap,
-            laps_count=laps_count
+            laps_count=laps_count or 0
         ))
 
-    # 8. Get Driver Stats (ELO, Wins, Podiums)
+    # 8. Get Driver Stats
     driver_obj = db.query(models.Driver).filter(models.Driver.name == driver_name).first()
     
-    # Create driver if not exists (lazy creation on profile view)
     if not driver_obj:
         driver_obj = models.Driver(name=driver_name, elo_rating=1200.0)
         db.add(driver_obj)
@@ -497,10 +547,15 @@ def get_pilot_profile(driver_name: str, db: Session = Depends(database.get_db)):
     )
 
 @router.post("/seed")
-def seed_data(count: int = 50, db: Session = Depends(database.get_db)):
-    """
-    Seeds the database with random race data.
-    """
+def seed_data(
+    count: int = 50, 
+    db: Session = Depends(database.get_db),
+    admin_token: str = Header(None, alias="X-Admin-Token")
+):
+    if admin_token != os.getenv("ADMIN_TOKEN", "default_insecure_dev_token"):
+        if os.getenv("ENVIRONMENT", "development") == "production":
+             raise HTTPException(status_code=403, detail="Unauthorized")
+
     import random
     from datetime import datetime, timedelta
 
@@ -513,7 +568,7 @@ def seed_data(count: int = 50, db: Session = Depends(database.get_db)):
         car = random.choice(cars)
         driver = random.choice(drivers)
         base_lap_time = 100000 + random.randint(0, 20000)
-        session_date = datetime.now() - timedelta(days=random.randint(0, 30))
+        session_date = datetime.now(timezone.utc) - timedelta(days=random.randint(0, 30))
         
         new_session = models.SessionResult(
             station_id=1,
@@ -619,7 +674,7 @@ def get_all_drivers(db: Session = Depends(database.get_db)):
         
         # 3. Last Seen
         last_lap = db.query(models.SessionResult.date).filter(models.SessionResult.driver_name == name).order_by(desc(models.SessionResult.date)).first()
-        last_seen = last_lap[0] if last_lap else datetime.now()
+        last_seen = last_lap[0] if last_lap else datetime.now(timezone.utc)
         
         # 4. Rank Tier (Simple Logic)
         if total_laps > 500: rank = "Alien"

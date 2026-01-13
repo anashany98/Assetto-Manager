@@ -40,12 +40,12 @@ export const useTelemetry = () => {
         const connect = () => {
             if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current);
 
-            console.log(`Telemetry: Connecting to ${wsUrl}...`);
+            // Connecting...
             const socket = new WebSocket(wsUrl);
             ws.current = socket;
 
             socket.onopen = () => {
-                console.log("Telemetry: Connected");
+                // Connected
                 setIsConnected(true);
             };
 

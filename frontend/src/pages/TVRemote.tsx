@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MonitorPlay, Lock, Unlock, Zap, Trophy, Crown, Map, List, Tv, Swords, GitMerge, Timer } from 'lucide-react';
+import { MonitorPlay, Lock, Unlock, Zap, Trophy, Crown, Map, List, Tv, Swords, GitMerge, Timer, ArrowLeft, Store, QrCode } from 'lucide-react';
 import Leaderboard from './Leaderboard';
 import { HallOfFame } from './HallOfFame';
 import { LiveMap } from '../components/LiveMap';
@@ -25,18 +25,20 @@ export default function TVRemote() {
     const { data: settings } = useQuery({
         queryKey: ['settings'],
         queryFn: async () => {
-            const res = await axios.get(`${API_URL}/settings/`);
-            return res.data;
+            try {
+                const res = await axios.get(`${API_URL}/settings`);
+                return Array.isArray(res.data) ? res.data : [];
+            } catch (e) { return []; }
         },
-        refetchInterval: 2000
+        refetchInterval: 2000,
+        initialData: []
     });
 
     // Helper to get setting value for current screen
     const getSetting = (keyPrefix: string, def: string) => {
-        // keyPrefix is 'tv_mode' or 'tv_view'
-        // We look for 'tv_mode_1', 'tv_mode_2', etc.
+        const safeSettings = Array.isArray(settings) ? settings : [];
         const key = `${keyPrefix}_${selectedScreen}`;
-        return settings?.find((s: any) => s.key === key)?.value || def;
+        return safeSettings.find((s: any) => s.key === key)?.value || def;
     };
 
     const tvMode = getSetting('tv_mode', 'auto');
@@ -44,7 +46,7 @@ export default function TVRemote() {
 
     const updateSettingMutation = useMutation({
         mutationFn: async ({ key, value }: { key: string, value: string }) => {
-            await axios.post(`${API_URL}/settings/`, { key, value });
+            await axios.post(`${API_URL}/settings`, { key, value });
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['settings'] });
@@ -183,6 +185,99 @@ export default function TVRemote() {
                     </button>
                 </div>
 
+                {/* AUTO CONFIG PANEL */}
+                <div className={cn(
+                    "bg-gray-800/50 rounded-3xl p-4 md:p-6 border border-gray-700 transition-all duration-300 mb-6",
+                    tvMode === 'auto' ? "opacity-100" : "hidden"
+                )}>
+                    <h2 className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <Zap size={14} className="text-yellow-400" /> Configuración Automática
+                    </h2>
+
+                    {/* Interval Slider */}
+                    <div className="mb-6 bg-gray-900/50 p-4 rounded-xl border border-gray-700/50">
+                        <div className="flex justify-between mb-2">
+                            <label className="text-sm font-bold text-gray-300">Intervalo de Rotación</label>
+                            <span className="text-sm font-mono text-blue-400">{getSetting('tv_interval', '15')} segundos</span>
+                        </div>
+                        <input
+                            type="range"
+                            min="5"
+                            max="60"
+                            step="5"
+                            value={getSetting('tv_interval', '15')}
+                            onChange={(e) => updateSettingMutation.mutate({ key: `tv_interval_${selectedScreen}`, value: e.target.value })}
+                            className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                        />
+                        <div className="flex justify-between text-[10px] text-gray-500 mt-1 uppercase font-bold">
+                            <span>Rápido (5s)</span>
+                            <span>Normal (30s)</span>
+                            <span>Lento (60s)</span>
+                        </div>
+                    </div>
+
+                    {/* Playlist Toggles */}
+                    <div>
+                        <label className="text-sm font-bold text-gray-300 mb-3 block">Vistas en Rotación</label>
+                        <div className="grid grid-cols-2 gap-3">
+                            {['LEADERBOARD', 'HALL_OF_FAME', 'LIVE_MAP', 'TOURNAMENT', 'BRACKET', 'COUNTDOWN', 'SPONSORSHIP', 'JOIN_QR'].map((view) => {
+                                const playlistJson = getSetting('tv_playlist', '[]');
+                                let playlist = [];
+                                try { playlist = JSON.parse(playlistJson); } catch (e) { }
+                                if (!Array.isArray(playlist) || playlist.length === 0) {
+                                    // Default if empty/invalid: assume ALL checked initially or handle empty logic
+                                    // Better to init properly. For now if empty, we assume we want to add.
+                                    // Actually TVMode defaults to ALL if playlist is empty/missing.
+                                    // So here we should reflect that.
+                                    // If playlist param is missing, it means default.
+                                    // But to edit it, we need to be explicit.
+                                    // Let's assume if "[]" or missing, everything is ON.
+                                }
+
+                                const isChecked = playlist.length === 0 || playlist.includes(view);
+
+                                const toggleView = () => {
+                                    let newPlaylist = [...playlist];
+                                    if (newPlaylist.length === 0) {
+                                        // If it was effectively "all" (empty), fill it with all views first
+                                        newPlaylist = ['LEADERBOARD', 'HALL_OF_FAME', 'LIVE_MAP', 'TOURNAMENT', 'BRACKET', 'COUNTDOWN', 'SPONSORSHIP', 'JOIN_QR'];
+                                    }
+
+                                    if (newPlaylist.includes(view)) {
+                                        newPlaylist = newPlaylist.filter(v => v !== view);
+                                    } else {
+                                        newPlaylist.push(view);
+                                    }
+
+                                    updateSettingMutation.mutate({
+                                        key: `tv_playlist_${selectedScreen}`,
+                                        value: JSON.stringify(newPlaylist)
+                                    });
+                                };
+
+                                return (
+                                    <button
+                                        key={view}
+                                        onClick={toggleView}
+                                        className={cn(
+                                            "flex items-center justify-between p-3 rounded-xl border transition-all text-xs font-bold uppercase tracking-wider",
+                                            isChecked
+                                                ? "bg-blue-600/10 border-blue-500/50 text-blue-300"
+                                                : "bg-gray-800 border-gray-700 text-gray-500 hover:bg-gray-700"
+                                        )}
+                                    >
+                                        <span>{view.replace(/_/g, ' ')}</span>
+                                        <div className={cn(
+                                            "w-3 h-3 rounded-full border",
+                                            isChecked ? "bg-blue-500 border-blue-400" : "bg-transparent border-gray-600"
+                                        )} />
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+
                 {/* MANUAL CONTROLS */}
                 <div className={cn(
                     "bg-gray-800/50 rounded-3xl p-4 md:p-6 border border-gray-700 transition-all duration-300",
@@ -239,10 +334,48 @@ export default function TVRemote() {
                             label="Cuenta Atrás"
                             color="cyan"
                         />
+                        <ControlButton
+                            active={tvView === 'SPONSORSHIP'}
+                            onClick={() => setView('SPONSORSHIP')}
+                            icon={Store}
+                            label="Publicidad"
+                            color="pink"
+                        />
+                        <ControlButton
+                            active={tvView === 'JOIN_QR'}
+                            onClick={() => setView('JOIN_QR')}
+                            icon={QrCode}
+                            label="Portal QR"
+                            color="indigo"
+                        />
                     </div>
                 </div>
 
-// (Removed invalid nested code)
+                {/* EMERGENCY CONTROLS */}
+                <div className="mt-8 bg-red-900/20 border border-red-500/30 rounded-3xl p-6">
+                    <h2 className="text-red-500 text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <Zap size={14} /> Zona de Peligro
+                    </h2>
+                    <button
+                        onClick={async () => {
+                            if (confirm(`⚠ ¿ESTÁS SEGURO?\n\nEsto matará inmediatamente todos los procesos de juego en la PANTALLA ${selectedScreen}.\n\nÚsalo solo si el simulador se ha colgado.`)) {
+                                try {
+                                    await axios.post(`${API_URL}/stations/${selectedScreen}/panic`);
+                                    alert(`Comando de emergencia enviado a Pantalla ${selectedScreen}`);
+                                } catch (e) {
+                                    alert("Error al enviar comando de pánico");
+                                }
+                            }
+                        }}
+                        className="w-full bg-red-600 hover:bg-red-700 text-white font-black py-4 rounded-xl shadow-lg shadow-red-600/20 flex items-center justify-center space-x-3 active:scale-95 transition-all"
+                    >
+                        <Zap size={24} className="animate-pulse" />
+                        <span>INTERRUPTOR DE EMERGENCIA (PANIC)</span>
+                    </button>
+                    <p className="text-center text-red-400/60 text-[10px] mt-2 font-mono">
+                        Fuerza el cierre de acs.exe, content_manager.exe y steam.exe en la estación remota.
+                    </p>
+                </div>
 
                 {/* PREVIEW */}
                 <div className="mt-8">
@@ -283,6 +416,8 @@ function PreviewScreen({ view, mode }: { view: string, mode: string }) {
         case 'LIVE_MAP': content = <LiveMap cars={Object.values(liveCars)} trackName="monza" />; break;
         case 'TOURNAMENT': content = <div className="p-4"><p className="text-white text-center">Torneo Activo</p></div>; break;
         case 'VERSUS': content = <div className="p-4"><p className="text-white text-center">Duelo VS</p></div>; break;
+        case 'SPONSORSHIP': content = <div className="p-4 flex flex-col items-center justify-center h-full"><Store className="mb-2 text-pink-500" /><p className="text-white text-center font-bold">ADS</p></div>; break;
+        case 'JOIN_QR': content = <div className="p-4 flex flex-col items-center justify-center h-full"><QrCode className="mb-2 text-indigo-500" /><p className="text-white text-center font-bold">QR</p></div>; break;
     }
 
     return (
@@ -303,6 +438,8 @@ function ControlButton({ active, onClick, icon: Icon, label, color }: any) {
         purple: active ? "bg-purple-600 ring-purple-500" : "hover:bg-purple-600/20 text-purple-400",
         orange: active ? "bg-orange-600 ring-orange-500" : "hover:bg-orange-600/20 text-orange-400",
         cyan: active ? "bg-cyan-600 ring-cyan-500" : "hover:bg-cyan-600/20 text-cyan-400",
+        pink: active ? "bg-pink-600 ring-pink-500" : "hover:bg-pink-600/20 text-pink-400",
+        indigo: active ? "bg-indigo-600 ring-indigo-500" : "hover:bg-indigo-600/20 text-indigo-400",
     };
 
     return (
@@ -320,11 +457,4 @@ function ControlButton({ active, onClick, icon: Icon, label, color }: any) {
     );
 }
 
-function ArrowLeft({ size }: { size: number }) {
-    return (
-        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="m12 19-7-7 7-7" />
-            <path d="M19 12H5" />
-        </svg>
-    )
-}
+
