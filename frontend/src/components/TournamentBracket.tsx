@@ -1,63 +1,65 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Trophy } from 'lucide-react';
 import axios from 'axios';
+import { API_URL } from '../config';
 
 interface Match {
     id: number;
-    round_number: number;
-    match_number: number;
+    round: number;
+    match_num: number;
     player1: string | null;
     player2: string | null;
     winner: string | null;
-    next_match_id: number | null;
+    score1?: number;
+    score2?: number;
+    status?: string;
 }
 
-const API_URL = `http://${window.location.hostname}:8000/events`;
+interface BracketData {
+    rounds: Match[][];
+}
+
+const EVENTS_URL = `${API_URL}/events`;
 
 export default function TournamentBracket({ eventId, isAdmin = false }: { eventId: number, isAdmin?: boolean }) {
     const queryClient = useQueryClient();
-    const { data: matches, isLoading } = useQuery<Match[]>({
+    const { data: bracketData, isLoading } = useQuery<BracketData | { status: string }>({
         queryKey: ['bracket', eventId],
         queryFn: async () => {
-            const res = await axios.get(`${API_URL}/${eventId}/bracket`);
+            const res = await axios.get(`${EVENTS_URL}/${eventId}/bracket`);
             return res.data;
         }
     });
 
     const generateMutation = useMutation({
-        mutationFn: (size: number) => axios.post(`${API_URL}/${eventId}/generate_bracket?size=${size}`),
+        mutationFn: (size: number) => axios.post(`${EVENTS_URL}/${eventId}/generate_bracket`, null, { params: { size } }),
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['bracket', eventId] })
     });
 
     const setWinnerMutation = useMutation({
         mutationFn: ({ matchId, winner }: { matchId: number, winner: string }) =>
-            axios.post(`${API_URL}/match/${matchId}/winner?winner_name=${winner}`),
+            axios.post(`${EVENTS_URL}/match/${matchId}/winner`, null, {
+                params: { winner_name: winner, event_id: eventId }
+            }),
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['bracket', eventId] })
     });
 
     if (isLoading) return <div className="text-white">Cargando cuadro...</div>;
 
-    // Group matches by round
-    // round_number 4 = Quarter Finals, 2 = Semis, 1 = Final
-    const storedRounds = matches?.reduce((acc, match) => {
-        const r = match.round_number;
-        if (!acc[r]) acc[r] = [];
-        acc[r].push(match);
-        return acc;
-    }, {} as Record<number, Match[]>) || {};
+    const bracket = (bracketData && 'rounds' in bracketData) ? bracketData : null;
+    const rounds = bracket?.rounds || [];
+    const totalRounds = rounds.length;
 
-    const rounds = Object.keys(storedRounds).map(Number).sort((a, b) => b - a); // 4, 2, 1
-
-    const getRoundName = (r: number) => {
-        if (r === 1) return "Final";
-        if (r === 2) return "Semifinales";
-        if (r === 4) return "Cuartos de Final";
-        return `Ronda de ${r * 2}`;
+    const getRoundName = (index: number) => {
+        if (index === totalRounds - 1) return "Final";
+        if (index === totalRounds - 2) return "Semifinales";
+        if (index === totalRounds - 3) return "Cuartos de Final";
+        return `Ronda ${index + 1}`;
     };
 
     return (
         <div className="w-full h-full overflow-x-auto p-8">
-            {matches?.length === 0 ? (
+            {(!bracket || rounds.length === 0) ? (
                 isAdmin ? (
                     <div className="text-center py-12 bg-white/5 rounded-xl border border-white/10">
                         <Trophy size={48} className="mx-auto text-yellow-500 mb-4" />
@@ -83,18 +85,18 @@ export default function TournamentBracket({ eventId, isAdmin = false }: { eventI
                 )
             ) : (
                 <div className="flex justify-center items-center gap-12 min-w-max">
-                    {rounds.map((round) => (
-                        <div key={round} className="flex flex-col justify-around gap-8 relative">
+                    {rounds.map((round, roundIndex) => (
+                        <div key={roundIndex} className="flex flex-col justify-around gap-8 relative">
                             <h3 className="text-center text-yellow-500 font-bold uppercase tracking-widest mb-4 absolute -top-8 w-full">
-                                {getRoundName(round)}
+                                {getRoundName(roundIndex)}
                             </h3>
-                            {storedRounds[round].sort((a, b) => a.match_number - b.match_number).map(match => (
+                            {round.sort((a, b) => a.match_num - b.match_num).map(match => (
                                 <div key={match.id} className="relative w-64">
                                     {/* Connector Lines (Left Side) - Only if not first round */}
 
                                     <div className={`bg-[#1a1c23] border ${match.winner ? 'border-yellow-500/50' : 'border-gray-700'} rounded-lg overflow-hidden shadow-xl`}>
                                         <div className="flex justify-between items-center text-xs text-gray-500 px-3 py-1 bg-black/20 border-b border-white/5">
-                                            <span>Match #{match.match_number}</span>
+                                            <span>Match #{match.match_num}</span>
                                             {match.winner && <span className="text-green-500">Completado</span>}
                                         </div>
 
@@ -132,12 +134,12 @@ export default function TournamentBracket({ eventId, isAdmin = false }: { eventI
                     ))}
 
                     {/* Winner Pedestal */}
-                    {rounds.includes(1) && storedRounds[1][0].winner && (
+                    {rounds.length > 0 && rounds[rounds.length - 1][0]?.winner && (
                         <div className="flex flex-col items-center justify-center animate-in zoom-in duration-500">
                             <Trophy size={64} className="text-yellow-400 mb-4 drop-shadow-[0_0_15px_rgba(250,204,21,0.5)]" />
                             <div className="text-sm text-yellow-500 uppercase font-bold tracking-widest mb-2">Campeón</div>
                             <div className="text-3xl font-black text-white bg-gradient-to-r from-yellow-600 to-yellow-400 bg-clip-text text-transparent">
-                                {storedRounds[1][0].winner}
+                                {rounds[rounds.length - 1][0]?.winner}
                             </div>
                         </div>
                     )}

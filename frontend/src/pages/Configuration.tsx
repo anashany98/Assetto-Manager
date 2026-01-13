@@ -4,6 +4,7 @@ import { Server, Monitor, Edit2, CheckCircle, WifiOff, Wifi, Image as ImageIcon,
 import { useState, useRef } from 'react';
 import { cn } from '../lib/utils';
 import axios from 'axios';
+import { API_URL } from '../config';
 import { LogViewer } from '../components/LogViewer';
 
 export default function Configuration() {
@@ -40,14 +41,14 @@ export default function Configuration() {
     const { data: branding } = useQuery({
         queryKey: ['settings'],
         queryFn: async () => {
-            const res = await axios.get(`http://${window.location.hostname}:8000/settings`);
+            const res = await axios.get(`${API_URL}/settings`);
             return res.data;
         }
     });
 
     const updateBranding = useMutation({
         mutationFn: async (data: { key: string, value: string }) => {
-            await axios.post(`http://${window.location.hostname}:8000/settings/`, data);
+            await axios.post(`${API_URL}/settings/`, data);
         },
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['settings'] })
     });
@@ -60,7 +61,7 @@ export default function Configuration() {
         formData.append('file', file);
 
         try {
-            await axios.post(`http://${window.location.hostname}:8000/settings/upload-logo`, formData, {
+            await axios.post(`${API_URL}/settings/upload-logo`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
             queryClient.invalidateQueries({ queryKey: ['settings'] });

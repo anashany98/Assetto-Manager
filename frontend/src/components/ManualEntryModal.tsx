@@ -82,7 +82,7 @@ export default function ManualEntryModal({ isOpen, onClose, preselectedTrack }: 
             track_config: "manual",
             car_model: carModel,
             driver_name: finalDriver,
-            session_type: "Practice (Manual)",
+            session_type: "practice",
             date: new Date().toISOString(),
             best_lap: totalMs,
             laps: [

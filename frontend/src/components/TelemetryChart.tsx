@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Loader2 } from 'lucide-react';
-import { API_URL } from '../api/stations';
+import { API_URL } from '../config';
 
 interface TelemetryPoint {
     t: number; // Time in ms

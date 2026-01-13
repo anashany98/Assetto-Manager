@@ -4,6 +4,7 @@ import random
 import time
 import requests
 import websockets
+import math
 from datetime import datetime
 
 # CONFIGURATION
@@ -176,7 +177,7 @@ async def run_simulation(station_id):
                     "track_name": selected_track,
                     "car_model": selected_car,
                     "driver_name": selected_driver,
-                    "session_type": "Q",
+                    "session_type": "qualify",
                     "date": datetime.now().isoformat(),
                     "best_lap": lap_time_ms,
                     "laps": [
@@ -188,7 +189,7 @@ async def run_simulation(station_id):
                             "sectors": [30000, 30000, 40000],
                             "is_valid": True,
                             "timestamp": datetime.now().isoformat(),
-                            "telemetry_data": json.dumps(current_lap_telemetry)
+                            "telemetry_data": current_lap_telemetry
                         }
                     ]
                 }

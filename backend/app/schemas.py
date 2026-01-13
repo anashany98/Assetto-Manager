@@ -1,6 +1,6 @@
-from pydantic import BaseModel, IPvAnyAddress, Field
+from pydantic import BaseModel, IPvAnyAddress, Field, field_validator
 
-from typing import Optional, Literal, List
+from typing import Optional, Literal, List, Any
 from datetime import datetime
 
 from enum import Enum
@@ -168,7 +168,7 @@ class LapTimeBase(BaseModel):
     track_config: Optional[str] = None
     lap_time: int
     sectors: List[int]
-    telemetry_data: Optional[str] = None
+    telemetry_data: Optional[Any] = None
     is_valid: bool
     timestamp: datetime
 
@@ -184,13 +184,28 @@ class SessionResultCreate(BaseModel):
     best_lap: int
     laps: List[LapTimeBase] = []
 
+    @field_validator("session_type", mode="before")
+    @classmethod
+    def normalize_session_type(cls, value):
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            mapping = {
+                "p": "practice",
+                "q": "qualify",
+                "r": "race",
+                "h": "hotlap",
+            }
+            return mapping.get(normalized, normalized)
+        return value
+
 class SessionResult(BaseModel):
     id: int
+    station_id: Optional[int] = None
     driver_name: str
     car_model: str
     track_name: str
     best_lap: int
-    sectors: Optional[str] = None
+    sectors: Optional[Any] = None
     date: datetime
     session_type: SessionType
     track_config: Optional[str] = None
@@ -228,7 +243,7 @@ class EventBase(BaseModel):
     start_date: datetime
     end_date: datetime
     track_name: Optional[str] = None
-    allowed_cars: Optional[str] = None # JSON string
+    allowed_cars: Optional[Any] = None # JSON string or list
     status: Optional[EventStatus] = EventStatus.upcoming
     rules: Optional[str] = None
 

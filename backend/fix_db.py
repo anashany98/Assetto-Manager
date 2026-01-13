@@ -33,6 +33,14 @@ def fix_database():
             except Exception as e:
                 print(f"Error adding track_config: {e}")
 
+        if 'station_id' not in columns:
+            print("Adding station_id to session_results...")
+            try:
+                conn.execute(text("ALTER TABLE session_results ADD COLUMN station_id INTEGER"))
+                conn.commit()
+            except Exception as e:
+                print(f"Error adding station_id: {e}")
+
         # 2. Fix laptimes table
         columns_laptimes = [c['name'] for c in inspector.get_columns('laptimes')]
         
@@ -67,6 +75,41 @@ def fix_database():
                  conn.commit()
              except Exception as e:
                  print(f"Error handling lap_time_ms/time: {e}")
+
+        # 3. Fix drivers table
+        columns_drivers = [c['name'] for c in inspector.get_columns('drivers')]
+
+        if 'vms_id' not in columns_drivers:
+            print("Adding vms_id to drivers...")
+            try:
+                conn.execute(text("ALTER TABLE drivers ADD COLUMN vms_id VARCHAR"))
+                conn.commit()
+            except Exception as e:
+                print(f"Error adding vms_id: {e}")
+
+        if 'email' not in columns_drivers:
+            print("Adding email to drivers...")
+            try:
+                conn.execute(text("ALTER TABLE drivers ADD COLUMN email VARCHAR"))
+                conn.commit()
+            except Exception as e:
+                print(f"Error adding email: {e}")
+
+        if 'total_laps' not in columns_drivers:
+            print("Adding total_laps to drivers...")
+            try:
+                conn.execute(text("ALTER TABLE drivers ADD COLUMN total_laps INTEGER DEFAULT 0"))
+                conn.commit()
+            except Exception as e:
+                print(f"Error adding total_laps: {e}")
+
+        if 'safety_rating' not in columns_drivers:
+            print("Adding safety_rating to drivers...")
+            try:
+                conn.execute(text("ALTER TABLE drivers ADD COLUMN safety_rating INTEGER DEFAULT 1000"))
+                conn.commit()
+            except Exception as e:
+                print(f"Error adding safety_rating: {e}")
 
     print("Database fix completed.")
 

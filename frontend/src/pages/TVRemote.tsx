@@ -7,10 +7,10 @@ import { useTelemetry } from '../hooks/useTelemetry';
 import axios from 'axios';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cn } from '../lib/utils';
+import { API_URL } from '../config';
 import { useNavigate } from 'react-router-dom';
 
 const PIN = '1234';
-const API_URL = `http://${window.location.hostname}:8000`;
 
 export default function TVRemote() {
     const navigate = useNavigate();

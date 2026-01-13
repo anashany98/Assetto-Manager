@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, func
+from sqlalchemy import desc, func, and_, or_
 from typing import List, Optional
 import logging
 from datetime import datetime
@@ -8,6 +8,7 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 from .. import models, schemas, database
+from . import tournament
 
 router = APIRouter(
     prefix="/events",
@@ -42,7 +43,7 @@ def create_event(event: schemas.EventCreate, db: Session = Depends(database.get_
             allowed_cars=event.allowed_cars,
             status=event.status,
             rules=event.rules,
-            is_active=True
+            is_active=event.status == "active"
         )
         db.add(new_event)
         db.commit()
@@ -58,12 +59,20 @@ def create_event(event: schemas.EventCreate, db: Session = Depends(database.get_
 def get_active_event(db: Session = Depends(database.get_db)):
     # Find event where current time is between start and end
     now = datetime.now()
-    event = db.query(models.Event).filter(
-        models.Event.status == "active",
-        models.Event.start_date <= now,
-        models.Event.end_date >= now
-    ).first()
-    return event
+    active_filter = or_(
+        models.Event.is_active == True,
+        and_(
+            models.Event.status == "active",
+            or_(models.Event.start_date == None, models.Event.start_date <= now),
+            or_(models.Event.end_date == None, models.Event.end_date >= now),
+        ),
+    )
+    return (
+        db.query(models.Event)
+        .filter(active_filter)
+        .order_by(models.Event.start_date.desc())
+        .first()
+    )
 
 @router.post("/{event_id}/generate_bracket")
 def generate_bracket(event_id: int, size: int = 8, db: Session = Depends(database.get_db)):
@@ -71,181 +80,79 @@ def generate_bracket(event_id: int, size: int = 8, db: Session = Depends(databas
     Generate a single-elimination bracket for the top N players.
     Size must be a power of 2 (2, 4, 8, 16...).
     """
-    # 1. Fetch Top Drivers
+    if size < 2 or (size & (size - 1)) != 0:
+        raise HTTPException(status_code=400, detail="Size must be a power of 2")
+
+    event = db.query(models.Event).filter(models.Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
     results = db.query(
         models.SessionResult.driver_name,
         func.min(models.SessionResult.best_lap).label('best_time')
-    ).filter(models.SessionResult.event_id == event_id).group_by(models.SessionResult.driver_name).order_by('best_time').limit(size).all()
+    ).filter(
+        models.SessionResult.event_id == event_id,
+        models.SessionResult.best_lap > 0
+    ).group_by(models.SessionResult.driver_name).order_by('best_time').limit(size).all()
     
     if len(results) < 2:
         raise HTTPException(status_code=400, detail="Not enough players to generate a bracket")
 
-    # Pad with "BYE" if not enough players for requested size
     drivers = [r[0] for r in results]
     while len(drivers) < size:
-        drivers.append(None) # Bye
+        drivers.append("BYE")
 
-    # Clear existing matches
-    db.query(models.TournamentMatch).filter(models.TournamentMatch.event_id == event_id).delete()
-    
-    matches = []
-    
-    # Logic to generate bracket levels
-    # Example for size 4: 
-    # Round 2 (Semis): 2 Matches
-    # Round 1 (Final): 1 Match
-    
-    current_round_players = drivers
-    round_num = size // 2 # Initial round number (e.g. 4 for quarter finals if size=8)
-    
-    # Store match objects to link them later
-    round_matches = [] 
-
-    # Create First Round Matches
-    # Seeding: 1 vs 8, 2 vs 7, 3 vs 6, 4 vs 5 (Standard Snake)
-    seeds = []
+    # Seed: 1 vs N, 2 vs N-1, ...
+    seeded = []
     l = len(drivers)
     for i in range(l // 2):
-        seeds.append((drivers[i], drivers[l - 1 - i]))
-        
-    next_round_matches = []
-    
-    # Create DB objects for Round 1
-    current_matches = []
-    for i, (p1, p2) in enumerate(seeds):
-        m = models.TournamentMatch(
-            event_id=event_id,
-            round_number=round_num,
-            match_number=i + 1,
-            player1=p1,
-            player2=p2,
-            winner=p1 if p2 is None else None # Auto-win if BYE
-        )
-        db.add(m)
-        current_matches.append(m)
-        
-    db.flush() # Get IDs
-    
-    # Build subsequent rounds up to Final (Round 1)
-    prev_round_matches = current_matches
-    
-    while round_num > 1:
-        round_num //= 2
-        new_matches = []
-        for i in range(0, len(prev_round_matches), 2):
-            m = models.TournamentMatch(
-                event_id=event_id,
-                round_number=round_num,
-                match_number=(i // 2) + 1,
-                player1=None,
-                player2=None
-            )
-            db.add(m)
-            db.flush()
-            new_matches.append(m)
-            
-            # Link previous matches to this one
-            prev_round_matches[i].next_match_id = m.id
-            prev_round_matches[i+1].next_match_id = m.id
-            
-        prev_round_matches = new_matches
+        seeded.extend([drivers[i], drivers[l - 1 - i]])
 
-    db.commit()
-    return {"message": "Bracket generated", "size": size}
+    bracket = tournament.build_bracket(seeded)
+    tournament.save_bracket(event, bracket, db)
+    return bracket
 
 @router.get("/{event_id}/bracket")
 def get_bracket(event_id: int, db: Session = Depends(database.get_db)):
-    matches = db.query(models.TournamentMatch).filter(models.TournamentMatch.event_id == event_id).order_by(models.TournamentMatch.round_number.desc(), models.TournamentMatch.match_number).all()
-    
-    if not matches:
-        return {"rounds": []}
+    event = db.query(models.Event).filter(models.Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
 
-    # Group by round
-    # round_number is usually High for early rounds (e.g. 4 -> 2 -> 1) OR logic depends on implementation
-    # In generate_bracket: round_num = size // 2. (e.g. 4 for RO8). Then decreases? 
-    # Check generate logic: round_num starts at size // 2. While round_num > 1: round_num //= 2.
-    # So Rounds are: 4, 2, 1? 
-    # Frontend likely expects Round 0 (First), Round 1 (Semis)...
-    # TournamentTV.tsx: `getRoundName(index, total)` uses index 0..N.
-    # So I should return rounds sorted by logical progression (Start -> Final).
-    # If standard logic: Round 1 (Quarter), Round 2 (Semi), Round 3 (Final).
-    # My generate_bracket logic (lines 96-148) seemed to use "Matches per Round" or similar?
-    # Let's check: 
-    # round_num = size // 2. (e.g. 4).
-    # Loop `while round_num > 1`: round_num //= 2.
-    # So if size=8. First round uses `round_num`? It uses loop variable?
-    # Actually lines 115: `round_number=round_num`. (Initial value).
-    # If size=8, round_num=4.
-    # Then loop: round_num becomes 2, then 1.
-    # So DB has: 4, 2, 1. (Number of matches/players? No, it's confusing naming).
-    # Actually, usually Round Number = 1, 2, 3.
-    # Let's check `generate_bracket` loop again.
-    
-    # Logic in generate_bracket (lines 96+):
-    # `round_num = size // 2`. (e.g. 4).
-    # Matches created with `round_number=round_num`.
-    # Then `while round_num > 1`: ... `round_number=round_num`.
-    # So for 8 players:
-    # First Round (Quarters) -> round_number=4
-    # Second Round (Semis) -> round_number=2
-    # Final -> round_number=1
-    
-    # Frontend Iterates `rounds.map`. Round 0 should be Quarters. Round Last should be Final.
-    # So I should sort rounds by round_number DESCENDING (4, 2, 1).
-    
-    rounds_map = {}
-    for m in matches:
-        if m.round_number not in rounds_map:
-            rounds_map[m.round_number] = []
-        
-        rounds_map[m.round_number].append({
-            "id": m.id,
-            "round": m.round_number,
-            "match": m.match_number,
-            "player1": m.player1,
-            "player2": m.player2,
-            "winner": m.winner,
-            "score1": 0, # Placeholder
-            "score2": 0
-        })
-        
-    # Sort keys: 4, 2, 1 (Descending) -> List of lists
-    sorted_keys = sorted(rounds_map.keys(), reverse=True)
-    rounds_list = [sorted(rounds_map[k], key=lambda x: x["match"]) for k in sorted_keys]
-    
-    return {"rounds": rounds_list}
+    bracket = tournament.load_bracket(event)
+    if not bracket:
+        return {"status": "empty", "message": "El cuadro no ha sido generado aún"}
+
+    return bracket
 
 @router.post("/match/{match_id}/winner")
-def set_match_winner(match_id: int, winner_name: str, db: Session = Depends(database.get_db)):
-    match = db.query(models.TournamentMatch).filter(models.TournamentMatch.id == match_id).first()
-    if not match:
-        raise HTTPException(status_code=404, detail="Match not found")
-        
-    match.winner = winner_name
-    
-    # Propagate to next match
-    if match.next_match_id:
-        next_match = db.query(models.TournamentMatch).filter(models.TournamentMatch.id == match.next_match_id).first()
-        if next_match:
-            # Determine if this was the 'top' or 'bottom' feeder for the next match
-            # Simple heuristic: Odd match numbers feed player1, Even feed player2? 
-            # Better: check if match.id is the first or second of the pair that feeds next_match
-            # We can imply based on match_number.
-            # Match N and N+1 feed NextMatch M.
-            # Actually easier: Check which slot is empty or if we want strict ordering.
-            # Let's use the match_number parity from the previous round.
-            
-            # Previous round match numbers: 1, 2 -> Next 1. 3, 4 -> Next 2.
-            # If match.match_number is Odd (1, 3, 5) -> It's Player 1 of next match
-            # If match.match_number is Even (2, 4, 6) -> It's Player 2 of next match
-            
-            if match.match_number % 2 != 0:
-                next_match.player1 = winner_name
-            else:
-                next_match.player2 = winner_name
-                
-    db.commit()
-    return {"status": "updated", "winner": winner_name}
+def set_match_winner(
+    match_id: int,
+    winner_name: str,
+    score1: int = 0,
+    score2: int = 0,
+    event_id: Optional[int] = None,
+    db: Session = Depends(database.get_db)
+):
+    events = []
+    if event_id is not None:
+        event = db.query(models.Event).filter(models.Event.id == event_id).first()
+        if event:
+            events = [event]
+    else:
+        events = db.query(models.Event).filter(models.Event.bracket_data != None).all()
+
+    for event in events:
+        bracket = tournament.load_bracket(event)
+        if not bracket:
+            continue
+        try:
+            updated = tournament.update_bracket_match(bracket, match_id, score1, score2, winner_name)
+        except HTTPException:
+            continue
+        tournament.save_bracket(event, updated, db)
+        return {"status": "updated", "winner": winner_name}
+
+    raise HTTPException(status_code=404, detail="Match not found")
 
 @router.get("/{event_id}", response_model=schemas.Event)
 def get_event(event_id: int, db: Session = Depends(database.get_db)):

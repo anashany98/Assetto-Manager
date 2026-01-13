@@ -59,13 +59,22 @@ def parse_and_send_telemetry(file_path, server_url, station_id):
         player = data.get("players", [{}])[0]
         player_laps = player.get("laps", [])
         
+        session_type_raw = data.get("sessionType", "P")
+        session_type_map = {
+            "P": "practice",
+            "Q": "qualify",
+            "R": "race",
+            "H": "hotlap"
+        }
+        session_type = session_type_map.get(str(session_type_raw).upper(), str(session_type_raw).lower())
+
         payload = {
             "station_id": station_id,
             "track_name": data.get("track", "unknown"),
             "track_config": data.get("track_config", None),
             "car_model": data.get("car", player.get("car", "unknown")),
             "driver_name": player.get("name", "Unknown Driver"),
-            "session_type": data.get("sessionType", "P"), # P, Q, R
+            "session_type": session_type,
             "date": datetime.now().isoformat(),
             "best_lap": player.get("bestLap", 0),
             "laps": []
@@ -90,7 +99,7 @@ def parse_and_send_telemetry(file_path, server_url, station_id):
                 "sectors": lap.get("sectors", []), # Array de tiempos de sector
                 "is_valid": lap.get("isValid", True),
                 "timestamp": datetime.now().isoformat(), # Aproximado
-                "telemetry_data": json.dumps(tele_data) if tele_data else None
+                "telemetry_data": tele_data if tele_data else None
             })
             
         # 3. Enviar al Servidor

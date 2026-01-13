@@ -1,28 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Body
 from sqlalchemy.orm import Session
-from typing import List, Optional
-from .. import models, database
-import logging
-import shutil
-import os
-import subprocess
-from pathlib import Path
-
-router = APIRouter(
-    prefix="/configs",
-    tags=["configs"]
-)
-
-logger = logging.getLogger("api.configs")
-
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Body
-from sqlalchemy.orm import Session
 from typing import List, Dict
 from .. import models, database
 import logging
 import shutil
-import os
 from pathlib import Path
+import configparser
+from ..paths import STORAGE_DIR
 
 router = APIRouter(
     prefix="/configs",
@@ -31,7 +15,7 @@ router = APIRouter(
 
 logger = logging.getLogger("api.configs")
 
-CONFIG_ROOT = Path("backend/storage/configs")
+CONFIG_ROOT = STORAGE_DIR / "configs"
 
 # Map Category -> Target Filename in Assetto Corsa
 CATEGORY_MAP = {
@@ -62,7 +46,8 @@ def get_profile_content(category: str, filename: str):
     if category not in CATEGORY_MAP:
         raise HTTPException(status_code=400, detail="Invalid category")
     
-    fpath = CONFIG_ROOT / category / filename
+    safe_filename = Path(filename).name
+    fpath = CONFIG_ROOT / category / safe_filename
     if not fpath.exists():
          return {"content": ""}
          
@@ -84,6 +69,7 @@ def save_profile_content(category: str, filename: str, content: str = Body(...))
         filename += ".ini"
         
     fpath = CONFIG_ROOT / category / filename
+    fpath.parent.mkdir(parents=True, exist_ok=True)
     
     try:
         with open(fpath, "w", encoding="utf-8") as f:
@@ -92,15 +78,13 @@ def save_profile_content(category: str, filename: str, content: str = Body(...))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-import configparser
-import io
-
 @router.get("/profile/{category}/{filename}/parsed")
 def get_profile_content_parsed(category: str, filename: str):
     if category not in CATEGORY_MAP:
         raise HTTPException(status_code=400, detail="Invalid category")
     
-    fpath = CONFIG_ROOT / category / filename
+    safe_filename = Path(filename).name
+    fpath = CONFIG_ROOT / category / safe_filename
     if not fpath.exists():
          return {"sections": {}}
          
@@ -130,13 +114,23 @@ def save_profile_content_parsed(category: str, filename: str, data: Dict = Body(
         filename += ".ini"
         
     fpath = CONFIG_ROOT / category / filename
+    fpath.parent.mkdir(parents=True, exist_ok=True)
     
     try:
         parser = configparser.ConfigParser(strict=False)
         parser.optionxform = str
         
-        # Data is {"sections": {"FFB": {"GAIN": "1.0"}}}
-        sections = data.get("sections", {})
+        # Accept either {"sections": {...}}, {"data": {"sections": {...}}} or a raw sections dict
+        payload = data or {}
+        sections = payload.get("sections")
+        if sections is None and isinstance(payload.get("data"), dict):
+            inner = payload["data"]
+            sections = inner.get("sections", inner)
+        if sections is None and payload and all(isinstance(v, dict) for v in payload.values()):
+            sections = payload
+
+        if not sections:
+            raise HTTPException(status_code=400, detail="No sections provided")
         
         for section_name, items in sections.items():
             parser.add_section(section_name)

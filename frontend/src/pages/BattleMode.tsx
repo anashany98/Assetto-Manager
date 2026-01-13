@@ -1,18 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
-import { Swords, Trophy, Flame, Activity } from 'lucide-react';
+import { Swords, Trophy, Flame, Activity, QrCode, X } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { QRCodeSVG } from 'qrcode.react';
+import { API_URL, WS_BASE_URL } from '../config';
 
 // --- API ---
-const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? `http://${window.location.hostname}:8000`
-    : window.location.origin.includes('loca.lt')
-        ? 'https://khaki-donkeys-share.loca.lt'
-        : `http://${window.location.hostname}:8000`;
-
-const WS_URL = API_URL.replace('http', 'ws') + '/ws/telemetry/client';
+const WS_URL = `${WS_BASE_URL}/ws/telemetry/client`;
 
 // --- COMPONENTS ---
 
@@ -119,7 +115,10 @@ function BattleArena({ query }: { query: URLSearchParams }) {
     const { data: stats, isLoading, error } = useQuery({
         queryKey: ['battle', d1, d2, track],
         queryFn: async () => {
-            const res = await axios.get(`${API_URL}/telemetry/compare/${d1}/${d2}`, { params: { track } });
+            const res = await axios.get(
+                `${API_URL}/telemetry/compare/${encodeURIComponent(d1)}/${encodeURIComponent(d2)}`,
+                { params: { track } }
+            );
             return res.data;
         },
         refetchInterval: 10000 // Slow poll for aggregate updates
@@ -137,8 +136,9 @@ function BattleArena({ query }: { query: URLSearchParams }) {
             try {
                 const data = JSON.parse(event.data);
                 // Assume data has { driver_name, speed, rpm, gear, ... }
-                if (data.driver_name === d1) setLive1(data);
-                if (data.driver_name === d2) setLive2(data);
+                const liveName = data.driver_name || data.driver;
+                if (liveName === d1) setLive1(data);
+                if (liveName === d2) setLive2(data);
             } catch (e) {
                 console.error("WS Parse Error", e);
             }
@@ -253,7 +253,85 @@ function BattleArena({ query }: { query: URLSearchParams }) {
                     </div>
                 </motion.div>
             </main>
+
+            {/* QR CODE OVERLAY (Demo Trigger) */}
+            <div className="absolute bottom-4 right-4 z-50">
+                <button
+                    onClick={() => setLive1(null)} // Trigger reset logic or specific state
+                    className="bg-white/10 hover:bg-white/20 p-2 rounded-full text-white/50 hover:text-white transition-colors"
+                    title="Simular Fin de Carrera"
+                >
+                    <QrCode size={20} />
+                </button>
+            </div>
+
+            <BattleResultOverlay
+                stats={stats}
+                d1={d1}
+                d2={d2}
+            />
         </div>
+    );
+}
+
+function BattleResultOverlay({ stats, d1, d2 }: any) {
+    const [isOpen, setIsOpen] = useState(false);
+
+    // Auto-open logic could go here (e.g. if websocket sends "FINISHED")
+    // For demo, we leave it manual or triggered by parent
+
+    // Mock finish trigger for demo purposes
+    useEffect(() => {
+        const timer = setTimeout(() => setIsOpen(true), 30000); // Auto show after 30s of "battle"
+        return () => clearTimeout(timer);
+    }, []);
+
+    if (!isOpen) return null;
+
+    const winner = stats.driver_1.best_lap < stats.driver_2.best_lap ? d1 : d2;
+    // URL for the winner's passport
+    const passportUrl = `${window.location.origin}/passport?driver=${encodeURIComponent(winner)}`;
+
+    return (
+        <AnimatePresence>
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-8"
+            >
+                <div className="bg-gradient-to-br from-gray-900 to-gray-800 border-2 border-yellow-500/50 rounded-3xl p-12 max-w-2xl w-full text-center relative shadow-2xl shadow-yellow-500/10">
+                    <button
+                        onClick={() => setIsOpen(false)}
+                        className="absolute top-4 right-4 text-gray-400 hover:text-white"
+                    >
+                        <X size={32} />
+                    </button>
+
+                    <Trophy className="w-24 h-24 text-yellow-500 mx-auto mb-6 animate-bounce" />
+
+                    <h2 className="text-4xl font-black text-white uppercase tracking-tighter mb-2">
+                        Victoria para
+                    </h2>
+                    <div className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 uppercase mb-8">
+                        {winner}
+                    </div>
+
+                    <div className="bg-white p-6 rounded-2xl inline-block mb-6 shadow-xl">
+                        <QRCodeSVG
+                            value={passportUrl}
+                            size={200}
+                            level="H"
+                            includeMargin={false}
+                        />
+                    </div>
+
+                    <p className="text-gray-400 font-medium text-lg max-w-md mx-auto">
+                        ¡Escanea para guardar el resultado en tu <strong className="text-white">Pasaporte de Piloto</strong> y compartirlo!
+                    </p>
+                </div>
+            </motion.div>
+        </AnimatePresence>
     );
 }
 

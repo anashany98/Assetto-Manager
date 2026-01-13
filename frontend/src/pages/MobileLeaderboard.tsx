@@ -10,6 +10,7 @@ import { HallOfFame } from './HallOfFame';
 import { cn } from '../lib/utils';
 import axios from 'axios';
 import html2canvas from 'html2canvas';
+import { API_URL } from '../config';
 // import GhostViewer from '../components/GhostViewer';
 // import { PlayCircle } from 'lucide-react'; // Removed unused
 
@@ -25,11 +26,6 @@ interface LeaderboardEntry {
     sectors?: number[];
     is_personal_best?: boolean;
 }
-
-
-const API_URL = window.location.hostname === 'localhost'
-    ? `http://${window.location.hostname}:8000`
-    : 'https://khaki-donkeys-share.loca.lt'; // HARDCODED TUNNEL FOR TESTING
 
 const getLeaderboard = async (track: string, car: string, period: string) => {
     const params = new URLSearchParams();
@@ -105,8 +101,8 @@ const PilotProfileContent = ({ driverName, onClose }: { driverName: string, onCl
         queryFn: async () => {
             const res = await axios.get(`${API_URL}/telemetry/leaderboard`);
             // Extract unique names
-            const unique = Array.from(new Set((res.data as any[]).map(d => d.Driver.Name)));
-            return unique.filter((d: any) => d !== driverName);
+            const unique = Array.from(new Set((res.data as any[]).map(d => d.driver_name).filter(Boolean)));
+            return unique.filter((d: string) => d !== driverName);
         },
         enabled: compareMode
     });

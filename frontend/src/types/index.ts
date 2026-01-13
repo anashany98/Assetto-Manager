@@ -17,10 +17,10 @@ export interface Event {
     start_date: string;
     end_date: string;
     track_name?: string;
-    allowed_cars?: string; // Originally stringified JSON, will be upgraded to any/object with real DB
+    allowed_cars?: string | string[];
     status: 'upcoming' | 'active' | 'completed';
     rules?: string;
-    bracket_data?: string; // Originally stringified JSON
+    bracket_data?: unknown;
     is_active: boolean;
 }
 
@@ -30,7 +30,7 @@ export interface EventCreate {
     start_date: string;
     end_date: string;
     track_name: string;
-    allowed_cars: string;
+    allowed_cars: string | string[];
     status: string;
     rules: string;
 }

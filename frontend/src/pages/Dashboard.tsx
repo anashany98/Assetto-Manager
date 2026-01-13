@@ -1,10 +1,20 @@
 import { useQuery } from '@tanstack/react-query';
-import { getDashboardStats } from '../api/dashboard';
-import { Monitor, HardDrive, Users, Activity, Trophy, Zap, Flag } from 'lucide-react';
+import {
+    Activity,
+    Users,
+    Trophy,
+    Monitor,
+    Tv,
+    ExternalLink,
+    HardDrive,
+    Zap,
+    Flag
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { getDashboardStats, type DashboardStats } from '../api/dashboard';
 
 export default function Dashboard() {
-    const { data: stats, isLoading, error } = useQuery({
+    const { data: stats, isLoading, error } = useQuery<DashboardStats>({
         queryKey: ['dashboardStats'],
         queryFn: getDashboardStats,
         refetchInterval: 5000
@@ -27,6 +37,21 @@ export default function Dashboard() {
                     <p className="text-gray-400 mt-1 font-medium">Panel de control general de la sala</p>
                 </div>
                 <div className="flex items-center gap-4">
+                    <Link 
+                        to="/tv-remote" 
+                        className="hidden md:flex bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-2 rounded-lg font-bold items-center gap-2 transition-colors border border-gray-700 text-sm"
+                    >
+                        <Tv size={16} />
+                        Mando
+                    </Link>
+                    <Link 
+                        to="/tournament-tv/1" 
+                        target="_blank"
+                        className="hidden md:flex bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg font-bold items-center gap-2 transition-colors shadow-lg shadow-blue-600/20 text-sm"
+                    >
+                        <ExternalLink size={16} />
+                        TV Mode
+                    </Link>
                     <div className={`px-4 py-2 rounded-full font-bold text-sm border ${allOnline ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'}`}>
                         ESTADO DE SALA: {allOnline ? '100% OPERATIVA' : 'ATENCIÓN REQUERIDA'}
                     </div>

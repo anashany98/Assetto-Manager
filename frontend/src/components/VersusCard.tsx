@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { Swords } from 'lucide-react';
+import { API_URL } from '../config';
 
 interface Props {
     driver1: string;
@@ -13,7 +14,9 @@ export function VersusCard({ driver1, driver2, track }: Props) {
         queryKey: ['versus', driver1, driver2, track],
         queryFn: async () => {
             // car param omitted to allow cross-car comparison
-            const res = await axios.get(`http://${window.location.hostname}:8000/telemetry/compare/${driver1}/${driver2}?track=${track}`);
+            const res = await axios.get(
+                `${API_URL}/telemetry/compare/${encodeURIComponent(driver1)}/${encodeURIComponent(driver2)}?track=${encodeURIComponent(track)}`
+            );
             return res.data;
         },
         refetchInterval: 10000

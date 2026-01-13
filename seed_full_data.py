@@ -64,16 +64,19 @@ def seed_data():
         event = db.query(models.Event).filter(models.Event.name == event_name).first()
         
         if not event:
+            start_date = datetime.now() - timedelta(days=20 - (i * 7))
+            end_date = datetime.now() + timedelta(days=7) if i == 2 else start_date + timedelta(hours=2)
+
             event = models.Event(
                 name=event_name,
                 description=f"Ronda {i+1} de la Copa Invierno",
-                track=track_code, # Using code for now as per schema
-                car="GT3 Class",
+                track_name=track_code,
+                allowed_cars=cars,
                 championship_id=champ.id,
-                start_date=datetime.now() - timedelta(days=20 - (i*7)),
-                end_date=datetime.now() + timedelta(days=7) if (i == 2) else datetime.now() - timedelta(days=19 - (i*7)),
+                start_date=start_date,
+                end_date=end_date,
                 is_active=(i == 2), # Create one active event (Imola)
-                status="in_progress" if i == 2 else "completed"
+                status="active" if i == 2 else "completed"
             )
             db.add(event)
             db.commit()
@@ -98,27 +101,25 @@ def seed_data():
                 session = models.SessionResult(
                     station_id=1,
                     event_id=event.id,
-                    track_name=track_name,
+                    track_name=track_code,
                     track_config="gp",
                     car_model=random.choice(cars),
                     driver_name=driver_name,
-                    session_type="Qualifying",
+                    session_type="qualify",
                     date=event.start_date,
                     best_lap=lap_time
                 )
                 db.add(session)
                 db.commit()
+                db.refresh(session)
 
                 # Lap (Linked to Session)
                 lap = models.LapTime(
                     session_id=session.id,
-                    driver_name=driver_name,
-                    car_model=session.car_model,
-                    track_name=track_name,
-                    lap_time=lap_time,
-                    sectors="[30000, 40000, 32000]", # Dummy
-                    is_valid=True,
-                    timestamp=session.date
+                    lap_number=1,
+                    time=lap_time,
+                    splits=[30000, 40000, 32000], # Dummy
+                    valid=True
                 )
                 db.add(lap)
                 

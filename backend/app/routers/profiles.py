@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Any
 from .. import models, schemas, database
 
 router = APIRouter(
@@ -47,7 +47,16 @@ def get_profile(profile_id: int, db: Session = Depends(database.get_db)):
     return profile
 
 @router.put("/{profile_id}/assign", response_model=schemas.Station)
-def assign_profile_to_station(profile_id: int, station_id: int = Body(...), db: Session = Depends(database.get_db)):
+def assign_profile_to_station(profile_id: int, payload: Any = Body(...), db: Session = Depends(database.get_db)):
+    if isinstance(payload, dict):
+        station_id = payload.get("station_id")
+    else:
+        station_id = payload
+
+    try:
+        station_id = int(station_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="station_id is required")
     # Verify Profile exists
     profile = db.query(models.Profile).filter(models.Profile.id == profile_id).first()
     if not profile:

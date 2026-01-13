@@ -31,12 +31,16 @@ class Driver(Base):
     name = Column(String, unique=True, index=True)
     country = Column(String, nullable=True)
     metadata_json = Column(JSON, nullable=True) 
+    vms_id = Column(String, unique=True, index=True, nullable=True)
+    email = Column(String, nullable=True)
     
     # Stats
     elo_rating = Column(Float, default=1200.0)
     total_wins = Column(Integer, default=0)
     total_podiums = Column(Integer, default=0)
     total_races = Column(Integer, default=0) 
+    total_laps = Column(Integer, default=0)
+    safety_rating = Column(Integer, default=1000)
 
 class Station(Base):
     __tablename__ = "stations"
@@ -97,6 +101,7 @@ class SessionResult(Base):
     __tablename__ = "session_results"
     
     id = Column(Integer, primary_key=True, index=True)
+    station_id = Column(Integer, ForeignKey("stations.id"), nullable=True)
     driver_name = Column(String, index=True)
     car_model = Column(String, index=True)
     track_name = Column(String, index=True)
@@ -109,6 +114,7 @@ class SessionResult(Base):
     
     event_id = Column(Integer, ForeignKey("events.id"), nullable=True)
     event = relationship("Event", backref="results")
+    station = relationship("Station")
 
 class Event(Base):
     __tablename__ = "events"

@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useTelemetry } from '../hooks/useTelemetry';
 import { getEvents } from '../api/events';
 import axios from 'axios';
+import { API_URL } from '../config';
 import { TournamentLeaderboard } from '../components/TournamentLeaderboard';
 import { TournamentVersusWrapper } from '../components/TournamentVersusWrapper';
 import TournamentBracket from '../components/TournamentBracket';
@@ -38,7 +39,7 @@ export const TVMode = () => {
     const { data: activeEvent } = useQuery({
         queryKey: ['event_active'],
         queryFn: async () => {
-            const res = await axios.get(`http://${window.location.hostname}:8000/events/active`);
+            const res = await axios.get(`${API_URL}/events/active`);
             return res.data;
         },
         refetchInterval: 60000
@@ -48,7 +49,7 @@ export const TVMode = () => {
     const { data: settings } = useQuery({
         queryKey: ['settings_tv'],
         queryFn: async () => {
-            const res = await axios.get(`http://${window.location.hostname}:8000/settings`);
+            const res = await axios.get(`${API_URL}/settings`);
             return res.data;
         },
         refetchInterval: 2000

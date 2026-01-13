@@ -101,14 +101,11 @@ def seed_data(count=50):
             # Create Lap
             new_lap = models.LapTime(
                 session_id=new_session.id,
-                driver_name=driver,
-                car_model=car,
-                track_name=track,
-                lap_time=lap_time,
-                sectors="[]",
-                telemetry_data=json.dumps(telemetry_points),
-                is_valid=True,
-                timestamp=new_session.date
+                lap_number=1,
+                time=lap_time,
+                splits=[],
+                telemetry_data=telemetry_points,
+                valid=True
             )
             db.add(new_lap)
             

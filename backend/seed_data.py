@@ -90,30 +90,27 @@ def seed_laps():
                         "rot": round(rot, 2)
                     })
 
-                import json
-                lap = models.LapTime(
-                    driver_name=driver_name,
-                    car_model=car,
-                    track_name=track,
-                    lap_time=final_time,
-                    sectors=json.dumps([s1,s2,s3]), 
-                    telemetry_data=json.dumps(telemetry_trace), # Added Telemetry JSON
-                    timestamp=datetime.now() - timedelta(days=random.randint(0, 30)),
-                    is_valid=True 
-                )
-                db.add(lap)
-                
-                # Update Session Result
                 session = models.SessionResult(
                     track_name=track,
                     car_model=car,
-                    driver_name=driver_name, # Correct field
+                    driver_name=driver_name,
                     date=datetime.now() - timedelta(days=random.randint(0, 30)),
-                    session_type="Q", 
+                    session_type="qualify",
                     best_lap=final_time,
-                    # Removed invalid fields: driver, winner, total_laps
                 )
                 db.add(session)
+                db.commit()
+                db.refresh(session)
+
+                lap = models.LapTime(
+                    session_id=session.id,
+                    lap_number=1,
+                    time=final_time,
+                    splits=[int(s1), int(s2), int(s3)],
+                    telemetry_data=telemetry_trace,
+                    valid=True
+                )
+                db.add(lap)
 
     db.commit()
 
@@ -126,24 +123,27 @@ def seed_events():
         {
             "name": "GT3 Night Series",
             "track_name": "spa",
-            "allowed_cars": "GT3",
+            "allowed_cars": ["GT3"],
             "start_date": datetime.now() + timedelta(hours=2), # Starts in 2h
+            "end_date": datetime.now() + timedelta(hours=5),
             "description": "Carrera nocturna en Spa-Francorchamps. ¡Premios en metálico!",
             "status": "upcoming"
         },
         {
             "name": "Sunday Cup Final",
             "track_name": "monza",
-            "allowed_cars": "F1 2024",
+            "allowed_cars": ["F1 2024"],
             "start_date": datetime.now() + timedelta(days=1, hours=15), # Tomorrow
+            "end_date": datetime.now() + timedelta(days=1, hours=17),
             "description": "La gran final de la copa dominical.",
             "status": "upcoming"
         },
         {
             "name": "Nordschleife Track Day",
             "track_name": "nurburgring",
-            "allowed_cars": "OPEN",
+            "allowed_cars": ["OPEN"],
             "start_date": datetime.now() + timedelta(days=5),
+            "end_date": datetime.now() + timedelta(days=5, hours=3),
             "description": "Día de puertas abiertas en el infierno verde.",
             "status": "upcoming"
         }

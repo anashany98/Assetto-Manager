@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, asc, desc
 from typing import List, Optional
 from .. import models, schemas, database
+from ..paths import STORAGE_DIR
 from datetime import datetime
 import os
 import json
@@ -14,6 +15,31 @@ router = APIRouter(
     tags=["telemetry"]
 )
 
+def _coerce_json_value(value):
+    if value is None:
+        return None
+    if isinstance(value, (dict, list)):
+        return value
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except Exception:
+            return value
+    return value
+
+def _coerce_splits(value):
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+            return parsed if isinstance(parsed, list) else []
+        except Exception:
+            return []
+    return []
+
 @router.post("/session", status_code=201)
 def upload_session_result(
     session_data: schemas.SessionResultCreate, 
@@ -21,6 +47,7 @@ def upload_session_result(
 ):
     # 1. Create Session Record
     new_session = models.SessionResult(
+        station_id=session_data.station_id,
         track_name=session_data.track_name,
         track_config=session_data.track_config,
         car_model=session_data.car_model,
@@ -35,17 +62,19 @@ def upload_session_result(
     db.refresh(new_session)
     
     # 2. Process Laps
-    for lap in session_data.laps:
+    for idx, lap in enumerate(session_data.laps, start=1):
         if not lap.is_valid:
             continue # We only store valid laps for leaderboards to save space? Or store all?
             # Storing only valid ones for V1 efficiency.
+
+        telemetry_payload = _coerce_json_value(lap.telemetry_data)
             
         new_lap = models.LapTime(
             session_id=new_session.id,
-            lap_number=0, 
+            lap_number=idx,
             time=lap.lap_time,
-            splits=str(lap.sectors),
-            telemetry_data=lap.telemetry_data,
+            splits=lap.sectors,
+            telemetry_data=telemetry_payload,
             valid=lap.is_valid
         )
         db.add(new_lap)
@@ -241,7 +270,7 @@ def get_lap_telemetry(lap_id: int, db: Session = Depends(database.get_db)):
                     total_dist += 10
                     
         # 2. Resample to num_points and add speed profile
-        real_lap_time = lap.lap_time if lap.lap_time else 100000
+        real_lap_time = lap.time if lap.time else 100000
         
         path_len = len(path_points)
         for i in range(num_points):
@@ -270,7 +299,7 @@ def get_lap_telemetry(lap_id: int, db: Session = Depends(database.get_db)):
             
         return telemetry_trace
     
-    return json.loads(lap.telemetry_data)
+    return _coerce_json_value(lap.telemetry_data) or []
 
 @router.get("/details/{track_name}/{driver_name}", response_model=schemas.DriverDetails)
 def get_driver_details(
@@ -296,14 +325,14 @@ def get_driver_details(
     if not laps:
         raise HTTPException(status_code=404, detail="Driver telemetry not found")
 
-    valid_laps = [l for l in laps if l.is_valid]
+    valid_laps = [l for l in laps if l.valid]
     
     # If no valid laps, we use the best from reality but analytics will be limited
-    best_lap_obj = min(valid_laps, key=lambda x: x.lap_time) if valid_laps else laps[0]
+    best_lap_obj = min(valid_laps, key=lambda x: x.time) if valid_laps else min(laps, key=lambda x: x.time)
     
     # 1. Best Sectors (from best valid lap)
     try:
-        best_sectors = json.loads(best_lap_obj.sectors) if best_lap_obj.sectors else []
+        best_sectors = _coerce_splits(best_lap_obj.splits)
     except:
         best_sectors = []
 
@@ -311,10 +340,10 @@ def get_driver_details(
     all_sectors = []
     for l in valid_laps:
         try:
-            if l.sectors:
+            if l.splits:
                 # Handle both list and stringified list
-                s = json.loads(l.sectors) if isinstance(l.sectors, str) else l.sectors
-                if s and isinstance(s, list):
+                s = _coerce_splits(l.splits)
+                if s:
                     if not all_sectors:
                         all_sectors = [[] for _ in range(len(s))]
                     for i, val in enumerate(s):
@@ -323,12 +352,12 @@ def get_driver_details(
         except:
             continue
     
-    optimal_lap = sum([min(s) for s in all_sectors if s]) if all_sectors else best_lap_obj.lap_time
+    optimal_lap = sum([min(s) for s in all_sectors if s]) if all_sectors else best_lap_obj.time
 
     # 3. Consistency Score
     # How much the lap times deviate from the average?
     if len(valid_laps) > 1:
-        times = [l.lap_time for l in valid_laps]
+        times = [l.time for l in valid_laps]
         avg_lap = sum(times) / len(times)
         # Standard deviation (simplified)
         variance = sum((t - avg_lap) ** 2 for t in times) / len(times)
@@ -342,7 +371,7 @@ def get_driver_details(
 
     # 4. History (Last 10 laps for the chart, even invalid ones for context?) 
     # Let's keep valid history for the "progress" chart
-    lap_history = [l.lap_time for l in valid_laps[:10]][::-1] # Chronological order
+    lap_history = [l.time for l in valid_laps[:10]][::-1] # Chronological order
 
     return schemas.DriverDetails(
         driver_name=driver_name,
@@ -553,9 +582,10 @@ def seed_data(count: int = 50, db: Session = Depends(database.get_db)):
             
             new_lap = models.LapTime(
                 session_id=new_session.id,
+                lap_number=i + 1,
                 time=lap_time,
-                splits=json.dumps([s1, s2, s3]),
-                telemetry_data=json.dumps(telemetry_trace), # Now supported
+                splits=[s1, s2, s3],
+                telemetry_data=telemetry_trace,
                 valid=random.random() > 0.1, # 90% valid
             )
             db.add(new_lap)
@@ -776,13 +806,13 @@ def get_driver_comparison(
 def get_track_map(track_name: str, db: Session = Depends(database.get_db)):
     
     # Search for a mod that matches the track name (case-insensitive)
-    mods_dir = "backend/storage/mods"
-    if not os.path.exists(mods_dir):
+    mods_dir = STORAGE_DIR / "mods"
+    if not mods_dir.exists():
         raise HTTPException(status_code=404, detail="Mods directory not found")
         
     for mod_folder in os.listdir(mods_dir):
         if track_name.lower() in mod_folder.lower():
-            mod_path = os.path.join(mods_dir, mod_folder)
+            mod_path = mods_dir / mod_folder
             
             # Possible map filenames
             candidates = [

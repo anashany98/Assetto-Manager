@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { WS_BASE_URL } from '../config';
 // import { getEvents, createEvent } from '../api/events';     
 // import type { Event } from '../types';
 
@@ -34,16 +35,7 @@ export const useTelemetry = () => {
     const reconnectTimeout = useRef<number | null>(null);
 
     useEffect(() => {
-        const isSecure = window.location.protocol === 'https:';
-        const wsProtocol = isSecure ? 'wss' : 'ws';
-        let wsUrl = '';
-
-        if (window.location.hostname.endsWith('loca.lt')) {
-            wsUrl = `${wsProtocol}://${window.location.hostname}/ws/telemetry/client`;
-        } else {
-            // Force 127.0.0.1 to avoid localhost/IPv6 issues in browser
-            wsUrl = `${wsProtocol}://127.0.0.1:8000/ws/telemetry/client`;
-        }
+        const wsUrl = `${WS_BASE_URL || `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`}/ws/telemetry/client`;
 
         const connect = () => {
             if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current);

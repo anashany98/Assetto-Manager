@@ -18,7 +18,7 @@ def create_dummy_tournament():
         start_date=start_date,
         end_date=end_date,
         track_name="monza",
-        allowed_cars="['ferrari_488_gt3', 'audi_r8_lms']",
+        allowed_cars=["ferrari_488_gt3", "audi_r8_lms"],
         status="active",
         is_active=True,
         rules="{}"
@@ -54,13 +54,10 @@ def create_dummy_tournament():
         # Also add a LapTime entry for details
         lap = models.LapTime(
             session=session_result,
-            driver_name=driver,
-            car_model=session_result.car_model,
-            track_name="monza",
-            lap_time=lap_time,
-            is_valid=True,
-            timestamp=session_result.date,
-            sectors="[30000, 40000, 38000]"
+            lap_number=1,
+            time=lap_time,
+            splits=[30000, 40000, 38000],
+            valid=True
         )
         db.add(lap)
 

@@ -5,6 +5,7 @@ import socket
 import logging
 import requests
 import uuid
+import json
 
 import asyncio
 import threading
@@ -54,6 +55,7 @@ try:
     import hashing
 except ImportError:
     # Fallback or error handling if shared not found
+    hashing = None
     logger.warning("Shared hashing module not found. Sync might fail.")
 
 # Config Loading
@@ -64,7 +66,6 @@ AC_CONTENT_DIR = Path("ac_content_root") # Default
 if os.path.exists(CONFIG_FILE):
     try:
         with open(CONFIG_FILE, 'r') as f:
-            import json
             config = json.load(f)
             SERVER_URL = config.get("server_url", SERVER_URL)
             if config.get("ac_content_dir"):
@@ -136,6 +137,10 @@ def download_file(url, local_path):
 
 def synchronize_content(station_id):
     logger.info("Starting synchronization check...")
+
+    if hashing is None:
+        logger.error("Shared hashing module unavailable; skipping sync.")
+        return "error"
     
     # 1. Get Target Manifest
     try:

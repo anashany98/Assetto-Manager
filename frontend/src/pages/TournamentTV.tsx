@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react';
 type Match = {
     id: number;
     round: number;
-    match: number;
+    match_num: number;
     player1?: string;
     player2?: string;
     winner?: string | null;
@@ -21,6 +21,8 @@ type Match = {
 type BracketData = {
     rounds: Match[][]; // Array of rounds, each containing matches
 };
+
+type BracketResponse = BracketData | { status: string; message?: string };
 
 export default function TournamentTV() {
     const { id } = useParams<{ id: string }>();
@@ -36,7 +38,7 @@ export default function TournamentTV() {
     });
 
     // Fetch Bracket Data (Backend)
-    const { data: bracketData } = useQuery({
+    const { data: bracketData } = useQuery<BracketResponse>({
         queryKey: ['bracket', eventId],
         queryFn: async () => {
             const res = await axios.get(`${API_URL}/tournaments/${eventId}/bracket`);
@@ -49,8 +51,10 @@ export default function TournamentTV() {
     const [bracket, setBracket] = useState<BracketData | null>(null);
 
     useEffect(() => {
-        if (bracketData && bracketData.rounds) {
+        if (bracketData && 'rounds' in bracketData) {
             setBracket(bracketData);
+        } else if (bracketData && 'status' in bracketData) {
+            setBracket(null);
         } else if (event?.rules) {
             // Fallback to legacy rules parsing if Backend API returns empty but rules has data
             try {

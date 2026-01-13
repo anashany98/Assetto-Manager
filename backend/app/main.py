@@ -9,6 +9,7 @@ Base.metadata.create_all(bind=engine)
 
 from fastapi.staticfiles import StaticFiles
 import os
+from .paths import STORAGE_DIR, REPO_ROOT
 
 app = FastAPI(
     title="AC Manager Central Server",
@@ -41,8 +42,8 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 # Ensure storage directory exists
-os.makedirs("backend/storage", exist_ok=True)
-app.mount("/static", StaticFiles(directory="backend/storage"), name="static")
+STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/static", StaticFiles(directory=str(STORAGE_DIR)), name="static")
 
 # CORS Configuration
 origins = [
@@ -74,11 +75,12 @@ app.include_router(logs.router)
 
 @app.get("/")
 async def root():
-    return {"message": "AC Manager Central Server Running", "status": "online"}
+    # Keep minimal payload to match health checks and automated tests
+    return {"message": "Assetto Corsa Manager API"}
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok", "version": "0.1.0"}
+    return {"status": "ok"}
 
 # --- Serve Frontend (Production) ---
 from fastapi.responses import FileResponse
@@ -86,13 +88,13 @@ from fastapi.responses import FileResponse
 # Calculate path to frontend/dist relative to this file
 # main.py is in backend/app/
 # frontend is in ../../frontend from here
-frontend_dist = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
+frontend_dist = REPO_ROOT / "frontend" / "dist"
 
-if os.path.exists(frontend_dist):
+if frontend_dist.exists():
     # Mount assets (JS, CSS, Images in /assets)
-    assets_dir = os.path.join(frontend_dist, "assets")
-    if os.path.exists(assets_dir):
-        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+    assets_dir = frontend_dist / "assets"
+    if assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
 
     # Serve other static files (favicon, etc) if needed?
     # Usually Vite puts everything else in root. We can mount root 'dist' to some path or handle individually.
@@ -107,12 +109,12 @@ if os.path.exists(frontend_dist):
              return JSONResponse({"detail": "Not Found"}, status_code=404)
         
         # Check if file exists in dist (e.g. favicon.ico, manifest.json)
-        file_path = os.path.join(frontend_dist, full_path)
-        if os.path.exists(file_path) and os.path.isfile(file_path):
+        file_path = frontend_dist / full_path
+        if file_path.exists() and file_path.is_file():
             return FileResponse(file_path)
             
         # Fallback to index.html
-        return FileResponse(os.path.join(frontend_dist, "index.html"))
+        return FileResponse(frontend_dist / "index.html")
 else:
     logger.warning(f"Frontend build not found at {frontend_dist}. Running in API-only mode.")
 

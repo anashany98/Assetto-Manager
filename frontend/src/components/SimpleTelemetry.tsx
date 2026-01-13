@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
-import { API_URL } from '../api/stations';
+import { API_URL } from '../config';
 import { Gauge, Activity, Zap } from 'lucide-react';
 import { Loader2 } from 'lucide-react';
 

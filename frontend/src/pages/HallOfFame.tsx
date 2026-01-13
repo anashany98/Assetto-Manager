@@ -3,13 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { Trophy, Medal, Calendar } from 'lucide-react';
 import { motion } from 'framer-motion';
-
-// API URL Logic (Shared)
-const API_URL = window.location.hostname === 'localhost'
-    ? `http://${window.location.hostname}:8000`
-    : window.location.origin.includes('loca.lt')
-        ? 'https://khaki-donkeys-share.loca.lt' // Backend Tunnel
-        : `http://${window.location.hostname}:8000`;
+import { API_URL } from '../config';
 
 interface HallOfFameEntry {
     driver_name: string;

@@ -1,12 +1,7 @@
 import axios from 'axios';
+import { API_URL } from '../config';
 
-const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? `http://${window.location.hostname}:8000`
-    : window.location.origin.includes('loca.lt')
-        ? 'https://khaki-donkeys-share.loca.lt'
-        : `http://${window.location.hostname}:8000`;
-
-const API_URL = `${API_BASE}/championships`;
+const API_BASE = `${API_URL}/championships`;
 
 export interface Championship {
     id: number;
@@ -28,31 +23,31 @@ export interface ChampionshipStanding {
 }
 
 export const getChampionships = async () => {
-    const response = await axios.get<Championship[]>(API_URL);
+    const response = await axios.get<Championship[]>(API_BASE);
     return response.data;
 };
 
 export const getChampionship = async (id: number) => {
-    const response = await axios.get<Championship>(`${API_URL}/${id}`);
+    const response = await axios.get<Championship>(`${API_BASE}/${id}`);
     return response.data;
 };
 
 export const createChampionship = async (data: Partial<Championship>) => {
-    const response = await axios.post<Championship>(API_URL, data);
+    const response = await axios.post<Championship>(API_BASE, data);
     return response.data;
 };
 
 export const addEventToChampionship = async (champId: number, eventId: number) => {
-    const response = await axios.post(`${API_URL}/${champId}/events/${eventId}`);
+    const response = await axios.post(`${API_BASE}/${champId}/events/${eventId}`);
     return response.data;
 };
 
 export const getChampionshipStandings = async (id: number) => {
-    const response = await axios.get<ChampionshipStanding[]>(`${API_URL}/${id}/standings`);
+    const response = await axios.get<ChampionshipStanding[]>(`${API_BASE}/${id}/standings`);
     return response.data;
 };
 
 export const linkSessionToEvent = async (champId: number, eventId: number, sessionId: number) => {
-    const response = await axios.post(`${API_URL}/${champId}/events/${eventId}/link-session/${sessionId}`);
+    const response = await axios.post(`${API_BASE}/${champId}/events/${eventId}/link-session/${sessionId}`);
     return response.data;
 };

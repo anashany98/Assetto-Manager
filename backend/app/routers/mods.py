@@ -7,6 +7,8 @@ import os
 import json
 import patoolib
 from pathlib import Path
+import re
+from ..paths import STORAGE_DIR
 from .. import models, schemas, database
 # Import shared hashing module (needs sys path adjustment or package install, using relative import for now if possible or dynamic)
 import logging
@@ -23,8 +25,21 @@ router = APIRouter(
     tags=["mods"]
 )
 
-STORAGE_DIR = Path("backend/storage/mods")
-STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+MODS_DIR = STORAGE_DIR / "mods"
+MODS_DIR.mkdir(parents=True, exist_ok=True)
+
+def _sanitize_name(value: str, fallback: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", value.strip())
+    cleaned = cleaned.strip("._-")
+    return cleaned or fallback
+
+def _safe_extract_zip(zip_ref: zipfile.ZipFile, extract_dir: Path) -> None:
+    extract_root = extract_dir.resolve()
+    for member in zip_ref.infolist():
+        member_path = (extract_root / member.filename).resolve()
+        if not str(member_path).startswith(str(extract_root)):
+            raise HTTPException(status_code=400, detail="Invalid archive contents")
+    zip_ref.extractall(extract_root)
 
 def process_mod_file(file_path: Path, original_filename: str, db: Session, user_provided_name: str = None, user_provided_type: str = None, user_provided_version: str = None):
     # Validar extensión
@@ -36,16 +51,16 @@ def process_mod_file(file_path: Path, original_filename: str, db: Session, user_
     detected_version = user_provided_version if user_provided_version and user_provided_version.strip() else "1.0"
     
     # Create Mod Directory
-    safe_filename = original_filename.replace(" ", "_").replace("..", "")
+    safe_filename = _sanitize_name(Path(original_filename).name, "mod")
     # Use a unique folder name to prevent collisions if same mod name uploads twice? 
     # For now, append timestamp or just overwrite? Let's keep existing logic but careful.
-    mod_dir_name = detected_name.replace(" ", "_")
-    mod_dir = STORAGE_DIR / mod_dir_name
+    mod_dir_name = _sanitize_name(detected_name, "mod")
+    mod_dir = MODS_DIR / mod_dir_name
     
     # Handle collision: append number
     counter = 1
     while mod_dir.exists():
-        mod_dir = STORAGE_DIR / f"{mod_dir_name}_{counter}"
+        mod_dir = MODS_DIR / f"{mod_dir_name}_{counter}"
         counter += 1
         
     mod_dir.mkdir(exist_ok=True)
@@ -70,7 +85,7 @@ def process_mod_file(file_path: Path, original_filename: str, db: Session, user_
     try:
         if filename_lower.endswith('.zip'):
             with zipfile.ZipFile(final_archive_path, 'r') as zip_ref:
-                zip_ref.extractall(extract_dir)
+                _safe_extract_zip(zip_ref, extract_dir)
         else:
             # RAR / 7Z via patool
             try:
@@ -215,14 +230,14 @@ def upload_mod(
     if not (filename_lower.endswith('.zip') or filename_lower.endswith('.rar') or filename_lower.endswith('.7z')):
         raise HTTPException(status_code=400, detail="Formato no soportado")
 
-    total, used, free = shutil.disk_usage(STORAGE_DIR)
+    total, used, free = shutil.disk_usage(MODS_DIR)
     if free < 2 * 1024 * 1024 * 1024: 
         raise HTTPException(status_code=507, detail="Espacio en disco insuficiente")
 
     # Temp save location before processing
-    temp_dir = STORAGE_DIR / "temp_uploads"
+    temp_dir = MODS_DIR / "temp_uploads"
     temp_dir.mkdir(exist_ok=True)
-    temp_path = temp_dir / file.filename.replace(" ", "_")
+    temp_path = temp_dir / _sanitize_name(Path(file.filename).name, "upload")
     
     with open(temp_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
@@ -244,9 +259,12 @@ def delete_mod(mod_id: int, db: Session = Depends(database.get_db)):
     
     # 1. Delete actual files
     try:
-        mod_path = Path(mod.source_path)
-        if mod_path.exists():
-            shutil.rmtree(mod_path)
+        mod_path = Path(mod.source_path).resolve()
+        storage_root = MODS_DIR.resolve()
+        if str(mod_path).startswith(str(storage_root)):
+            shutil.rmtree(mod_path.parent, ignore_errors=True)
+        elif mod_path.exists():
+            shutil.rmtree(mod_path, ignore_errors=True)
     except Exception as e:
         logger.error(f"Error deleting files for mod {mod_id}: {e}")
         # We continue to delete from DB even if file deletion fails/partial
@@ -368,7 +386,7 @@ def get_mod_metadata(mod_id: int, db: Session = Depends(database.get_db)):
     # We need relative path from "backend/storage" to ui_path
     # storage_root is "backend/storage"
     
-    storage_root = Path("backend/storage").resolve()
+    storage_root = STORAGE_DIR.resolve()
     try:
         rel_path = ui_path.resolve().relative_to(storage_root)
         base_url = f"/static/{str(rel_path).replace(os.sep, '/')}"
@@ -405,7 +423,7 @@ def get_mod_metadata(mod_id: int, db: Session = Depends(database.get_db)):
 @router.get("/disk_usage")
 def get_disk_usage(db: Session = Depends(database.get_db)):
     total_size = 0
-    for dirpath, dirnames, filenames in os.walk(STORAGE_DIR):
+    for dirpath, dirnames, filenames in os.walk(MODS_DIR):
         for f in filenames:
             fp = os.path.join(dirpath, f)
             # slip past if unopenable
@@ -464,3 +482,39 @@ def remove_tag_from_mod(mod_id: int, tag_id: int, db: Session = Depends(database
         db.refresh(mod)
         
     return mod
+
+@router.post("/bulk/delete")
+def bulk_delete_mods(mod_ids: List[int], db: Session = Depends(database.get_db)):
+    deleted = []
+    failed = []
+    for mod_id in mod_ids:
+        mod = db.query(models.Mod).filter(models.Mod.id == mod_id).first()
+        if not mod:
+            failed.append({"id": mod_id, "error": "not_found"})
+            continue
+        try:
+            mod_path = Path(mod.source_path).resolve()
+            storage_root = MODS_DIR.resolve()
+            if str(mod_path).startswith(str(storage_root)):
+                shutil.rmtree(mod_path.parent, ignore_errors=True)
+            else:
+                shutil.rmtree(mod_path, ignore_errors=True)
+            db.delete(mod)
+            deleted.append(mod_id)
+        except Exception as e:
+            failed.append({"id": mod_id, "error": str(e)})
+
+    db.commit()
+    return {"deleted": deleted, "failed": failed}
+
+@router.post("/bulk/toggle")
+def bulk_toggle_mods(
+    mod_ids: List[int],
+    target_state: bool,
+    db: Session = Depends(database.get_db)
+):
+    mods = db.query(models.Mod).filter(models.Mod.id.in_(mod_ids)).all()
+    for mod in mods:
+        mod.is_active = target_state
+    db.commit()
+    return {"updated": [m.id for m in mods], "target_state": target_state}

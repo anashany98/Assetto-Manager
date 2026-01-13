@@ -6,6 +6,7 @@ import { UploadCloud, FileBox, CheckCircle2, AlertCircle, Car, Flag, Filter, X, 
 
 import { cn } from '../lib/utils';
 import JSZip from 'jszip';
+import { API_URL } from '../config';
 
 export default function ModsLibrary() {
     const queryClient = useQueryClient();
@@ -662,7 +663,7 @@ export default function ModsLibrary() {
                                 <>
                                     {(metadata?.image_url || metadata?.map_url) ? (
                                         <img
-                                            src={`http://${window.location.hostname}:8000${selectedMod?.type === 'track' && metadata?.map_url ? metadata.map_url : metadata?.image_url}`}
+                                            src={`${API_URL}${selectedMod?.type === 'track' && metadata?.map_url ? metadata.map_url : metadata?.image_url}`}
                                             alt={selectedMod?.name}
                                             className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
                                         />
@@ -727,7 +728,7 @@ export default function ModsLibrary() {
                                             <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm mt-4">
                                                 <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4">Trazado</h3>
                                                 <img
-                                                    src={`http://${window.location.hostname}:8000${metadata.outline_url}`}
+                                                    src={`${API_URL}${metadata.outline_url}`}
                                                     className="w-full h-auto max-h-48 object-contain opacity-80 invert"
                                                     alt="Track Outline"
                                                 />

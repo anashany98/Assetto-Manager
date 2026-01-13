@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List
 from .. import models, database
+from ..database import SessionLocal
 import logging
 import shutil
 import os
@@ -25,8 +26,7 @@ def push_content_to_all(
     db: Session = Depends(database.get_db)
 ):
     """
-    Triggers a background task to sync 'backend/storage/mods/content' 
-    to ALL active stations.
+    Triggers a background task to sync mod content to all active stations.
     """
     stations = db.query(models.Station).filter(models.Station.is_active == True).all()
     
@@ -34,17 +34,31 @@ def push_content_to_all(
         return {"message": "No active stations found to deploy to.", "status": "warning"}
 
     # Run in background to avoid blocking API
-    background_tasks.add_task(_deploy_task, stations, db)
+    background_tasks.add_task(_deploy_task, stations)
     
     return {"message": f"Deployment started for {len(stations)} stations.", "status": "started"}
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-def _deploy_task(stations: List[models.Station], db: Session):
-    source_dir = Path("backend/storage/mods/content").resolve()
-    
-    if not source_dir.exists():
-        logger.warning("No content to deploy (backend/storage/mods/content missing)")
+def _collect_content_sources(db: Session) -> List[Path]:
+    sources: List[Path] = []
+    mods = db.query(models.Mod).filter(models.Mod.is_active == True).all()
+    for mod in mods:
+        if not mod.source_path:
+            continue
+        base = Path(mod.source_path)
+        content_dir = base / "content"
+        if content_dir.exists():
+            sources.append(content_dir)
+        elif base.exists():
+            sources.append(base)
+    return sources
+
+def _deploy_task(stations: List[models.Station]):
+    with SessionLocal() as session:
+        sources = _collect_content_sources(session)
+    if not sources:
+        logger.warning("No mod content found to deploy")
         return
 
     # MAX WORKERS: 5 concurrent copies (User Configured for 5 Servers)
@@ -56,29 +70,26 @@ def _deploy_task(stations: List[models.Station], db: Session):
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         # Submit all tasks
         future_to_station = {
-            executor.submit(_sync_station_content, station, source_dir): station 
+            executor.submit(_sync_station_content, station, sources): station.id 
             for station in stations
         }
         
         for future in as_completed(future_to_station):
-            station = future_to_station[future]
+            station_id = future_to_station[future]
             try:
                 status = future.result()
-                station.status = status
             except Exception as e:
-                logger.error(f"Deployment exception for {station.name}: {e}")
-                station.status = "error"
-            
-            # We need a new DB session here because objects from the main thread 
-            # might be detached or we need thread safety. 
-            # Ideally each thread handles its own DB, but for simple status update
-            # we can do it here in the main callback loop.
-            
-            # Re-fetch to ensure attached? Or just update ID
-            # Simpler to just log for now as DB threading complex in rapid updates
-            logger.info(f"Station {station.name} finished with status: {station.status}")
+                logger.error(f"Deployment exception for station {station_id}: {e}")
+                status = "error"
 
-def _sync_station_content(station: models.Station, source_dir: Path) -> str:
+            with SessionLocal() as session:
+                station = session.query(models.Station).filter(models.Station.id == station_id).first()
+                if station:
+                    station.status = status
+                    session.commit()
+                    logger.info(f"Station {station.name} finished with status: {station.status}")
+
+def _sync_station_content(station: models.Station, sources: List[Path]) -> str:
     """
     Worker function to sync a single station.
     Returns status string.
@@ -91,32 +102,29 @@ def _sync_station_content(station: models.Station, source_dir: Path) -> str:
     try:
         logger.info(f"[{station.name}] Syncing...")
         
-        # Robocopy Config for Large Deployments
-        cmd = [
-            "robocopy",
-            str(source_dir),
-            target_path,
-            "/E",     # Recurse
-            "/Z",     # Restartable mode (Good for large files network fail)
-            "/XO",    # Exclude Older
-            "/FFT",   # Fat File Time (Network share leniency)
-            "/R:3",   # Retry 3 times
-            "/W:5",   # Wait 5 sec
-            "/MT:4",  # Internal Robocopy threads (4 is good per instance if running 3 instances)
-            "/NFL",   # No File List (Reduce log spam)
-            "/NDL"    # No Dir List
-        ]
-        
-        # Capture output only on error or extensive debug
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        
-        # Robocopy Exit Codes: < 8 is Success
-        if result.returncode > 7:
-            logger.error(f"[{station.name}] Robocopy Failed: {result.stderr}")
-            return "sync_error"
-        else:
-            logger.info(f"[{station.name}] Sync Complete.")
-            return "ready"
+        for source_dir in sources:
+            cmd = [
+                "robocopy",
+                str(source_dir),
+                target_path,
+                "/E",     # Recurse
+                "/Z",     # Restartable mode (Good for large files network fail)
+                "/XO",    # Exclude Older
+                "/FFT",   # Fat File Time (Network share leniency)
+                "/R:3",   # Retry 3 times
+                "/W:5",   # Wait 5 sec
+                "/MT:4",  # Internal Robocopy threads (4 is good per instance if running 3 instances)
+                "/NFL",   # No File List (Reduce log spam)
+                "/NDL"    # No Dir List
+            ]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if result.returncode > 7:
+                logger.error(f"[{station.name}] Robocopy Failed: {result.stderr}")
+                return "sync_error"
+
+        logger.info(f"[{station.name}] Sync Complete.")
+        return "ready"
             
     except Exception as e:
         logger.error(f"[{station.name}] Connection Failed: {e}")

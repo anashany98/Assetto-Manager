@@ -3,14 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Search, Trophy, Car, ChevronRight, Share2, Award } from 'lucide-react';
 import axios from 'axios';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
-
-// --- API ---
-// We reuse the existing API logic but ensure it uses the window location for robustness
-const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? `http://${window.location.hostname}:8000`
-    : window.location.origin.includes('loca.lt')
-        ? 'https://khaki-donkeys-share.loca.lt'
-        : `http://${window.location.hostname}:8000`;
+import { API_URL } from '../config';
 
 const getAllDrivers = async () => {
     const response = await axios.get(`${API_URL}/telemetry/drivers`);
@@ -18,7 +11,7 @@ const getAllDrivers = async () => {
 };
 
 const getDriverProfile = async (name: string) => {
-    const response = await axios.get(`${API_URL}/telemetry/pilot/${name}`);
+    const response = await axios.get(`${API_URL}/telemetry/pilot/${encodeURIComponent(name)}`);
     return response.data;
 };
 

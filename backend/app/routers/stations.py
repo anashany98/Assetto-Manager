@@ -1,7 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
+from pathlib import Path
+import os
 from .. import models, schemas, database
+from ..paths import STORAGE_DIR
 
 router = APIRouter(
     prefix="/stations",
@@ -48,7 +51,6 @@ def update_station(station_id: int, station_update: schemas.StationUpdate, db: S
     
     db.commit()
     db.refresh(db_station)
-    db.refresh(db_station)
     return db_station
 
 @router.get("/stats")
@@ -80,18 +82,31 @@ def get_target_manifest(station_id: int, db: Session = Depends(database.get_db))
         return {}
     
     master_manifest = {}
+    storage_root = STORAGE_DIR.resolve()
     for mod in station.active_profile.mods:
-        if not mod.manifest: continue
+        if not mod.manifest:
+            continue
+        if not mod.source_path:
+            continue
         try:
-            mod_manifest = json.loads(mod.manifest)
-            safe_mod_name = mod.name.replace(" ", "_")
+            mod_manifest = json.loads(mod.manifest) if isinstance(mod.manifest, str) else mod.manifest
+            if not isinstance(mod_manifest, dict):
+                continue
+
+            source_path = Path(mod.source_path).resolve()
+            try:
+                rel_source = source_path.relative_to(storage_root)
+            except ValueError:
+                continue
+            base_url = f"/static/{str(rel_source).replace(os.sep, '/')}"
             
             for file_path, info in mod_manifest.items():
                 # Construct download URL (relative to server root)
-                # Assumes static mount at /static/mods/{mod_name}/content/{file_path}
+                # Assumes static mount at /static/{relative_source}/{file_path}
                 # info is {hash, size, last_modified}
-                info['url'] = f"/static/mods/{safe_mod_name}/content/{file_path}"
-                master_manifest[file_path] = info
+                info_with_url = dict(info)
+                info_with_url['url'] = f"{base_url}/{file_path}"
+                master_manifest[file_path] = info_with_url
         except json.JSONDecodeError:
             continue
             

@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Terminal, RefreshCw, AlertTriangle, Info, AlertCircle } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '../lib/utils';
+import { API_URL } from '../config';
 
 // Log Types
 interface LogEntry {
@@ -12,8 +13,6 @@ interface LogEntry {
     message: string;
     details?: string;
 }
-
-const API_URL = `http://${window.location.hostname}:8000`;
 
 export function LogViewer() {
     const [filterLevel, setFilterLevel] = useState<string>('ALL');

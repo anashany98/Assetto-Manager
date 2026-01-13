@@ -47,9 +47,7 @@ class ConnectionManager:
             try:
                 await connection.send_text(message)
             except Exception:
-                # If sending fails, assume execution is dead and remove? 
-                # Better to let the receive loop handle disconnects, but send failures usually mean dead socket.
-                pass
+                self.disconnect_client(connection)
 
 manager = ConnectionManager()
 

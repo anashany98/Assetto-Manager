@@ -7,6 +7,7 @@ import { useLocation } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import ManualEntryModal from '../components/ManualEntryModal';
 import { TelemetryChart } from '../components/TelemetryChart';
+import { API_URL } from '../config';
 
 interface LeaderboardEntry {
     rank: number;
@@ -18,12 +19,6 @@ interface LeaderboardEntry {
     gap: number;
     lap_id: number;
 }
-
-const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? `http://${window.location.hostname}:8000`
-    : window.location.origin.includes('loca.lt')
-        ? 'https://khaki-donkeys-share.loca.lt' // Backend Tunnel
-        : `http://${window.location.hostname}:8000`;
 
 const getLeaderboard = async (track: string, car: string | null, period: string) => {
     const params = new URLSearchParams();
@@ -131,7 +126,7 @@ export default function LeaderboardPage() {
         if (!combinations || combinations.length === 0 || !isTVMode) return;
 
         const combo = combinations[rotationIndex];
-        setSelectedTrack(combo.track);
+        setSelectedTrack(combo.track_name);
         setSelectedCar(null);
     }, [rotationIndex, combinations, isTVMode]);
 
