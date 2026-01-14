@@ -18,7 +18,7 @@ const AdsSettings: React.FC = () => {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
     // FIX: Using full URL for fetching
-    const { data: ads, isLoading } = useQuery({
+    const { data: ads, isLoading, error } = useQuery({
         queryKey: ['ads'],
         queryFn: async () => {
             const res = await fetch(`${API_URL}/ads/`);
@@ -125,47 +125,60 @@ const AdsSettings: React.FC = () => {
             </form>
 
             {/* List */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {isLoading && <p>Loading...</p>}
-                {Array.isArray(ads) && ads.map(ad => (
-                    <div key={ad.id} className={`relative group border rounded-lg overflow-hidden ${ad.is_active ? 'border-green-500/30' : 'border-red-500/30 opacity-75'}`}>
-                        {/* Image Preview */}
-                        <div className="aspect-video bg-black relative">
-                            <img
-                                src={`${API_URL}/static/${ad.image_path}`}
-                                alt={ad.title}
-                                className="w-full h-full object-cover"
-                            />
-                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent p-2">
-                                <p className="font-bold">{ad.title}</p>
-                                <p className="text-xs text-gray-300">{ad.display_duration}s</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {isLoading && (
+                    <div className="col-span-full py-12 flex flex-col items-center gap-3 text-gray-500">
+                        <div className="w-8 h-8 border-2 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
+                        <p className="text-sm font-bold uppercase tracking-widest">Cargando...</p>
+                    </div>
+                )}
+
+                {error && (
+                    <div className="col-span-full py-12 bg-red-500/10 border border-red-500/20 rounded-2xl text-center">
+                        <p className="text-red-400 font-bold uppercase tracking-tight mb-1">Error de conexión</p>
+                        <p className="text-gray-500 text-xs">No se han podido recuperar las promociones.</p>
+                    </div>
+                )}
+
+                {Array.isArray(ads) ? (
+                    ads.map(ad => (
+                        <div key={ad.id} className={`relative group border rounded-2xl shadow-lg border-gray-700 overflow-hidden transition-all hover:border-gray-500 ${ad.is_active ? 'border-green-500/30' : 'border-red-500/30 opacity-75'}`}>
+                            {/* Image Preview */}
+                            <div className="aspect-video bg-black relative">
+                                <img
+                                    src={`${API_URL}/static/${ad.image_path}`}
+                                    alt={ad.title}
+                                    className="w-full h-full object-cover"
+                                />
+                                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent p-4">
+                                    <p className="font-bold text-white">{ad.title}</p>
+                                    <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest">{ad.display_duration}s DE EXPOSICIÓN</p>
+                                </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="p-3 flex justify-between bg-gray-900/80 items-center">
+                                <button
+                                    onClick={() => toggleMutation.mutate(ad.id)}
+                                    className={`text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-lg transition-all ${ad.is_active ? 'bg-green-500/20 text-green-400 hover:bg-green-500 hover:text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600 hover:text-white'}`}
+                                >
+                                    {ad.is_active ? "Activa" : "Pausada"}
+                                </button>
+                                <button
+                                    onClick={() => { if (confirm("¿Estás seguro de eliminar esta promoción?")) deleteMutation.mutate(ad.id) }}
+                                    className="text-[10px] font-black uppercase tracking-wider bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white px-3 py-1.5 rounded-lg transition-all"
+                                >
+                                    Eliminar
+                                </button>
                             </div>
                         </div>
-
-                        {/* Actions */}
-                        <div className="p-2 flex justify-between bg-gray-900/50">
-                            <button
-                                onClick={() => toggleMutation.mutate(ad.id)}
-                                className={`text-xs px-2 py-1 rounded ${ad.is_active ? 'bg-green-600 text-white' : 'bg-gray-600 text-gray-300'}`}
-                            >
-                                {ad.is_active ? "Active" : "Inactive"}
-                            </button>
-                            <button
-                                onClick={() => { if (confirm("Are you sure?")) deleteMutation.mutate(ad.id) }}
-                                className="text-xs bg-red-600 hover:bg-red-500 px-2 py-1 rounded"
-                            >
-                                Delete
-                            </button>
-                        </div>
+                    ))
+                ) : !isLoading && (
+                    <div className="col-span-full py-12 text-center bg-gray-800/50 rounded-2xl border-2 border-dashed border-gray-700">
+                        <p className="text-gray-500 font-bold italic">No has creado ninguna promoción todavía.</p>
                     </div>
-                ))}
+                )}
             </div>
-
-            {!isLoading && ads?.length === 0 && (
-                <div className="text-gray-400 text-center py-8">
-                    No has creado ninguna promoción todavía.
-                </div>
-            )}
         </div>
     );
 };

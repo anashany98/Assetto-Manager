@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getChampionship, getChampionshipStandings, addEventToChampionship, linkSessionToEvent } from '../api/championships';
 import { getEvents, createEvent } from '../api/events';
 import { useState } from 'react';
-import { ArrowLeft, Trophy, Medal, Calendar, Flag, Plus, ChevronRight, Clock, Link2, MapPin } from 'lucide-react';
+import { ArrowLeft, Trophy, Medal, Calendar, Flag, Plus, ChevronRight, Clock, Link2, MapPin, AlertTriangle } from 'lucide-react';
 import { cn } from '../lib/utils';
 import SessionLinker from '../components/SessionLinker';
 
@@ -24,12 +24,12 @@ export default function ChampionshipDetails() {
         status: 'upcoming' as const
     });
 
-    const { data: championship } = useQuery({
+    const { data: championship, isLoading: loadingChamp, error: champError } = useQuery({
         queryKey: ['championship', champId],
         queryFn: () => getChampionship(champId)
     });
 
-    const { data: standings, isLoading: loadingStandings } = useQuery({
+    const { data: standings, isLoading: loadingStandings, error: standingsError } = useQuery({
         queryKey: ['championship_standings', champId],
         queryFn: () => getChampionshipStandings(champId)
     });
@@ -81,8 +81,21 @@ export default function ChampionshipDetails() {
         }
     });
 
-    if (loadingStandings) return <div className="p-10 text-white text-center">Cargando clasificación...</div>;
-    if (!championship) return <div className="p-10 text-white text-center">Campeonato no encontrado</div>;
+    if (loadingStandings || loadingChamp) return (
+        <div className="p-10 text-center text-white flex flex-col items-center justify-center min-h-[400px]">
+            <div className="w-10 h-10 border-4 border-yellow-500/20 border-t-yellow-500 rounded-full animate-spin mb-4" />
+            <p className="font-bold text-yellow-500 animate-pulse uppercase tracking-widest text-sm">Cargando clasificación y detalles...</p>
+        </div>
+    );
+
+    if (champError || standingsError || !championship) return (
+        <div className="p-10 text-center text-white flex flex-col items-center justify-center min-h-[400px]">
+            <AlertTriangle size={48} className="text-red-500 mb-4 opacity-50" />
+            <p className="font-bold text-red-400 uppercase tracking-widest text-sm">Error al cargar datos del campeonato</p>
+            <p className="text-gray-500 text-xs mt-2 italic font-medium">Revisa la conexión al servidor o si el ID es correcto.</p>
+            <Link to="/championships" className="mt-8 bg-white/5 hover:bg-white/10 text-white px-6 py-2 rounded-xl border border-white/10 uppercase font-black text-[10px] tracking-widest">Volver a Campeonatos</Link>
+        </div>
+    );
 
     const currentLinkingEvent = championship.events?.find(e => e.id === linkingToEvent);
 
@@ -169,50 +182,58 @@ export default function ChampionshipDetails() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5">
-                                {standings?.map((driver, idx) => (
-                                    <tr key={driver.driver_name} className="hover:bg-white/[0.02] transition-colors group">
-                                        <td className="p-6 text-center">
-                                            <div className={cn(
-                                                "w-10 h-10 rounded-xl flex items-center justify-center font-black italic text-lg mx-auto transform transition-transform group-hover:scale-110",
-                                                idx === 0 ? "bg-yellow-500 text-black shadow-[0_0_20px_rgba(234,179,8,0.3)]" :
-                                                    idx === 1 ? "bg-gray-300 text-black" :
-                                                        idx === 2 ? "bg-orange-700 text-white" : "bg-white/5 text-gray-500"
-                                            )}>
-                                                {idx + 1}
-                                            </div>
-                                        </td>
-                                        <td className="p-6">
-                                            <div className="font-black text-white text-xl uppercase italic group-hover:text-yellow-500 transition-colors">
-                                                {driver.driver_name}
-                                            </div>
-                                            <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1">
-                                                Pro Driver • Tier 1
-                                            </div>
-                                        </td>
-                                        <td className="p-6 text-center">
-                                            <span className="font-mono text-lg text-white/50">{driver.events_participated}</span>
-                                        </td>
-                                        <td className="p-6 text-center">
-                                            <span className="font-mono text-yellow-500/60 font-bold">
-                                                {driver.best_lap_ever ? (driver.best_lap_ever / 1000).toFixed(3) + 's' : '--'}
-                                            </span>
-                                        </td>
-                                        <td className="p-6 text-center">
-                                            <div className="flex justify-center gap-1">
-                                                {Array.from({ length: driver.podiums || 0 }).map((_, i) => (
-                                                    <div key={i} className="w-2 h-2 rounded-full bg-blue-500" />
-                                                ))}
-                                                {driver.podiums === 0 && <span className="text-gray-700">-</span>}
-                                            </div>
-                                        </td>
-                                        <td className="p-6 text-right pr-12">
-                                            <div className="font-black text-4xl text-white italic tracking-tighter tabular-nums">
-                                                {driver.total_points}
-                                                <span className="text-[10px] text-gray-500 ml-2 not-italic font-black opacity-40 uppercase">Pts</span>
-                                            </div>
+                                {Array.isArray(standings) ? (
+                                    standings.map((driver, idx) => (
+                                        <tr key={driver.driver_name} className="hover:bg-white/[0.02] transition-colors group">
+                                            <td className="p-6 text-center">
+                                                <div className={cn(
+                                                    "w-10 h-10 rounded-xl flex items-center justify-center font-black italic text-lg mx-auto transform transition-transform group-hover:scale-110",
+                                                    idx === 0 ? "bg-yellow-500 text-black shadow-[0_0_20px_rgba(234,179,8,0.3)]" :
+                                                        idx === 1 ? "bg-gray-300 text-black" :
+                                                            idx === 2 ? "bg-orange-700 text-white" : "bg-white/5 text-gray-500"
+                                                )}>
+                                                    {idx + 1}
+                                                </div>
+                                            </td>
+                                            <td className="p-6">
+                                                <div className="font-black text-white text-xl uppercase italic group-hover:text-yellow-500 transition-colors">
+                                                    {driver.driver_name}
+                                                </div>
+                                                <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1">
+                                                    Pro Driver • Tier 1
+                                                </div>
+                                            </td>
+                                            <td className="p-6 text-center">
+                                                <span className="font-mono text-lg text-white/50">{driver.events_participated}</span>
+                                            </td>
+                                            <td className="p-6 text-center">
+                                                <span className="font-mono text-yellow-500/60 font-bold">
+                                                    {driver.best_lap_ever ? (driver.best_lap_ever / 1000).toFixed(3) + 's' : '--'}
+                                                </span>
+                                            </td>
+                                            <td className="p-6 text-center">
+                                                <div className="flex justify-center gap-1">
+                                                    {Array.from({ length: driver.podiums || 0 }).map((_, i) => (
+                                                        <div key={i} className="w-2 h-2 rounded-full bg-blue-500" />
+                                                    ))}
+                                                    {driver.podiums === 0 && <span className="text-gray-700">-</span>}
+                                                </div>
+                                            </td>
+                                            <td className="p-6 text-right pr-12">
+                                                <div className="font-black text-4xl text-white italic tracking-tighter tabular-nums">
+                                                    {driver.total_points}
+                                                    <span className="text-[10px] text-gray-500 ml-2 not-italic font-black opacity-40 uppercase">Pts</span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan={6} className="p-20 text-center text-gray-600 italic">
+                                            No hay datos de clasificación todavía.
                                         </td>
                                     </tr>
-                                ))}
+                                )}
                             </tbody>
                         </table>
                     </div>
@@ -338,7 +359,7 @@ export default function ChampionshipDetails() {
                     )}
 
                     <div className="grid grid-cols-1 gap-4">
-                        {championship.events?.map((event, idx) => (
+                        {Array.isArray(championship.events) && championship.events.map((event, idx) => (
                             <div
                                 key={event.id}
                                 className="group bg-gray-900 border border-white/5 rounded-2xl p-6 flex items-center gap-8 hover:bg-white/[0.02] transition-all"
@@ -382,7 +403,7 @@ export default function ChampionshipDetails() {
                             </div>
                         ))}
 
-                        {(!championship.events || championship.events.length === 0) && (
+                        {(!Array.isArray(championship.events) || championship.events.length === 0) && (
                             <div className="py-20 text-center bg-gray-900/50 rounded-3xl border border-dashed border-white/5 italic text-gray-500">
                                 No hay carreras programadas en este campeonato.
                             </div>

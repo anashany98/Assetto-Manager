@@ -41,8 +41,30 @@ export default function Dashboard() {
         }
     };
 
-    if (isLoading) return <div className="p-8 text-white">Cargando centro de mando...</div>;
-    if (error) return <div className="p-8 text-red-400">Error conectando con el servidor central.</div>;
+    if (isLoading) return (
+        <div className="p-8 min-h-screen bg-[#0a0a0c] flex items-center justify-center">
+            <div className="flex flex-col items-center gap-4">
+                <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
+                <p className="text-blue-400 font-bold animate-pulse">CARGANDO CENTRO DE MANDO...</p>
+            </div>
+        </div>
+    );
+
+    if (error) return (
+        <div className="p-8 min-h-screen bg-[#0a0a0c] flex items-center justify-center">
+            <div className="bg-red-500/10 border border-red-500/20 p-8 rounded-2xl max-w-md text-center">
+                <AlertTriangle size={48} className="text-red-500 mx-auto mb-4" />
+                <h2 className="text-xl font-bold text-white mb-2">Error de Conexión</h2>
+                <p className="text-gray-400 mb-6">No se ha podido establecer conexión con el servidor central. Por favor, verifica que el backend esté en ejecución.</p>
+                <button
+                    onClick={() => window.location.reload()}
+                    className="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg font-bold transition-all"
+                >
+                    Reintentar Conexión
+                </button>
+            </div>
+        </div>
+    );
 
     const allOnline = stats?.online_stations === stats?.total_stations;
 
@@ -71,7 +93,7 @@ export default function Dashboard() {
                         className="hidden md:flex bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg font-bold items-center gap-2 transition-colors shadow-lg shadow-blue-600/20 text-sm"
                     >
                         <ExternalLink size={16} />
-                        TV Mode
+                        Vista TV
                     </Link>
                     <div className={`px-4 py-2 rounded-full font-bold text-sm border ${allOnline ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'}`}>
                         ESTADO DE SALA: {allOnline ? '100% OPERATIVA' : 'ATENCIÓN REQUERIDA'}
@@ -82,7 +104,7 @@ export default function Dashboard() {
             {/* KPI GRID */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
                 <StatCard
-                    label="Simuladores Assets"
+                    label="Estaciones Sim"
                     value={`${stats?.online_stations}/${stats?.total_stations}`}
                     subvalue="Conectados"
                     icon={Zap}
@@ -200,25 +222,35 @@ export default function Dashboard() {
                         </div>
                         <div className="p-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {stations?.map((station) => (
-                                    <div key={station.id} className="bg-gray-900 border border-gray-700 rounded-xl p-4 flex items-center justify-between">
-                                        <div>
-                                            <div className="flex items-center gap-2">
-                                                <div className={`w-2 h-2 rounded-full ${station.is_online ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
-                                                <h3 className="font-bold text-white leading-none">{station.name || `Simulador ${station.id}`}</h3>
+                                {Array.isArray(stations) ? (
+                                    stations.map((station) => (
+                                        <div key={station.id} className="bg-gray-900 border border-gray-700 rounded-xl p-4 flex items-center justify-between">
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <div className={`w-2 h-2 rounded-full ${station.is_online ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                                                    <h3 className="font-bold text-white leading-none">{station.name || `Simulador ${station.id}`}</h3>
+                                                </div>
+                                                <p className="text-xs text-gray-500 font-mono mt-1">{station.ip_address}</p>
                                             </div>
-                                            <p className="text-xs text-gray-500 font-mono mt-1">{station.ip_address}</p>
+                                            <button
+                                                onClick={() => sendPanic(station.id, station.name || `Station ${station.id}`)}
+                                                className="bg-red-500/10 hover:bg-red-600 hover:text-white text-red-500 border border-red-500/30 p-2 rounded-lg transition-all active:scale-95"
+                                                title="Panic Button: Forzar cierre"
+                                            >
+                                                <AlertTriangle size={18} />
+                                            </button>
                                         </div>
-                                        <button
-                                            onClick={() => sendPanic(station.id, station.name || `Station ${station.id}`)}
-                                            className="bg-red-500/10 hover:bg-red-600 hover:text-white text-red-500 border border-red-500/30 p-2 rounded-lg transition-all active:scale-95"
-                                            title="Panic Button: Forzar cierre"
-                                        >
-                                            <AlertTriangle size={18} />
-                                        </button>
-                                    </div>
-                                ))}
-                                {stations?.length === 0 && <p className="text-gray-500 italic">No se detectan estaciones.</p>}
+                                    ))
+                                ) : (
+                                    <p className="text-gray-500 italic col-span-full py-4 text-center bg-gray-900/50 rounded-xl border border-dashed border-gray-700">
+                                        No se detectan estaciones o el formato de datos es incorrecto.
+                                    </p>
+                                )}
+                                {Array.isArray(stations) && stations.length === 0 && (
+                                    <p className="text-gray-500 italic col-span-full py-4 text-center bg-gray-900/50 rounded-xl border border-dashed border-gray-700">
+                                        No hay estaciones registradas.
+                                    </p>
+                                )}
                             </div>
                         </div>
                     </div>

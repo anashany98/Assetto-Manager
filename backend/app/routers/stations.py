@@ -4,6 +4,7 @@ from typing import List
 from pathlib import Path
 import os
 from .. import models, schemas, database
+from ..routers.auth import get_current_active_user
 from ..paths import STORAGE_DIR
 from ..utils.wol import send_magic_packet
 from .websockets import manager as ws_manager
@@ -42,7 +43,7 @@ def read_stations(skip: int = 0, limit: int = 100, db: Session = Depends(databas
 import json
 
 @router.put("/{station_id}", response_model=schemas.Station)
-def update_station(station_id: int, station_update: schemas.StationUpdate, db: Session = Depends(database.get_db)):
+def update_station(station_id: int, station_update: schemas.StationUpdate, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_active_user)):
     db_station = db.query(models.Station).filter(models.Station.id == station_id).first()
     if not db_station:
         raise HTTPException(status_code=404, detail="Station not found")
@@ -117,7 +118,7 @@ def get_target_manifest(station_id: int, db: Session = Depends(database.get_db))
     return master_manifest
 
 @router.post("/{station_id}/shutdown")
-async def shutdown_station(station_id: int, db: Session = Depends(database.get_db)):
+async def shutdown_station(station_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_active_user)):
     station = db.query(models.Station).filter(models.Station.id == station_id).first()
     if not station:
         raise HTTPException(status_code=404, detail="Station not found")
@@ -131,7 +132,7 @@ async def shutdown_station(station_id: int, db: Session = Depends(database.get_d
     return {"status": "ok", "message": f"Shutdown command sent to {station.name}"}
 
 @router.post("/{station_id}/power-on")
-def power_on_station(station_id: int, db: Session = Depends(database.get_db)):
+def power_on_station(station_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_active_user)):
     station = db.query(models.Station).filter(models.Station.id == station_id).first()
     if not station:
         raise HTTPException(status_code=404, detail="Station not found")
@@ -151,7 +152,7 @@ def power_on_station(station_id: int, db: Session = Depends(database.get_db)):
     return {"status": "ok", "message": f"Wake-on-LAN packet sent to {station.mac_address}"}
 
 @router.post("/{station_id}/panic")
-async def panic_station(station_id: int, db: Session = Depends(database.get_db)):
+async def panic_station(station_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_active_user)):
     station = db.query(models.Station).filter(models.Station.id == station_id).first()
     if not station:
         raise HTTPException(status_code=404, detail="Station not found")

@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Search, Trophy, Car, ChevronRight, Share2, Award } from 'lucide-react';
+import { Search, Trophy, Car, ChevronRight, Share2, Award, AlertTriangle } from 'lucide-react';
 import axios from 'axios';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { API_URL } from '../config';
@@ -20,13 +20,16 @@ export default function MobilePassport() {
     const [selectedDriver, setSelectedDriver] = useState<string | null>(null);
 
     // Fetch All Drivers for Search
-    const { data: drivers, isLoading: isLoadingList } = useQuery({
+    const { data: drivers, isLoading: isLoadingList, error: listError } = useQuery({
         queryKey: ['drivers'],
-        queryFn: getAllDrivers
+        queryFn: async () => {
+            const res = await getAllDrivers();
+            return Array.isArray(res) ? res : [];
+        }
     });
 
     // Fetch Specific Driver Profile
-    const { data: profile } = useQuery({
+    const { data: profile, isLoading: isLoadingProfile, error: profileError } = useQuery({
         queryKey: ['driverProfile', selectedDriver],
         queryFn: () => getDriverProfile(selectedDriver!),
         enabled: !!selectedDriver
@@ -34,7 +37,7 @@ export default function MobilePassport() {
 
     // Filter Logic
     const filteredDrivers = useMemo(() => {
-        if (!drivers) return [];
+        if (!Array.isArray(drivers)) return [];
         return drivers.filter((d: any) =>
             d.driver_name.toLowerCase().includes(searchTerm.toLowerCase())
         );
@@ -46,7 +49,26 @@ export default function MobilePassport() {
     };
 
     // --- VIEW: DRIVER PROFILE (The "Passport") ---
-    if (selectedDriver && profile) {
+    if (selectedDriver) {
+        if (isLoadingProfile) {
+            return (
+                <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center text-white">
+                    <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-4" />
+                    <p className="text-blue-500 font-bold uppercase tracking-widest text-xs">Cargando Pasaporte...</p>
+                </div>
+            );
+        }
+
+        if (profileError || !profile) {
+            return (
+                <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center text-red-500 p-8">
+                    <AlertTriangle size={48} className="mb-4 opacity-50" />
+                    <h2 className="text-xl font-black uppercase tracking-widest text-center">Error al cargar perfil</h2>
+                    <button onClick={handleBack} className="mt-6 px-6 py-2 bg-gray-900 border border-gray-800 rounded-xl text-white font-bold uppercase text-xs">Volver</button>
+                </div>
+            );
+        }
+
         return (
             <div className="min-h-screen bg-gray-950 text-white pb-safe">
                 {/* Header */}
@@ -73,7 +95,7 @@ export default function MobilePassport() {
 
                         <div className="relative z-10 flex flex-col items-center">
                             <div className="w-20 h-20 rounded-full bg-gray-800 border-2 border-blue-400 flex items-center justify-center text-3xl font-black mb-3 shadow-lg">
-                                {profile.driver_name.charAt(0).toUpperCase()}
+                                {profile.driver_name?.charAt(0).toUpperCase() || '?'}
                             </div>
                             <h1 className="text-2xl font-black uppercase tracking-tight text-center">{profile.driver_name}</h1>
                             <div className="mt-2 px-3 py-1 bg-blue-600/20 border border-blue-500/50 rounded-full text-blue-300 text-xs font-bold uppercase tracking-widest">
@@ -85,41 +107,44 @@ export default function MobilePassport() {
                         <div className="grid grid-cols-3 gap-2 mt-6 border-t border-white/10 pt-4">
                             <div className="text-center">
                                 <div className="text-gray-400 text-[10px] uppercase font-bold">Vueltas</div>
-                                <div className="text-xl font-mono font-bold">{profile.total_laps}</div>
+                                <div className="text-xl font-mono font-bold">{profile.total_laps || 0}</div>
                             </div>
                             <div className="text-center border-l border-white/10">
                                 <div className="text-gray-400 text-[10px] uppercase font-bold">Km Totales</div>
-                                <div className="text-xl font-mono font-bold">{profile.total_km}</div>
+                                <div className="text-xl font-mono font-bold">{Math.round(profile.total_km || 0)}</div>
                             </div>
                             <div className="text-center border-l border-white/10">
                                 <div className="text-gray-400 text-[10px] uppercase font-bold">Consist.</div>
-                                <div className="text-xl font-mono font-bold text-green-400">{profile.avg_consistency}%</div>
+                                <div className="text-xl font-mono font-bold text-green-400">{profile.avg_consistency || 0}%</div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Recent Sessions List */}
                     <div className="space-y-3">
                         <h3 className="text-gray-400 text-xs font-bold uppercase tracking-widest ml-1">Últimas Sesiones</h3>
-                        {profile.recent_sessions?.map((session: any, i: number) => (
-                            <div key={i} className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-center justify-between">
-                                <div>
-                                    <div className="font-bold text-sm uppercase">{session.track_name}</div>
-                                    <div className="text-xs text-gray-500 flex items-center mt-1">
-                                        <Car size={10} className="mr-1" />
-                                        {session.car_model.replace(/_/g, ' ')}
+                        {Array.isArray(profile?.recent_sessions) && profile.recent_sessions.length > 0 ? (
+                            profile.recent_sessions.map((session: any, i: number) => (
+                                <div key={i} className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-center justify-between">
+                                    <div>
+                                        <div className="font-bold text-sm uppercase">{session.track_name?.replace(/_/g, ' ')}</div>
+                                        <div className="text-xs text-gray-500 flex items-center mt-1">
+                                            <Car size={10} className="mr-1" />
+                                            {session.car_model?.replace(/_/g, ' ')}
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-blue-400 font-mono font-bold text-sm">
+                                            {Math.floor(session.best_lap / 60000)}:
+                                            {Math.floor((session.best_lap % 60000) / 1000).toString().padStart(2, '0')}.
+                                            {(session.best_lap % 1000).toString().padStart(3, '0')}
+                                        </div>
+                                        <div className="text-[10px] text-gray-600 mt-1">{session.date ? new Date(session.date).toLocaleDateString() : 'N/A'}</div>
                                     </div>
                                 </div>
-                                <div className="text-right">
-                                    <div className="text-blue-400 font-mono font-bold text-sm">
-                                        {Math.floor(session.best_lap / 60000)}:
-                                        {Math.floor((session.best_lap % 60000) / 1000).toString().padStart(2, '0')}.
-                                        {(session.best_lap % 1000).toString().padStart(3, '0')}
-                                    </div>
-                                    <div className="text-[10px] text-gray-600 mt-1">{new Date(session.date).toLocaleDateString()}</div>
-                                </div>
-                            </div>
-                        ))}
+                            ))
+                        ) : (
+                            <div className="p-8 text-center text-gray-600 italic text-xs">Sin historial reciente</div>
+                        )}
                     </div>
 
                     {/* Stats Chart */}
@@ -127,7 +152,7 @@ export default function MobilePassport() {
                         <h3 className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-4">Progresión (Últimas 5)</h3>
                         <div className="h-32">
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={profile.recent_sessions.slice(0, 5).reverse()}>
+                                <BarChart data={Array.isArray(profile.recent_sessions) ? profile.recent_sessions.slice(0, 5).reverse() : []}>
                                     <XAxis hide />
                                     <Tooltip
                                         contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151' }}
@@ -170,13 +195,22 @@ export default function MobilePassport() {
             {/* List */}
             <div className="flex-1 px-4 py-4 overflow-y-auto space-y-3">
                 {isLoadingList ? (
-                    <div className="text-center text-gray-600 py-10 animate-pulse">Cargando pilotos...</div>
+                    <div className="text-center py-20 flex flex-col items-center">
+                        <div className="w-10 h-10 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-4" />
+                        <p className="text-blue-500 font-bold uppercase tracking-widest text-[10px]">Cargando pilotos...</p>
+                    </div>
+                ) : listError ? (
+                    <div className="text-center py-20 flex flex-col items-center">
+                        <AlertTriangle size={48} className="text-red-500/20 mb-4" />
+                        <p className="text-red-500/50 font-bold uppercase tracking-widest text-xs">Error al cargar pilotos</p>
+                    </div>
                 ) : filteredDrivers?.length === 0 ? (
-                    <div className="text-center text-gray-600 py-10">
-                        <p>No se encontraron pilotos.</p>
+                    <div className="text-center text-gray-600 py-20 flex flex-col items-center">
+                        <Search size={48} className="mb-4 opacity-20" />
+                        <p className="text-sm font-bold uppercase tracking-widest">No hay pilotos que coincidan</p>
                     </div>
                 ) : (
-                    filteredDrivers?.map((driver: any) => (
+                    Array.isArray(filteredDrivers) && filteredDrivers.map((driver: any) => (
                         <button
                             key={driver.driver_name}
                             onClick={() => setSelectedDriver(driver.driver_name)}

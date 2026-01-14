@@ -22,6 +22,7 @@ export interface Event {
     rules?: string;
     bracket_data?: unknown;
     is_active: boolean;
+    championship_id?: number;
 }
 
 export interface EventCreate {

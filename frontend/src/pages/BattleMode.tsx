@@ -24,7 +24,7 @@ function BattleSetup({ onStart }: { onStart: (d1: string, d2: string, track: str
         queryFn: async () => (await axios.get(`${API_URL}/telemetry/drivers`)).data
     });
 
-    const driverList = drivers?.map((d: any) => d.driver_name) || [];
+    const driverList = Array.isArray(drivers) ? drivers.map((d: any) => d.driver_name) : [];
 
     return (
         <div className="min-h-screen bg-gray-950 flex items-center justify-center p-8 bg-[url('/bg-pattern.png')] bg-cover bg-blend-overlay">

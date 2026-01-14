@@ -151,7 +151,7 @@ export default function ManualEntryModal({ isOpen, onClose, preselectedTrack }: 
                                         className="flex-1 bg-gray-950 border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-blue-500 outline-none"
                                     >
                                         <option value="">Seleccionar Piloto...</option>
-                                        {drivers?.map((d) => (
+                                        {Array.isArray(drivers) && drivers.map((d: any) => (
                                             <option key={d.driver_name} value={d.driver_name}>{d.driver_name}</option>
                                         ))}
                                     </select>
@@ -281,6 +281,6 @@ export default function ManualEntryModal({ isOpen, onClose, preselectedTrack }: 
                     </form>
                 </motion.div>
             </div>
-        </AnimatePresence>
+        </AnimatePresence >
     );
 }

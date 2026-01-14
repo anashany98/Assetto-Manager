@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import engine, Base
-from .routers import stations, mods, telemetry, websockets, settings, profiles, events, config_manager, championships, integrations, tournament, logs, ads
+from .routers import stations, mods, telemetry, websockets, settings, profiles, events, config_manager, championships, integrations, tournament, logs, ads, auth, backup
 from .routers.logs import MemoryLogHandler
 
 # Create Tables
@@ -78,6 +78,8 @@ app.include_router(websockets.router)
 app.include_router(tournament.router)
 app.include_router(logs.router)
 app.include_router(ads.router)
+app.include_router(auth.router)
+app.include_router(backup.router)
 
 
 # @app.get("/")
@@ -108,19 +110,18 @@ if frontend_dist.exists():
     # But mounting root to "/" conflicts with API.
     # So we use catch-all.
 
-    # Catch-all for SPA (must be last)
+    # Catch-all for SPA (must be last) - GET only to avoid capturing API POST/PUT/DELETE
     @app.get("/{full_path:path}")
-    async def serve_spa(full_path: str):
-        # Allow API calls to pass through (should be handled by routers above, but just in case)
-        if full_path.startswith("api") or full_path.startswith("docs") or full_path.startswith("openapi.json"):
-             return JSONResponse({"detail": "Not Found"}, status_code=404)
+    async def serve_spa(request: Request, full_path: str):
+        # API routes should never reach here - they are handled by routers above
+        # This catch-all is ONLY for SPA client-side routing (GET requests to non-API paths)
         
         # Check if file exists in dist (e.g. favicon.ico, manifest.json)
         file_path = frontend_dist / full_path
         if file_path.exists() and file_path.is_file():
             return FileResponse(file_path)
             
-        # Fallback to index.html
+        # Fallback to index.html for SPA routing
         return FileResponse(frontend_dist / "index.html")
 else:
     logger.warning(f"Frontend build not found at {frontend_dist}. Running in API-only mode.")

@@ -43,9 +43,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const location = useLocation();
 
-    // Determine if we should show the full layout or just the content (e.g. for TV/Mobile)
-    const isTVMode = location.pathname.startsWith('/tv');
-    const isMobileView = location.pathname.startsWith('/mobile') || location.pathname.startsWith('/passport-scanner');
+    // Determine if we should show the full layout or just the content (e.g. for TV/Mobile/Public views)
+    const publicPaths = ['/', '/tv', '/tv-mode', '/mobile', '/passport-scanner', '/hall-of-fame', '/live-map', '/battle', '/kiosk', '/login', '/leaderboard', '/remote'];
+    const isPublicView = publicPaths.includes(location.pathname) || location.pathname.startsWith('/tv/') || location.pathname.startsWith('/telemetry/');
 
     // Branding Query
     const { data: branding } = useQuery({
@@ -64,9 +64,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     const barLogo = safeBranding.find((s: any) => s.key === 'bar_logo')?.value || '/logo.png';
     const barName = safeBranding.find((s: any) => s.key === 'bar_name')?.value || 'VRacing Bar';
 
-    if (isTVMode || isMobileView) {
+    if (isPublicView) {
         return (
-            <div className="flex h-screen bg-gray-900 text-white overflow-hidden">
+            <div className="flex h-screen bg-transparent text-white overflow-hidden">
                 <div className="flex-1 overflow-auto">
                     {children}
                 </div>
@@ -105,7 +105,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     <div className={`text-[10px] text-gray-500 font-bold uppercase mt-4 mb-2 px-2 tracking-wider ${!isSidebarOpen && 'hidden'}`}>
                         Gestión
                     </div>
-                    <NavItem to="/" icon={LayoutDashboard} collapsed={!isSidebarOpen}>Dashboard</NavItem>
+                    <NavItem to="/admin" icon={LayoutDashboard} collapsed={!isSidebarOpen}>Panel Control</NavItem>
                     <NavItem to="/drivers" icon={Users} collapsed={!isSidebarOpen}>Pilotos</NavItem>
                     <NavItem to="/events" icon={Calendar} collapsed={!isSidebarOpen}>Torneos</NavItem>
                     <NavItem to="/championships" icon={Trophy} collapsed={!isSidebarOpen}>Campeonatos</NavItem>
@@ -124,7 +124,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                         Sala & TV
                     </div>
                     <NavItem to="/remote" icon={MonitorPlay} collapsed={!isSidebarOpen}>Mando TV</NavItem>
-                    <NavItem to="/leaderboard" icon={List} collapsed={!isSidebarOpen}>Leaderboard</NavItem>
+                    <NavItem to="/leaderboard" icon={List} collapsed={!isSidebarOpen}>Clasificación</NavItem>
                     <NavItem to="/hall-of-fame" icon={Crown} collapsed={!isSidebarOpen}>Salón Fama</NavItem>
                     <NavItem to="/kiosk" icon={MonitorPlay} collapsed={!isSidebarOpen}>Menú Pantallas</NavItem>
                 </nav>
@@ -137,7 +137,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                             <p className="text-sm font-medium whitespace-nowrap">Operador</p>
                             <p className="text-xs text-green-400 flex items-center gap-1">
                                 <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                                Online
+                                Conectado
                             </p>
                         </div>
                     </div>

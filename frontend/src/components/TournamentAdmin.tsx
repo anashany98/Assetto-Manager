@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { API_URL } from '../config';
-import { Trophy, Shuffle } from 'lucide-react'; // Save, AlertCircle removed
+import { Trophy, Shuffle, AlertTriangle } from 'lucide-react'; // Save, AlertCircle removed
 
 export default function TournamentAdmin({ eventId }: { eventId: number }) {
     const queryClient = useQueryClient();
@@ -82,13 +82,13 @@ export default function TournamentAdmin({ eventId }: { eventId: number }) {
             </div>
 
             <div className="grid gap-6">
-                {bracket.rounds.map((round: any[], rIdx: number) => (
+                {Array.isArray(bracket.rounds) && bracket.rounds.map((round: any[], rIdx: number) => (
                     <div key={rIdx} className="bg-gray-800/50 p-4 rounded-xl border border-gray-700">
                         <h4 className="text-gray-400 font-bold uppercase text-xs tracking-widest mb-4 border-b border-gray-700 pb-2">
                             Ronda {rIdx + 1}
                         </h4>
                         <div className="space-y-3">
-                            {round.map((match: any) => (
+                            {Array.isArray(round) && round.map((match: any) => (
                                 <MatchAdminCard
                                     key={match.id}
                                     match={match}

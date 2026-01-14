@@ -1,51 +1,37 @@
 import { useNavigate } from 'react-router-dom';
-import { Trophy, Crown, MonitorPlay, Map, QrCode, Swords } from 'lucide-react';
+import { Trophy, MonitorPlay, Map, QrCode } from 'lucide-react';
 
 export default function LandingPage() {
     const navigate = useNavigate();
 
     const menuItems = [
         {
-            title: "TV Mode",
-            description: "Vista rotativa automática para pantallas principales",
-            icon: MonitorPlay,
-            color: "blue",
-            path: "/tv"
-        },
-        {
-            title: "Leaderboard",
-            description: "Tabla de tiempos general a pantalla completa",
+            title: "Clasificación en Vivo",
+            description: "Clasificación en tiempo real y estadísticas de pista",
             icon: Trophy,
             color: "yellow",
-            path: "/tv/leaderboard"
+            path: "/leaderboard"
         },
         {
-            title: "Salón de la Fama",
-            description: "Los mejores tiempos históricos",
-            icon: Crown,
-            color: "purple",
-            path: "/hall-of-fame"
-        },
-        {
-            title: "Live Map",
-            description: "Mapa del circuito en tiempo real",
-            icon: Map,
-            color: "red",
-            path: "/live-map" // We might need to handle this route specifically if it doesn't exist standalone yet
-        },
-        {
-            title: "Pasaporte",
-            description: "Escanear QR de piloto",
+            title: "Pasaporte Piloto",
+            description: "Consulta tus estadísticas personales y récords",
             icon: QrCode,
-            color: "green",
-            path: "/passport-scanner" // Placeholder for future feature
+            color: "blue",
+            path: "/passport-scanner"
         },
         {
-            title: "Battle Mode",
-            description: "Comparativa Cara a Cara (VS)",
-            icon: Swords,
-            color: "red",
-            path: "/battle"
+            title: "Mapa en Vivo",
+            description: "Rastreo GPS de los simuladores en pista",
+            icon: Map,
+            color: "green",
+            path: "/live-map"
+        },
+        {
+            title: "Modo TV",
+            description: "Pantalla de rotación automática para eventos",
+            icon: MonitorPlay,
+            color: "purple",
+            path: "/tv"
         }
     ];
 
@@ -81,9 +67,9 @@ export default function LandingPage() {
                 ))}
             </div>
 
-            <div className="mt-16 text-gray-600 text-sm">
-                <button onClick={() => navigate('/')} className="hover:text-white transition-colors">
-                    Acceder al Panel de Administración
+            <div className="mt-16 text-gray-700 text-xs">
+                <button onClick={() => navigate('/admin')} className="hover:text-blue-500 transition-colors uppercase font-bold tracking-widest">
+                    Panel de Gestión
                 </button>
             </div>
         </div>

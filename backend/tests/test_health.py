@@ -10,6 +10,8 @@ def test_health_check():
     assert response.json() == {"status": "ok"}
 
 def test_read_main():
+    # Root now serves the SPA (HTML), not JSON API response
     response = client.get("/")
     assert response.status_code == 200
-    assert response.json() == {"message": "Assetto Corsa Manager API"}
+    # Check it returns HTML content (the SPA)
+    assert "<!doctype html>" in response.text.lower() or "<!DOCTYPE html>" in response.text

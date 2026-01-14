@@ -1,5 +1,6 @@
+
 import { useState } from 'react';
-import { MonitorPlay, Lock, Unlock, Zap, Trophy, Crown, Map, List, Tv, Swords, GitMerge, Timer, ArrowLeft, Store, QrCode } from 'lucide-react';
+import { MonitorPlay, Zap, Trophy, Crown, Map, List, Tv, Swords, GitMerge, Timer, ArrowLeft, Store, QrCode, Megaphone } from 'lucide-react';
 import Leaderboard from './Leaderboard';
 import { HallOfFame } from './HallOfFame';
 import { LiveMap } from '../components/LiveMap';
@@ -10,28 +11,31 @@ import { cn } from '../lib/utils';
 import { API_URL } from '../config';
 import { useNavigate } from 'react-router-dom';
 
-const PIN = '1234';
+// Auth handled by PrivateRoute
+import { useAuth } from '../context/AuthContext';
 
 export default function TVRemote() {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [pinInput, setPinInput] = useState('');
-    const [error, setError] = useState('');
-
+    const { token } = useAuth();
     const [selectedScreen, setSelectedScreen] = useState(1);
+    const [error, setError] = useState('');
 
     // Fetch current settings
     const { data: settings } = useQuery({
         queryKey: ['settings'],
         queryFn: async () => {
+            if (!token) return [];
             try {
-                const res = await axios.get(`${API_URL}/settings`);
+                const res = await axios.get(`${API_URL}/settings/`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
                 return Array.isArray(res.data) ? res.data : [];
             } catch (e) { return []; }
         },
         refetchInterval: 2000,
-        initialData: []
+        initialData: [],
+        enabled: !!token
     });
 
     // Helper to get setting value for current screen
@@ -46,62 +50,20 @@ export default function TVRemote() {
 
     const updateSettingMutation = useMutation({
         mutationFn: async ({ key, value }: { key: string, value: string }) => {
-            await axios.post(`${API_URL}/settings`, { key, value });
+            const response = await axios.post(`${API_URL}/settings/`, { key, value }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            return response.data;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['settings'] });
+        },
+        onError: (err) => {
+            console.error("Error updating setting:", err);
+            setError("Error de red al actualizar");
+            setTimeout(() => setError(''), 3000);
         }
     });
-
-    const handleLogin = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (pinInput === PIN) {
-            setIsAuthenticated(true);
-            setError('');
-        } else {
-            setError('PIN Incorrecto');
-            setPinInput('');
-        }
-    }
-
-    if (!isAuthenticated) {
-        return (
-            <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4 text-white">
-                <div className="bg-gray-800 p-8 rounded-2xl shadow-2xl w-full max-w-md border border-gray-700">
-                    <div className="flex justify-center mb-6">
-                        <div className="p-4 bg-blue-600 rounded-full shadow-lg shadow-blue-500/30">
-                            <Lock size={32} />
-                        </div>
-                    </div>
-                    <h1 className="text-2xl font-bold text-center mb-2">Acceso Restringido</h1>
-                    <p className="text-gray-400 text-center mb-8">Introduce el PIN de administrador para controlar la TV.</p>
-
-                    <form onSubmit={handleLogin} className="space-y-4">
-                        <input
-                            type="password"
-                            inputMode="numeric"
-                            className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-center text-2xl tracking-widest focus:ring-2 focus:ring-blue-500 outline-none"
-                            placeholder="••••"
-                            value={pinInput}
-                            onChange={(e) => setPinInput(e.target.value)}
-                            maxLength={4}
-                            autoFocus
-                        />
-                        {error && <p className="text-red-500 text-center text-sm">{error}</p>}
-                        <button
-                            type="submit"
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-all shadow-lg active:scale-95"
-                        >
-                            Desbloquear
-                        </button>
-                    </form>
-                    <button onClick={() => navigate('/')} className="w-full mt-4 text-gray-500 hover:text-white text-sm">
-                        Volver al Dashboard
-                    </button>
-                </div>
-            </div>
-        );
-    }
 
     const setMode = (mode: 'auto' | 'manual') => {
         updateSettingMutation.mutate({ key: `tv_mode_${selectedScreen}`, value: mode });
@@ -130,11 +92,14 @@ export default function TVRemote() {
                             <p className="text-gray-400 text-xs md:text-sm">Control de Pantallas</p>
                         </div>
                     </div>
-                    <div className="flex items-center space-x-2 text-green-400 text-xs md:text-sm font-bold bg-green-500/10 px-2 md:px-3 py-1 rounded-full border border-green-500/20">
-                        <Unlock size={12} className="md:w-3.5 md:h-3.5" />
-                        <span>ADMIN</span>
-                    </div>
                 </header>
+
+                {/* ERROR MESSAGE */}
+                {error && (
+                    <div className="bg-red-500/10 text-red-500 p-4 rounded-xl mb-6 text-center text-sm font-bold uppercase tracking-wider border border-red-500/20">
+                        {error}
+                    </div>
+                )}
 
                 {/* SCREEN SELECTOR */}
                 <div className="flex space-x-2 mb-6 bg-gray-800 p-1.5 rounded-xl">
@@ -226,12 +191,6 @@ export default function TVRemote() {
                                 try { playlist = JSON.parse(playlistJson); } catch (e) { }
                                 if (!Array.isArray(playlist) || playlist.length === 0) {
                                     // Default if empty/invalid: assume ALL checked initially or handle empty logic
-                                    // Better to init properly. For now if empty, we assume we want to add.
-                                    // Actually TVMode defaults to ALL if playlist is empty/missing.
-                                    // So here we should reflect that.
-                                    // If playlist param is missing, it means default.
-                                    // But to edit it, we need to be explicit.
-                                    // Let's assume if "[]" or missing, everything is ON.
                                 }
 
                                 const isChecked = playlist.length === 0 || playlist.includes(view);
@@ -239,7 +198,6 @@ export default function TVRemote() {
                                 const toggleView = () => {
                                     let newPlaylist = [...playlist];
                                     if (newPlaylist.length === 0) {
-                                        // If it was effectively "all" (empty), fill it with all views first
                                         newPlaylist = ['LEADERBOARD', 'HALL_OF_FAME', 'LIVE_MAP', 'TOURNAMENT', 'BRACKET', 'COUNTDOWN', 'SPONSORSHIP', 'JOIN_QR'];
                                     }
 
@@ -351,6 +309,31 @@ export default function TVRemote() {
                     </div>
                 </div>
 
+                {/* URGENT NEWS CONTROL */}
+                <div className="mt-8 bg-blue-900/20 border border-blue-500/30 rounded-3xl p-6">
+                    <h2 className="text-blue-400 text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <Megaphone size={14} /> Noticias de Última Hora
+                    </h2>
+                    <div className="flex gap-2">
+                        <input
+                            type="text"
+                            placeholder="Escribe un mensaje urgente..."
+                            className="flex-1 bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-white"
+                            value={getSetting('news_urgent', '')}
+                            onChange={(e) => updateSettingMutation.mutate({ key: `news_urgent_${selectedScreen}`, value: e.target.value })}
+                        />
+                        <button
+                            onClick={() => updateSettingMutation.mutate({ key: `news_urgent_${selectedScreen}`, value: '' })}
+                            className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase transition-all"
+                        >
+                            Limpiar
+                        </button>
+                    </div>
+                    <p className="text-[10px] text-gray-500 mt-2 font-mono uppercase">
+                        Este mensaje aparecerá con prioridad en el ticker de la TV.
+                    </p>
+                </div>
+
                 {/* EMERGENCY CONTROLS */}
                 <div className="mt-8 bg-red-900/20 border border-red-500/30 rounded-3xl p-6">
                     <h2 className="text-red-500 text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
@@ -360,7 +343,9 @@ export default function TVRemote() {
                         onClick={async () => {
                             if (confirm(`⚠ ¿ESTÁS SEGURO?\n\nEsto matará inmediatamente todos los procesos de juego en la PANTALLA ${selectedScreen}.\n\nÚsalo solo si el simulador se ha colgado.`)) {
                                 try {
-                                    await axios.post(`${API_URL}/stations/${selectedScreen}/panic`);
+                                    await axios.post(`${API_URL}/stations/${selectedScreen}/panic`, {}, {
+                                        headers: { Authorization: `Bearer ${token}` }
+                                    });
                                     alert(`Comando de emergencia enviado a Pantalla ${selectedScreen}`);
                                 } catch (e) {
                                     alert("Error al enviar comando de pánico");
@@ -413,7 +398,15 @@ function PreviewScreen({ view, mode }: { view: string, mode: string }) {
     switch (view) {
         case 'LEADERBOARD': content = <Leaderboard />; break;
         case 'HALL_OF_FAME': content = <HallOfFame />; break;
-        case 'LIVE_MAP': content = <LiveMap cars={Object.values(liveCars)} trackName="monza" />; break;
+        case 'LIVE_MAP': content = <LiveMap drivers={Array.isArray(Object.values(liveCars)) ? Object.values(liveCars).map((c: any) => ({
+            id: c.station_id,
+            name: c.driver || 'Desconocido',
+            x: c.x || 0,
+            z: c.z || 0,
+            normPos: c.normalized_pos || 0,
+            color: c.station_id === 1 ? '#ef4444' : c.station_id === 2 ? '#3b82f6' : c.station_id === 3 ? '#22c55e' : '#eab308',
+            isOnline: true
+        })) : []} trackName="Circuito" />; break;
         case 'TOURNAMENT': content = <div className="p-4"><p className="text-white text-center">Torneo Activo</p></div>; break;
         case 'VERSUS': content = <div className="p-4"><p className="text-white text-center">Duelo VS</p></div>; break;
         case 'SPONSORSHIP': content = <div className="p-4 flex flex-col items-center justify-center h-full"><Store className="mb-2 text-pink-500" /><p className="text-white text-center font-bold">ADS</p></div>; break;
@@ -456,5 +449,3 @@ function ControlButton({ active, onClick, icon: Icon, label, color }: any) {
         </button>
     );
 }
-
-

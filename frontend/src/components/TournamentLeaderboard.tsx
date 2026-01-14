@@ -17,7 +17,14 @@ export function TournamentLeaderboard({ eventId, eventName, description }: Props
         refetchInterval: 5000 // Live updates for TV
     });
 
-    if (isLoading) return <div className="text-center p-12 text-2xl text-white animate-pulse">Cargando clasificación...</div>;
+    if (isLoading) return (
+        <div className="flex flex-col items-center justify-center p-20 text-white min-h-[400px]">
+            <div className="w-12 h-12 border-4 border-yellow-500/20 border-t-yellow-500 rounded-full animate-spin mb-4" />
+            <p className="font-bold text-yellow-500 animate-pulse uppercase tracking-widest text-lg">Sincronizando clasificación...</p>
+        </div>
+    );
+
+    const safeLeaderboard = Array.isArray(leaderboard) ? leaderboard : [];
 
     return (
         <div className="h-full bg-gray-900 text-white p-8">
@@ -29,7 +36,7 @@ export function TournamentLeaderboard({ eventId, eventName, description }: Props
                 <p className="text-xl text-gray-400">{description || "Clasificación en tiempo real"}</p>
             </header>
 
-            {!leaderboard || leaderboard.length === 0 ? (
+            {safeLeaderboard.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-96 text-gray-500">
                     <div className="text-2xl mb-2">Esperando tiempos...</div>
                     <p>¡Sé el primero en marcar una vuelta!</p>
@@ -47,7 +54,7 @@ export function TournamentLeaderboard({ eventId, eventName, description }: Props
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-800">
-                            {leaderboard.slice(0, 10).map((entry, index) => (
+                            {safeLeaderboard.slice(0, 10).map((entry, index) => (
                                 <tr key={entry.lap_id} className={cn(
                                     "text-2xl font-bold transition-colors",
                                     index === 0 ? "bg-yellow-500/10 text-yellow-400" :

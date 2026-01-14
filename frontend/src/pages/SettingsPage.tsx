@@ -10,7 +10,7 @@ import {
     Truck, Settings as SettingsIcon, Plus, FileText,
     Layout, Monitor, Wifi, WifiOff, Edit2, CheckCircle,
     Activity, Upload, QrCode, Gamepad2, Volume2,
-    Trash2, MonitorPlay, Globe, Terminal, Megaphone
+    Trash2, MonitorPlay, Globe, Terminal, Megaphone, Database
 } from 'lucide-react';
 import { LogViewer } from '../components/LogViewer';
 import AdsSettings from '../components/AdsSettings';
@@ -101,14 +101,58 @@ const AC_CATEGORIES = [
 
 export default function SettingsPage() {
     const queryClient = useQueryClient();
-    const [activeTab, setActiveTab] = useState<'branding' | 'stations' | 'game' | 'logs' | 'ads'>('branding');
+    const [activeTab, setActiveTab] = useState<'branding' | 'stations' | 'game' | 'logs' | 'ads' | 'database'>('branding');
+
+    const handleExport = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await axios.get(`${API_URL}/backup/export`, {
+                headers: { Authorization: `Bearer ${token}` },
+                responseType: 'blob'
+            });
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `backup_${new Date().toISOString()}.json`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        } catch (error) {
+            console.error(error);
+            alert("Error al exportar backup");
+        }
+    };
+
+    const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!confirm("ADVERTENCIA: Restaurar una copia de seguridad BORRARÁ todos los datos actuales (Eventos, Pilotos, Resultados). ¿Estás seguro?")) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+        const token = localStorage.getItem('token');
+        try {
+            await axios.post(`${API_URL}/backup/import`, formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                    Authorization: `Bearer ${token}`
+                }
+            });
+            alert("Base de datos restaurada correctamente. Se recomienda recargar la página.");
+            window.location.reload();
+        } catch (err) {
+            console.error(err);
+            alert("Error al restaurar backup");
+        }
+    };
 
     // --- BRANDING STATE ---
     const { data: branding } = useQuery({
         queryKey: ['settings'],
         queryFn: async () => {
             try {
-                const res = await axios.get(`${API_URL}/settings`);
+                const res = await axios.get(`${API_URL}/settings/`);
                 return Array.isArray(res.data) ? res.data : [];
             } catch (e) { return []; }
         },
@@ -196,7 +240,8 @@ export default function SettingsPage() {
                         { id: 'ads', label: 'Promociones', icon: Megaphone },
                         { id: 'stations', label: 'Simuladores', icon: MonitorPlay },
                         { id: 'game', label: 'Assetto Corsa', icon: Gamepad2 },
-                        { id: 'logs', label: 'Logs Sistema', icon: Terminal }
+                        { id: 'logs', label: 'Logs Sistema', icon: Terminal },
+                        { id: 'database', label: 'Base de Datos', icon: Database }
                     ].map(tab => (
                         <button
                             key={tab.id}
@@ -473,6 +518,41 @@ export default function SettingsPage() {
                 {activeTab === 'logs' && (
                     <div className="max-w-5xl animate-in fade-in duration-300">
                         <LogViewer />
+                    </div>
+                )}
+
+                {/* --- TAB: DATABASE --- */}
+                {activeTab === 'database' && (
+                    <div className="max-w-5xl animate-in fade-in duration-300">
+                        <div className="bg-gray-800 p-8 rounded-3xl border border-gray-700">
+                            <h2 className="text-xl font-black text-white uppercase mb-6 flex items-center"><Database className="mr-2 text-blue-500" /> Copia de Seguridad</h2>
+                            <p className="text-gray-400 mb-8 font-medium">Gestiona la integridad de tus datos. Descarga copias de seguridad regularmente.</p>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="bg-gray-900 p-6 rounded-2xl border border-gray-800 flex flex-col items-center text-center">
+                                    <div className="bg-blue-500/10 p-4 rounded-full mb-4">
+                                        <Upload className="text-blue-500" size={32} />
+                                    </div>
+                                    <h3 className="text-lg font-bold text-white mb-2">Exportar Datos</h3>
+                                    <p className="text-gray-500 text-xs mb-6">Descarga un archivo JSON con todos los eventos, pilotos, resultados y configuraciones.</p>
+                                    <button onClick={handleExport} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-colors">
+                                        DESCARGAR BACKUP
+                                    </button>
+                                </div>
+
+                                <div className="bg-gray-900 p-6 rounded-2xl border border-gray-800 flex flex-col items-center text-center">
+                                    <div className="bg-orange-500/10 p-4 rounded-full mb-4">
+                                        <Database className="text-orange-500" size={32} />
+                                    </div>
+                                    <h3 className="text-lg font-bold text-white mb-2">Restaurar Datos</h3>
+                                    <p className="text-gray-500 text-xs mb-6">Restaura el sistema desde un archivo. <span className="text-red-400 font-bold">ESTO BORRARÁ LOS DATOS ACTUALES.</span></p>
+                                    <label className="w-full bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 rounded-xl transition-colors cursor-pointer border border-gray-700 hover:border-gray-500">
+                                        SELECCIONAR ARCHIVO
+                                        <input type="file" hidden onChange={handleImport} accept=".json" />
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>

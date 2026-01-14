@@ -2,7 +2,7 @@ import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { API_URL } from '../config';
-import { Trophy, Users } from 'lucide-react';
+import { Trophy, Users, AlertTriangle } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useEffect, useState } from 'react';
 
@@ -29,7 +29,7 @@ export default function TournamentTV() {
     const eventId = parseInt(id || '0');
 
     // Fetch Event Data
-    const { data: event, isLoading } = useQuery({
+    const { data: event, isLoading, error: eventError } = useQuery({
         queryKey: ['event', eventId],
         queryFn: async () => {
             const res = await axios.get(`${API_URL}/events/${eventId}`);
@@ -44,7 +44,7 @@ export default function TournamentTV() {
             const res = await axios.get(`${API_URL}/tournaments/${eventId}/bracket`);
             return res.data;
         },
-        enabled: !!event?.bracket_data || !!event, // Trigger if event exists
+        enabled: !!event, // Trigger if event exists
         refetchInterval: 5000 // Live updates for TV
     });
 
@@ -66,8 +66,19 @@ export default function TournamentTV() {
         }
     }, [bracketData, event]);
 
-    if (isLoading) return <div className="text-white p-10 flex justify-center items-center h-screen bg-gray-950 font-black text-2xl uppercase">Cargando Torneo...</div>;
-    if (!event) return <div className="text-white p-10">Evento no encontrado</div>;
+    if (isLoading) return (
+        <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center text-white">
+            <div className="w-16 h-16 border-8 border-yellow-500/20 border-t-yellow-500 rounded-full animate-spin mb-6" />
+            <h2 className="text-4xl font-black italic uppercase tracking-widest animate-pulse">Cargando Torneo...</h2>
+        </div>
+    );
+
+    if (eventError || !event) return (
+        <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center text-red-500">
+            <AlertTriangle size={64} className="mb-4 opacity-50" />
+            <h2 className="text-2xl font-black uppercase tracking-widest text-center">Torneo no disponible</h2>
+        </div>
+    );
 
     return (
         <div className="min-h-screen bg-gray-950 text-white overflow-hidden flex flex-col">
@@ -91,7 +102,7 @@ export default function TournamentTV() {
 
             {/* Bracket Container */}
             <div className="flex-1 overflow-x-auto overflow-y-hidden p-8 flex items-center justify-center">
-                {(!bracket || !bracket.rounds) ? (
+                {(!bracket || !Array.isArray(bracket.rounds)) ? (
                     <div className="flex flex-col items-center justify-center opacity-50">
                         <Trophy size={64} className="mb-4 text-gray-700" />
                         <h2 className="text-2xl font-black text-gray-600 uppercase">Esperando Sorteo</h2>
@@ -99,7 +110,7 @@ export default function TournamentTV() {
                     </div>
                 ) : (
                     <div className="flex space-x-12 h-full items-center">
-                        {bracket.rounds.map((round, roundIndex) => (
+                        {Array.isArray(bracket.rounds) && bracket.rounds.map((round, roundIndex) => (
                             <div key={roundIndex} className="flex flex-col justify-around h-full space-y-4 min-w-[280px]">
                                 {/* Round Header */}
                                 <div className="text-center font-black uppercase text-gray-600 text-sm tracking-[0.2em] mb-4">
@@ -108,7 +119,7 @@ export default function TournamentTV() {
 
                                 {/* Matches */}
                                 <div className="flex flex-col justify-around flex-1 relative">
-                                    {round.map((match, _matchIndex) => (
+                                    {Array.isArray(round) && round.map((match, _matchIndex) => (
                                         <MatchCard key={match.id} match={match} isFinal={roundIndex === bracket.rounds.length - 1} />
                                     ))}
                                 </div>

@@ -3,7 +3,7 @@ import { getProfiles, createProfile, assignProfileToStation } from '../api/profi
 import { getMods } from '../api/mods';
 import { getStations } from '../api/stations';
 import { useState } from 'react';
-import { Users, Plus, Play, Info, Box, Save, ChevronDown } from 'lucide-react';
+import { Users, Plus, Play, Info, Box, Save, ChevronDown, AlertTriangle } from 'lucide-react';
 
 export default function ProfilesPage() {
     const queryClient = useQueryClient();
@@ -19,8 +19,20 @@ export default function ProfilesPage() {
         },
         initialData: []
     });
-    const { data: mods } = useQuery({ queryKey: ['mods'], queryFn: () => getMods() });
-    const { data: stations } = useQuery({ queryKey: ['stations'], queryFn: () => getStations() });
+    const { data: mods, isLoading: isLoadingMods, error: modsError } = useQuery({
+        queryKey: ['mods'],
+        queryFn: async () => {
+            const res = await getMods();
+            return Array.isArray(res) ? res : [];
+        }
+    });
+    const { data: stations, isLoading: isLoadingStations, error: stationsError } = useQuery({
+        queryKey: ['stations'],
+        queryFn: async () => {
+            const res = await getStations();
+            return Array.isArray(res) ? res : [];
+        }
+    });
 
     // State
     const [isCreating, setIsCreating] = useState(false);
@@ -46,7 +58,20 @@ export default function ProfilesPage() {
         onError: (err) => alert(`Fallo al asignar: ${err}`)
     });
 
-    if (isLoadingProfiles) return <div className="p-8 text-gray-500">Cargando perfiles...</div>;
+    if (isLoadingProfiles || isLoadingMods || isLoadingStations) return (
+        <div className="p-20 text-center text-white flex flex-col items-center justify-center min-h-[400px]">
+            <div className="w-10 h-10 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-4" />
+            <p className="font-bold text-blue-500 animate-pulse uppercase tracking-widest text-sm">Cargando perfiles y simuladores...</p>
+        </div>
+    );
+
+    if (modsError || stationsError) return (
+        <div className="p-20 text-center text-white flex flex-col items-center justify-center min-h-[400px]">
+            <AlertTriangle size={48} className="text-red-500 mb-4 opacity-50" />
+            <p className="font-bold text-red-500 uppercase tracking-widest text-sm">Error de sincronización</p>
+            <p className="text-gray-500 text-xs mt-2">No se ha podido conectar con el servicio de gestión.</p>
+        </div>
+    );
 
     const toggleModSelection = (modId: number) => {
         setNewProfile(prev => {
@@ -104,7 +129,7 @@ export default function ProfilesPage() {
                     <div className="mb-8">
                         <label className="block text-xs font-black mb-3 text-gray-500 uppercase tracking-widest">Incluir Mods</label>
                         <div className="max-h-60 overflow-y-auto bg-gray-900 p-4 border border-gray-800 rounded-2xl space-y-2 custom-scrollbar">
-                            {mods?.map(mod => (
+                            {Array.isArray(mods) && mods.map(mod => (
                                 <label key={mod.id} className="flex items-center p-3 hover:bg-gray-800 rounded-xl cursor-pointer transition-colors border border-transparent hover:border-gray-700 group">
                                     <input
                                         type="checkbox"
@@ -121,7 +146,7 @@ export default function ProfilesPage() {
                                     </div>
                                 </label>
                             ))}
-                            {mods?.length === 0 && <div className="text-gray-600 text-sm text-center py-4 font-mono">No hay mods disponibles</div>}
+                            {Array.isArray(mods) && mods.length === 0 && <div className="text-gray-600 text-sm text-center py-4 font-mono">No hay mods disponibles</div>}
                         </div>
                     </div>
 
@@ -145,7 +170,7 @@ export default function ProfilesPage() {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {profiles?.map(profile => (
+                {Array.isArray(profiles) && profiles.map(profile => (
                     <div key={profile.id} className="bg-gray-800 p-8 rounded-3xl shadow-lg border border-gray-700/50 hover:border-gray-600 hover:shadow-xl transition-all flex flex-col h-full group">
                         <div className="flex justify-between items-start mb-6">
                             <div>
@@ -163,7 +188,7 @@ export default function ProfilesPage() {
                                 Contenido ({profile.mods.length})
                             </h4>
                             <div className="flex flex-wrap gap-2">
-                                {profile.mods.slice(0, 5).map(mod => (
+                                {Array.isArray(profile.mods) && profile.mods.slice(0, 5).map(mod => (
                                     <span key={mod.id} className="text-xs bg-gray-800 border border-gray-700 px-2.5 py-1.5 rounded-lg text-gray-300 font-medium">
                                         {mod.name}
                                     </span>
@@ -197,7 +222,7 @@ export default function ProfilesPage() {
                                     defaultValue=""
                                 >
                                     <option value="" disabled>Seleccionar Simulador...</option>
-                                    {stations?.map(st => (
+                                    {Array.isArray(stations) && stations.map(st => (
                                         <option key={st.id} value={st.id}>
                                             {st.name || st.hostname} ({st.is_online ? '🟢 Online' : '⚪ Offline'})
                                         </option>

@@ -12,7 +12,7 @@ import { API_URL } from '../config';
 import { TournamentLeaderboard } from '../components/TournamentLeaderboard';
 import { TournamentVersusWrapper } from '../components/TournamentVersusWrapper';
 import TournamentBracket from '../components/TournamentBracket';
-import { Trophy } from 'lucide-react';
+import { Trophy, AlertTriangle } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 const VIEWS = ['LEADERBOARD', 'HALL_OF_FAME', 'LIVE_MAP', 'COUNTDOWN', 'TOURNAMENT', 'BRACKET', 'SPONSORSHIP', 'JOIN_QR'];
@@ -27,11 +27,18 @@ export const TVMode = () => {
     const screenId = searchParams.get('screen') || '1';
 
     // Fetch upcoming events
-    const { data: upcomingEvents } = useQuery({
+    const { data: upcomingEvents, error: eventsError } = useQuery({
         queryKey: ['events', 'upcoming'],
-        queryFn: () => getEvents('upcoming'),
+        queryFn: async () => {
+            const res = await getEvents('upcoming');
+            return Array.isArray(res) ? res : [];
+        },
         refetchInterval: 60000 // Check every minute
     });
+
+    if (eventsError) {
+        console.error("Error fetching events:", eventsError);
+    }
     const nextEvent = upcomingEvents && upcomingEvents.length > 0 ? upcomingEvents[0] : null;
 
     // Fetch active event for Tournament View
@@ -49,7 +56,7 @@ export const TVMode = () => {
         queryKey: ['settings_tv'],
         queryFn: async () => {
             try {
-                const res = await axios.get(`${API_URL}/settings`);
+                const res = await axios.get(`${API_URL}/settings/`);
                 return Array.isArray(res.data) ? res.data : [];
             } catch (e) { return []; }
         },
@@ -120,16 +127,14 @@ export const TVMode = () => {
             case 'LEADERBOARD':
                 // ... (existing Leaderboard case)
                 return (
-                    <div className="h-full overflow-hidden transform scale-90 origin-top">
-                        <div className="pointer-events-none">
-                            <Leaderboard />
-                        </div>
+                    <div className="h-full w-full overflow-hidden">
+                        <Leaderboard />
                     </div>
                 );
             case 'HALL_OF_FAME':
                 // ... (existing HallOfFame case)
                 return (
-                    <div className="h-full overflow-hidden transform scale-90 origin-top">
+                    <div className="h-full w-full overflow-hidden">
                         <HallOfFame />
                     </div>
                 );
@@ -139,7 +144,7 @@ export const TVMode = () => {
                     <div className="h-full w-full relative grid grid-cols-12 gap-4 p-8">
                         {/* Left: Map */}
                         <div className="col-span-8 h-full">
-                            <LiveMap drivers={Object.values(liveCars).map((c: any) => ({
+                            <LiveMap drivers={Array.isArray(Object.values(liveCars)) ? Object.values(liveCars).map((c: any) => ({
                                 id: c.station_id,
                                 name: c.driver || 'Desconocido',
                                 x: c.x || 0,
@@ -147,13 +152,13 @@ export const TVMode = () => {
                                 normPos: c.normalized_pos || 0,
                                 color: c.station_id === 1 ? '#ef4444' : c.station_id === 2 ? '#3b82f6' : c.station_id === 3 ? '#22c55e' : '#eab308',
                                 isOnline: true
-                            }))} trackName={Object.values(liveCars)[0]?.track || 'Circuito'} />
+                            })) : []} trackName={(Array.isArray(Object.values(liveCars)) && Object.values(liveCars).length > 0) ? (Object.values(liveCars)[0] as any)?.track : 'Circuito'} />
                         </div>
 
                         {/* Right: Driver Status Cards */}
                         <div className="col-span-4 flex flex-col space-y-4 overflow-hidden">
                             <h2 className="text-xl font-black italic tracking-tighter text-yellow-500 uppercase">Estado de Pista</h2>
-                            {Object.values(liveCars).slice(0, 4).map((car: any) => (
+                            {Array.isArray(Object.values(liveCars)) && Object.values(liveCars).slice(0, 4).map((car: any) => (
                                 <div key={car.station_id} className="bg-gray-900/80 border-l-4 border-yellow-500 p-4 rounded-r-xl shadow-xl transition-all hover:translate-x-1">
                                     <div className="flex justify-between items-start mb-2">
                                         <div className="font-black text-lg uppercase leading-none tracking-tighter italic">{car.driver}</div>
@@ -178,7 +183,7 @@ export const TVMode = () => {
 
                                     {/* Tyre Temps Mini Bar */}
                                     <div className="mt-2 flex space-x-1 h-1">
-                                        {(car.tyre_temp || [0, 0, 0, 0]).map((t: number, i: number) => (
+                                        {Array.isArray(car.tyre_temp || [0, 0, 0, 0]) && (car.tyre_temp || [0, 0, 0, 0]).map((t: number, i: number) => (
                                             <div key={i} className="flex-1 rounded-full" style={{ backgroundColor: t > 100 ? '#ef4444' : t > 80 ? '#22c55e' : '#3b82f6' }} />
                                         ))}
                                     </div>
@@ -248,9 +253,16 @@ export const TVMode = () => {
             default:
                 return (
                     <div className="h-full w-full flex items-center justify-center bg-black">
-                        <div className="text-center animate-pulse">
-                            <img src="/logo.png" className="w-32 opacity-50 mx-auto" alt="Logo" />
-                        </div>
+                        {eventsError ? (
+                            <div className="text-center text-red-500">
+                                <AlertTriangle size={48} className="mx-auto mb-4 opacity-50" />
+                                <p className="font-bold uppercase tracking-widest text-xs">Error de Conexión</p>
+                            </div>
+                        ) : (
+                            <div className="text-center animate-pulse">
+                                <img src="/logo.png" className="w-32 opacity-50 mx-auto" alt="Logo" />
+                            </div>
+                        )}
                     </div>
                 );
         }
@@ -279,21 +291,6 @@ export const TVMode = () => {
                 PANTALLA {screenId}
             </div>
 
-            {/* TV Footer / Overlay */}
-            <div className="absolute bottom-0 left-0 w-full h-16 bg-gradient-to-t from-black to-transparent z-20 flex items-center justify-between px-8 pb-4">
-                <div className="flex items-center space-x-4">
-                    <img src="/logo.png" className="h-8 w-auto opacity-70" alt="Logo" />
-                    <span className="text-white/50 text-sm font-bold uppercase tracking-widest">Modo Kiosco • Assetto Manager</span>
-                </div>
-                <div className="flex space-x-2">
-                    {availableViews.map((v, _) => (
-                        <div
-                            key={v}
-                            className={`h-1.5 rounded-full transition-all duration-500 ${v === activeView ? 'w-8 bg-yellow-500' : 'w-2 bg-gray-700'}`}
-                        />
-                    ))}
-                </div>
-            </div>
         </div>
     );
 };

@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { getRecentSessions } from '../api/telemetry';
 import { format } from 'date-fns';
-import { Search, Filter, MapPin, Gauge, ChevronRight, History as HistoryIcon } from 'lucide-react';
+import { Search, Filter, MapPin, Gauge, ChevronRight, History as HistoryIcon, AlertTriangle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function HistoryPage() {
@@ -13,9 +13,12 @@ export default function HistoryPage() {
         limit: 50
     });
 
-    const { data: sessions, isLoading } = useQuery({
+    const { data: sessions, isLoading, error } = useQuery({
         queryKey: ['history_sessions', filters],
-        queryFn: () => getRecentSessions(filters)
+        queryFn: async () => {
+            const res = await getRecentSessions(filters);
+            return Array.isArray(res) ? res : [];
+        }
     });
 
     return (
@@ -113,17 +116,17 @@ export default function HistoryPage() {
                                         <td colSpan={6} className="p-8 bg-white/[0.01] h-20"></td>
                                     </tr>
                                 ))
-                            ) : sessions?.length === 0 ? (
-                                <tr>
-                                    <td colSpan={6} className="p-20 text-center text-gray-600 italic">No se encontraron sesiones que coincidan con los filtros.</td>
-                                </tr>
-                            ) : (
-                                sessions?.map((session: any) => (
+                            ) : Array.isArray(sessions) && sessions.length > 0 ? (
+                                sessions.map((session: any) => (
                                     <tr key={session.id} className="hover:bg-white/[0.02] transition-all group">
                                         <td className="p-6">
                                             <div className="flex flex-col">
-                                                <span className="text-white font-bold text-sm">{format(new Date(session.date), 'dd MMM yyyy')}</span>
-                                                <span className="text-gray-600 text-[10px] font-black uppercase mt-0.5">{format(new Date(session.date), 'HH:mm')}</span>
+                                                <span className="text-white font-bold text-sm">
+                                                    {session.date ? format(new Date(session.date), 'dd MMM yyyy') : 'Sin Fecha'}
+                                                </span>
+                                                <span className="text-gray-600 text-[10px] font-black uppercase mt-0.5">
+                                                    {session.date ? format(new Date(session.date), 'HH:mm') : '--:--'}
+                                                </span>
                                             </div>
                                         </td>
                                         <td className="p-6">
@@ -156,6 +159,18 @@ export default function HistoryPage() {
                                         </td>
                                     </tr>
                                 ))
+                            ) : null}
+                            {(!Array.isArray(sessions) || (sessions.length === 0 && !isLoading)) && (
+                                <tr>
+                                    <td colSpan={6} className="p-20 text-center text-gray-600 italic">
+                                        {error ? (
+                                            <div className="flex flex-col items-center">
+                                                <AlertTriangle size={32} className="text-red-500/50 mb-2" />
+                                                <p className="text-red-400 font-bold uppercase tracking-widest text-xs">Error al conectar con el historial</p>
+                                            </div>
+                                        ) : "No hay sesiones registradas que coincidan con los filtros."}
+                                    </td>
+                                </tr>
                             )}
                         </tbody>
                     </table>

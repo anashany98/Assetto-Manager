@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTelemetry } from '../hooks/useTelemetry';
 import PromoCarousel from '../components/PromoCarousel';
-import { Car, Search, Trophy, MapPin, Zap, Activity as ActivityIcon, Share2, X, Crown, Settings } from 'lucide-react';
+import { Car, Search, Trophy, MapPin, Zap, Activity as ActivityIcon, Share2, X, Crown, Settings, AlertTriangle } from 'lucide-react';
 import { TelemetryChart } from '../components/TelemetryChart';
 import { SimpleTelemetry } from '../components/SimpleTelemetry';
 import { LiveDashboard } from '../components/LiveDashboard';
@@ -103,6 +103,7 @@ const PilotProfileContent = ({ driverName, onClose }: { driverName: string, onCl
         queryFn: async () => {
             const res = await axios.get(`${API_URL}/telemetry/leaderboard`);
             // Extract unique names
+            if (!Array.isArray(res.data)) return [];
             const unique = Array.from(new Set((res.data as any[]).map(d => d.driver_name).filter(Boolean)));
             return unique.filter((d: string) => d !== driverName);
         },
@@ -173,8 +174,18 @@ const PilotProfileContent = ({ driverName, onClose }: { driverName: string, onCl
 
 
 
-    if (isLoading) return <div className="p-10 text-center text-white">Cargando perfil...</div>;
-    if (!profile) return null;
+    if (isLoading) return (
+        <div className="p-10 text-center text-white flex flex-col items-center">
+            <div className="w-8 h-8 border-4 border-yellow-500/20 border-t-yellow-500 rounded-full animate-spin mb-3" />
+            <p className="font-bold uppercase tracking-widest text-xs text-yellow-500">Cargando perfil...</p>
+        </div>
+    );
+    if (!profile) return (
+        <div className="p-10 text-center text-gray-500 flex flex-col items-center">
+            <AlertTriangle size={32} className="mb-2 opacity-20" />
+            <p className="font-bold uppercase tracking-widest text-xs">Perfil no encontrado</p>
+        </div>
+    );
 
 
     if (comparisonData) {
@@ -246,7 +257,7 @@ const PilotProfileContent = ({ driverName, onClose }: { driverName: string, onCl
                         <button onClick={() => setCompareMode(false)}><X className="text-white" /></button>
                     </div>
                     <div className="flex-1 overflow-y-auto space-y-2">
-                        {allDrivers?.map((d: any) => (
+                        {Array.isArray(allDrivers) && allDrivers.map((d: any) => (
                             <button
                                 key={d}
                                 onClick={() => fetchComparison(d)}
@@ -317,7 +328,7 @@ const PilotProfileContent = ({ driverName, onClose }: { driverName: string, onCl
                             <ActivityIcon size={12} className="mr-1.5" /> Historial Reciente
                         </h3>
                         <div className="space-y-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
-                            {profile.recent_sessions && profile.recent_sessions.length > 0 ? (
+                            {Array.isArray(profile?.recent_sessions) && profile.recent_sessions.length > 0 ? (
                                 profile.recent_sessions.map((session, idx) => (
                                     <div key={idx} className="bg-gray-800/30 p-3 rounded-xl border border-white/5 flex items-center justify-between hover:bg-gray-800 transition-colors">
                                         <div>
@@ -326,7 +337,7 @@ const PilotProfileContent = ({ driverName, onClose }: { driverName: string, onCl
                                                 <span className="text-[10px] text-gray-500 font-bold px-1.5 py-0.5 bg-gray-700 rounded capitalize">{(session.car_model || '').split('_')[0]}</span>
                                             </div>
                                             <div className="text-[10px] text-gray-600 font-mono mt-0.5">
-                                                {new Date(session.date).toLocaleDateString()} • {session.laps_count} vueltas
+                                                {session.date ? new Date(session.date).toLocaleDateString() : 'N/A'} • {session.laps_count} vueltas
                                             </div>
                                         </div>
                                         <div className="text-right">
@@ -345,7 +356,7 @@ const PilotProfileContent = ({ driverName, onClose }: { driverName: string, onCl
                         <h3 className="text-gray-400 text-[10px] font-bold uppercase tracking-widest mb-4">Progresión (Últimas 5)</h3>
                         <div className="h-32">
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={profile.recent_sessions?.slice(0, 5).reverse()}>
+                                <BarChart data={Array.isArray(profile.recent_sessions) ? profile.recent_sessions.slice(0, 5).reverse() : []}>
                                     <XAxis hide />
                                     <Tooltip
                                         contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151' }}
@@ -494,9 +505,12 @@ export default function MobileLeaderboard() {
     const isRaceActive = activeCar && isConnected && (Date.now() - (activeCar.timestamp || Date.now()) < 5000); // 5s timeout
 
     // Queries
-    const { data: leaderboard, isLoading } = useQuery({
+    const { data: leaderboard, isLoading, error: leaderboardError, refetch: refetchLeaderboard } = useQuery({
         queryKey: ['leaderboard', selectedTrack, selectedCar, selectedPeriod],
-        queryFn: () => getLeaderboard(selectedTrack, selectedCar, selectedPeriod),
+        queryFn: async () => {
+            const res = await getLeaderboard(selectedTrack, selectedCar, selectedPeriod);
+            return Array.isArray(res) ? res : [];
+        },
         refetchInterval: 30000,
     });
 
@@ -520,16 +534,17 @@ export default function MobileLeaderboard() {
 
     // Derived State
     const filteredLeaderboard = useMemo(() => {
-        return leaderboard?.filter((entry: LeaderboardEntry) =>
+        if (!Array.isArray(leaderboard)) return [];
+        return leaderboard.filter((entry: LeaderboardEntry) =>
             entry.driver_name.toLowerCase().includes(searchQuery.toLowerCase())
         );
     }, [leaderboard, searchQuery]);
 
-    const tracks = useMemo(() => [...new Set(combinations?.map((c: any) => c.track_name).filter(Boolean) || [])], [combinations]);
-    const cars = useMemo(() => [...new Set(combinations?.map((c: any) => c.car_model).filter(Boolean) || [])], [combinations]);
+    const tracks = useMemo(() => (Array.isArray(combinations) && combinations.length > 0) ? [...new Set(combinations.map((c: any) => c.track_name).filter(Boolean))] : [], [combinations]);
+    const cars = useMemo(() => (Array.isArray(combinations) && combinations.length > 0) ? [...new Set(combinations.map((c: any) => c.car_model).filter(Boolean))] : [], [combinations]);
 
     // Track Logic for Live Map
-    const activeTracks = useMemo(() => Array.from(new Set(Object.values(liveCars).map(c => c.track).filter(Boolean))), [liveCars]);
+    const activeTracks = useMemo(() => (liveCars && Object.keys(liveCars).length > 0) ? Array.from(new Set(Object.values(liveCars).map(c => (c as any).track).filter(Boolean))) : [], [liveCars]);
     const currentMapTrack = viewingTrack || activeTracks[0];
 
     // Auto-select track if none selected
@@ -677,16 +692,28 @@ export default function MobileLeaderboard() {
                 {currentTab === 'leaderboard' ? (
                     isLoading ? (
                         <div className="flex flex-col items-center justify-center py-20">
-                            <Zap className="animate-bounce text-yellow-500 mb-4" size={32} />
-                            <p className="text-gray-500 font-bold text-xs uppercase tracking-widest">Cargando Tiempos...</p>
+                            <div className="w-12 h-12 border-4 border-yellow-500/20 border-t-yellow-500 rounded-full animate-spin mb-4" />
+                            <p className="text-yellow-500 font-bold text-xs uppercase tracking-widest animate-pulse">Cargando Tiempos...</p>
+                        </div>
+                    ) : leaderboardError ? (
+                        <div className="flex flex-col items-center justify-center py-20 text-center">
+                            <AlertTriangle size={48} className="text-red-500/30 mb-4" />
+                            <p className="text-red-500 font-bold uppercase tracking-widest text-xs mb-4">Error al conectar con la base de datos</p>
+                            <button
+                                onClick={() => refetchLeaderboard()}
+                                className="px-6 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 text-[10px] font-black uppercase tracking-widest rounded-lg border border-red-500/20 transition-all"
+                            >
+                                Reintentar
+                            </button>
                         </div>
                     ) : filteredLeaderboard?.length === 0 ? (
-                        <div className="text-center py-20 opacity-50">
-                            <p className="text-gray-400 font-bold">No hay registros</p>
+                        <div className="text-center py-20 opacity-50 flex flex-col items-center">
+                            <Search size={48} className="mb-4 text-gray-700" />
+                            <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">No hay registros coincidentes</p>
                         </div>
                     ) : (
                         <div className="space-y-3">
-                            {filteredLeaderboard?.map((entry: LeaderboardEntry, idx: number) => (
+                            {Array.isArray(filteredLeaderboard) && filteredLeaderboard.map((entry: LeaderboardEntry, idx: number) => (
                                 <div
                                     key={idx}
                                     onClick={() => setSelectedPilot(entry.driver_name)}
@@ -765,7 +792,7 @@ export default function MobileLeaderboard() {
                         {/* Track Selector (if multiple tracks) */}
                         {activeTracks.length > 1 && (
                             <div className="flex space-x-2 mb-2 overflow-x-auto pb-1">
-                                {activeTracks.map(track => (
+                                {Array.isArray(activeTracks) && activeTracks.map(track => (
                                     <button
                                         key={track}
                                         onClick={() => setViewingTrack(track)}
@@ -838,7 +865,7 @@ export default function MobileLeaderboard() {
                     // LIVE DATA/TELEMETRY VIEW
                     <div className="space-y-4">
                         {Object.keys(liveCars).length > 0 ? (
-                            Object.values(liveCars).map(car => (
+                            Array.isArray(Object.values(liveCars)) && Object.values(liveCars).map(car => (
                                 <LiveDashboard
                                     key={car.station_id}
                                     data={car}

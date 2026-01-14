@@ -20,8 +20,20 @@ export default function EventDetails() {
         enabled: eventId > 0
     });
 
-    if (loadingEvent) return <div className="p-8 text-white">Cargando evento...</div>;
-    if (!event) return <div className="p-8 text-white">Evento no encontrado</div>;
+    if (loadingEvent) return (
+        <div className="p-10 text-center text-white flex flex-col items-center justify-center min-h-[400px]">
+            <div className="w-10 h-10 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-4" />
+            <p className="font-bold text-blue-500 animate-pulse uppercase tracking-widest text-sm">Cargando evento...</p>
+        </div>
+    );
+
+    if (!event) return (
+        <div className="p-10 text-center text-white flex flex-col items-center justify-center min-h-[400px]">
+            <Trophy size={48} className="text-gray-500 mb-4 opacity-20" />
+            <p className="font-bold text-gray-400 uppercase tracking-widest text-sm">Evento no encontrado</p>
+            <Link to="/events" className="mt-4 text-blue-500 hover:underline">Volver a Torneos</Link>
+        </div>
+    );
 
     return (
         <div className="p-8 max-w-7xl mx-auto min-h-screen bg-gray-50">

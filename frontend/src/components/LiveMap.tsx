@@ -28,7 +28,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({ drivers, cars, trackName }) =>
     const containerRef = useRef<HTMLDivElement>(null);
 
     // Merge or select data source
-    const activeDrivers = drivers || cars?.map((c: any) => ({
+    const activeDrivers = drivers || (Array.isArray(cars) ? cars.map((c: any) => ({
         id: c.station_id || Math.random(),
         name: c.driver_name || "Unknown",
         x: c.x || 0,
@@ -36,7 +36,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({ drivers, cars, trackName }) =>
         normPos: c.n || 0,
         color: 'red', // Default
         isOnline: true
-    })) || [];
+    })) : []) || [];
 
     useEffect(() => {
         const canvas = canvasRef.current;

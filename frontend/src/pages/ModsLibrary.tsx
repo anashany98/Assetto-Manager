@@ -10,7 +10,7 @@ import { API_URL } from '../config';
 
 export default function ModsLibrary() {
     const queryClient = useQueryClient();
-    const { data: mods, isLoading } = useQuery({ queryKey: ['mods'], queryFn: () => getMods() });
+    const { data: mods, isLoading, error } = useQuery({ queryKey: ['mods'], queryFn: () => getMods() });
     const { data: diskUsage } = useQuery({ queryKey: ['diskUsage'], queryFn: getDiskUsage });
     const { data: tags, refetch: refetchTags } = useQuery({ queryKey: ['tags'], queryFn: getTags });
 
@@ -214,7 +214,21 @@ export default function ModsLibrary() {
     };
 
 
-    if (isLoading) return <div className="p-8 text-gray-500">Cargando librería...</div>;
+    if (isLoading) return (
+        <div className="p-10 text-center text-white flex flex-col items-center justify-center min-h-[400px]">
+            <div className="w-10 h-10 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-4" />
+            <p className="font-bold text-blue-500 animate-pulse uppercase tracking-widest text-sm">Cargando librería de contenido...</p>
+        </div>
+    );
+
+    if (error) return (
+        <div className="p-10 text-center text-white flex flex-col items-center justify-center min-h-[400px]">
+            <FileBox size={48} className="text-red-500 mb-4 opacity-50" />
+            <p className="font-bold text-red-500 uppercase tracking-widest text-sm">Error al cargar la librería</p>
+            <p className="text-gray-500 text-xs mt-2 font-medium">No se ha podido sincronizar con el repositorio de mods.</p>
+            <button onClick={() => queryClient.invalidateQueries({ queryKey: ['mods'] })} className="mt-6 bg-gray-800 hover:bg-gray-700 text-white px-6 py-2 rounded-xl font-bold text-xs uppercase transition-all">Reintentar</button>
+        </div>
+    );
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -539,7 +553,7 @@ export default function ModsLibrary() {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                        {filteredMods?.map((mod) => (
+                        {Array.isArray(filteredMods) && filteredMods.map((mod) => (
                             <tr
                                 key={mod.id}
                                 className={cn(
@@ -579,7 +593,7 @@ export default function ModsLibrary() {
                                         <div className="flex flex-col">
                                             <div className="flex items-center">
                                                 <span className="text-base group-hover:text-blue-600 transition-colors mr-2">{mod.name}</span>
-                                                {mod.tags && mod.tags.map(tag => (
+                                                {Array.isArray(mod.tags) && mod.tags.map(tag => (
                                                     <span key={tag.id} className="text-[10px] px-1.5 rounded-sm bg-blue-100 text-blue-700 font-bold mr-1">
                                                         {tag.name}
                                                     </span>
@@ -747,7 +761,7 @@ export default function ModsLibrary() {
                                             </h3>
 
                                             <div className="flex flex-wrap gap-2 mb-4">
-                                                {selectedMod?.tags && selectedMod.tags.length > 0 ? (
+                                                {Array.isArray(selectedMod?.tags) && selectedMod.tags.length > 0 ? (
                                                     selectedMod.tags.map(tag => (
                                                         <span key={tag.id} className="inline-flex items-center px-2 py-1 rounded bg-blue-50 text-blue-700 text-xs font-semibold border border-blue-100">
                                                             {tag.name}
@@ -787,14 +801,13 @@ export default function ModsLibrary() {
                                                     <div>
                                                         <div className="text-xs font-bold text-gray-500 mb-2">Existentes:</div>
                                                         <div className="max-h-24 overflow-y-auto space-y-1">
-                                                            {tags?.filter(t => !selectedMod?.tags.some(mt => mt.id === t.id)).map(tag => (
+                                                            {Array.isArray(tags) && tags.filter(t => !selectedMod?.tags?.some(mt => mt.id === t.id)).map(tag => (
                                                                 <button
                                                                     key={tag.id}
                                                                     onClick={() => addTagMutation.mutate({ modId: selectedMod!.id, tagId: tag.id })}
-                                                                    className="flex items-center w-full text-xs text-left px-2 py-1 hover:bg-blue-100 rounded text-gray-700"
+                                                                    className="px-2 py-1 bg-white hover:bg-blue-100 text-[10px] font-bold text-gray-600 hover:text-blue-700 rounded border border-gray-200 transition-colors"
                                                                 >
-                                                                    <TagIcon size={12} className="mr-1.5 opacity-50" />
-                                                                    {tag.name}
+                                                                    + {tag.name}
                                                                 </button>
                                                             ))}
                                                         </div>

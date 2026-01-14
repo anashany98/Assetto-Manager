@@ -8,6 +8,7 @@ Sistema de gestión centralizada de mods y perfiles para simuladores de conducci
 *   **Instalación:** Ejecuta (como Admin) `server_setup.ps1` para configurar el Firewall.
 *   **Uso Diario:** Haz doble clic en `start_server.bat`. Esto abrirá el Backend y el Panel de Control Web.
 *   **Panel Web:** Accesible en [http://localhost:5173](http://localhost:5173).
+*   **Base de Datos:** Requiere PostgreSQL (o Supabase) configurado en el archivo `backend/.env`.
 
 ### 2. Simuladores (Los Puestos de Conducción)
 *   **Instalación:** Copia `dist/AC_Manager_Agent.exe` y crea un `config.json` con la IP del servidor.

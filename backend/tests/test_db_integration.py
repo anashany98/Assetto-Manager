@@ -30,7 +30,6 @@ def test_create_and_delete_session_integration(db: Session):
         track_name=track_name,
         driver_name=driver_name,
         car_model="ferrari_488_gt3",
-        date="2026-01-01T12:00:00",
         session_type="PRACTICE",
         best_lap=0
     )

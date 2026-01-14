@@ -76,32 +76,38 @@ export function TelemetryChart({ lapId, compareLapId }: TelemetryChartProps) {
         );
     }
 
-    // Align Data for Chart?
-    // If we compare, we need to map by "normalized pos" (n) or just overlay based on index/time.
-    // Index alignment is simplest for V1.
-    // Or Normalized Pos (0-1) is BEST for comparing different speeds.
+    // Align Data for Chart using Normalized Position (n)
+    // We create ~200 bins for the X-Axis (0 to 1)
+    const BINS = 200;
+    const chartData = Array.from({ length: BINS }, (_, i) => {
+        const targetPos = i / BINS;
 
-    // Let's assume we use Index (Time usually) for single view.
-    // For comparison, let's normalize to X-Axis (0 to 100%).
+        // Find closest point in main lap
+        const mainPoint = mainLap.reduce((prev, curr) =>
+            Math.abs(curr.n - targetPos) < Math.abs(prev.n - targetPos) ? curr : prev
+        );
 
-    const chartData = mainLap.map((p, i) => {
-        // Downsample for performance (every 5th point if > 1000 points)
-        // If array contains ~2500 points (4 mins at 10hz), recharts might lag on mobile.
-        // Let's filter in render if needed.
+        // Find closest point in compare lap
+        const comparePoint = compareLap ? compareLap.reduce((prev, curr) =>
+            Math.abs(curr.n - targetPos) < Math.abs(prev.n - targetPos) ? curr : prev
+        ) : null;
+
         return {
-            dist: i, // Should utilize normalized 'n' if reliable
-            speed: p.s,
-            rpm: p.r,
-            gear: p.g,
-            gas: p.gas || 0,
-            brk: p.brk || 0,
-            str: p.str || 0,
-            gl: p.gl || 0,
-            gn: p.gn || 0,
-            tt: p.tt || 0,
-            compareSpeed: compareLap ? (compareLap[i]?.s || null) : null
+            dist: Math.round(targetPos * 100), // 0-100%
+            speed: mainPoint.s,
+            rpm: mainPoint.r,
+            gear: mainPoint.g,
+            gas: mainPoint.gas || 0,
+            brk: mainPoint.brk || 0,
+            str: mainPoint.str || 0,
+            gl: mainPoint.gl || 0,
+            gn: mainPoint.gn || 0,
+            tt: mainPoint.tt || 0,
+            compareSpeed: comparePoint?.s ?? null,
+            compareGas: comparePoint?.gas ?? null,
+            compareBrk: comparePoint?.brk ?? null,
         };
-    }).filter((_, i) => i % 2 === 0); // Quick 50% downsample
+    });
 
     return (
         <div className="w-full flex flex-col h-80">
@@ -165,6 +171,12 @@ export function TelemetryChart({ lapId, compareLapId }: TelemetryChartProps) {
 
                             <Line type="monotone" dataKey="gas" stroke="#22c55e" strokeWidth={2} dot={false} name="Acelerador" animationDuration={500} />
                             <Line type="monotone" dataKey="brk" stroke="#ef4444" strokeWidth={2} dot={false} name="Freno" animationDuration={500} />
+                            {compareLap && (
+                                <>
+                                    <Line type="monotone" dataKey="compareGas" stroke="#22c55e" strokeWidth={1} dot={false} strokeOpacity={0.4} strokeDasharray="3 3" name="Ace. Rival" animationDuration={500} />
+                                    <Line type="monotone" dataKey="compareBrk" stroke="#ef4444" strokeWidth={1} dot={false} strokeOpacity={0.4} strokeDasharray="3 3" name="Fre. Rival" animationDuration={500} />
+                                </>
+                            )}
                             <Line type="monotone" dataKey="str" stroke="#3b82f6" strokeWidth={1} dot={false} strokeDasharray="3 3" name="Volante" animationDuration={500} />
                         </LineChart>
                     </ResponsiveContainer>

@@ -113,7 +113,7 @@ class SessionResult(Base):
     track_config = Column(String, nullable=True)
     
     event_id = Column(Integer, ForeignKey("events.id"), nullable=True)
-    event = relationship("Event", backref="results")
+    event = relationship("Event", backref="session_results")
     station = relationship("Station")
 
     __table_args__ = (
@@ -197,4 +197,13 @@ class AdCampaign(Base):
     image_path = Column(String)  # Relative to /storage/ads/
     is_active = Column(Boolean, default=True)
     display_duration = Column(Integer, default=15) # Seconds
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True)
+    hashed_password = Column(String)
+    role = Column(String, default="admin")
+    is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

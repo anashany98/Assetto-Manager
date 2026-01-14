@@ -82,8 +82,22 @@ export default function Configuration() {
         }
     };
 
-    if (isLoading) return <div className="p-8 text-gray-500 font-sans">Cargando simuladores...</div>;
-    if (error) return <div className="p-8 text-red-500 font-sans">Error al cargar estaciones</div>;
+    if (isLoading) return (
+        <div className="p-8 text-gray-500 font-sans flex items-center gap-2">
+            <div className="w-5 h-5 border-2 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
+            Cargando simuladores...
+        </div>
+    );
+    if (error) return (
+        <div className="p-8 text-red-500 font-sans flex flex-col items-start gap-4">
+            <div className="flex items-center gap-2 font-bold uppercase tracking-widest text-sm">
+                <AlertTriangle size={20} />
+                Error al cargar estaciones
+            </div>
+            <p className="text-gray-500 text-sm">No se ha podido conectar con el backend. Revisa el estado del servicio.</p>
+            <button onClick={() => window.location.reload()} className="bg-red-500 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase transition-all hover:bg-red-600">Reintentar</button>
+        </div>
+    );
 
     const safeBranding = Array.isArray(branding) ? branding : [];
     const barName = safeBranding.find((s: any) => s.key === 'bar_name')?.value || 'VRacing Bar';
@@ -122,99 +136,105 @@ export default function Configuration() {
 
             {activeTab === 'stations' ? (
                 <div className="grid gap-6">
-                    {stations?.map((station) => (
-                        <div key={station.id} className="bg-gray-800 rounded-2xl shadow-lg border border-gray-700 p-8 flex items-center justify-between transition-all hover:shadow-xl hover:border-gray-600 group">
-                            <div className="flex items-center space-x-8">
-                                <div className={cn(
-                                    "w-16 h-16 rounded-2xl flex items-center justify-center transition-all shadow-lg",
-                                    station.is_online ? "bg-green-500/20 text-green-400" : "bg-gray-700 text-gray-500"
-                                )}>
-                                    {station.is_online ? <Wifi size={32} /> : <WifiOff size={32} />}
-                                </div>
-
-                                <div>
-                                    {editingId === station.id ? (
-                                        <div className="flex flex-col space-y-2">
-                                            <input
-                                                className="text-xl font-black text-white border-b-2 border-blue-500 focus:outline-none bg-blue-500/10 px-2 py-1 rounded"
-                                                value={editForm.name}
-                                                onChange={e => setEditForm({ ...editForm, name: e.target.value })}
-                                                autoFocus
-                                            />
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center space-x-3 group/edit">
-                                            <h3 className="text-2xl font-black text-white uppercase tracking-tight">{station.name || `Simulador #${station.id}`}</h3>
-                                            <button onClick={() => startEdit(station)} className="opacity-0 group-hover/edit:opacity-100 text-gray-500 hover:text-blue-400 transition-opacity">
-                                                <Edit2 size={16} />
-                                            </button>
-                                            <button
-                                                onClick={() => { if (confirm(`¿Estás seguro de que quieres apagar ${station.name}?`)) powerMutation.mutate({ id: station.id, action: 'shutdown' }) }}
-                                                className="opacity-0 group-hover/edit:opacity-100 flex items-center space-x-1 px-3 py-1 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors text-xs font-bold uppercase tracking-wider"
-                                                title="Apagar simulador"
-                                            >
-                                                <Power size={12} />
-                                                <span>Apagar</span>
-                                            </button>
-                                            {/* PANIC BUTTON */}
-                                            <button
-                                                onClick={() => { if (confirm("¡EMERGENCIA! ¿Forzar cierre del juego?")) powerMutation.mutate({ id: station.id, action: 'panic' }) }}
-                                                className="opacity-0 group-hover/edit:opacity-100 flex items-center space-x-1 px-3 py-1 bg-yellow-500/10 text-yellow-500 rounded-lg hover:bg-yellow-500 hover:text-black transition-colors text-xs font-bold uppercase tracking-wider"
-                                                title="Matar procesos del juego (Panic Button)"
-                                            >
-                                                <AlertTriangle size={12} />
-                                                <span>Panic</span>
-                                            </button>
-                                        </div>
-                                    )}
-
-                                    <div className="flex items-center space-x-6 mt-2 text-sm text-gray-500 font-bold uppercase tracking-widest">
-                                        <div className="flex items-center space-x-2">
-                                            <Monitor size={16} className="text-gray-600" />
-                                            <span>{station.hostname}</span>
-                                        </div>
-                                        <div className="flex items-center space-x-2">
-                                            <Server size={16} className="text-gray-600" />
-                                            {editingId === station.id ? (
-                                                <input
-                                                    className="border-b border-gray-600 w-40 focus:outline-none bg-blue-500/10 px-2 text-white"
-                                                    value={editForm.ip}
-                                                    onChange={e => setEditForm({ ...editForm, ip: e.target.value })}
-                                                />
-                                            ) : (
-                                                <span className="font-mono">{station.ip_address}</span>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center space-x-8">
-                                <div className="text-right">
+                    {Array.isArray(stations) ? (
+                        stations.map((station) => (
+                            <div key={station.id} className="bg-gray-800 rounded-2xl shadow-lg border border-gray-700 p-8 flex items-center justify-between transition-all hover:shadow-xl hover:border-gray-600 group">
+                                <div className="flex items-center space-x-8">
                                     <div className={cn(
-                                        "text-xs font-black px-4 py-1.5 rounded-full inline-block uppercase tracking-[0.2em] shadow-sm",
-                                        station.status === 'online' ? 'bg-green-500/20 text-green-400' :
-                                            station.status === 'syncing' ? 'bg-blue-500/20 text-blue-400' :
-                                                'bg-gray-700 text-gray-500'
+                                        "w-16 h-16 rounded-2xl flex items-center justify-center transition-all shadow-lg",
+                                        station.is_online ? "bg-green-500/20 text-green-400" : "bg-gray-700 text-gray-500"
                                     )}>
-                                        {station.status}
+                                        {station.is_online ? <Wifi size={32} /> : <WifiOff size={32} />}
                                     </div>
-                                    <div className="text-[10px] text-gray-600 font-mono mt-2 uppercase tracking-widest">
-                                        MAC: {station.mac_address}
+
+                                    <div>
+                                        {editingId === station.id ? (
+                                            <div className="flex flex-col space-y-2">
+                                                <input
+                                                    className="text-xl font-black text-white border-b-2 border-blue-500 focus:outline-none bg-blue-500/10 px-2 py-1 rounded"
+                                                    value={editForm.name}
+                                                    onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                                                    autoFocus
+                                                />
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center space-x-3 group/edit">
+                                                <h3 className="text-2xl font-black text-white uppercase tracking-tight">{station.name || `Simulador #${station.id}`}</h3>
+                                                <button onClick={() => startEdit(station)} className="opacity-0 group-hover/edit:opacity-100 text-gray-500 hover:text-blue-400 transition-opacity">
+                                                    <Edit2 size={16} />
+                                                </button>
+                                                <button
+                                                    onClick={() => { if (confirm(`¿Estás seguro de que quieres apagar ${station.name}?`)) powerMutation.mutate({ id: station.id, action: 'shutdown' }) }}
+                                                    className="opacity-0 group-hover/edit:opacity-100 flex items-center space-x-1 px-3 py-1 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors text-xs font-bold uppercase tracking-wider"
+                                                    title="Apagar simulador"
+                                                >
+                                                    <Power size={12} />
+                                                    <span>Apagar</span>
+                                                </button>
+                                                {/* PANIC BUTTON */}
+                                                <button
+                                                    onClick={() => { if (confirm("¡EMERGENCIA! ¿Forzar cierre del juego?")) powerMutation.mutate({ id: station.id, action: 'panic' }) }}
+                                                    className="opacity-0 group-hover/edit:opacity-100 flex items-center space-x-1 px-3 py-1 bg-yellow-500/10 text-yellow-500 rounded-lg hover:bg-yellow-500 hover:text-black transition-colors text-xs font-bold uppercase tracking-wider"
+                                                    title="Matar procesos del juego (Panic Button)"
+                                                >
+                                                    <AlertTriangle size={12} />
+                                                    <span>Panic</span>
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        <div className="flex items-center space-x-6 mt-2 text-sm text-gray-500 font-bold uppercase tracking-widest">
+                                            <div className="flex items-center space-x-2">
+                                                <Monitor size={16} className="text-gray-600" />
+                                                <span>{station.hostname}</span>
+                                            </div>
+                                            <div className="flex items-center space-x-2">
+                                                <Server size={16} className="text-gray-600" />
+                                                {editingId === station.id ? (
+                                                    <input
+                                                        className="border-b border-gray-600 w-40 focus:outline-none bg-blue-500/10 px-2 text-white"
+                                                        value={editForm.ip}
+                                                        onChange={e => setEditForm({ ...editForm, ip: e.target.value })}
+                                                    />
+                                                ) : (
+                                                    <span className="font-mono">{station.ip_address}</span>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
-                                {editingId === station.id && (
-                                    <button
-                                        onClick={() => saveEdit(station.id)}
-                                        className="bg-blue-600 text-white p-3 rounded-2xl hover:bg-blue-500 transition-all shadow-lg hover:shadow-blue-500/20 active:scale-95"
-                                    >
-                                        <CheckCircle size={24} />
-                                    </button>
-                                )}
+                                <div className="flex items-center space-x-8">
+                                    <div className="text-right">
+                                        <div className={cn(
+                                            "text-xs font-black px-4 py-1.5 rounded-full inline-block uppercase tracking-[0.2em] shadow-sm",
+                                            station.status === 'online' ? 'bg-green-500/20 text-green-400' :
+                                                station.status === 'syncing' ? 'bg-blue-500/20 text-blue-400' :
+                                                    'bg-gray-700 text-gray-500'
+                                        )}>
+                                            {station.status}
+                                        </div>
+                                        <div className="text-[10px] text-gray-600 font-mono mt-2 uppercase tracking-widest">
+                                            MAC: {station.mac_address}
+                                        </div>
+                                    </div>
+
+                                    {editingId === station.id && (
+                                        <button
+                                            onClick={() => saveEdit(station.id)}
+                                            className="bg-blue-600 text-white p-3 rounded-2xl hover:bg-blue-500 transition-all shadow-lg hover:shadow-blue-500/20 active:scale-95"
+                                        >
+                                            <CheckCircle size={24} />
+                                        </button>
+                                    )}
+                                </div>
                             </div>
+                        ))
+                    ) : (
+                        <div className="bg-gray-800/50 rounded-2xl p-8 border-2 border-dashed border-gray-700 text-center">
+                            <p className="text-gray-500 font-bold italic">No se detectan estaciones o el formato de datos es incorrecto.</p>
                         </div>
-                    ))}
+                    )}
 
                     {stations?.length === 0 && (
                         <div className="text-center py-24 bg-gray-800/50 rounded-3xl border-2 border-dashed border-gray-700">

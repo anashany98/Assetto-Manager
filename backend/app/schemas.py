@@ -253,11 +253,17 @@ class EventBase(BaseModel):
 class EventCreate(EventBase):
     pass
 
+class EventResultManual(BaseModel):
+    winner_name: str
+    second_name: Optional[str] = None
+    third_name: Optional[str] = None
+    winner_car: Optional[str] = None
+
 class Event(EventBase):
     id: int
     is_active: bool
-    created_at: datetime
     updated_at: Optional[datetime]
+    championship_id: Optional[int] = None
     
     class Config:
         from_attributes = True

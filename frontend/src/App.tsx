@@ -2,6 +2,8 @@ import { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import ErrorBoundary from './components/ErrorBoundary';
+import PrivateRoute from './components/PrivateRoute';
+import { LoginPage } from './pages/LoginPage';
 // Pages - Lazy Loaded
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const ProfilesPage = lazy(() => import('./pages/ProfilesPage'));
@@ -27,6 +29,8 @@ const HistoryPage = lazy(() => import('./pages/HistoryPage'));
 const LapAnalysisPage = lazy(() => import('./pages/LapAnalysisPage'));
 const TVMode = lazy(() => import('./pages/TVMode').then(module => ({ default: module.TVMode })));
 
+import { useBranding } from './hooks/useBranding';
+
 // Fallback Loading Component
 const PageLoader = () => (
   <div className="h-full w-full flex items-center justify-center p-20">
@@ -35,32 +39,36 @@ const PageLoader = () => (
 );
 
 function App() {
+  useBranding(); // Manejo dinámico de título y favicon
+
   return (
     <Router>
       <ErrorBoundary>
         <Layout>
           <Suspense fallback={<PageLoader />}>
             <Routes>
-              <Route path="/" element={<Dashboard />} />
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/admin" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+              <Route path="/login" element={<LoginPage />} />
               <Route path="/analysis/:id" element={<LapAnalysisPage />} />
 
               {/* Management */}
-              <Route path="/drivers" element={<DriversPage />} />
-              <Route path="/drivers/:driverName" element={<DriverPassport />} />
-              <Route path="/events" element={<EventsPage />} />
-              <Route path="/events/:id" element={<EventDetails />} />
-              <Route path="/championships" element={<ChampionshipsPage />} />
-              <Route path="/championships/:id" element={<ChampionshipDetails />} />
-              <Route path="/history" element={<HistoryPage />} />
-              <Route path="/mods" element={<ModsLibrary />} />
+              <Route path="/drivers" element={<PrivateRoute><DriversPage /></PrivateRoute>} />
+              <Route path="/drivers/:driverName" element={<PrivateRoute><DriverPassport /></PrivateRoute>} />
+              <Route path="/events" element={<PrivateRoute><EventsPage /></PrivateRoute>} />
+              <Route path="/events/:id" element={<PrivateRoute><EventDetails /></PrivateRoute>} />
+              <Route path="/championships" element={<PrivateRoute><ChampionshipsPage /></PrivateRoute>} />
+              <Route path="/championships/:id" element={<PrivateRoute><ChampionshipDetails /></PrivateRoute>} />
+              <Route path="/history" element={<PrivateRoute><HistoryPage /></PrivateRoute>} />
+              <Route path="/mods" element={<PrivateRoute><ModsLibrary /></PrivateRoute>} />
 
               {/* System */}
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/config" element={<Configuration />} />
-              <Route path="/profiles" element={<ProfilesPage />} />
+              <Route path="/settings" element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
+              <Route path="/config" element={<PrivateRoute><Configuration /></PrivateRoute>} />
+              <Route path="/profiles" element={<PrivateRoute><ProfilesPage /></PrivateRoute>} />
 
               {/* Public Views */}
-              <Route path="/remote" element={<TVRemote />} />
+              <Route path="/remote" element={<PrivateRoute><TVRemote /></PrivateRoute>} />
               <Route path="/leaderboard" element={<Leaderboard />} />
               <Route path="/hall-of-fame" element={<HallOfFame />} />
               <Route path="/kiosk" element={<LandingPage />} />

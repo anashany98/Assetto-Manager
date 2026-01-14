@@ -1,7 +1,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
-import { Trophy, Medal, Calendar } from 'lucide-react';
+import { Trophy, Medal, Calendar, AlertTriangle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { API_URL } from '../config';
 
@@ -27,7 +27,7 @@ const formatTime = (ms: number) => {
 const formatDate = (iso: string) => new Date(iso).toLocaleDateString();
 
 export const HallOfFame = ({ embedded = false }: { embedded?: boolean }) => {
-    const { data: categories, isLoading } = useQuery({
+    const { data: categories, isLoading, error } = useQuery({
         queryKey: ['hallOfFame'],
         queryFn: async () => {
             const res = await axios.get(`${API_URL}/telemetry/hall_of_fame`);
@@ -36,7 +36,20 @@ export const HallOfFame = ({ embedded = false }: { embedded?: boolean }) => {
         refetchInterval: 60000 // Refresh every minute
     });
 
-    if (isLoading) return <div className="p-10 text-center text-white">Cargando Leyendas...</div>;
+    if (isLoading) return (
+        <div className="p-10 text-center text-white bg-[#0a0a0f] min-h-[400px] flex flex-col items-center justify-center">
+            <div className="w-10 h-10 border-4 border-yellow-500/20 border-t-yellow-500 rounded-full animate-spin mb-4" />
+            <p className="font-bold text-yellow-500 animate-pulse uppercase tracking-widest text-sm">Buscando Campeones...</p>
+        </div>
+    );
+
+    if (error) return (
+        <div className="p-10 text-center text-white bg-[#0a0a0f] min-h-[400px] flex flex-col items-center justify-center">
+            <AlertTriangle size={48} className="text-red-500 mb-4" />
+            <p className="font-bold text-red-400 uppercase tracking-widest text-sm">Error al cargar el Salón de la Fama</p>
+            <p className="text-gray-500 text-xs mt-2">Verifica la conexión con el servidor.</p>
+        </div>
+    );
 
     const getMedalColor = (index: number) => {
         switch (index) {
@@ -73,72 +86,94 @@ export const HallOfFame = ({ embedded = false }: { embedded?: boolean }) => {
 
             {/* Grid */}
             <div className={`grid grid-cols-1 ${embedded ? '' : 'md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'} gap-6 ${embedded ? 'px-4' : 'max-w-7xl mx-auto'}`}>
-                {categories?.map((cat, idx) => (
-                    <motion.div
-                        key={`${cat.track_name}-${cat.car_model}`}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: idx * 0.1 }}
-                        className="bg-gray-900/60 backdrop-blur-sm border border-white/5 rounded-3xl overflow-hidden hover:border-yellow-500/30 transition-all duration-300 group"
-                    >
-                        {/* Card Header */}
-                        <div className="p-5 border-b border-white/5 bg-gradient-to-r from-gray-800/50 to-transparent relative overflow-hidden">
-                            <div className="absolute top-0 right-0 p-3 opacity-10 transform translate-x-1/3 -translate-y-1/3 group-hover:scale-110 transition-transform duration-500">
-                                <Trophy size={120} />
-                            </div>
-                            <div className="relative z-10">
-                                <h2 className="text-xl font-black uppercase italic tracking-tight text-white mb-1">
-                                    {cat.track_name.replace(/_/g, ' ')}
-                                </h2>
-                                <span className="px-2 py-0.5 bg-yellow-500/10 text-yellow-500 rounded text-[10px] font-bold uppercase tracking-wider border border-yellow-500/20">
-                                    {cat.car_model.replace(/_/g, ' ')}
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* Records List */}
-                        <div className="p-2">
-                            {cat.records.map((record, rIdx) => (
-                                <div key={rIdx} className={`flex items-center p-3 rounded-xl mb-1 ${rIdx === 0 ? 'bg-gradient-to-r from-yellow-500/10 to-transparent border border-yellow-500/10' : ''}`}>
-                                    {/* Rank / Medal */}
-                                    <div className="w-10 flex-shrink-0 text-center">
-                                        {rIdx < 3 ? (
-                                            <Medal className={`${getMedalColor(rIdx)} mx-auto`} size={20} fill={rIdx === 0 ? "currentColor" : "none"} />
-                                        ) : (
-                                            <span className="font-mono text-gray-600 font-bold">{rIdx + 1}</span>
-                                        )}
-                                    </div>
-
-                                    {/* Driver Info */}
-                                    <div className="flex-1 px-3 min-w-0">
-                                        <div className={`font-bold truncate ${rIdx === 0 ? 'text-white text-lg' : 'text-gray-300'}`}>
-                                            {record.driver_name}
-                                        </div>
-                                        <div className="flex items-center space-x-2 text-[10px] text-gray-500 uppercase font-medium">
-                                            <span className="flex items-center"><Calendar size={10} className="mr-1" /> {formatDate(record.date)}</span>
-                                        </div>
-                                    </div>
-
-                                    {/* Time */}
-                                    <div className="text-right pl-2">
-                                        <div className={`font-mono font-bold tracking-tight ${rIdx === 0 ? 'text-yellow-400 text-lg' : 'text-white/70'}`}>
-                                            {formatTime(record.lap_time)}
-                                        </div>
-                                    </div>
+                {Array.isArray(categories) ? (
+                    categories.map((cat, idx) => (
+                        <motion.div
+                            key={`${cat.track_name}-${cat.car_model}`}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: idx * 0.1 }}
+                            className="bg-gray-900/60 backdrop-blur-sm border border-white/5 rounded-3xl overflow-hidden hover:border-yellow-500/30 transition-all duration-300 group"
+                        >
+                            {/* Card Header */}
+                            <div className="p-5 border-b border-white/5 bg-gradient-to-r from-gray-800/50 to-transparent relative overflow-hidden">
+                                <div className="absolute top-0 right-0 p-3 opacity-10 transform translate-x-1/3 -translate-y-1/3 group-hover:scale-110 transition-transform duration-500">
+                                    <Trophy size={120} />
                                 </div>
-                            ))}
-
-                            {/* Empty Slots Filler */}
-                            {[...Array(3 - cat.records.length)].map((_, i) => (
-                                <div key={`empty-${i}`} className="flex items-center p-3 rounded-xl opacity-30">
-                                    <div className="w-10 text-center"><div className="w-5 h-5 rounded-full border border-gray-600 mx-auto" /></div>
-                                    <div className="flex-1 px-3 text-sm text-gray-600 font-bold uppercase italic">Vacante</div>
-                                    <div className="font-mono text-gray-700">--:--.---</div>
+                                <div className="relative z-10">
+                                    <h2 className="text-xl font-black uppercase italic tracking-tight text-white mb-1">
+                                        {cat.track_name.replace(/_/g, ' ')}
+                                    </h2>
+                                    <span className="px-2 py-0.5 bg-yellow-500/10 text-yellow-500 rounded text-[10px] font-bold uppercase tracking-wider border border-yellow-500/20">
+                                        {cat.car_model.replace(/_/g, ' ')}
+                                    </span>
                                 </div>
-                            ))}
+                            </div>
+
+                            {/* Records List */}
+                            <div className="p-2">
+                                {Array.isArray(cat.records) ? (
+                                    cat.records.map((record, rIdx) => (
+                                        <div key={rIdx} className={`flex items-center p-3 rounded-xl mb-1 ${rIdx === 0 ? 'bg-gradient-to-r from-yellow-500/10 to-transparent border border-yellow-500/10' : ''}`}>
+                                            {/* Rank / Medal */}
+                                            <div className="w-10 flex-shrink-0 text-center">
+                                                {rIdx < 3 ? (
+                                                    <Medal className={`${getMedalColor(rIdx)} mx-auto`} size={20} fill={rIdx === 0 ? "currentColor" : "none"} />
+                                                ) : (
+                                                    <span className="font-mono text-gray-600 font-bold">{rIdx + 1}</span>
+                                                )}
+                                            </div>
+
+                                            {/* Driver Info */}
+                                            <div className="flex-1 px-3 min-w-0 flex items-center space-x-3">
+                                                <img
+                                                    src={`https://api.dicebear.com/7.x/bottts-neutral/svg?seed=${encodeURIComponent(record.driver_name)}`}
+                                                    className="w-8 h-8 rounded-lg bg-gray-800 border border-gray-700/50"
+                                                    alt="Avatar"
+                                                />
+                                                <div className="min-w-0">
+                                                    <div className={`font-bold truncate ${rIdx === 0 ? 'text-white text-lg' : 'text-gray-300'}`}>
+                                                        {record.driver_name}
+                                                    </div>
+                                                    <div className="flex items-center space-x-2 text-[10px] text-gray-500 uppercase font-medium">
+                                                        <span className="flex items-center"><Calendar size={10} className="mr-1" /> {formatDate(record.date)}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Time */}
+                                            <div className="text-right pl-2">
+                                                <div className={`font-mono font-bold tracking-tight ${rIdx === 0 ? 'text-yellow-400 text-lg' : 'text-white/70'}`}>
+                                                    {formatTime(record.lap_time)}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <p className="text-gray-600 text-[10px] p-4 text-center">Datos corruptos</p>
+                                )}
+
+                                {/* Empty Slots Filler */}
+                                {Array.isArray(cat.records) && [...Array(Math.max(0, 3 - cat.records.length))].map((_, i) => (
+                                    <div key={`empty-${i}`} className="flex items-center p-3 rounded-xl opacity-30">
+                                        <div className="w-10 text-center"><div className="w-5 h-5 rounded-full border border-gray-600 mx-auto" /></div>
+                                        <div className="flex-1 px-3 text-sm text-gray-600 font-bold uppercase italic">Vacante</div>
+                                        <div className="font-mono text-gray-700">--:--.---</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </motion.div>
+                    ))
+                ) : (
+                    <div className="col-span-full py-20 text-center bg-gradient-to-br from-yellow-500/5 to-transparent rounded-3xl border-2 border-dashed border-yellow-500/20">
+                        <Trophy size={64} className="mx-auto mb-6 text-yellow-500/40" />
+                        <p className="text-2xl font-black uppercase tracking-widest text-white mb-2">¡Puestos Libres!</p>
+                        <p className="text-gray-400 font-bold uppercase tracking-wider text-sm mb-4">Sé el primero en inscribir tu nombre</p>
+                        <div className="inline-block px-6 py-3 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
+                            <p className="text-yellow-500 font-bold text-sm">🏁 ¡Compite y convértete en leyenda!</p>
                         </div>
-                    </motion.div>
-                ))}
+                    </div>
+                )}
             </div>
         </div>
     );

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, File, UploadFile
 from sqlalchemy.orm import Session
 from typing import List
 from .. import models, schemas, database
+from .auth import get_current_active_user
 from ..paths import STORAGE_DIR
 from pathlib import Path
 import shutil
@@ -24,7 +25,7 @@ def get_setting(key: str, db: Session = Depends(database.get_db)):
     return setting
 
 @router.post("/", response_model=schemas.GlobalSettings)
-def update_setting(setting_data: schemas.GlobalSettingsBase, db: Session = Depends(database.get_db)):
+def update_setting(setting_data: schemas.GlobalSettingsBase, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_active_user)):
     import logging
     logger = logging.getLogger("api.settings")
     logger.info(f"Updating setting: {setting_data.key} -> {setting_data.value}")
@@ -44,7 +45,7 @@ def update_setting(setting_data: schemas.GlobalSettingsBase, db: Session = Depen
     return new_setting
 
 @router.post("/upload-logo")
-async def upload_logo(file: UploadFile = File(...), db: Session = Depends(database.get_db)):
+async def upload_logo(file: UploadFile = File(...), db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_active_user)):
     # Create branding directory if it doesn't exist
     upload_dir = STORAGE_DIR / "branding"
     upload_dir.mkdir(parents=True, exist_ok=True)

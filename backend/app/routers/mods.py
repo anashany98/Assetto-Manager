@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from typing import List
+from .auth import get_current_active_user
 import shutil
 import zipfile
 import os
@@ -223,7 +224,8 @@ def upload_mod(
     name: str = Form(None), 
     type: str = Form(None), 
     version: str = Form(None), 
-    db: Session = Depends(database.get_db)
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_active_user)
 ):
     # Validation logic
     filename_lower = file.filename.lower()
@@ -252,7 +254,7 @@ def upload_mod(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/{mod_id}")
-def delete_mod(mod_id: int, db: Session = Depends(database.get_db)):
+def delete_mod(mod_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_active_user)):
     mod = db.query(models.Mod).filter(models.Mod.id == mod_id).first()
     if not mod:
         raise HTTPException(status_code=404, detail="Mod not found")
@@ -276,7 +278,7 @@ def delete_mod(mod_id: int, db: Session = Depends(database.get_db)):
     return {"status": "deleted", "id": mod_id}
 
 @router.put("/{mod_id}/toggle")
-def toggle_mod(mod_id: int, db: Session = Depends(database.get_db)):
+def toggle_mod(mod_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_active_user)):
     mod = db.query(models.Mod).filter(models.Mod.id == mod_id).first()
     if not mod:
         raise HTTPException(status_code=404, detail="Mod not found")
@@ -315,7 +317,8 @@ def list_mods(
 def add_mod_dependency(
     mod_id: int, 
     dependency_ids: List[int], 
-    db: Session = Depends(database.get_db)
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_active_user)
 ):
     mod = db.query(models.Mod).filter(models.Mod.id == mod_id).first()
     if not mod:
@@ -437,7 +440,7 @@ def get_disk_usage(db: Session = Depends(database.get_db)):
 # --- TAGS ENDPOINTS ---
 
 @router.post("/tags", response_model=schemas.Tag)
-def create_tag(tag: schemas.TagCreate, db: Session = Depends(database.get_db)):
+def create_tag(tag: schemas.TagCreate, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_active_user)):
     # Check if exists
     existing = db.query(models.Tag).filter(models.Tag.name == tag.name).first()
     if existing:
@@ -454,7 +457,7 @@ def list_tags(db: Session = Depends(database.get_db)):
     return db.query(models.Tag).all()
 
 @router.post("/{mod_id}/tags/{tag_id}", response_model=schemas.Mod)
-def add_tag_to_mod(mod_id: int, tag_id: int, db: Session = Depends(database.get_db)):
+def add_tag_to_mod(mod_id: int, tag_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_active_user)):
     mod = db.query(models.Mod).filter(models.Mod.id == mod_id).first()
     tag = db.query(models.Tag).filter(models.Tag.id == tag_id).first()
     
@@ -469,7 +472,7 @@ def add_tag_to_mod(mod_id: int, tag_id: int, db: Session = Depends(database.get_
     return mod
 
 @router.delete("/{mod_id}/tags/{tag_id}", response_model=schemas.Mod)
-def remove_tag_from_mod(mod_id: int, tag_id: int, db: Session = Depends(database.get_db)):
+def remove_tag_from_mod(mod_id: int, tag_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_active_user)):
     mod = db.query(models.Mod).filter(models.Mod.id == mod_id).first()
     tag = db.query(models.Tag).filter(models.Tag.id == tag_id).first()
     
@@ -484,7 +487,7 @@ def remove_tag_from_mod(mod_id: int, tag_id: int, db: Session = Depends(database
     return mod
 
 @router.post("/bulk/delete")
-def bulk_delete_mods(mod_ids: List[int], db: Session = Depends(database.get_db)):
+def bulk_delete_mods(mod_ids: List[int], db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_active_user)):
     deleted = []
     failed = []
     for mod_id in mod_ids:
@@ -511,7 +514,9 @@ def bulk_delete_mods(mod_ids: List[int], db: Session = Depends(database.get_db))
 def bulk_toggle_mods(
     mod_ids: List[int],
     target_state: bool,
-    db: Session = Depends(database.get_db)
+    version: str = Form(None), 
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_active_user)
 ):
     mods = db.query(models.Mod).filter(models.Mod.id.in_(mod_ids)).all()
     for mod in mods:
