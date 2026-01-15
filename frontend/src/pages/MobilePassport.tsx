@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Search, Trophy, Car, ChevronRight, Share2, Award, AlertTriangle } from 'lucide-react';
+import { Search, Trophy, Car, ChevronRight, Award, AlertTriangle, FileDown } from 'lucide-react';
 import axios from 'axios';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { API_URL } from '../config';
@@ -80,8 +80,12 @@ export default function MobilePassport() {
                         <ChevronRight className="rotate-180" size={24} />
                     </button>
                     <span className="font-bold text-sm tracking-widest uppercase">Driver Passport</span>
-                    <button className="p-2 -mr-2 text-blue-400">
-                        <Share2 size={20} />
+                    <button
+                        onClick={() => window.open(`${API_URL}/exports/passport/${encodeURIComponent(selectedDriver)}`, '_blank')}
+                        className="p-2 -mr-2 text-green-400 hover:text-green-300 flex items-center gap-1"
+                        title="Descargar PDF"
+                    >
+                        <FileDown size={20} />
                     </button>
                 </div>
 

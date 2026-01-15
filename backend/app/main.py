@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import engine, Base
-from .routers import stations, mods, telemetry, websockets, settings, profiles, events, config_manager, championships, integrations, tournament, logs, ads, auth, backup
+from .routers import stations, mods, telemetry, websockets, settings, profiles, events, config_manager, championships, integrations, tournament, logs, ads, auth, backup, exports, loyalty, bookings
 from .routers.logs import MemoryLogHandler
 
 # Create Tables
@@ -80,6 +80,9 @@ app.include_router(logs.router)
 app.include_router(ads.router)
 app.include_router(auth.router)
 app.include_router(backup.router)
+app.include_router(exports.router)
+app.include_router(loyalty.router)
+app.include_router(bookings.router)
 
 
 # @app.get("/")

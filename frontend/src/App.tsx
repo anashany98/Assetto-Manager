@@ -27,6 +27,7 @@ const MobilePassport = lazy(() => import('./pages/MobilePassport'));
 const LiveMapPage = lazy(() => import('./pages/LiveMapPage'));
 const HistoryPage = lazy(() => import('./pages/HistoryPage'));
 const LapAnalysisPage = lazy(() => import('./pages/LapAnalysisPage'));
+const BookingsPage = lazy(() => import('./pages/BookingsPage'));
 const TVMode = lazy(() => import('./pages/TVMode').then(module => ({ default: module.TVMode })));
 
 import { useBranding } from './hooks/useBranding';
@@ -60,6 +61,7 @@ function App() {
               <Route path="/championships" element={<PrivateRoute><ChampionshipsPage /></PrivateRoute>} />
               <Route path="/championships/:id" element={<PrivateRoute><ChampionshipDetails /></PrivateRoute>} />
               <Route path="/history" element={<PrivateRoute><HistoryPage /></PrivateRoute>} />
+              <Route path="/bookings" element={<PrivateRoute><BookingsPage /></PrivateRoute>} />
               <Route path="/mods" element={<PrivateRoute><ModsLibrary /></PrivateRoute>} />
 
               {/* System */}

@@ -41,6 +41,11 @@ class Driver(Base):
     total_races = Column(Integer, default=0) 
     total_laps = Column(Integer, default=0)
     safety_rating = Column(Integer, default=1000)
+    
+    # Loyalty System
+    loyalty_points = Column(Integer, default=0)
+    total_points_earned = Column(Integer, default=0)
+    membership_tier = Column(String, default="bronze")  # bronze, silver, gold, platinum
 
 class Station(Base):
     __tablename__ = "stations"
@@ -207,3 +212,63 @@ class User(Base):
     role = Column(String, default="admin")
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class PointsTransaction(Base):
+    """Track all points earned/spent by drivers"""
+    __tablename__ = "points_transactions"
+    id = Column(Integer, primary_key=True, index=True)
+    driver_id = Column(Integer, ForeignKey("drivers.id"), index=True)
+    points = Column(Integer)  # positive = earned, negative = redeemed
+    reason = Column(String(100))  # "lap_completed", "podium_finish", "redemption"
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    
+    driver = relationship("Driver", backref="points_transactions")
+
+
+class Reward(Base):
+    """Catalog of rewards that can be redeemed with points"""
+    __tablename__ = "rewards"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100))
+    description = Column(String(500), nullable=True)
+    points_cost = Column(Integer)
+    stock = Column(Integer, default=-1)  # -1 = unlimited
+    is_active = Column(Boolean, default=True)
+    image_path = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class RewardRedemption(Base):
+    """Track redemptions"""
+    __tablename__ = "reward_redemptions"
+    id = Column(Integer, primary_key=True, index=True)
+    driver_id = Column(Integer, ForeignKey("drivers.id"), index=True)
+    reward_id = Column(Integer, ForeignKey("rewards.id"))
+    points_spent = Column(Integer)
+    status = Column(String, default="pending")  # pending, fulfilled, cancelled
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    
+    driver = relationship("Driver")
+    reward = relationship("Reward")
+
+
+class Booking(Base):
+    """Simulator time slot reservations"""
+    __tablename__ = "bookings"
+    id = Column(Integer, primary_key=True, index=True)
+    station_id = Column(Integer, ForeignKey("stations.id"), nullable=True)
+    customer_name = Column(String(100), nullable=False)
+    customer_email = Column(String(100), nullable=True)
+    customer_phone = Column(String(20), nullable=True)
+    date = Column(DateTime(timezone=True), nullable=False, index=True)
+    time_slot = Column(String(20), nullable=False)  # e.g., "10:00-11:00"
+    duration_minutes = Column(Integer, default=60)
+    status = Column(String(20), default="pending", index=True)  # pending, confirmed, cancelled, completed
+    notes = Column(String(500), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    
+    station = relationship("Station")
+
+
