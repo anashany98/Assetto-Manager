@@ -1,8 +1,8 @@
 import random
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
-from backend.app.database import SessionLocal, engine
-from backend.app import models
+from app.database import SessionLocal, engine
+from app import models
 
 # Init DB
 print("⚠️ RESETTING DATABASE SCHEMA FOR DEMO...")
@@ -29,12 +29,6 @@ def seed_profiles():
             profile = models.Profile(
                 name=name,
                 description=f"Official Driver: {name}",
-                # Additional fields might not exist in Profile model based on current view, let's double check model.py
-                # Removing random extra fields if they don't exist in Profile model shown in context.
-                # Actually, Profile in models.py ONLY shows: id, name, description, created_at, updated_at.
-                # It does NOT have total_laps, total_km etc. Those seem to be calculated or joined?
-                # Wait, the error was "no property driver_name".
-                # If Profile really only has name/description, I must remove the other args.
             )
             db.add(profile)
             profiles.append(profile)
