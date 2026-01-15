@@ -7,6 +7,7 @@ from typing import Optional, List
 from datetime import datetime, date, timedelta
 
 from .. import database, models
+from ..services.email_service import send_booking_confirmation, send_booking_status_update
 from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
@@ -191,12 +192,25 @@ async def create_booking(data: BookingCreate):
         db.commit()
         db.refresh(booking)
         
+        # Send confirmation email
+        if data.customer_email:
+            send_booking_confirmation(
+                customer_email=data.customer_email,
+                customer_name=data.customer_name,
+                date=data.date.strftime('%d/%m/%Y'),
+                time_slot=data.time_slot,
+                num_players=data.num_players,
+                duration_minutes=data.duration_minutes,
+                booking_id=booking.id
+            )
+        
         return {
             "id": booking.id,
             "message": "Reserva creada correctamente",
             "status": booking.status,
             "date": data.date.isoformat(),
-            "time_slot": data.time_slot
+            "time_slot": data.time_slot,
+            "email_sent": bool(data.customer_email)
         }
     except HTTPException:
         raise
@@ -251,6 +265,17 @@ async def update_booking_status(booking_id: int, data: BookingUpdate):
             booking.notes = data.notes
         
         db.commit()
+        
+        # Send status update email
+        if booking.customer_email and data.status in ["confirmed", "cancelled", "completed"]:
+            send_booking_status_update(
+                customer_email=booking.customer_email,
+                customer_name=booking.customer_name,
+                date=booking.date.strftime('%d/%m/%Y') if booking.date else '',
+                time_slot=booking.time_slot,
+                new_status=data.status,
+                booking_id=booking.id
+            )
         
         return {
             "id": booking.id,
