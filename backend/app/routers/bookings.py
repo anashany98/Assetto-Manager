@@ -35,6 +35,7 @@ class BookingCreate(BaseModel):
     customer_name: str
     customer_email: Optional[str] = None
     customer_phone: Optional[str] = None
+    num_players: int = 1  # Number of players in the group
     date: date
     time_slot: str
     duration_minutes: int = 60
@@ -74,6 +75,7 @@ async def list_bookings(
                 "customer_name": b.customer_name,
                 "customer_email": b.customer_email,
                 "customer_phone": b.customer_phone,
+                "num_players": b.num_players or 1,
                 "date": b.date.date().isoformat() if b.date else None,
                 "time_slot": b.time_slot,
                 "duration_minutes": b.duration_minutes,
@@ -177,6 +179,7 @@ async def create_booking(data: BookingCreate):
             customer_name=data.customer_name,
             customer_email=data.customer_email,
             customer_phone=data.customer_phone,
+            num_players=data.num_players,
             date=booking_datetime,
             time_slot=data.time_slot,
             duration_minutes=data.duration_minutes,

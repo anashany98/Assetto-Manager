@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Calendar, Clock, User, Phone, Mail, Check, X, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { Calendar, Clock, User, Phone, Mail, Check, X, ChevronLeft, ChevronRight, Loader2, Users, Timer } from 'lucide-react';
 import axios from 'axios';
 import { API_URL } from '../config';
 import { cn } from '../lib/utils';
@@ -48,6 +48,8 @@ export default function BookingsPage() {
         customer_name: '',
         customer_email: '',
         customer_phone: '',
+        num_players: 1,
+        duration_minutes: 60,
         notes: ''
     });
 
@@ -94,7 +96,7 @@ export default function BookingsPage() {
             queryClient.invalidateQueries({ queryKey: ['bookings-week'] });
             setShowBookingForm(false);
             setSelectedSlot(null);
-            setFormData({ customer_name: '', customer_email: '', customer_phone: '', notes: '' });
+            setFormData({ customer_name: '', customer_email: '', customer_phone: '', num_players: 1, duration_minutes: 60, notes: '' });
         }
     });
 
@@ -311,6 +313,36 @@ export default function BookingsPage() {
                                         className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-blue-500 outline-none"
                                         placeholder="Nombre del cliente"
                                     />
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="text-xs text-gray-500 uppercase font-bold block mb-1">
+                                            <Users size={14} className="inline mr-1" /> Nº Jugadores
+                                        </label>
+                                        <input
+                                            type="number"
+                                            min={1}
+                                            max={10}
+                                            value={formData.num_players}
+                                            onChange={(e) => setFormData({ ...formData, num_players: parseInt(e.target.value) || 1 })}
+                                            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-500 uppercase font-bold block mb-1">
+                                            <Timer size={14} className="inline mr-1" /> Duración
+                                        </label>
+                                        <select
+                                            value={formData.duration_minutes}
+                                            onChange={(e) => setFormData({ ...formData, duration_minutes: parseInt(e.target.value) })}
+                                            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                        >
+                                            <option value={30}>30 minutos</option>
+                                            <option value={60}>1 hora</option>
+                                            <option value={90}>1h 30min</option>
+                                            <option value={120}>2 horas</option>
+                                        </select>
+                                    </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>

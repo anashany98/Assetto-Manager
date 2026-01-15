@@ -12,7 +12,8 @@ import {
     Crown,
     ChevronLeft,
     ChevronRight,
-    History as HistoryIcon
+    History as HistoryIcon,
+    CalendarCheck
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
@@ -110,6 +111,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     <NavItem to="/events" icon={Calendar} collapsed={!isSidebarOpen}>Torneos</NavItem>
                     <NavItem to="/championships" icon={Trophy} collapsed={!isSidebarOpen}>Campeonatos</NavItem>
                     <NavItem to="/history" icon={HistoryIcon} collapsed={!isSidebarOpen}>Historial</NavItem>
+                    <NavItem to="/bookings" icon={CalendarCheck} collapsed={!isSidebarOpen}>Reservas</NavItem>
                     <NavItem to="/mods" icon={Library} collapsed={!isSidebarOpen}>Librería</NavItem>
 
                     {/* CONFIGURACIÓN */}

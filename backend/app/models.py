@@ -262,6 +262,7 @@ class Booking(Base):
     customer_name = Column(String(100), nullable=False)
     customer_email = Column(String(100), nullable=True)
     customer_phone = Column(String(20), nullable=True)
+    num_players = Column(Integer, default=1)  # Number of players in the group
     date = Column(DateTime(timezone=True), nullable=False, index=True)
     time_slot = Column(String(20), nullable=False)  # e.g., "10:00-11:00"
     duration_minutes = Column(Integer, default=60)
