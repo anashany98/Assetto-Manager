@@ -16,6 +16,7 @@ import { getStations } from '../api/stations';
 import { AlertTriangle } from 'lucide-react';
 import axios from 'axios';
 import { API_URL } from '../config';
+import AnalyticsPanel from '../components/AnalyticsPanel';
 
 export default function Dashboard() {
     const { data: stats, isLoading, error } = useQuery<DashboardStats>({
@@ -256,6 +257,11 @@ export default function Dashboard() {
                     </div>
                 </div>
 
+            </div>
+
+            {/* ANALYTICS SECTION */}
+            <div className="mt-10">
+                <AnalyticsPanel />
             </div>
         </div>
     );
