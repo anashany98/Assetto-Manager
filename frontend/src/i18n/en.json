@@ -1,0 +1,112 @@
+{
+    "common": {
+        "loading": "Loading...",
+        "error": "Error",
+        "save": "Save",
+        "cancel": "Cancel",
+        "delete": "Delete",
+        "edit": "Edit",
+        "create": "Create",
+        "search": "Search",
+        "confirm": "Confirm",
+        "back": "Back",
+        "next": "Next",
+        "previous": "Previous",
+        "close": "Close",
+        "yes": "Yes",
+        "no": "No",
+        "all": "All",
+        "none": "None",
+        "today": "Today",
+        "tomorrow": "Tomorrow",
+        "status": "Status"
+    },
+    "nav": {
+        "dashboard": "Dashboard",
+        "drivers": "Drivers",
+        "leaderboard": "Leaderboard",
+        "events": "Events",
+        "championships": "Championships",
+        "profiles": "Profiles",
+        "mods": "Library",
+        "history": "History",
+        "bookings": "Bookings",
+        "settings": "Settings",
+        "hallOfFame": "Hall of Fame",
+        "screens": "Screen Menu"
+    },
+    "dashboard": {
+        "title": "Command Center",
+        "subtitle": "General control panel for the venue",
+        "onlineStations": "Online Stations",
+        "totalDrivers": "Registered Drivers",
+        "activeProfile": "Active Profile",
+        "networkStatus": "Network Status",
+        "salaStatus": "Venue Status",
+        "operativa": "100% Operational",
+        "atencion": "Attention Required"
+    },
+    "bookings": {
+        "title": "Booking System",
+        "newBooking": "New Booking",
+        "selectDate": "Select Date",
+        "selectTime": "Select Time",
+        "customerName": "Customer Name",
+        "customerEmail": "Email",
+        "customerPhone": "Phone",
+        "numPlayers": "Number of Players",
+        "duration": "Duration",
+        "notes": "Notes",
+        "pending": "Pending",
+        "confirmed": "Confirmed",
+        "cancelled": "Cancelled",
+        "completed": "Completed",
+        "confirmBooking": "Confirm Booking",
+        "bookingSuccess": "Booking Confirmed!",
+        "arrive10min": "Remember to arrive 10 minutes early"
+    },
+    "analytics": {
+        "title": "Analytics Dashboard",
+        "sessionsToday": "Sessions Today",
+        "thisWeek": "This Week",
+        "activeDrivers": "Active Drivers",
+        "bookingsToday": "Bookings Today",
+        "last14Days": "Sessions last 14 days",
+        "topDrivers": "Top Drivers (This Month)",
+        "popularTracks": "Popular Tracks",
+        "popularCars": "Popular Cars",
+        "tierDistribution": "Tier Distribution",
+        "pointsIssued": "Points Issued",
+        "pointsRedeemed": "Points Redeemed",
+        "bookingSummary": "Booking Summary"
+    },
+    "loyalty": {
+        "title": "Loyalty Points",
+        "currentPoints": "points available",
+        "nextTier": "Next tier",
+        "pointsToNext": "pts to",
+        "totalEarned": "Total earned",
+        "tier": {
+            "bronze": "Bronze",
+            "silver": "Silver",
+            "gold": "Gold",
+            "platinum": "Platinum"
+        }
+    },
+    "passport": {
+        "title": "Driver Passport",
+        "downloadPdf": "Download PDF",
+        "totalLaps": "Laps",
+        "totalKm": "Total Km",
+        "consistency": "Consistency",
+        "recentSessions": "Recent Sessions",
+        "progression": "Progression (Last 5)",
+        "scanQr": "Scan to view digital passport"
+    },
+    "theme": {
+        "dark": "Dark Mode",
+        "light": "Light Mode",
+        "switchToLight": "Switch to light mode",
+        "switchToDark": "Switch to dark mode"
+    }
+}

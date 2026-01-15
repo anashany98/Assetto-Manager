@@ -1,8 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 from .database import engine, Base
 from .routers import stations, mods, telemetry, websockets, settings, profiles, events, config_manager, championships, integrations, tournament, logs, ads, auth, backup, exports, loyalty, bookings, analytics
 from .routers.logs import MemoryLogHandler
+from .services.scheduler import start_scheduler, stop_scheduler
 
 # Create Tables
 Base.metadata.create_all(bind=engine)
@@ -11,10 +13,22 @@ from fastapi.staticfiles import StaticFiles
 import os
 from .paths import STORAGE_DIR, REPO_ROOT
 
+
+# Lifecycle events
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    start_scheduler()
+    yield
+    # Shutdown
+    stop_scheduler()
+
+
 app = FastAPI(
     title="AC Manager Central Server",
     description="API for managing Assetto Corsa mods and simulators",
-    version="0.1.0"
+    version="0.1.0",
+    lifespan=lifespan
 )
 
 # Global Exception Handler

@@ -10,10 +10,12 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm, mm
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.pdfgen import canvas
+import qrcode
 
 from .. import database, models
 from sqlalchemy.orm import Session
 from datetime import datetime
+import urllib.parse
 
 router = APIRouter(prefix="/exports", tags=["exports"])
 
@@ -25,6 +27,25 @@ def format_lap_time(ms: int) -> str:
     seconds = (ms % 60000) // 1000
     millis = ms % 1000
     return f"{minutes}:{seconds:02d}.{millis:03d}"
+
+
+# Helper to generate QR code as BytesIO image
+def generate_qr_code(data: str, size: int = 100) -> BytesIO:
+    """Generate a QR code image as BytesIO buffer"""
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=2,
+    )
+    qr.add_data(data)
+    qr.make(fit=True)
+    
+    img = qr.make_image(fill_color="black", back_color="white")
+    buffer = BytesIO()
+    img.save(buffer, format='PNG')
+    buffer.seek(0)
+    return buffer
 
 
 @router.get("/passport/{driver_name}")
@@ -123,6 +144,25 @@ async def export_driver_passport(driver_name: str):
             elements.append(Paragraph("Sin tiempos registrados todavía.", styles['Normal']))
         
         elements.append(Spacer(1, 30))
+        
+        # QR Code Section
+        qr_url = f"/passport-scanner?driver={urllib.parse.quote(driver_name)}"
+        qr_buffer = generate_qr_code(qr_url)
+        qr_image = Image(qr_buffer, width=3*cm, height=3*cm)
+        
+        # Center QR with caption
+        qr_caption = ParagraphStyle(
+            'QRCaption',
+            parent=styles['Normal'],
+            fontSize=9,
+            textColor=colors.HexColor('#4b5563'),
+            alignment=1,
+            spaceBefore=5
+        )
+        elements.append(qr_image)
+        elements.append(Paragraph("📱 Escanea para ver el pasaporte digital", qr_caption))
+        
+        elements.append(Spacer(1, 20))
         
         # Footer
         footer_style = ParagraphStyle(

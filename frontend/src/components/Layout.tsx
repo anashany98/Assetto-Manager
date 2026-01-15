@@ -13,11 +13,14 @@ import {
     ChevronLeft,
     ChevronRight,
     History as HistoryIcon,
-    CalendarCheck
+    CalendarCheck,
+    Sun,
+    Moon
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { API_URL } from '../config';
+import { useTheme } from '../contexts/ThemeContext';
 
 // NavItem Component
 const NavItem = ({ to, icon: Icon, children, collapsed }: { to: string, icon: any, children: React.ReactNode, collapsed?: boolean }) => {
@@ -36,6 +39,25 @@ const NavItem = ({ to, icon: Icon, children, collapsed }: { to: string, icon: an
             <Icon size={20} />
             <span className={`font-medium transition-all ${collapsed ? 'hidden w-0' : 'block'}`}>{children}</span>
         </Link>
+    );
+};
+
+// Theme Toggle Component
+const ThemeToggle = ({ collapsed }: { collapsed: boolean }) => {
+    const { theme, toggleTheme } = useTheme();
+
+    return (
+        <button
+            onClick={toggleTheme}
+            className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors"
+            title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+        >
+            {theme === 'dark' ? (
+                <Sun size={collapsed ? 16 : 18} className="text-yellow-400" />
+            ) : (
+                <Moon size={collapsed ? 16 : 18} className="text-blue-400" />
+            )}
+        </button>
     );
 };
 
@@ -133,15 +155,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
                 {/* User Profile / Status */}
                 <div className="p-4 border-t border-gray-800 bg-gray-900/50">
-                    <div className="flex items-center space-x-3 justify-center">
-                        <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center font-bold flex-shrink-0 shadow-lg shadow-blue-900/50">A</div>
-                        <div className={`transition-all overflow-hidden ${!isSidebarOpen ? 'w-0 opacity-0' : 'w-auto opacity-100'}`}>
-                            <p className="text-sm font-medium whitespace-nowrap">Operador</p>
-                            <p className="text-xs text-green-400 flex items-center gap-1">
-                                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                                Conectado
-                            </p>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                            <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center font-bold flex-shrink-0 shadow-lg shadow-blue-900/50">A</div>
+                            <div className={`transition-all overflow-hidden ${!isSidebarOpen ? 'w-0 opacity-0' : 'w-auto opacity-100'}`}>
+                                <p className="text-sm font-medium whitespace-nowrap">Operador</p>
+                                <p className="text-xs text-green-400 flex items-center gap-1">
+                                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                                    Conectado
+                                </p>
+                            </div>
                         </div>
+                        <ThemeToggle collapsed={!isSidebarOpen} />
                     </div>
                 </div>
             </div>

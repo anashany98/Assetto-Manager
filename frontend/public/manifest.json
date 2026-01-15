@@ -1,15 +1,31 @@
 {
-    "name": "Assetto Manager Kiosk",
-    "short_name": "Assetto Manager",
-    "start_url": "/tv?screen=1",
+    "name": "AC Manager - VRacing Bar",
+    "short_name": "AC Manager",
+    "description": "Sistema de gestión para simuladores de carreras",
+    "start_url": "/",
     "display": "standalone",
-    "background_color": "#000000",
-    "theme_color": "#000000",
+    "background_color": "#0a0a0c",
+    "theme_color": "#3b82f6",
+    "orientation": "any",
     "icons": [
         {
             "src": "/logo.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/logo.png",
             "sizes": "512x512",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "any maskable"
         }
-    ]
+    ],
+    "categories": [
+        "business",
+        "entertainment",
+        "games"
+    ],
+    "lang": "es",
+    "dir": "ltr"
 }

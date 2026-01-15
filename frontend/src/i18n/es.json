@@ -1,0 +1,112 @@
+{
+    "common": {
+        "loading": "Cargando...",
+        "error": "Error",
+        "save": "Guardar",
+        "cancel": "Cancelar",
+        "delete": "Eliminar",
+        "edit": "Editar",
+        "create": "Crear",
+        "search": "Buscar",
+        "confirm": "Confirmar",
+        "back": "Volver",
+        "next": "Siguiente",
+        "previous": "Anterior",
+        "close": "Cerrar",
+        "yes": "Sí",
+        "no": "No",
+        "all": "Todos",
+        "none": "Ninguno",
+        "today": "Hoy",
+        "tomorrow": "Mañana",
+        "status": "Estado"
+    },
+    "nav": {
+        "dashboard": "Panel de Control",
+        "drivers": "Pilotos",
+        "leaderboard": "Clasificación",
+        "events": "Eventos",
+        "championships": "Campeonatos",
+        "profiles": "Perfiles",
+        "mods": "Biblioteca",
+        "history": "Historial",
+        "bookings": "Reservas",
+        "settings": "Configuración",
+        "hallOfFame": "Salón de la Fama",
+        "screens": "Menú Pantallas"
+    },
+    "dashboard": {
+        "title": "Centro de Mando",
+        "subtitle": "Panel de control general de la sala",
+        "onlineStations": "Estaciones Activas",
+        "totalDrivers": "Pilotos Registrados",
+        "activeProfile": "Perfil Activo",
+        "networkStatus": "Estado de Red",
+        "salaStatus": "Estado de Sala",
+        "operativa": "100% Operativa",
+        "atencion": "Atención Requerida"
+    },
+    "bookings": {
+        "title": "Sistema de Reservas",
+        "newBooking": "Nueva Reserva",
+        "selectDate": "Seleccionar Fecha",
+        "selectTime": "Seleccionar Hora",
+        "customerName": "Nombre del Cliente",
+        "customerEmail": "Email",
+        "customerPhone": "Teléfono",
+        "numPlayers": "Número de Jugadores",
+        "duration": "Duración",
+        "notes": "Notas",
+        "pending": "Pendiente",
+        "confirmed": "Confirmada",
+        "cancelled": "Cancelada",
+        "completed": "Completada",
+        "confirmBooking": "Confirmar Reserva",
+        "bookingSuccess": "¡Reserva Confirmada!",
+        "arrive10min": "Recuerda llegar 10 minutos antes"
+    },
+    "analytics": {
+        "title": "Analytics Dashboard",
+        "sessionsToday": "Sesiones Hoy",
+        "thisWeek": "Esta Semana",
+        "activeDrivers": "Pilotos Activos",
+        "bookingsToday": "Reservas Hoy",
+        "last14Days": "Sesiones últimos 14 días",
+        "topDrivers": "Top Pilotos (Este Mes)",
+        "popularTracks": "Circuitos Populares",
+        "popularCars": "Coches Populares",
+        "tierDistribution": "Distribución de Niveles",
+        "pointsIssued": "Puntos Emitidos",
+        "pointsRedeemed": "Puntos Canjeados",
+        "bookingSummary": "Resumen Reservas"
+    },
+    "loyalty": {
+        "title": "Puntos de Fidelidad",
+        "currentPoints": "puntos disponibles",
+        "nextTier": "Próximo nivel",
+        "pointsToNext": "pts para",
+        "totalEarned": "Total ganados",
+        "tier": {
+            "bronze": "Bronce",
+            "silver": "Plata",
+            "gold": "Oro",
+            "platinum": "Platino"
+        }
+    },
+    "passport": {
+        "title": "Pasaporte del Piloto",
+        "downloadPdf": "Descargar PDF",
+        "totalLaps": "Vueltas",
+        "totalKm": "Km Totales",
+        "consistency": "Consistencia",
+        "recentSessions": "Últimas Sesiones",
+        "progression": "Progresión (Últimas 5)",
+        "scanQr": "Escanea para ver el pasaporte digital"
+    },
+    "theme": {
+        "dark": "Modo Oscuro",
+        "light": "Modo Claro",
+        "switchToLight": "Cambiar a modo claro",
+        "switchToDark": "Cambiar a modo oscuro"
+    }
+}

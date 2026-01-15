@@ -1,0 +1,112 @@
+{
+    "common": {
+        "loading": "Carregant...",
+        "error": "Error",
+        "save": "Desar",
+        "cancel": "Cancel·lar",
+        "delete": "Eliminar",
+        "edit": "Editar",
+        "create": "Crear",
+        "search": "Cercar",
+        "confirm": "Confirmar",
+        "back": "Tornar",
+        "next": "Següent",
+        "previous": "Anterior",
+        "close": "Tancar",
+        "yes": "Sí",
+        "no": "No",
+        "all": "Tots",
+        "none": "Cap",
+        "today": "Avui",
+        "tomorrow": "Demà",
+        "status": "Estat"
+    },
+    "nav": {
+        "dashboard": "Panell de Control",
+        "drivers": "Pilots",
+        "leaderboard": "Classificació",
+        "events": "Esdeveniments",
+        "championships": "Campionats",
+        "profiles": "Perfils",
+        "mods": "Biblioteca",
+        "history": "Historial",
+        "bookings": "Reserves",
+        "settings": "Configuració",
+        "hallOfFame": "Saló de la Fama",
+        "screens": "Menú Pantalles"
+    },
+    "dashboard": {
+        "title": "Centre de Comandament",
+        "subtitle": "Panell de control general de la sala",
+        "onlineStations": "Estacions Actives",
+        "totalDrivers": "Pilots Registrats",
+        "activeProfile": "Perfil Actiu",
+        "networkStatus": "Estat de Xarxa",
+        "salaStatus": "Estat de Sala",
+        "operativa": "100% Operativa",
+        "atencion": "Atenció Requerida"
+    },
+    "bookings": {
+        "title": "Sistema de Reserves",
+        "newBooking": "Nova Reserva",
+        "selectDate": "Seleccionar Data",
+        "selectTime": "Seleccionar Hora",
+        "customerName": "Nom del Client",
+        "customerEmail": "Email",
+        "customerPhone": "Telèfon",
+        "numPlayers": "Nombre de Jugadors",
+        "duration": "Durada",
+        "notes": "Notes",
+        "pending": "Pendent",
+        "confirmed": "Confirmada",
+        "cancelled": "Cancel·lada",
+        "completed": "Completada",
+        "confirmBooking": "Confirmar Reserva",
+        "bookingSuccess": "Reserva Confirmada!",
+        "arrive10min": "Recorda arribar 10 minuts abans"
+    },
+    "analytics": {
+        "title": "Anàlisi Dashboard",
+        "sessionsToday": "Sessions Avui",
+        "thisWeek": "Aquesta Setmana",
+        "activeDrivers": "Pilots Actius",
+        "bookingsToday": "Reserves Avui",
+        "last14Days": "Sessions últims 14 dies",
+        "topDrivers": "Top Pilots (Aquest Mes)",
+        "popularTracks": "Circuits Populars",
+        "popularCars": "Cotxes Populars",
+        "tierDistribution": "Distribució de Nivells",
+        "pointsIssued": "Punts Emesos",
+        "pointsRedeemed": "Punts Canviats",
+        "bookingSummary": "Resum Reserves"
+    },
+    "loyalty": {
+        "title": "Punts de Fidelitat",
+        "currentPoints": "punts disponibles",
+        "nextTier": "Proper nivell",
+        "pointsToNext": "pts per",
+        "totalEarned": "Total guanyats",
+        "tier": {
+            "bronze": "Bronze",
+            "silver": "Plata",
+            "gold": "Or",
+            "platinum": "Platí"
+        }
+    },
+    "passport": {
+        "title": "Passaport del Pilot",
+        "downloadPdf": "Descarregar PDF",
+        "totalLaps": "Voltes",
+        "totalKm": "Km Totals",
+        "consistency": "Consistència",
+        "recentSessions": "Sessions Recents",
+        "progression": "Progressió (Últimes 5)",
+        "scanQr": "Escaneja per veure el passaport digital"
+    },
+    "theme": {
+        "dark": "Mode Fosc",
+        "light": "Mode Clar",
+        "switchToLight": "Canviar a mode clar",
+        "switchToDark": "Canviar a mode fosc"
+    }
+}
