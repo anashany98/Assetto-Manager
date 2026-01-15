@@ -45,7 +45,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     const location = useLocation();
 
     // Determine if we should show the full layout or just the content (e.g. for TV/Mobile/Public views)
-    const publicPaths = ['/', '/tv', '/tv-mode', '/mobile', '/passport-scanner', '/hall-of-fame', '/live-map', '/battle', '/kiosk', '/login', '/leaderboard', '/remote'];
+    const publicPaths = ['/', '/tv', '/tv-mode', '/mobile', '/passport-scanner', '/hall-of-fame', '/live-map', '/battle', '/kiosk', '/login', '/leaderboard', '/remote', '/reservar'];
     const isPublicView = publicPaths.includes(location.pathname) || location.pathname.startsWith('/tv/') || location.pathname.startsWith('/telemetry/');
 
     // Branding Query

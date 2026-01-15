@@ -28,6 +28,7 @@ const LiveMapPage = lazy(() => import('./pages/LiveMapPage'));
 const HistoryPage = lazy(() => import('./pages/HistoryPage'));
 const LapAnalysisPage = lazy(() => import('./pages/LapAnalysisPage'));
 const BookingsPage = lazy(() => import('./pages/BookingsPage'));
+const PublicBookingPage = lazy(() => import('./pages/PublicBookingPage'));
 const TVMode = lazy(() => import('./pages/TVMode').then(module => ({ default: module.TVMode })));
 
 import { useBranding } from './hooks/useBranding';
@@ -78,6 +79,7 @@ function App() {
               <Route path="/live-map" element={<LiveMapPage />} />
               <Route path="/tv" element={<TVMode />} />
               <Route path="/telemetry/:id" element={<LapAnalysisPage />} />
+              <Route path="/reservar" element={<PublicBookingPage />} />
 
               {/* TV & Mobile (Handled by Layout to hide sidebar) */}
               <Route path="/tv/leaderboard" element={<Leaderboard />} />

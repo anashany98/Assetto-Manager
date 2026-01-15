@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Search, Trophy, Car, ChevronRight, Award, AlertTriangle, FileDown } from 'lucide-react';
+import { Search, Trophy, Car, ChevronRight, Award, AlertTriangle, FileDown, Star, Gift } from 'lucide-react';
 import axios from 'axios';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { API_URL } from '../config';
@@ -32,6 +32,16 @@ export default function MobilePassport() {
     const { data: profile, isLoading: isLoadingProfile, error: profileError } = useQuery({
         queryKey: ['driverProfile', selectedDriver],
         queryFn: () => getDriverProfile(selectedDriver!),
+        enabled: !!selectedDriver
+    });
+
+    // Fetch Loyalty Points
+    const { data: loyalty } = useQuery({
+        queryKey: ['driverLoyalty', selectedDriver],
+        queryFn: async () => {
+            const res = await axios.get(`${API_URL}/loyalty/points/${encodeURIComponent(selectedDriver!)}`);
+            return res.data;
+        },
         enabled: !!selectedDriver
     });
 
@@ -123,6 +133,49 @@ export default function MobilePassport() {
                             </div>
                         </div>
                     </div>
+
+                    {/* Loyalty Points Card */}
+                    {loyalty && (
+                        <div className="bg-gradient-to-br from-amber-900/30 to-gray-900 border border-amber-500/30 rounded-2xl p-4">
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                    <Star className="text-amber-400" size={20} />
+                                    <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Puntos de Fidelidad</span>
+                                </div>
+                                <div className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${loyalty.tier === 'platinum' ? 'bg-purple-600 text-white' :
+                                        loyalty.tier === 'gold' ? 'bg-amber-500 text-black' :
+                                            loyalty.tier === 'silver' ? 'bg-gray-400 text-black' :
+                                                'bg-amber-800 text-amber-200'
+                                    }`}>
+                                    {loyalty.tier}
+                                </div>
+                            </div>
+                            <div className="flex items-end justify-between">
+                                <div>
+                                    <div className="text-3xl font-black text-amber-400">{loyalty.points?.toLocaleString() || 0}</div>
+                                    <div className="text-[10px] text-gray-500">puntos disponibles</div>
+                                </div>
+                                {loyalty.next_tier && (
+                                    <div className="text-right">
+                                        <div className="text-xs text-gray-500">Próximo nivel: <span className="text-amber-400 font-bold">{loyalty.next_tier}</span></div>
+                                        <div className="w-24 h-1.5 bg-gray-800 rounded-full mt-1 overflow-hidden">
+                                            <div
+                                                className="h-full bg-gradient-to-r from-amber-600 to-amber-400 rounded-full transition-all"
+                                                style={{ width: `${Math.min(100, ((loyalty.total_earned || 0) / ((loyalty.total_earned || 0) + (loyalty.points_to_next_tier || 1))) * 100)}%` }}
+                                            />
+                                        </div>
+                                        <div className="text-[9px] text-gray-600 mt-0.5">{loyalty.points_to_next_tier} pts para {loyalty.next_tier}</div>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="mt-3 pt-3 border-t border-white/10 flex items-center justify-between">
+                                <div className="text-[10px] text-gray-500">
+                                    <Gift size={12} className="inline mr-1" />
+                                    Total ganados: <span className="text-white font-bold">{loyalty.total_earned?.toLocaleString() || 0}</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="space-y-3">
                         <h3 className="text-gray-400 text-xs font-bold uppercase tracking-widest ml-1">Últimas Sesiones</h3>
