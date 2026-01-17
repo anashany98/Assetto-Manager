@@ -15,7 +15,7 @@ export default function ProfilesPage() {
             try {
                 const res = await getProfiles();
                 return Array.isArray(res) ? res : [];
-            } catch (e) { return []; }
+            } catch { return []; }
         },
         initialData: []
     });

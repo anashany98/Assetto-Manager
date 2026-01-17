@@ -24,7 +24,7 @@ function BattleSetup({ onStart }: { onStart: (d1: string, d2: string, track: str
         queryFn: async () => (await axios.get(`${API_URL}/telemetry/drivers`)).data
     });
 
-    const driverList = Array.isArray(drivers) ? drivers.map((d: any) => d.driver_name) : [];
+    const driverList = Array.isArray(drivers) ? drivers.map((d: { driver_name: string }) => d.driver_name) : [];
 
     return (
         <div className="min-h-screen bg-gray-950 flex items-center justify-center p-8 bg-[url('/bg-pattern.png')] bg-cover bg-blend-overlay">
@@ -108,8 +108,8 @@ function BattleArena({ query }: { query: URLSearchParams }) {
     const d2 = query.get('p2')!;
     const track = query.get('track')!;
 
-    const [live1, setLive1] = useState<any>(null);
-    const [live2, setLive2] = useState<any>(null);
+    const [live1, setLive1] = useState<{ speed_kmh?: number; rpm?: number; speed?: number; gear?: number } | null>(null);
+    const [live2, setLive2] = useState<{ speed_kmh?: number; rpm?: number; speed?: number; gear?: number } | null>(null);
 
     // Fetch Comparison
     const { data: stats, isLoading, error } = useQuery({
@@ -139,8 +139,8 @@ function BattleArena({ query }: { query: URLSearchParams }) {
                 const liveName = data.driver_name || data.driver;
                 if (liveName === d1) setLive1(data);
                 if (liveName === d2) setLive2(data);
-            } catch (e) {
-                console.error("WS Parse Error", e);
+            } catch {
+                // WebSocket parse error - ignore invalid messages
             }
         };
 
@@ -274,7 +274,7 @@ function BattleArena({ query }: { query: URLSearchParams }) {
     );
 }
 
-function BattleResultOverlay({ stats, d1, d2 }: any) {
+function BattleResultOverlay({ stats, d1, d2 }: { stats: { driver_1: { best_lap: number }; driver_2: { best_lap: number } }; d1: string; d2: string }) {
     const [isOpen, setIsOpen] = useState(false);
 
     // Auto-open logic could go here (e.g. if websocket sends "FINISHED")
@@ -335,7 +335,7 @@ function BattleResultOverlay({ stats, d1, d2 }: any) {
     );
 }
 
-function StatRow({ label, value, isWin, color, align, unit, size = 'md' }: any) {
+function StatRow({ label, value, isWin, color, align, unit, size = 'md' }: { label: string; value: string | number; isWin?: boolean; color: string; align?: string; unit?: string; size?: string }) {
     return (
         <div className={`flex flex-col ${align === 'right' ? 'items-end' : 'items-start'}`}>
             <div className="text-xs text-gray-600 font-black uppercase tracking-widest mb-1">{label}</div>
@@ -352,7 +352,7 @@ function StatRow({ label, value, isWin, color, align, unit, size = 'md' }: any) 
     )
 }
 
-function LiveStat({ label, value, unit, color }: any) {
+function LiveStat({ label, value, unit, color }: { label: string; value: string | number; unit?: string; color: string }) {
     return (
         <div className="bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 min-w-[80px] text-center">
             <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">{label}</div>

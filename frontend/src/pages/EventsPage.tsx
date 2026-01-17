@@ -47,7 +47,7 @@ export default function EventsPage() {
     });
 
     const updateMutation = useMutation({
-        mutationFn: ({ id, data }: { id: number; data: any }) => updateEvent(id, data),
+        mutationFn: ({ id, data }: { id: number; data: Parameters<typeof updateEvent>[1] }) => updateEvent(id, data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['events'] });
             setEditingEvent(null);
@@ -62,15 +62,15 @@ export default function EventsPage() {
     });
 
     const resultMutation = useMutation({
-        mutationFn: ({ id, data }: { id: number; data: any }) => submitManualResults(id, data),
+        mutationFn: ({ id, data }: { id: number; data: Parameters<typeof submitManualResults>[1] }) => submitManualResults(id, data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['events'] });
             setCompletingEvent(null);
         }
     });
 
-    const handleCreate = (data: any) => createMutation.mutate(data);
-    const handleUpdate = (data: any) => {
+    const handleCreate = (data: Parameters<typeof createEvent>[0]) => createMutation.mutate(data);
+    const handleUpdate = (data: Parameters<typeof updateEvent>[1]) => {
         if (editingEvent) {
             updateMutation.mutate({ id: editingEvent.id, data });
         }
@@ -80,7 +80,7 @@ export default function EventsPage() {
             deleteMutation.mutate(id);
         }
     };
-    const handleResultSubmit = (data: any) => {
+    const handleResultSubmit = (data: Parameters<typeof submitManualResults>[1]) => {
         if (completingEvent) {
             resultMutation.mutate({ id: completingEvent.id, data });
         }

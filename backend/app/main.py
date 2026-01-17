@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from .database import engine, Base
-from .routers import stations, mods, telemetry, websockets, settings, profiles, events, config_manager, championships, integrations, tournament, logs, ads, auth, backup, exports, loyalty, bookings, analytics
+from .routers import stations, mods, telemetry, websockets, settings, profiles, events, config_manager, championships, integrations, tournament, logs, ads, auth, backup, exports, loyalty, bookings, analytics, push, elimination
 from .routers.logs import MemoryLogHandler
 from .services.scheduler import start_scheduler, stop_scheduler
 
@@ -98,6 +98,8 @@ app.include_router(exports.router)
 app.include_router(loyalty.router)
 app.include_router(bookings.router)
 app.include_router(analytics.router)
+app.include_router(push.router)
+app.include_router(elimination.router)
 
 
 # @app.get("/")

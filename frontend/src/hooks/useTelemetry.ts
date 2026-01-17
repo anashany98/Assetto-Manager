@@ -26,6 +26,12 @@ export interface TelemetryPacket {
     y?: number;
     z?: number;
     timestamp?: number;
+    // Extended telemetry fields
+    fuel?: number;
+    engine_temp?: number;
+    damage?: number[];
+    win_count?: number;
+    total_laps?: number;
 }
 
 export const useTelemetry = () => {
@@ -57,7 +63,7 @@ export const useTelemetry = () => {
                 }
             };
 
-            socket.onerror = (_error) => {
+            socket.onerror = () => {
                 // Error log usually followed by onclose
                 console.error("Telemetry: Connection Error");
             };
@@ -71,7 +77,7 @@ export const useTelemetry = () => {
                             [data.station_id]: { ...data, timestamp: Date.now() }
                         }));
                     }
-                } catch (e) {
+                } catch {
                     // Silently ignore parse errors
                 }
             };

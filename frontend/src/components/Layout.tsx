@@ -17,13 +17,14 @@ import {
     Sun,
     Moon
 } from 'lucide-react';
+import { useTheme } from '../contexts/useTheme';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { API_URL } from '../config';
-import { useTheme } from '../contexts/ThemeContext';
+
 
 // NavItem Component
-const NavItem = ({ to, icon: Icon, children, collapsed }: { to: string, icon: any, children: React.ReactNode, collapsed?: boolean }) => {
+const NavItem = ({ to, icon: Icon, children, collapsed }: { to: string, icon: React.ComponentType<{ size?: number }>, children: React.ReactNode, collapsed?: boolean }) => {
     const location = useLocation();
     const isActive = location.pathname === to;
 
@@ -77,15 +78,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             try {
                 const res = await axios.get(`${API_URL}/settings`);
                 return Array.isArray(res.data) ? res.data : [];
-            } catch (e) { return []; }
+            } catch { return []; }
         },
         retry: 1,
         initialData: []
     });
 
     const safeBranding = Array.isArray(branding) ? branding : [];
-    const barLogo = safeBranding.find((s: any) => s.key === 'bar_logo')?.value || '/logo.png';
-    const barName = safeBranding.find((s: any) => s.key === 'bar_name')?.value || 'VRacing Bar';
+    const barLogo = safeBranding.find((s: { key: string; value: string }) => s.key === 'bar_logo')?.value || '/logo.png';
+    const barName = safeBranding.find((s: { key: string; value: string }) => s.key === 'bar_name')?.value || 'VRacing Bar';
 
     if (isPublicView) {
         return (

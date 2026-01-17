@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import esTranslations from '../i18n/es.json';
 import enTranslations from '../i18n/en.json';
 import caTranslations from '../i18n/ca.json';
@@ -11,20 +11,10 @@ const translations: Record<Language, typeof esTranslations> = {
     ca: caTranslations
 };
 
-interface LanguageContextType {
-    language: Language;
-    setLanguage: (lang: Language) => void;
-    t: (key: string) => string;
-    availableLanguages: { code: Language; name: string; flag: string }[];
-}
+import { LanguageContext } from './LanguageContextDefinition';
 
-const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
-
-export const availableLanguages: { code: Language; name: string; flag: string }[] = [
-    { code: 'es', name: 'Español', flag: '🇪🇸' },
-    { code: 'en', name: 'English', flag: '🇬🇧' },
-    { code: 'ca', name: 'Català', flag: '🏳️' }
-];
+// availableLanguages moved to languageConstants.ts
+import { availableLanguages } from './languageConstants';
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
     const [language, setLanguageState] = useState<Language>(() => {
@@ -51,6 +41,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     // Translation function
     const t = (key: string): string => {
         const keys = key.split('.');
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let value: any = translations[language];
 
         for (const k of keys) {
@@ -80,10 +71,6 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     );
 }
 
-export function useLanguage() {
-    const context = useContext(LanguageContext);
-    if (context === undefined) {
-        throw new Error('useLanguage must be used within a LanguageProvider');
-    }
-    return context;
-}
+// Re-export deprecated
+// export { useLanguage } from './useLanguage';
+// export { availableLanguages } from './languageConstants';

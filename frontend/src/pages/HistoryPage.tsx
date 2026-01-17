@@ -117,7 +117,7 @@ export default function HistoryPage() {
                                     </tr>
                                 ))
                             ) : Array.isArray(sessions) && sessions.length > 0 ? (
-                                sessions.map((session: any) => (
+                                sessions.map((session: { id: number; date?: string; driver_name: string; track_name: string; car_model: string; best_lap: number }) => (
                                     <tr key={session.id} className="hover:bg-white/[0.02] transition-all group">
                                         <td className="p-6">
                                             <div className="flex flex-col">

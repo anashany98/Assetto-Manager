@@ -45,7 +45,7 @@ export default function Configuration() {
             try {
                 const res = await axios.get(`${API_URL}/settings`);
                 return Array.isArray(res.data) ? res.data : [];
-            } catch (e) { return []; }
+            } catch { return []; }
         },
         initialData: []
     });
@@ -100,8 +100,8 @@ export default function Configuration() {
     );
 
     const safeBranding = Array.isArray(branding) ? branding : [];
-    const barName = safeBranding.find((s: any) => s.key === 'bar_name')?.value || 'VRacing Bar';
-    const barLogo = safeBranding.find((s: any) => s.key === 'bar_logo')?.value || '/logo.png';
+    const barName = safeBranding.find((s: { key: string; value: string }) => s.key === 'bar_name')?.value || 'VRacing Bar';
+    const barLogo = safeBranding.find((s: { key: string; value: string }) => s.key === 'bar_logo')?.value || '/logo.png';
 
     return (
         <div className="p-8 font-sans text-gray-100">
@@ -355,7 +355,7 @@ export default function Configuration() {
                             <div>
                                 <label className="flex justify-between text-xs font-black text-gray-500 uppercase tracking-widest mb-3">
                                     <span>Velocidad de Desplazamiento</span>
-                                    <span className="text-blue-400">{safeBranding.find((s: any) => s.key === 'ticker_speed')?.value || '80'}s</span>
+                                    <span className="text-blue-400">{safeBranding.find((s: { key: string; value: string }) => s.key === 'ticker_speed')?.value || '80'}s</span>
                                 </label>
                                 <input
                                     type="range"
@@ -363,7 +363,7 @@ export default function Configuration() {
                                     max="200"
                                     step="10"
                                     className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                                    defaultValue={safeBranding.find((s: any) => s.key === 'ticker_speed')?.value || '80'}
+                                    defaultValue={safeBranding.find((s: { key: string; value: string }) => s.key === 'ticker_speed')?.value || '80'}
                                     onChange={(e) => updateBranding.mutate({ key: 'ticker_speed', value: e.target.value })}
                                 />
                                 <div className="flex justify-between text-[10px] text-gray-500 font-bold mt-2 uppercase tracking-tighter">
@@ -387,7 +387,7 @@ export default function Configuration() {
                                         <input
                                             type="checkbox"
                                             className="w-5 h-5 rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-blue-500 focus:ring-offset-gray-900"
-                                            defaultChecked={(safeBranding.find((s: any) => s.key === item.key)?.value || item.val) === 'true'}
+                                            defaultChecked={(safeBranding.find((s: { key: string; value: string }) => s.key === item.key)?.value || item.val) === 'true'}
                                             onChange={(e) => updateBranding.mutate({ key: item.key, value: e.target.checked ? 'true' : 'false' })}
                                         />
                                     </label>
@@ -398,7 +398,7 @@ export default function Configuration() {
                                 <label className="block text-xs font-black text-gray-500 uppercase tracking-widest mb-3">Mensaje Promocional / Próximo Evento</label>
                                 <textarea
                                     className="w-full p-4 rounded-2xl bg-gray-900 border-2 border-gray-700 shadow-sm focus:ring-4 focus:ring-yellow-900/30 focus:border-yellow-500 transition-all text-lg font-bold text-white outline-none min-h-[100px]"
-                                    defaultValue={safeBranding.find((s: any) => s.key === 'promo_text')?.value || 'BUSCAMOS AL PILOTO MÁS RÁPIDO DEL MES'}
+                                    defaultValue={safeBranding.find((s: { key: string; value: string }) => s.key === 'promo_text')?.value || 'BUSCAMOS AL PILOTO MÁS RÁPIDO DEL MES'}
                                     placeholder="Escribe aquí tu promoción..."
                                     onBlur={(e) => updateBranding.mutate({ key: 'promo_text', value: e.target.value })}
                                 />
@@ -413,16 +413,16 @@ export default function Configuration() {
                                 <button
                                     onClick={() => updateBranding.mutate({
                                         key: 'enable_tts',
-                                        value: (safeBranding.find((s: any) => s.key === 'enable_tts')?.value || 'true') === 'true' ? 'false' : 'true'
+                                        value: (safeBranding.find((s: { key: string; value: string }) => s.key === 'enable_tts')?.value || 'true') === 'true' ? 'false' : 'true'
                                     })}
                                     className={cn(
                                         "w-12 h-7 rounded-full transition-colors relative shadow-inner",
-                                        (safeBranding.find((s: any) => s.key === 'enable_tts')?.value || 'true') === 'true' ? "bg-green-500" : "bg-gray-600"
+                                        (safeBranding.find((s: { key: string; value: string }) => s.key === 'enable_tts')?.value || 'true') === 'true' ? "bg-green-500" : "bg-gray-600"
                                     )}
                                 >
                                     <div className={cn(
                                         "w-5 h-5 bg-white rounded-full absolute top-1 shadow-sm transition-all",
-                                        (safeBranding.find((s: any) => s.key === 'enable_tts')?.value || 'true') === 'true' ? "left-6" : "left-1"
+                                        (safeBranding.find((s: { key: string; value: string }) => s.key === 'enable_tts')?.value || 'true') === 'true' ? "left-6" : "left-1"
                                     )} />
                                 </button>
                             </div>
@@ -452,7 +452,7 @@ export default function Configuration() {
                                 <input
                                     type="checkbox"
                                     className="w-5 h-5 rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-blue-500"
-                                    defaultChecked={(safeBranding.find((s: any) => s.key === 'show_qr')?.value || 'false') === 'true'}
+                                    defaultChecked={(safeBranding.find((s: { key: string; value: string }) => s.key === 'show_qr')?.value || 'false') === 'true'}
                                     onChange={(e) => updateBranding.mutate({ key: 'show_qr', value: e.target.checked ? 'true' : 'false' })}
                                 />
                             </div>
@@ -466,7 +466,7 @@ export default function Configuration() {
                                 </div>
                                 <input
                                     className="w-full p-4 rounded-2xl bg-gray-900 border-2 border-gray-700 shadow-sm focus:ring-4 focus:ring-blue-900/50 focus:border-blue-500 transition-all font-mono text-sm text-gray-300 outline-none"
-                                    defaultValue={safeBranding.find((s: any) => s.key === 'bar_public_url')?.value || `${window.location.protocol}//${window.location.host}/mobile`}
+                                    defaultValue={safeBranding.find((s: { key: string; value: string }) => s.key === 'bar_public_url')?.value || `${window.location.protocol}//${window.location.host}/mobile`}
                                     placeholder="http://192.168.1.XX:5173/mobile"
                                     onBlur={(e) => updateBranding.mutate({ key: 'bar_public_url', value: e.target.value })}
                                 />

@@ -1,6 +1,6 @@
 
 import React, { useState } from "react";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Lock, User } from "lucide-react";
 
@@ -19,7 +19,7 @@ export const LoginPage: React.FC = () => {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
-    const from = (location.state as any)?.from?.pathname || "/";
+    const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname || "/";
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -33,8 +33,8 @@ export const LoginPage: React.FC = () => {
                 await login(username, password);
             }
             navigate(from, { replace: true });
-        } catch (err: any) {
-            setError(err.message || "Failed to login");
+        } catch (err) {
+            setError((err as Error).message || "Failed to login");
         } finally {
             setLoading(false);
         }

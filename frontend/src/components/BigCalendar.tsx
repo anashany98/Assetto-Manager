@@ -58,7 +58,7 @@ export default function BigCalendar({ events, onEdit }: BigCalendarProps) {
 
             {/* Calendar Grid */}
             <div className="grid grid-cols-7 auto-rows-[120px]">
-                {calendarDays.map((day, dayIdx) => {
+                {calendarDays.map((day) => {
                     const dayEvents = events.filter(e => isSameDay(new Date(e.start_date), day));
                     const isCurrentMonth = isSameMonth(day, monthStart);
                     const isToday = isSameDay(day, new Date());

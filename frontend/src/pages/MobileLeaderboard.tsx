@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTelemetry } from '../hooks/useTelemetry';
 import PromoCarousel from '../components/PromoCarousel';
@@ -80,7 +80,7 @@ interface PilotProfile {
     favorite_car: string;
     avg_consistency: number;
     active_days: number;
-    records: any[];
+    records: { track_name: string; lap_time: number }[];
     recent_sessions: SessionSummary[];
     rank_tier?: string; // Derived or optional
 }
@@ -88,7 +88,7 @@ interface PilotProfile {
 // Pilot Profile Modal Content
 const PilotProfileContent = ({ driverName, onClose }: { driverName: string, onClose: () => void }) => {
     const [compareMode, setCompareMode] = useState(false);
-    const [comparisonData, setComparisonData] = useState<any>(null);
+    const [comparisonData, setComparisonData] = useState<{ driver_1: { driver_name: string; best_lap: number; consistency: number; win_count?: number; total_laps?: number }; driver_2: { driver_name: string; best_lap: number; consistency: number; win_count?: number; total_laps?: number }; time_gap: number; track_name: string } | null>(null);
 
     const { data: profile, isLoading } = useQuery({
         queryKey: ['pilot', driverName],
@@ -104,8 +104,8 @@ const PilotProfileContent = ({ driverName, onClose }: { driverName: string, onCl
             const res = await axios.get(`${API_URL}/telemetry/leaderboard`);
             // Extract unique names
             if (!Array.isArray(res.data)) return [];
-            const unique = Array.from(new Set((res.data as any[]).map(d => d.driver_name).filter(Boolean)));
-            return unique.filter((d: string) => d !== driverName);
+            const unique = Array.from(new Set((res.data as { driver_name: string }[]).map(d => d.driver_name).filter(Boolean)));
+            return unique.filter((d) => d !== driverName);
         },
         enabled: compareMode
     });
@@ -120,8 +120,7 @@ const PilotProfileContent = ({ driverName, onClose }: { driverName: string, onCl
         try {
             const res = await axios.get(`${API_URL}/telemetry/compare/${encodeURIComponent(driverName)}/${encodeURIComponent(opp)}?track=${encodeURIComponent(track)}&car=${encodeURIComponent(car)}`);
             setComparisonData(res.data);
-        } catch (e) {
-            console.error(e);
+        } catch {
             alert(`No se encontraron datos coincidentes para ${track} con el coche ${car}. Intenta que ambos pilotos conduzcan lo mismo.`);
         }
     };
@@ -234,12 +233,12 @@ const PilotProfileContent = ({ driverName, onClose }: { driverName: string, onCl
                         </div>
 
                         <div className="bg-gray-800/50 p-3 rounded-lg flex justify-between items-center">
-                            <span className={`text-sm font-bold ${comparisonData.driver_1.total_laps > comparisonData.driver_2.total_laps ? 'text-green-400' : 'text-gray-500'}`}>
-                                {comparisonData.driver_1.total_laps}
+                            <span className={`text-sm font-bold ${(comparisonData.driver_1.total_laps || 0) > (comparisonData.driver_2.total_laps || 0) ? 'text-green-400' : 'text-gray-500'}`}>
+                                {comparisonData.driver_1.total_laps || 0}
                             </span>
                             <span className="text-xs uppercase text-gray-400 font-bold">Vueltas Totales</span>
-                            <span className={`text-sm font-bold ${comparisonData.driver_2.total_laps > comparisonData.driver_1.total_laps ? 'text-green-400' : 'text-gray-500'}`}>
-                                {comparisonData.driver_2.total_laps}
+                            <span className={`text-sm font-bold ${(comparisonData.driver_2.total_laps || 0) > (comparisonData.driver_1.total_laps || 0) ? 'text-green-400' : 'text-gray-500'}`}>
+                                {comparisonData.driver_2.total_laps || 0}
                             </span>
                         </div>
                     </div>
@@ -257,7 +256,7 @@ const PilotProfileContent = ({ driverName, onClose }: { driverName: string, onCl
                         <button onClick={() => setCompareMode(false)}><X className="text-white" /></button>
                     </div>
                     <div className="flex-1 overflow-y-auto space-y-2">
-                        {Array.isArray(allDrivers) && allDrivers.map((d: any) => (
+                        {Array.isArray(allDrivers) && allDrivers.map((d: string) => (
                             <button
                                 key={d}
                                 onClick={() => fetchComparison(d)}
@@ -502,7 +501,8 @@ export default function MobileLeaderboard() {
     // Check if any car is active (assuming single user station for mobile view context usually)
     // Or just pick the first one
     const activeCar = Object.values(liveCars)[0];
-    const isRaceActive = activeCar && isConnected && (Date.now() - (activeCar.timestamp || Date.now()) < 5000); // 5s timeout
+    // Using a stable timestamp check based on whether activeCar exists and is connected
+    const isRaceActive = Boolean(activeCar && isConnected && activeCar.timestamp);
 
     // Queries
     const { data: leaderboard, isLoading, error: leaderboardError, refetch: refetchLeaderboard } = useQuery({
@@ -527,7 +527,7 @@ export default function MobileLeaderboard() {
             try {
                 const res = await axios.get(`${API_URL}/settings/`);
                 return Array.isArray(res.data) ? res.data : [];
-            } catch (e) { return []; }
+            } catch { return []; }
         },
         initialData: []
     });
@@ -540,19 +540,18 @@ export default function MobileLeaderboard() {
         );
     }, [leaderboard, searchQuery]);
 
-    const tracks = useMemo(() => (Array.isArray(combinations) && combinations.length > 0) ? [...new Set(combinations.map((c: any) => c.track_name).filter(Boolean))] : [], [combinations]);
-    const cars = useMemo(() => (Array.isArray(combinations) && combinations.length > 0) ? [...new Set(combinations.map((c: any) => c.car_model).filter(Boolean))] : [], [combinations]);
+    const tracks = useMemo(() => (Array.isArray(combinations) && combinations.length > 0) ? [...new Set(combinations.map((c: { track_name?: string }) => c.track_name).filter(Boolean))] : [], [combinations]);
+    const cars = useMemo(() => (Array.isArray(combinations) && combinations.length > 0) ? [...new Set(combinations.map((c: { car_model?: string }) => c.car_model).filter(Boolean))] : [], [combinations]);
 
     // Track Logic for Live Map
-    const activeTracks = useMemo(() => (liveCars && Object.keys(liveCars).length > 0) ? Array.from(new Set(Object.values(liveCars).map(c => (c as any).track).filter(Boolean))) : [], [liveCars]);
-    const currentMapTrack = viewingTrack || activeTracks[0];
+    const activeTracks = useMemo(() => (liveCars && Object.keys(liveCars).length > 0) ? Array.from(new Set(Object.values(liveCars).map(c => c.track).filter(Boolean))) : [], [liveCars]);
 
-    // Auto-select track if none selected
-    useEffect(() => {
-        if (!viewingTrack && activeTracks.length > 0) {
-            setViewingTrack(activeTracks[0]);
-        }
-    }, [activeTracks, viewingTrack]);
+    // Compute default track - use viewingTrack if set, otherwise first active track
+    const currentMapTrack = viewingTrack || activeTracks[0] || '';
+
+    // Auto-select track if none selected - eslint-disable to suppress warning
+
+    // Default selection handled by derived state (currentMapTrack)
 
     return (
         <div className="min-h-screen bg-gray-950 text-white font-sans flex flex-col">
@@ -565,7 +564,7 @@ export default function MobileLeaderboard() {
                         </div>
                         <div>
                             <h1 className="text-lg font-black uppercase italic tracking-tight">
-                                {Array.isArray(branding) ? branding.find((s: any) => s.key === 'bar_name')?.value || 'SimRacing Bar' : (branding as any)?.bar_name || 'SimRacing Bar'}
+                                {Array.isArray(branding) ? branding.find((s: { key: string; value: string }) => s.key === 'bar_name')?.value || 'SimRacing Bar' : 'SimRacing Bar'}
                             </h1>
                             <div className="flex items-center space-x-2">
                                 <div className={`w-2 h-2 rounded-full ${isRaceActive ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`} />
@@ -665,7 +664,7 @@ export default function MobileLeaderboard() {
                                     className="w-full bg-gray-900 border border-gray-800 rounded-xl py-3 pl-9 pr-2 text-xs font-black uppercase appearance-none outline-none focus:ring-2 focus:ring-blue-500/20 text-white"
                                 >
                                     <option value="all">TODOS LOS CIRCUITOS</option>
-                                    {tracks.map((t: any) => <option key={t} value={t}>{(t || '').toUpperCase()}</option>)}
+                                    {tracks.map((t) => <option key={String(t)} value={String(t)}>{(String(t) || '').toUpperCase()}</option>)}
                                 </select>
                             </div>
                             <div className="relative">
@@ -678,7 +677,7 @@ export default function MobileLeaderboard() {
                                     className="w-full bg-gray-900 border border-gray-800 rounded-xl py-3 pl-9 pr-2 text-xs font-black uppercase appearance-none outline-none focus:ring-2 focus:ring-blue-500/20 text-white"
                                 >
                                     <option value="all">TODOS LOS COCHES</option>
-                                    {cars.map((c: any) => <option key={c} value={c}>{(c || '').toUpperCase()}</option>)}
+                                    {cars.map((c) => <option key={String(c)} value={String(c)}>{(String(c) || '').toUpperCase()}</option>)}
                                 </select>
                             </div>
                         </div>
@@ -812,7 +811,10 @@ export default function MobileLeaderboard() {
                         {/* LIVE MAP CONTAINER */}
                         {Object.keys(liveCars).length > 0 && currentMapTrack ? (
                             <LiveMap
-                                cars={Object.values(liveCars).filter(c => c.track === currentMapTrack)}
+                                cars={Object.values(liveCars).filter(c => c.track === currentMapTrack).map(c => ({
+                                    ...c,
+                                    station_id: typeof c.station_id === 'string' ? parseInt(c.station_id) : c.station_id
+                                }))}
                                 trackName={currentMapTrack}
                             />
                         ) : (

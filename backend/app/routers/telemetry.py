@@ -93,6 +93,24 @@ def upload_session_result(
             best_lap=session_data.best_lap,
             event_id=session_data.event_id
         )
+        
+        # Live Linking: If no event_id provided, check if matches an active event
+        if not new_session.event_id:
+            # Check for events where:
+            # 1. Track matches
+            # 2. Current time matches event window
+            # 3. Championship is active
+            active_event = db.query(models.Event).join(models.Championship).filter(
+                models.Championship.is_active == True,
+                func.lower(models.Event.track_name) == session_data.track_name.lower(),
+                models.Event.start_date <= new_session.date,
+                models.Event.end_date >= new_session.date
+            ).first()
+            
+            if active_event:
+                new_session.event_id = active_event.id
+                logger.info(f"Auto-linked session {new_session.date} to event {active_event.id} ({active_event.name})")
+
         db.add(new_session)
         db.flush() # Get ID without committing
         
@@ -705,11 +723,11 @@ def get_recent_sessions(
 ):
     query = db.query(models.SessionResult)
     if track_name:
-        query = query.filter(models.SessionResult.track_name == track_name)
+        query = query.filter(models.SessionResult.track_name.ilike(f"%{track_name}%"))
     if driver_name:
-        query = query.filter(models.SessionResult.driver_name == driver_name)
+        query = query.filter(models.SessionResult.driver_name.ilike(f"%{driver_name}%"))
     if car_model:
-        query = query.filter(models.SessionResult.car_model == car_model)
+        query = query.filter(models.SessionResult.car_model.ilike(f"%{car_model}%"))
     return query.order_by(desc(models.SessionResult.date)).limit(limit).all()
 
 @router.get("/stats", response_model=schemas.LeaderboardStats)
@@ -850,12 +868,88 @@ def get_driver_comparison(
             driver_2=schemas.ComparisonStats(**stats2, win_count=s2_wins),
             time_gap=abs(stats1["best_lap"] - stats2["best_lap"])
         )
-    except HTTPException:
-        raise
     except Exception as e:
         print(f"ERROR in compare: {e}")
         # Return a mock if it crashes to avoid frontend death, or raise 500 but printed
         raise HTTPException(status_code=500, detail=f"Comparison Error: {str(e)}")
+
+@router.post("/compare-multi", response_model=schemas.MultiDriverComparisonResponse)
+def compare_multi_drivers(
+    payload: schemas.MultiDriverComparisonRequest,
+    db: Session = Depends(database.get_db)
+):
+    try:
+        drivers_stats = []
+        
+        # Helper to get stats for a single driver (reused)
+        def get_stats(driver_name):
+            filters = [
+                func.lower(models.SessionResult.driver_name) == driver_name.lower(),
+                func.lower(models.SessionResult.track_name) == payload.track.lower()
+            ]
+            if payload.car:
+                filters.append(func.lower(models.SessionResult.car_model) == payload.car.lower())
+                
+            laps = db.query(models.LapTime).join(models.SessionResult).filter(*filters).all()
+            
+            if not laps:
+                return None
+                
+            valid_laps_times = [l.time for l in laps if l.time is not None and l.time < 999999999]
+            if not valid_laps_times:
+                return None
+
+            best = min(valid_laps_times)
+            avg = sum(valid_laps_times) / len(valid_laps_times)
+            consistency = avg - best 
+            
+            actual_name = laps[0].session.driver_name if laps else driver_name
+
+            return {
+                "driver_name": actual_name,
+                "best_lap": best,
+                "total_laps": len(laps),
+                "consistency": round(consistency, 1),
+                "win_count": 0
+            }
+
+        # Process all requested drivers
+        for driver in payload.drivers:
+            stats = get_stats(driver)
+            if stats:
+                drivers_stats.append(schemas.ComparisonStats(**stats))
+        
+        if len(drivers_stats) < 1:
+            raise HTTPException(status_code=404, detail="No data found for any of the requested drivers")
+
+        # Sort by Best Lap (Ascending - Fastest first)
+        drivers_stats.sort(key=lambda x: x.best_lap)
+
+        # Calculate Win Counts / Highlights
+        # 1. Best Lap: Index 0 is already winner after sort
+        if drivers_stats:
+            drivers_stats[0].win_count += 1
+            
+        # 2. Consistency: Find min consistency
+        best_consistency = min(drivers_stats, key=lambda x: x.consistency)
+        best_consistency.win_count += 1
+        
+        # 3. Total Laps: Find max laps
+        most_laps = max(drivers_stats, key=lambda x: x.total_laps)
+        most_laps.win_count += 1
+
+        return schemas.MultiDriverComparisonResponse(
+            track_name=payload.track,
+            car_model=payload.car,
+            drivers=drivers_stats
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"ERROR in compare-multi: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/map/{track_name}")
 def get_track_map(track_name: str, db: Session = Depends(database.get_db)):

@@ -5,7 +5,7 @@ import { API_URL } from '../config';
 
 
 export const getEvents = async (status?: string, skip = 0, limit = 100, name?: string, championshipId?: number): Promise<Event[]> => {
-    const params: any = { skip, limit };
+    const params: Record<string, string | number | undefined> = { skip, limit };
     if (status) params.status = status;
     if (name) params.name = name;
     if (championshipId) params.championship_id = championshipId;

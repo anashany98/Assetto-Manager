@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Calendar, Clock, User, Phone, Mail, Check, X, ChevronLeft, ChevronRight, Loader2, Users, Timer } from 'lucide-react';
+import { Calendar, Clock, User, Phone, Mail, Check, CheckCircle, X, ChevronLeft, ChevronRight, Loader2, Users, Timer } from 'lucide-react';
 import axios from 'axios';
 import { API_URL } from '../config';
 import { cn } from '../lib/utils';
@@ -41,7 +41,7 @@ export default function BookingsPage() {
     const queryClient = useQueryClient();
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
     const [showBookingForm, setShowBookingForm] = useState(false);
-    const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+    const [selectedBooking, setSelectedBooking] = useState<Partial<Booking> | null>(null);
 
     // Form state
     const [formData, setFormData] = useState({
@@ -52,6 +52,11 @@ export default function BookingsPage() {
         duration_minutes: 60,
         notes: ''
     });
+
+    // ... (rest of code)
+
+    // Inside render loop:
+
 
     // Get week start
     const getWeekStart = (date: Date) => {
@@ -88,7 +93,7 @@ export default function BookingsPage() {
 
     // Create booking mutation
     const createBooking = useMutation({
-        mutationFn: async (data: any) => {
+        mutationFn: async (data: { customer_name: string; customer_email: string; customer_phone: string; num_players: number; duration_minutes: number; notes: string; date: string; time_slot: string }) => {
             const res = await axios.post(`${API_URL}/bookings/`, data);
             return res.data;
         },
@@ -177,7 +182,7 @@ export default function BookingsPage() {
                 </div>
             ) : (
                 <div className="grid grid-cols-7 gap-3">
-                    {weekData?.days?.map((day: any) => (
+                    {weekData?.days?.map((day: { date: string; bookings?: { id: number; customer_name: string; time_slot: string; status: string }[] }) => (
                         <div
                             key={day.date}
                             className={cn(
@@ -198,33 +203,24 @@ export default function BookingsPage() {
                                 {day.bookings?.map((booking: Booking) => (
                                     <div
                                         key={booking.id}
+                                        onClick={() => setSelectedBooking(booking)}
                                         className={cn(
-                                            "p-2 rounded-lg text-xs cursor-pointer transition-all hover:scale-105",
-                                            STATUS_COLORS[booking.status] + "/20 border border-" + STATUS_COLORS[booking.status].replace('bg-', '')
+                                            "p-2 rounded-lg text-xs cursor-pointer transition-all hover:scale-105 border",
+                                            STATUS_COLORS[booking.status] + "/20 border-" + STATUS_COLORS[booking.status].replace('bg-', '') + "/50",
+                                            booking.status === 'cancelled' && "opacity-60 grayscale-[0.5]"
                                         )}
                                     >
-                                        <div className="font-bold text-white truncate">{booking.time_slot}</div>
-                                        <div className="text-gray-400 truncate">{booking.customer_name}</div>
+                                        <div className="font-bold text-white truncate flex items-center justify-between">
+                                            {booking.time_slot}
+                                            {booking.status === 'cancelled' && <X size={12} className="text-red-500" />}
+                                        </div>
+                                        <div className={cn("truncate", booking.status === 'cancelled' ? "text-gray-500 line-through" : "text-gray-400")}>
+                                            {booking.customer_name}
+                                        </div>
                                         <div className="flex items-center justify-between mt-1">
                                             <span className={cn("text-[9px] font-bold uppercase px-1.5 py-0.5 rounded", STATUS_COLORS[booking.status])}>
                                                 {STATUS_LABELS[booking.status]}
                                             </span>
-                                            {booking.status === 'pending' && (
-                                                <div className="flex gap-1">
-                                                    <button
-                                                        onClick={() => updateStatus.mutate({ id: booking.id, status: 'confirmed' })}
-                                                        className="p-1 bg-green-600 hover:bg-green-500 rounded"
-                                                    >
-                                                        <Check size={10} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => updateStatus.mutate({ id: booking.id, status: 'cancelled' })}
-                                                        className="p-1 bg-red-600 hover:bg-red-500 rounded"
-                                                    >
-                                                        <X size={10} />
-                                                    </button>
-                                                </div>
-                                            )}
                                         </div>
                                     </div>
                                 ))}
@@ -240,10 +236,118 @@ export default function BookingsPage() {
                 </div>
             )}
 
-            {/* Booking Form Modal */}
+            {/* Details Modal */}
+            {selectedBooking && (
+                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 animate-in fade-in">
+                    <div className="bg-gray-900 rounded-2xl p-6 w-full max-w-md border border-gray-700 shadow-2xl">
+                        <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-800">
+                            <div>
+                                <h3 className="text-xl font-black text-white uppercase tracking-tight">Detalles Reserva</h3>
+                                <p className="text-xs text-gray-500 font-bold uppercase">{selectedBooking.time_slot} - {new Date(selectedBooking.date!).toLocaleDateString()}</p>
+                            </div>
+                            <button onClick={() => setSelectedBooking(null)} className="p-2 hover:bg-gray-800 rounded-lg">
+                                <X size={20} className="text-gray-400" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-6">
+                            {/* Status Badge */}
+                            <div className="flex justify-between items-center bg-gray-800 p-4 rounded-xl">
+                                <div className="text-xs font-bold text-gray-500 uppercase">Estado Actual</div>
+                                <span className={cn(
+                                    "px-3 py-1 rounded-lg text-sm font-bold uppercase tracking-wider",
+                                    STATUS_COLORS[selectedBooking.status || 'pending']
+                                )}>
+                                    {STATUS_LABELS[selectedBooking.status || 'pending']}
+                                </span>
+                            </div>
+
+                            {/* Customer Details */}
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-3 text-gray-300">
+                                    <User size={18} className="text-blue-500" />
+                                    <span className="font-bold text-lg">{selectedBooking.customer_name}</span>
+                                </div>
+                                {(selectedBooking.customer_phone || selectedBooking.customer_email) && (
+                                    <div className="grid grid-cols-1 gap-3 ml-8 text-sm text-gray-400">
+                                        {selectedBooking.customer_phone && (
+                                            <div className="flex items-center gap-2"><Phone size={14} /> {selectedBooking.customer_phone}</div>
+                                        )}
+                                        {selectedBooking.customer_email && (
+                                            <div className="flex items-center gap-2"><Mail size={14} /> {selectedBooking.customer_email}</div>
+                                        )}
+                                    </div>
+                                )}
+                                <div className="flex items-center gap-3 text-gray-400 ml-1">
+                                    <Users size={16} className="text-gray-500" />
+                                    <span>{selectedBooking.num_players} Jugadores ({selectedBooking.duration_minutes} min)</span>
+                                </div>
+                            </div>
+
+                            {/* Notes */}
+                            {selectedBooking.notes && (
+                                <div className="bg-yellow-900/10 border border-yellow-700/30 p-4 rounded-xl">
+                                    <h4 className="text-xs font-bold text-yellow-600 uppercase mb-2">Notas</h4>
+                                    <p className="text-sm text-yellow-100/80 italic">"{selectedBooking.notes}"</p>
+                                </div>
+                            )}
+
+                            {/* Actions */}
+                            <div className="grid grid-cols-2 gap-3 pt-4 border-t border-gray-800">
+                                {selectedBooking.id && selectedBooking.status !== 'cancelled' ? (
+                                    <button
+                                        onClick={() => {
+                                            if (confirm('¿Cancelar esta reserva? Quedará en el historial.')) {
+                                                updateStatus.mutate({ id: selectedBooking.id!, status: 'cancelled' });
+                                                setSelectedBooking(null);
+                                            }
+                                        }}
+                                        className="col-span-1 bg-red-900/30 hover:bg-red-900/50 text-red-400 border border-red-900/50 py-3 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2"
+                                    >
+                                        <X size={16} /> Cancelar
+                                    </button>
+                                ) : (
+                                    <button
+                                        disabled
+                                        className="col-span-1 bg-gray-800 text-gray-500 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 cursor-not-allowed opacity-50"
+                                    >
+                                        <X size={16} /> Cancelada
+                                    </button>
+                                )}
+
+                                {selectedBooking.id && selectedBooking.status === 'pending' && (
+                                    <button
+                                        onClick={() => {
+                                            updateStatus.mutate({ id: selectedBooking.id!, status: 'confirmed' });
+                                            setSelectedBooking(null);
+                                        }}
+                                        className="col-span-1 bg-green-600 hover:bg-green-500 text-white py-3 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2"
+                                    >
+                                        <Check size={16} /> Confirmar
+                                    </button>
+                                )}
+
+                                {selectedBooking.id && selectedBooking.status === 'confirmed' && (
+                                    <button
+                                        onClick={() => {
+                                            updateStatus.mutate({ id: selectedBooking.id!, status: 'completed' });
+                                            setSelectedBooking(null);
+                                        }}
+                                        className="col-span-1 bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2"
+                                    >
+                                        <CheckCircle size={16} /> Completar
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Booking Form Modal (Create) */}
             {showBookingForm && (
-                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-                    <div className="bg-gray-900 rounded-2xl p-6 w-full max-w-md border border-gray-700">
+                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 animate-in fade-in">
+                    <div className="bg-gray-900 rounded-2xl p-6 w-full max-w-md border border-gray-700 shadow-2xl">
                         <div className="flex items-center justify-between mb-6">
                             <h3 className="text-xl font-black text-white uppercase">Nueva Reserva</h3>
                             <button

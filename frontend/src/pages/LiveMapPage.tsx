@@ -13,7 +13,7 @@ const formatTime = (ms: number) => {
     return `${minutes}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
 };
 
-const StatItem = ({ label, value, sub, alert = false }: { label: string, value: any, sub: string, alert?: boolean }) => (
+const StatItem = ({ label, value, sub, alert = false }: { label: string, value: string | number, sub: string, alert?: boolean }) => (
     <div className={`bg-white/5 rounded-xl p-2.5 text-center border border-white/5 transition-colors ${alert ? 'bg-red-500/10 border-red-500/20' : ''}`}>
         <div className="text-[8px] text-gray-500 font-black uppercase mb-1 tracking-widest">{label}</div>
         <div className={`text-sm font-black italic leading-none tabular-nums ${alert ? 'text-red-500' : 'text-white'}`}>
@@ -42,7 +42,7 @@ const LiveMapPage = () => {
     const allCars = Object.values(liveCars);
     const cars = selectedStation === 'all'
         ? allCars
-        : allCars.filter((c: any) => c.station_id === selectedStation);
+        : allCars.filter((c) => c.station_id === String(selectedStation));
 
     return (
         <div className="h-screen w-screen bg-black overflow-hidden p-6 flex flex-col font-sans selection:bg-yellow-500/30">
@@ -90,7 +90,7 @@ const LiveMapPage = () => {
                             className="bg-gray-900 border border-white/10 rounded-lg px-3 py-1 text-white font-bold uppercase text-sm cursor-pointer focus:ring-2 focus:ring-yellow-500 outline-none"
                         >
                             <option value="all">Todas ({allCars.length})</option>
-                            {Array.isArray(stations) && stations.map((s: any) => (
+                            {Array.isArray(stations) && stations.map((s: { id: number; name?: string }) => (
                                 <option key={s.id} value={s.id}>
                                     {s.name || `Estación ${s.id}`}
                                 </option>
@@ -107,13 +107,13 @@ const LiveMapPage = () => {
                     <div className="flex-1 bg-gradient-to-br from-gray-900/50 to-black/50 rounded-[2rem] border border-white/5 overflow-hidden p-2 backdrop-blur-md relative group">
                         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-[0.03] pointer-events-none" />
                         <LiveMap
-                            drivers={Array.isArray(cars) ? cars.map((c: any) => ({
-                                id: c.station_id,
+                            drivers={Array.isArray(cars) ? cars.map((c) => ({
+                                id: Number(c.station_id),
                                 name: c.driver || '---',
                                 x: c.x || 0,
                                 z: c.z || 0,
                                 normPos: c.normalized_pos || 0,
-                                color: c.station_id === 1 ? '#ef4444' : c.station_id === 2 ? '#3b82f6' : c.station_id === 3 ? '#22c55e' : '#eab308',
+                                color: c.station_id === '1' ? '#ef4444' : c.station_id === '2' ? '#3b82f6' : c.station_id === '3' ? '#22c55e' : '#eab308',
                                 isOnline: true
                             })) : []}
                             trackName={Array.isArray(cars) && cars.length > 0 ? cars[0]?.track : 'Cargando...'}
@@ -125,7 +125,7 @@ const LiveMapPage = () => {
                 <div className="col-span-4 flex flex-col space-y-4 overflow-y-auto pr-2 no-scrollbar">
                     {/* Sort by track position (descending) */}
                     {Array.isArray(cars) && cars.length > 0 ? (
-                        cars.slice(0, 4).sort((a, b) => (b.normalized_pos || 0) - (a.normalized_pos || 0)).map((car: any, idx) => (
+                        cars.slice(0, 4).sort((a, b) => (b.normalized_pos || 0) - (a.normalized_pos || 0)).map((car, idx) => (
                             <div key={car.station_id} className="relative group/card">
                                 {/* Ranking Badge (Floating) */}
                                 <div className="absolute -left-2 -top-2 w-8 h-8 bg-yellow-500 text-black font-black italic flex items-center justify-center rounded-lg z-20 shadow-lg skew-x-[-10deg] group-hover/card:scale-110 transition-transform">
@@ -177,9 +177,9 @@ const LiveMapPage = () => {
                                         />
                                         <StatItem
                                             label="DMG"
-                                            value={Math.round((Array.isArray(car.damage) ? car.damage.reduce((a: any, b: any) => a + b, 0) : 0) * 10) || 0}
+                                            value={Math.round((Array.isArray(car.damage) ? (car.damage as number[]).reduce((a, b) => a + b, 0) : 0) * 10) || 0}
                                             sub="%"
-                                            alert={Array.isArray(car.damage) && car.damage.some((d: any) => d > 0.2)}
+                                            alert={Array.isArray(car.damage) && (car.damage as number[]).some((d) => d > 0.2)}
                                         />
                                     </div>
                                 </div>

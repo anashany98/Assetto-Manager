@@ -60,7 +60,7 @@ export const deleteMod = async (modId: number): Promise<void> => {
     await axios.delete(`${API_URL}/mods/${modId}`);
 };
 
-export const bulkDeleteMods = async (modIds: number[]): Promise<any> => {
+export const bulkDeleteMods = async (modIds: number[]): Promise<{ deleted: number }> => {
     const response = await axios.post(`${API_URL}/mods/bulk/delete`, modIds);
     return response.data;
 };
@@ -70,14 +70,14 @@ export const toggleMod = async (modId: number): Promise<Mod> => {
     return response.data;
 };
 
-export const bulkToggleMods = async (modIds: number[], state: boolean): Promise<any> => {
+export const bulkToggleMods = async (modIds: number[], state: boolean): Promise<{ updated: number }> => {
     const response = await axios.post(`${API_URL}/mods/bulk/toggle`, modIds, {
         params: { target_state: state }
     });
     return response.data;
 };
 
-export const deployToStations = async (): Promise<any> => {
+export const deployToStations = async (): Promise<{ status: string; message?: string }> => {
     const response = await axios.post(`${API_URL}/deploy/push`);
     return response.data;
 };

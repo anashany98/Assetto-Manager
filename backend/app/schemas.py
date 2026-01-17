@@ -345,3 +345,14 @@ class DriverComparison(BaseModel):
     driver_2: ComparisonStats
     time_gap: int # Gap between best laps
 
+class MultiDriverComparisonRequest(BaseModel):
+    drivers: List[str]
+    track: str
+    car: Optional[str] = None
+
+class MultiDriverComparisonResponse(BaseModel):
+    track_name: str
+    car_model: Optional[str] = None
+    drivers: List[ComparisonStats]
+
+

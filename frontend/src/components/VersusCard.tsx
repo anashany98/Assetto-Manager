@@ -1,111 +1,155 @@
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import { compareDrivers } from '../api/telemetry';
 import { Swords } from 'lucide-react';
-import { API_URL } from '../config';
+import { cn } from '../lib/utils';
+import { motion } from 'framer-motion';
 
 interface Props {
-    driver1: string;
-    driver2: string;
+    drivers: string[];
     track: string;
 }
 
-export function VersusCard({ driver1, driver2, track }: Props) {
+export function VersusCard({ drivers, track }: Props) {
     const { data, isLoading } = useQuery({
-        queryKey: ['versus', driver1, driver2, track],
+        queryKey: ['versus', drivers, track],
         queryFn: async () => {
-            // car param omitted to allow cross-car comparison
-            const res = await axios.get(
-                `${API_URL}/telemetry/compare/${encodeURIComponent(driver1)}/${encodeURIComponent(driver2)}?track=${encodeURIComponent(track)}`
-            );
-            return res.data;
+            if (drivers.length < 2) return null;
+            return await compareDrivers({ drivers, track });
         },
         refetchInterval: 10000
     });
 
-    if (isLoading) return <div className="text-center text-2xl text-white animate-pulse">Analizando rivalidad...</div>;
-    if (!data) return null;
+    if (isLoading) return <div className="text-center text-4xl text-white animate-pulse font-black italic mt-40">ANALIZANDO RIVALES...</div>;
+    if (!data || !data.drivers) return <div className="text-center text-red-500 mt-20 text-2xl">Datos insuficientes para el duelo</div>;
 
-    const d1 = data.driver_1;
-    const d2 = data.driver_2;
+    const stats = data.drivers;
+    // Ascending sort (Fastest first)
+    const sortedByTime = [...stats].sort((a, b) => a.best_lap - b.best_lap);
+    const bestTime = sortedByTime[0].best_lap;
 
-    const ComparisonRow = ({ label, v1, v2, unit = '', inverse = false }: any) => {
-        const isV1Better = inverse ? v1 < v2 : v1 > v2;
-        const color1 = isV1Better ? 'text-green-400' : 'text-red-400';
-        const color2 = !isV1Better ? 'text-green-400' : 'text-red-400';
+    // Determine grid columns based on driver count (Max 4)
+    const gridCols = drivers.length === 2 ? 'grid-cols-2' :
+        drivers.length === 3 ? 'grid-cols-3' : 'grid-cols-4';
 
-        return (
-            <div className="grid grid-cols-3 gap-8 py-6 border-b border-gray-800 items-center">
-                <div className={`text-4xl font-mono text-right ${color1}`}>{v1}{unit}</div>
-                <div className="text-xl text-center text-gray-500 font-bold uppercase tracking-widest">{label}</div>
-                <div className={`text-4xl font-mono text-left ${color2}`}>{v2}{unit}</div>
-            </div>
-        );
+    const getColumnColor = (index: number) => {
+        const colors = [
+            'from-blue-600/20 to-blue-900/10 border-blue-500/30',
+            'from-red-600/20 to-red-900/10 border-red-500/30',
+            'from-green-600/20 to-green-900/10 border-green-500/30',
+            'from-yellow-600/20 to-yellow-900/10 border-yellow-500/30'
+        ];
+        return colors[index % colors.length];
     };
 
+    const getAvatarColor = (index: number) => {
+        const colors = ['bg-blue-600', 'bg-red-600', 'bg-green-600', 'bg-yellow-600'];
+        return colors[index % colors.length];
+    }
+
     return (
-        <div className="h-full w-full bg-gray-900 text-white flex flex-col p-8">
-            <header className="text-center mb-12">
-                <div className="inline-flex items-center justify-center p-4 bg-red-600/20 rounded-full mb-4 animate-pulse">
-                    <Swords className="w-16 h-16 text-red-500" />
+        <div className="h-full w-full bg-gray-950 text-white flex flex-col p-4 md:p-8 overflow-hidden relative">
+            {/* Background Texture */}
+            <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
+
+            <header className="text-center mb-8 relative z-10 shrink-0">
+                <div className="inline-flex items-center justify-center p-3 bg-red-600/20 rounded-full mb-2 animate-pulse border border-red-500/50">
+                    <Swords className="w-12 h-12 text-red-500" />
                 </div>
-                <h1 className="text-6xl font-black uppercase italic tracking-tighter">Duelo en la Cima</h1>
-                <p className="text-2xl text-gray-400 mt-2">{track.toUpperCase()}</p>
+                <h1 className="text-5xl md:text-7xl font-black uppercase italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-400">
+                    Duelo en la Cima
+                </h1>
+                <p className="text-2xl text-gray-400 mt-2 font-mono tracking-widest uppercase">{track}</p>
             </header>
 
-            <div className="flex-1 grid grid-cols-3 gap-0">
-                {/* Driver 1 */}
-                <div className="text-center border-r border-gray-800 flex flex-col justify-center">
-                    <div className="w-48 h-48 bg-blue-600 rounded-full mx-auto mb-6 flex items-center justify-center border-4 border-blue-400 shadow-[0_0_50px_rgba(37,99,235,0.3)]">
-                        <span className="text-6xl font-bold">{d1?.driver_name.charAt(0)}</span>
-                    </div>
-                    <h2 className="text-4xl font-bold mb-2">{d1?.driver_name}</h2>
-                    <div className="text-xl text-blue-400 font-mono">
-                        {new Date(d1?.best_lap).toISOString().substr(14, 9)}
-                    </div>
-                </div>
+            <div className={cn("flex-1 grid gap-4 md:gap-8 relative z-10", gridCols)}>
+                {stats.map((driver: { driver_name: string; best_lap: number; consistency?: number; total_laps?: number; win_count?: number }, idx: number) => {
+                    // Check if this driver is P1
+                    const isP1 = driver.best_lap === bestTime;
+                    const gap = driver.best_lap - bestTime;
+                    const rank = sortedByTime.findIndex((d: { driver_name: string }) => d.driver_name === driver.driver_name) + 1;
 
-                {/* Stats Center */}
-                <div className="flex flex-col justify-center px-4">
-                    <ComparisonRow
-                        label="Mejor Vuelta"
-                        v1={new Date(d1?.best_lap).toISOString().substr(14, 9)}
-                        v2={new Date(d2?.best_lap).toISOString().substr(14, 9)}
-                        unit=""
-                        inverse={true}
-                    />
-                    <ComparisonRow
-                        label="Consistencia"
-                        v1={d1?.consistency}
-                        v2={d2?.consistency}
-                        unit=""
-                        inverse={true}
-                    />
-                    <ComparisonRow
-                        label="Vueltas Totales"
-                        v1={d1?.total_laps}
-                        v2={d2?.total_laps}
-                        unit=""
-                        inverse={false}
-                    />
+                    return (
+                        <motion.div
+                            key={driver.driver_name}
+                            initial={{ opacity: 0, y: 50 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: idx * 0.2 }}
+                            className={cn(
+                                "flex flex-col relative rounded-3xl border-2 overflow-hidden bg-gradient-to-b shadow-2xl backdrop-blur-sm",
+                                getColumnColor(idx),
+                                isP1 ? "border-yellow-500 shadow-[0_0_30px_rgba(234,179,8,0.3)] scale-[1.02] z-20" : "border-gray-800"
+                            )}
+                        >
+                            {/* Rank Badge */}
+                            <div className={cn(
+                                "absolute top-4 right-4 text-4xl font-black italic opacity-50 z-0",
+                                isP1 ? "text-yellow-500" : "text-gray-600"
+                            )}>
+                                P{rank}
+                            </div>
 
-                    <div className="mt-8 text-center">
-                        <div className="text-sm text-gray-500 uppercase tracking-widest mb-2">Diferencia</div>
-                        <div className="text-5xl font-mono text-yellow-400 font-bold">
-                            +{new Date(data.time_gap).toISOString().substr(17, 6)}
-                        </div>
-                    </div>
-                </div>
+                            {/* Driver Header */}
+                            <div className="p-6 text-center flex flex-col items-center border-b border-white/5 bg-black/20">
+                                <div className={cn(
+                                    "w-32 h-32 md:w-40 md:h-40 rounded-full mb-4 flex items-center justify-center border-4 shadow-lg text-6xl font-bold",
+                                    getAvatarColor(idx),
+                                    isP1 ? "border-yellow-400" : "border-white/20"
+                                )}>
+                                    {driver.driver_name.charAt(0)}
+                                </div>
+                                <h2 className="text-2xl md:text-4xl font-black uppercase italic tracking-tight line-clamp-1">
+                                    {driver.driver_name}
+                                </h2>
+                            </div>
 
-                {/* Driver 2 */}
-                <div className="text-center border-l border-gray-800 flex flex-col justify-center">
-                    <div className="w-48 h-48 bg-red-600 rounded-full mx-auto mb-6 flex items-center justify-center border-4 border-red-400 shadow-[0_0_50px_rgba(220,38,38,0.3)]">
-                        <span className="text-6xl font-bold">{d2?.driver_name.charAt(0)}</span>
-                    </div>
-                    <h2 className="text-4xl font-bold mb-2">{d2?.driver_name}</h2>
-                    <div className="text-xl text-red-400 font-mono">
-                        {new Date(d2?.best_lap).toISOString().substr(14, 9)}
-                    </div>
-                </div>
+                            {/* Stats */}
+                            <div className="flex-1 p-6 flex flex-col justify-center space-y-6">
+                                {/* Best Lap */}
+                                <div>
+                                    <p className="text-xs uppercase tracking-widest text-gray-500 font-bold mb-1">Mejor Vuelta</p>
+                                    <p className={cn(
+                                        "text-4xl md:text-5xl font-mono font-bold tracking-tighter",
+                                        isP1 ? "text-yellow-400" : "text-white"
+                                    )}>
+                                        {new Date(driver.best_lap).toISOString().substr(14, 9)}
+                                    </p>
+                                    {/* GAP */}
+                                    {!isP1 && (
+                                        <div className="inline-block bg-red-500/20 px-2 py-0.5 rounded text-red-400 font-mono font-bold text-lg mt-1">
+                                            +{new Date(gap).toISOString().substr(17, 6)}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Consistency */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-black/30 p-3 rounded-xl border border-white/5">
+                                        <p className="text-[10px] uppercase tracking-wider text-gray-500 mb-1">Consistencia</p>
+                                        <p className="text-2xl font-bold text-gray-300">
+                                            {driver.consistency}ms
+                                        </p>
+                                    </div>
+                                    <div className="bg-black/30 p-3 rounded-xl border border-white/5">
+                                        <p className="text-[10px] uppercase tracking-wider text-gray-500 mb-1">Vueltas</p>
+                                        <p className="text-2xl font-bold text-gray-300">
+                                            {driver.total_laps}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Win Counters (Optional, from API) */}
+                            {driver.win_count > 0 && (
+                                <div className="bg-white/5 p-2 flex justify-center space-x-1">
+                                    {[...Array(driver.win_count)].map((_, i) => (
+                                        <div key={i} className="w-2 h-2 rounded-full bg-yellow-500" />
+                                    ))}
+                                </div>
+                            )}
+
+                        </motion.div>
+                    );
+                })}
             </div>
         </div>
     );

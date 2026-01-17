@@ -16,11 +16,12 @@ export function TournamentVersusWrapper({ eventId, track }: { eventId: number, t
         );
     }
 
-    // Top 2
+    // Top 4 (or less)
+    const topDrivers = leaderboard.slice(0, 4).map(d => d.driver_name);
+
     return (
         <VersusCard
-            driver1={leaderboard[0].driver_name}
-            driver2={leaderboard[1].driver_name}
+            drivers={topDrivers}
             track={track || leaderboard[0].track_name}
         />
     );

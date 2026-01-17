@@ -280,7 +280,7 @@ export default function AnalyticsPanel() {
 }
 
 // Quick Stat Component
-function QuickStat({ label, value, icon: Icon, color }: { label: string; value: number; icon: any; color: string }) {
+function QuickStat({ label, value, icon: Icon, color }: { label: string; value: number; icon: React.ComponentType<{ size?: number }>; color: string }) {
     const colors: Record<string, string> = {
         blue: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
         green: 'bg-green-500/10 text-green-400 border-green-500/20',

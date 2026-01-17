@@ -4,7 +4,7 @@ import axios from 'axios';
 import { API_URL } from '../config';
 import { Trophy, Users, AlertTriangle } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 
 // Types for Bracket
 type Match = {
@@ -48,22 +48,23 @@ export default function TournamentTV() {
         refetchInterval: 5000 // Live updates for TV
     });
 
-    const [bracket, setBracket] = useState<BracketData | null>(null);
-
-    useEffect(() => {
+    const bracket = useMemo(() => {
         if (bracketData && 'rounds' in bracketData) {
-            setBracket(bracketData);
+            return bracketData;
         } else if (bracketData && 'status' in bracketData) {
-            setBracket(null);
+            return null;
         } else if (event?.rules) {
             // Fallback to legacy rules parsing if Backend API returns empty but rules has data
             try {
                 const rules = JSON.parse(event.rules);
                 if (rules.bracket) {
-                    setBracket(rules.bracket);
+                    return rules.bracket;
                 }
-            } catch (e) { }
+            } catch {
+                // Ignore parse errors
+            }
         }
+        return null;
     }, [bracketData, event]);
 
     if (isLoading) return (
@@ -110,7 +111,7 @@ export default function TournamentTV() {
                     </div>
                 ) : (
                     <div className="flex space-x-12 h-full items-center">
-                        {Array.isArray(bracket.rounds) && bracket.rounds.map((round, roundIndex) => (
+                        {Array.isArray(bracket.rounds) && bracket.rounds.map((round: Match[], roundIndex: number) => (
                             <div key={roundIndex} className="flex flex-col justify-around h-full space-y-4 min-w-[280px]">
                                 {/* Round Header */}
                                 <div className="text-center font-black uppercase text-gray-600 text-sm tracking-[0.2em] mb-4">
@@ -119,7 +120,7 @@ export default function TournamentTV() {
 
                                 {/* Matches */}
                                 <div className="flex flex-col justify-around flex-1 relative">
-                                    {Array.isArray(round) && round.map((match, _matchIndex) => (
+                                    {Array.isArray(round) && round.map((match: Match) => (
                                         <MatchCard key={match.id} match={match} isFinal={roundIndex === bracket.rounds.length - 1} />
                                     ))}
                                 </div>

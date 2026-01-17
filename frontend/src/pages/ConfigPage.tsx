@@ -60,7 +60,7 @@ export default function ConfigPage() {
             const res = await axios.get(`${API_URL}/configs/profile/${selectedCategory}/${filename}/parsed`);
             setParsedContent(res.data.sections);
             setIsEditorOpen(true);
-        } catch (e) {
+        } catch {
             alert("Error loading profile");
         }
     };
@@ -388,7 +388,7 @@ export default function ConfigPage() {
 // SPECIALIZED EDITOR COMPONENTS
 // ----------------------------------------------------------------------
 
-function SpecializedEditor({ category, content, onUpdate }: { category: string, content: any, onUpdate: (s: string, k: string, v: string) => void }) {
+function SpecializedEditor({ category, content, onUpdate }: { category: string, content: Record<string, Record<string, string>>, onUpdate: (s: string, k: string, v: string) => void }) {
 
     // --- GAMEPLAY / ASSISTS EDITOR ---
     if (category === 'gameplay') {

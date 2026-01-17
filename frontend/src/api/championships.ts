@@ -10,7 +10,7 @@ export interface Championship {
     start_date: string;
     end_date?: string;
     is_active: boolean;
-    events?: any[];
+    events?: { id: number; name: string }[];
 }
 
 export interface ChampionshipStanding {
@@ -49,5 +49,10 @@ export const getChampionshipStandings = async (id: number) => {
 
 export const linkSessionToEvent = async (champId: number, eventId: number, sessionId: number) => {
     const response = await axios.post(`${API_BASE}/${champId}/events/${eventId}/link-session/${sessionId}`);
+    return response.data;
+};
+
+export const autoDetectSession = async (champId: number, eventId: number) => {
+    const response = await axios.post(`${API_BASE}/${champId}/events/${eventId}/auto-detect`);
     return response.data;
 };

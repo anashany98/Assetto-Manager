@@ -12,7 +12,7 @@ import { API_URL } from '../config';
 import { useNavigate } from 'react-router-dom';
 
 // Auth handled by PrivateRoute
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 
 export default function TVRemote() {
     const navigate = useNavigate();
@@ -31,7 +31,7 @@ export default function TVRemote() {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 return Array.isArray(res.data) ? res.data : [];
-            } catch (e) { return []; }
+            } catch { return []; }
         },
         refetchInterval: 2000,
         initialData: [],
@@ -42,7 +42,7 @@ export default function TVRemote() {
     const getSetting = (keyPrefix: string, def: string) => {
         const safeSettings = Array.isArray(settings) ? settings : [];
         const key = `${keyPrefix}_${selectedScreen}`;
-        return safeSettings.find((s: any) => s.key === key)?.value || def;
+        return safeSettings.find((s: { key: string; value: string }) => s.key === key)?.value || def;
     };
 
     const tvMode = getSetting('tv_mode', 'auto');
@@ -188,7 +188,7 @@ export default function TVRemote() {
                             {['LEADERBOARD', 'HALL_OF_FAME', 'LIVE_MAP', 'TOURNAMENT', 'BRACKET', 'COUNTDOWN', 'SPONSORSHIP', 'JOIN_QR'].map((view) => {
                                 const playlistJson = getSetting('tv_playlist', '[]');
                                 let playlist = [];
-                                try { playlist = JSON.parse(playlistJson); } catch (e) { }
+                                try { playlist = JSON.parse(playlistJson); } catch { /* ignore parse error */ }
                                 if (!Array.isArray(playlist) || playlist.length === 0) {
                                     // Default if empty/invalid: assume ALL checked initially or handle empty logic
                                 }
@@ -347,7 +347,7 @@ export default function TVRemote() {
                                         headers: { Authorization: `Bearer ${token}` }
                                     });
                                     alert(`Comando de emergencia enviado a Pantalla ${selectedScreen}`);
-                                } catch (e) {
+                                } catch {
                                     alert("Error al enviar comando de pánico");
                                 }
                             }
@@ -398,13 +398,13 @@ function PreviewScreen({ view, mode }: { view: string, mode: string }) {
     switch (view) {
         case 'LEADERBOARD': content = <Leaderboard />; break;
         case 'HALL_OF_FAME': content = <HallOfFame />; break;
-        case 'LIVE_MAP': content = <LiveMap drivers={Array.isArray(Object.values(liveCars)) ? Object.values(liveCars).map((c: any) => ({
-            id: c.station_id,
+        case 'LIVE_MAP': content = <LiveMap drivers={Array.isArray(Object.values(liveCars)) ? Object.values(liveCars).map((c) => ({
+            id: Number(c.station_id) || 0,
             name: c.driver || 'Desconocido',
             x: c.x || 0,
             z: c.z || 0,
             normPos: c.normalized_pos || 0,
-            color: c.station_id === 1 ? '#ef4444' : c.station_id === 2 ? '#3b82f6' : c.station_id === 3 ? '#22c55e' : '#eab308',
+            color: c.station_id === '1' ? '#ef4444' : c.station_id === '2' ? '#3b82f6' : c.station_id === '3' ? '#22c55e' : '#eab308',
             isOnline: true
         })) : []} trackName="Circuito" />; break;
         case 'TOURNAMENT': content = <div className="p-4"><p className="text-white text-center">Torneo Activo</p></div>; break;
@@ -422,8 +422,16 @@ function PreviewScreen({ view, mode }: { view: string, mode: string }) {
     );
 }
 
-function ControlButton({ active, onClick, icon: Icon, label, color }: any) {
-    const colors: any = {
+interface ControlButtonProps {
+    active: boolean;
+    onClick: () => void;
+    icon: React.ComponentType<{ className?: string; size?: number }>;
+    label: string;
+    color: string;
+}
+
+function ControlButton({ active, onClick, icon: Icon, label, color }: ControlButtonProps) {
+    const colors: Record<string, string> = {
         blue: active ? "bg-blue-600 ring-blue-500" : "hover:bg-blue-600/20 text-blue-400",
         yellow: active ? "bg-yellow-600 ring-yellow-500" : "hover:bg-yellow-600/20 text-yellow-400",
         red: active ? "bg-red-600 ring-red-500" : "hover:bg-red-600/20 text-red-400",

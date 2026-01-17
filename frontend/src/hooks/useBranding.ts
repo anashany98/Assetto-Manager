@@ -10,7 +10,7 @@ export const useBranding = () => {
             try {
                 const res = await axios.get(`${API_URL}/settings`);
                 return Array.isArray(res.data) ? res.data : [];
-            } catch (e) { return []; }
+            } catch { return []; }
         },
         refetchInterval: 30000 // Refresh every 30s
     });
@@ -18,8 +18,8 @@ export const useBranding = () => {
     useEffect(() => {
         if (!settings || !Array.isArray(settings)) return;
 
-        const barName = settings.find((s: any) => s.key === 'bar_name')?.value || 'Assetto Manager';
-        const barLogo = settings.find((s: any) => s.key === 'bar_logo')?.value;
+        const barName = settings.find((s: { key: string; value: string }) => s.key === 'bar_name')?.value || 'Assetto Manager';
+        const barLogo = settings.find((s: { key: string; value: string }) => s.key === 'bar_logo')?.value;
 
         // Update Document Title
         document.title = barName;

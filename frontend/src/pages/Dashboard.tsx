@@ -36,7 +36,7 @@ export default function Dashboard() {
             try {
                 await axios.post(`${API_URL}/stations/${id}/panic`);
                 alert(`Orden ejecutada: Pánico en ${name}`);
-            } catch (e) {
+            } catch {
                 alert("Error al enviar la orden");
             }
         }
@@ -268,8 +268,17 @@ export default function Dashboard() {
 }
 
 // Subcomponents for cleaner code
-function StatCard({ label, value, subvalue, icon: Icon, color, animate }: any) {
-    const colors: any = {
+interface StatCardProps {
+    label: string;
+    value: string | number;
+    subvalue?: string;
+    icon: React.ComponentType<{ className?: string; size?: number }>;
+    color: string;
+    animate?: boolean;
+}
+
+function StatCard({ label, value, subvalue, icon: Icon, color, animate }: StatCardProps) {
+    const colors: Record<string, string> = {
         green: "text-green-400 bg-green-500/20",
         orange: "text-orange-400 bg-orange-500/20",
         blue: "text-blue-400 bg-blue-500/20",
@@ -291,8 +300,8 @@ function StatCard({ label, value, subvalue, icon: Icon, color, animate }: any) {
     )
 }
 
-function QuickAction({ to, title, desc, color }: any) {
-    const colors: any = {
+function QuickAction({ to, title, desc, color }: { to: string; title: string; desc: string; color: string }) {
+    const colors: Record<string, string> = {
         blue: "hover:border-blue-500/50 hover:bg-blue-500/10 group-hover:text-blue-400",
         indigo: "hover:border-indigo-500/50 hover:bg-indigo-500/10 group-hover:text-indigo-400",
         purple: "hover:border-purple-500/50 hover:bg-purple-500/10 group-hover:text-purple-400",

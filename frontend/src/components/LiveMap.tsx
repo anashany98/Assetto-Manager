@@ -11,7 +11,7 @@ interface DriverPosition {
 }
 
 interface LiveMapProps {
-    cars?: any[]; // Allow cars prop (TelemetryPacket)
+    cars?: { station_id?: number; driver_name?: string; x?: number; z?: number; n?: number }[]; // Allow cars prop (TelemetryPacket)
     drivers?: DriverPosition[]; // Legacy support
     trackName: string;
 }
@@ -28,15 +28,16 @@ export const LiveMap: React.FC<LiveMapProps> = ({ drivers, cars, trackName }) =>
     const containerRef = useRef<HTMLDivElement>(null);
 
     // Merge or select data source
-    const activeDrivers = drivers || (Array.isArray(cars) ? cars.map((c: any) => ({
-        id: c.station_id || Math.random(),
+    // Merge or select data source
+    const activeDrivers = React.useMemo(() => drivers || (Array.isArray(cars) ? cars.map((c, idx) => ({
+        id: c.station_id ?? idx,
         name: c.driver_name || "Unknown",
         x: c.x || 0,
         z: c.z || 0,
         normPos: c.n || 0,
         color: 'red', // Default
         isOnline: true
-    })) : []) || [];
+    })) : []) || [], [drivers, cars]);
 
     useEffect(() => {
         const canvas = canvasRef.current;

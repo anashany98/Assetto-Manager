@@ -19,7 +19,7 @@ export const getDriverTrackDetails = async (track: string, driver: string): Prom
     return res.data;
 };
 
-export const uploadSession = async (data: any) => {
+export const uploadSession = async (data: { station_id: number; track_name: string; track_config?: string; car_model: string; driver_name: string; session_type?: string; date?: string; best_lap: number; laps?: unknown[] }) => {
     const res = await axios.post(`${API_BASE}/session`, data);
     return res.data;
 };
@@ -28,5 +28,10 @@ export const getRecentSessions = async (filters: { track_name?: string, driver_n
     const res = await axios.get(`${API_BASE}/sessions`, {
         params: filters
     });
+    return res.data;
+};
+
+export const compareDrivers = async (data: { drivers: string[], track: string, car?: string }) => {
+    const res = await axios.post(`${API_BASE}/compare-multi`, data);
     return res.data;
 };

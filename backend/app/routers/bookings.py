@@ -325,8 +325,7 @@ async def get_week_calendar(start_date: Optional[date] = None):
         
         bookings = db.query(models.Booking).filter(
             models.Booking.date >= datetime.combine(start_date, datetime.min.time()),
-            models.Booking.date <= datetime.combine(end_date, datetime.max.time()),
-            models.Booking.status != "cancelled"
+            models.Booking.date <= datetime.combine(end_date, datetime.max.time())
         ).order_by(models.Booking.date, models.Booking.time_slot).all()
         
         # Group by date

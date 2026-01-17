@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { API_URL } from '../config';
-import { Trophy, Shuffle, AlertTriangle } from 'lucide-react'; // Save, AlertCircle removed
+import { Trophy, Shuffle } from 'lucide-react';
 
 export default function TournamentAdmin({ eventId }: { eventId: number }) {
     const queryClient = useQueryClient();
@@ -15,7 +15,7 @@ export default function TournamentAdmin({ eventId }: { eventId: number }) {
             try {
                 const res = await axios.get(`${API_URL}/tournaments/${eventId}/bracket`);
                 return res.data?.status === 'empty' ? null : res.data;
-            } catch (e) { return null; }
+            } catch { return null; }
         }
     });
 
@@ -31,7 +31,7 @@ export default function TournamentAdmin({ eventId }: { eventId: number }) {
 
     // Update Match Mutation
     const updateMatchMutation = useMutation({
-        mutationFn: async ({ matchId, score1, score2, winner }: any) => {
+        mutationFn: async ({ matchId, score1, score2, winner }: { matchId: number; score1: number; score2: number; winner: string }) => {
             await axios.post(`${API_URL}/tournaments/${eventId}/match/${matchId}/update`, null, {
                 params: { score1, score2, winner }
             });
@@ -82,17 +82,17 @@ export default function TournamentAdmin({ eventId }: { eventId: number }) {
             </div>
 
             <div className="grid gap-6">
-                {Array.isArray(bracket.rounds) && bracket.rounds.map((round: any[], rIdx: number) => (
+                {Array.isArray(bracket.rounds) && bracket.rounds.map((round: { id: number; match_num: number; player1?: string; player2?: string; score1?: number; score2?: number; winner?: string; status: string }[], rIdx: number) => (
                     <div key={rIdx} className="bg-gray-800/50 p-4 rounded-xl border border-gray-700">
                         <h4 className="text-gray-400 font-bold uppercase text-xs tracking-widest mb-4 border-b border-gray-700 pb-2">
                             Ronda {rIdx + 1}
                         </h4>
                         <div className="space-y-3">
-                            {Array.isArray(round) && round.map((match: any) => (
+                            {Array.isArray(round) && round.map((match) => (
                                 <MatchAdminCard
                                     key={match.id}
                                     match={match}
-                                    onUpdate={(data: any) => updateMatchMutation.mutate({ ...data, matchId: match.id })}
+                                    onUpdate={(data: { score1: number; score2: number; winner: string }) => updateMatchMutation.mutate({ ...data, matchId: match.id })}
                                 />
                             ))}
                         </div>
@@ -103,7 +103,7 @@ export default function TournamentAdmin({ eventId }: { eventId: number }) {
     );
 }
 
-function MatchAdminCard({ match, onUpdate }: { match: any, onUpdate: (d: any) => void }) {
+function MatchAdminCard({ match, onUpdate }: { match: { id: number; match_num: number; player1?: string; player2?: string; score1?: number; score2?: number; winner?: string; status: string }, onUpdate: (d: { score1: number; score2: number; winner: string }) => void }) {
     const isLocked = !match.player1 || !match.player2;
     const isCompleted = match.status === 'completed';
 

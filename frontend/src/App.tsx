@@ -30,6 +30,8 @@ const LapAnalysisPage = lazy(() => import('./pages/LapAnalysisPage'));
 const BookingsPage = lazy(() => import('./pages/BookingsPage'));
 const PublicBookingPage = lazy(() => import('./pages/PublicBookingPage'));
 const TVMode = lazy(() => import('./pages/TVMode').then(module => ({ default: module.TVMode })));
+const EliminationTV = lazy(() => import('./pages/EliminationTV'));
+const EliminationAdmin = lazy(() => import('./pages/EliminationAdmin'));
 
 import { useBranding } from './hooks/useBranding';
 
@@ -87,6 +89,10 @@ function App() {
               <Route path="/mobile" element={<MobileLeaderboard />} />
               <Route path="/passport-scanner" element={<MobilePassport />} />
               <Route path="/tv-mode" element={<TVMode />} />
+
+              {/* Elimination Mode */}
+              <Route path="/elimination" element={<PrivateRoute><EliminationAdmin /></PrivateRoute>} />
+              <Route path="/elimination-tv/:id" element={<EliminationTV />} />
 
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />

@@ -15,13 +15,17 @@ export default function ChampionshipDetails() {
     const [showAddEvent, setShowAddEvent] = useState(false);
     const [isCreatingNew, setIsCreatingNew] = useState(false);
     const [linkingToEvent, setLinkingToEvent] = useState<number | null>(null);
-    const [newEventData, setNewEventData] = useState({
-        name: '',
-        description: '',
-        track_name: '',
-        start_date: new Date().toISOString().slice(0, 16),
-        end_date: new Date(Date.now() + 86400000).toISOString().slice(0, 16),
-        status: 'upcoming' as const
+    const [newEventData, setNewEventData] = useState(() => {
+        const now = new Date();
+        const tomorrow = new Date(now.getTime() + 86400000);
+        return {
+            name: '',
+            description: '',
+            track_name: '',
+            start_date: now.toISOString().slice(0, 16),
+            end_date: tomorrow.toISOString().slice(0, 16),
+            status: 'upcoming' as const
+        };
     });
 
     const { data: championship, isLoading: loadingChamp, error: champError } = useQuery({
@@ -50,7 +54,7 @@ export default function ChampionshipDetails() {
 
     const createAndAddMutation = useMutation({
         mutationFn: async (data: typeof newEventData) => {
-            const event = await createEvent(data as any);
+            const event = await createEvent(data as Parameters<typeof createEvent>[0]);
             return addEventToChampionship(champId, event.id);
         },
         onSuccess: () => {
@@ -420,6 +424,8 @@ export default function ChampionshipDetails() {
                             trackName={currentLinkingEvent?.track_name}
                             onSelect={(sid) => linkSessionMutation.mutate(sid)}
                             onCancel={() => setLinkingToEvent(null)}
+                            championshipId={champId}
+                            eventId={linkingToEvent}
                         />
                     </div>
                 </div>

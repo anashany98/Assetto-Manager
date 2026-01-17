@@ -273,3 +273,48 @@ class Booking(Base):
     station = relationship("Station")
 
 
+class PushSubscription(Base):
+    """Stores Web Push notification subscriptions"""
+    __tablename__ = "push_subscriptions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    endpoint = Column(String, unique=True, nullable=False)
+    p256dh_key = Column(String, nullable=False)  # Public key for encryption
+    auth_key = Column(String, nullable=False)    # Auth secret
+    user_agent = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    is_active = Column(Boolean, default=True)
+
+
+class EliminationRace(Base):
+    """Elimination race mode - last driver each lap is eliminated"""
+    __tablename__ = "elimination_races"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False)
+    event_id = Column(Integer, ForeignKey("events.id"), nullable=True)
+    track_name = Column(String(100), nullable=True)
+    status = Column(String(20), default="waiting")  # waiting, racing, paused, finished
+    current_lap = Column(Integer, default=0)
+    warmup_laps = Column(Integer, default=1)  # Laps before elimination starts
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    
+    participants = relationship("EliminationParticipant", back_populates="race", cascade="all, delete-orphan")
+
+
+class EliminationParticipant(Base):
+    """Participant in an elimination race"""
+    __tablename__ = "elimination_participants"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    race_id = Column(Integer, ForeignKey("elimination_races.id"), nullable=False)
+    driver_name = Column(String(100), nullable=False)
+    station_id = Column(Integer, nullable=True)
+    is_eliminated = Column(Boolean, default=False)
+    eliminated_at_lap = Column(Integer, nullable=True)
+    current_lap_time = Column(Integer, nullable=True)  # Current lap time in ms
+    best_lap_time = Column(Integer, nullable=True)  # Best overall lap time
+    laps_completed = Column(Integer, default=0)
+    final_position = Column(Integer, nullable=True)
+    
+    race = relationship("EliminationRace", back_populates="participants")

@@ -10,14 +10,15 @@ import {
     Truck, Settings as SettingsIcon, Plus, FileText,
     Layout, Monitor, Wifi, WifiOff, Edit2, CheckCircle,
     Activity, Upload, QrCode, Gamepad2, Volume2,
-    Trash2, MonitorPlay, Globe, Terminal, Megaphone, Database
+    Trash2, MonitorPlay, Globe, Terminal, Megaphone, Database, Bell
 } from 'lucide-react';
 import { LogViewer } from '../components/LogViewer';
 import AdsSettings from '../components/AdsSettings';
+import { usePushNotifications } from '../hooks/usePushNotifications';
 
 // --- SUB-COMPONENTS FROM CONFIGPAGE ---
 // (We keep SpecializedEditor here or move to a separate file, keeping here for simplicity)
-function SpecializedEditor({ category, content, onUpdate }: { category: string, content: any, onUpdate: (s: string, k: string, v: string) => void }) {
+function SpecializedEditor({ category, content, onUpdate }: { category: string, content: Record<string, Record<string, string>>, onUpdate: (s: string, k: string, v: string) => void }) {
     // Re-using the exact logic from ConfigPage for consistency
     if (category === 'gameplay') {
         const assists = content['ASSISTS'] || {};
@@ -102,6 +103,7 @@ const AC_CATEGORIES = [
 export default function SettingsPage() {
     const queryClient = useQueryClient();
     const [activeTab, setActiveTab] = useState<'branding' | 'stations' | 'game' | 'logs' | 'ads' | 'database'>('branding');
+    const pushNotifications = usePushNotifications();
 
     const handleExport = async () => {
         try {
@@ -154,7 +156,7 @@ export default function SettingsPage() {
             try {
                 const res = await axios.get(`${API_URL}/settings/`);
                 return Array.isArray(res.data) ? res.data : [];
-            } catch (e) { return []; }
+            } catch { return []; }
         },
         initialData: []
     });
@@ -171,7 +173,7 @@ export default function SettingsPage() {
         try {
             await axios.post(`${API_URL}/settings/upload-logo`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
             queryClient.invalidateQueries({ queryKey: ['settings'] });
-        } catch (err) { alert("Error al subir logo"); }
+        } catch { alert("Error al subir logo"); }
     };
 
     // --- STATIONS STATE ---
@@ -186,7 +188,7 @@ export default function SettingsPage() {
     // --- GAME CONFIG STATE ---
     const [selectedCategory, setSelectedCategory] = useState(AC_CATEGORIES[0].id);
     const [isEditorOpen, setIsEditorOpen] = useState(false);
-    const [parsedContent, setParsedContent] = useState<any>({});
+    const [parsedContent, setParsedContent] = useState<Record<string, Record<string, string>>>({});
     const [newProfileName, setNewProfileName] = useState('');
     const [selectedProfiles, setSelectedProfiles] = useState<Record<string, string>>({});
 
@@ -218,8 +220,8 @@ export default function SettingsPage() {
     });
 
     const safeBranding = Array.isArray(branding) ? branding : [];
-    const barName = safeBranding.find((s: any) => s.key === 'bar_name')?.value || 'VRacing Bar';
-    const barLogo = safeBranding.find((s: any) => s.key === 'bar_logo')?.value || '/logo.png';
+    const barName = safeBranding.find((s: { key: string; value: string }) => s.key === 'bar_name')?.value || 'VRacing Bar';
+    const barLogo = safeBranding.find((s: { key: string; value: string }) => s.key === 'bar_logo')?.value || '/logo.png';
 
     return (
         <div className="h-full flex flex-col bg-gray-950 text-white font-sans overflow-hidden">
@@ -245,7 +247,7 @@ export default function SettingsPage() {
                     ].map(tab => (
                         <button
                             key={tab.id}
-                            onClick={() => setActiveTab(tab.id as any)}
+                            onClick={() => setActiveTab(tab.id as 'branding' | 'ads' | 'stations' | 'game' | 'logs' | 'database')}
                             className={cn(
                                 "flex items-center space-x-2 px-5 py-2.5 rounded-xl text-sm font-black transition-all uppercase tracking-wide",
                                 activeTab === tab.id
@@ -278,7 +280,7 @@ export default function SettingsPage() {
                                 <div className="mt-6">
                                     <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Logo</label>
                                     <div className="flex items-center space-x-4">
-                                        <img src={barLogo} className="h-16 w-16 object-contain bg-gray-900 rounded-lg p-2" onError={(e: any) => e.target.src = '/logo.png'} />
+                                        <img src={barLogo} className="h-16 w-16 object-contain bg-gray-900 rounded-lg p-2" onError={(e: React.SyntheticEvent<HTMLImageElement>) => { e.currentTarget.src = '/logo.png'; }} />
                                         <div className="flex-1">
                                             <input
                                                 className="w-full p-3 rounded-xl bg-gray-900 border border-gray-700 text-xs font-mono text-gray-400 mb-2"
@@ -298,12 +300,12 @@ export default function SettingsPage() {
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Mensaje Promocional</label>
                                 <textarea
                                     className="w-full p-4 rounded-xl bg-gray-900 border border-gray-700 text-white font-bold outline-none focus:border-yellow-500 transition-all min-h-[100px]"
-                                    defaultValue={safeBranding.find((s: any) => s.key === 'promo_text')?.value}
+                                    defaultValue={safeBranding.find((s: { key: string; value: string }) => s.key === 'promo_text')?.value}
                                     onBlur={e => updateBranding.mutate({ key: 'promo_text', value: e.target.value })}
                                 />
                                 <div className="mt-4 flex items-center justify-between">
                                     <span className="text-sm font-bold text-gray-400">Velocidad</span>
-                                    <input type="range" min="20" max="200" className="w-1/2 accent-yellow-500" defaultValue={safeBranding.find((s: any) => s.key === 'ticker_speed')?.value || 80} onChange={e => updateBranding.mutate({ key: 'ticker_speed', value: e.target.value })} />
+                                    <input type="range" min="20" max="200" className="w-1/2 accent-yellow-500" defaultValue={safeBranding.find((s: { key: string; value: string }) => s.key === 'ticker_speed')?.value || 80} onChange={e => updateBranding.mutate({ key: 'ticker_speed', value: e.target.value })} />
                                 </div>
                             </div>
                         </div>
@@ -315,7 +317,7 @@ export default function SettingsPage() {
                                     <label className="block text-xs font-bold text-gray-500 uppercase mb-2">URL Pública</label>
                                     <input
                                         className="w-full p-4 rounded-xl bg-gray-900 border border-gray-700 font-mono text-sm text-blue-300"
-                                        defaultValue={safeBranding.find((s: any) => s.key === 'bar_public_url')?.value}
+                                        defaultValue={safeBranding.find((s: { key: string; value: string }) => s.key === 'bar_public_url')?.value}
                                         onBlur={e => updateBranding.mutate({ key: 'bar_public_url', value: e.target.value })}
                                     />
                                     <button
@@ -329,9 +331,38 @@ export default function SettingsPage() {
                                     <QrCode className="text-white" size={32} />
                                     <div>
                                         <p className="text-xs font-bold text-gray-500 uppercase">Mostrar en TV</p>
-                                        <input type="checkbox" className="w-5 h-5 accent-blue-500" defaultChecked={safeBranding.find((s: any) => s.key === 'show_qr')?.value === 'true'} onChange={e => updateBranding.mutate({ key: 'show_qr', value: e.target.checked ? 'true' : 'false' })} />
+                                        <input type="checkbox" className="w-5 h-5 accent-blue-500" defaultChecked={safeBranding.find((s: { key: string; value: string }) => s.key === 'show_qr')?.value === 'true'} onChange={e => updateBranding.mutate({ key: 'show_qr', value: e.target.checked ? 'true' : 'false' })} />
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+
+                        {/* Push Notifications */}
+                        <div className="bg-gray-800 p-8 rounded-3xl border border-gray-700">
+                            <h2 className="text-xl font-black text-white uppercase mb-6 flex items-center"><Bell className="mr-2 text-purple-400" /> Notificaciones Push</h2>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-bold text-gray-300">Recibir alertas de nuevos récords y eventos</p>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        {!pushNotifications.isSupported && 'Tu navegador no soporta notificaciones push'}
+                                        {pushNotifications.isSupported && pushNotifications.permission === 'denied' && 'Permisos denegados - activa en config del navegador'}
+                                        {pushNotifications.isSupported && pushNotifications.permission !== 'denied' && (pushNotifications.isSubscribed ? 'Suscrito ✓' : 'Click para activar')}
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => pushNotifications.isSubscribed ? pushNotifications.unsubscribe() : pushNotifications.subscribe()}
+                                    disabled={!pushNotifications.isSupported || pushNotifications.loading || pushNotifications.permission === 'denied'}
+                                    className={cn(
+                                        "relative w-14 h-7 rounded-full transition-colors",
+                                        pushNotifications.isSubscribed ? "bg-purple-500" : "bg-gray-600",
+                                        (!pushNotifications.isSupported || pushNotifications.permission === 'denied') && "opacity-50 cursor-not-allowed"
+                                    )}
+                                >
+                                    <div className={cn(
+                                        "absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-transform",
+                                        pushNotifications.isSubscribed && "translate-x-7"
+                                    )} />
+                                </button>
                             </div>
                         </div>
                     </div>

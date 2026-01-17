@@ -12,8 +12,8 @@ function generateMockLap(length: number, type: 'smooth' | 'erratic' | 'f1' | 'dr
         let steer = 0;
         let speed = 150;
         let throttle = 0;
-        let brake = 0;
-        let gear = 3;
+        const brake = 0;
+        const gear = 3;
 
         if (type === 'erratic') {
             throttle = i % 2 === 0 ? 1 : 0; // On/Off constant

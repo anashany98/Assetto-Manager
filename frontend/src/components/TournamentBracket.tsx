@@ -102,7 +102,7 @@ export default function TournamentBracket({ eventId, isAdmin = false }: { eventI
                             <h3 className="text-center text-yellow-500 font-bold uppercase tracking-widest mb-4 absolute top-0 left-0 right-0">
                                 {getRoundName(roundIndex)}
                             </h3>
-                            {Array.isArray(round) && [...round].sort((a, b) => (a.match_num || 0) - (b.match_num || 0)).map((match: any) => (
+                            {Array.isArray(round) && [...round].sort((a, b) => (a.match_num || 0) - (b.match_num || 0)).map((match: Match) => (
                                 <div key={match.id} className="relative w-64">
                                     <div className={`bg-[#1a1c23] border ${match.winner ? 'border-yellow-500/50' : 'border-gray-700'} rounded-lg overflow-hidden shadow-xl`}>
                                         <div className="flex justify-between items-center text-xs text-gray-500 px-3 py-1 bg-black/20 border-b border-white/5">

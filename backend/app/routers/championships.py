@@ -47,7 +47,36 @@ def link_session_to_event(championship_id: int, event_id: int, session_id: int, 
     
     session_result.event_id = event_id
     db.commit()
+    session_result.event_id = event_id
+    db.commit()
     return {"message": "Session linked to event", "session_id": session_id, "event_id": event_id}
+
+@router.post("/{championship_id}/events/{event_id}/auto-detect")
+def auto_detect_matches(championship_id: int, event_id: int, db: Session = Depends(database.get_db)):
+    event = db.query(models.Event).filter(models.Event.id == event_id, models.Event.championship_id == championship_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    if not event.start_date or not event.end_date or not event.track_name:
+         raise HTTPException(status_code=400, detail="Event must have start_date, end_date and track_name defined")
+
+    # Find matching sessions that are NOT yet linked to this event
+    # We use ILIKE for track name to be safe/flexible
+    query = db.query(models.SessionResult).filter(
+        func.lower(models.SessionResult.track_name) == event.track_name.lower(),
+        models.SessionResult.date >= event.start_date,
+        models.SessionResult.date <= event.end_date,
+        (models.SessionResult.event_id == None) | (models.SessionResult.event_id != event_id) # Optional: Re-link or only link orphans? Let's link orphans or steal from others? Let's just link anything in window.
+    )
+    
+    matches = query.all()
+    count = 0
+    for session in matches:
+        session.event_id = event_id
+        count += 1
+        
+    db.commit()
+    return {"message": f"Auto-detected and linked {count} sessions", "count": count}
 
 @router.get("/{championship_id}/standings")
 def get_championship_standings(championship_id: int, db: Session = Depends(database.get_db)):

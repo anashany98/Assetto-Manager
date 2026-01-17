@@ -42,7 +42,7 @@ export const getMe = async (token: string): Promise<User> => {
     return response.json();
 };
 
-export const setupAdmin = async (username: string, password: string): Promise<any> => {
+export const setupAdmin = async (username: string, password: string): Promise<{ username: string; role: string }> => {
     const response = await fetch(`${API_BASE_URL}/users/setup`, {
         method: "POST",
         headers: {

@@ -58,7 +58,7 @@ export const TVMode = () => {
             try {
                 const res = await axios.get(`${API_URL}/settings/`);
                 return Array.isArray(res.data) ? res.data : [];
-            } catch (e) { return []; }
+            } catch { return []; }
         },
         refetchInterval: 2000,
         initialData: []
@@ -70,11 +70,11 @@ export const TVMode = () => {
 
     const safeSettings = Array.isArray(settings) ? settings : [];
 
-    const intervalSetting = safeSettings.find((s: any) => s.key === `tv_interval_${screenId}`)?.value;
-    const playlistSetting = safeSettings.find((s: any) => s.key === `tv_playlist_${screenId}`)?.value;
+    const intervalSetting = safeSettings.find((s: { key: string; value: string }) => s.key === `tv_interval_${screenId}`)?.value;
+    const playlistSetting = safeSettings.find((s: { key: string; value: string }) => s.key === `tv_playlist_${screenId}`)?.value;
 
-    const tvMode = safeSettings.find((s: any) => s.key === modeKey)?.value || 'auto';
-    const remoteView = safeSettings.find((s: any) => s.key === viewKey)?.value;
+    const tvMode = safeSettings.find((s: { key: string; value: string }) => s.key === modeKey)?.value || 'auto';
+    const remoteView = safeSettings.find((s: { key: string; value: string }) => s.key === viewKey)?.value;
 
     const rotationInterval = intervalSetting ? parseInt(intervalSetting) * 1000 : 15000;
 
@@ -144,21 +144,21 @@ export const TVMode = () => {
                     <div className="h-full w-full relative grid grid-cols-12 gap-4 p-8">
                         {/* Left: Map */}
                         <div className="col-span-8 h-full">
-                            <LiveMap drivers={Array.isArray(Object.values(liveCars)) ? Object.values(liveCars).map((c: any) => ({
-                                id: c.station_id,
+                            <LiveMap drivers={Array.isArray(Object.values(liveCars)) ? Object.values(liveCars).map((c) => ({
+                                id: Number(c.station_id) || 0,
                                 name: c.driver || 'Desconocido',
                                 x: c.x || 0,
                                 z: c.z || 0,
                                 normPos: c.normalized_pos || 0,
-                                color: c.station_id === 1 ? '#ef4444' : c.station_id === 2 ? '#3b82f6' : c.station_id === 3 ? '#22c55e' : '#eab308',
+                                color: c.station_id === '1' ? '#ef4444' : c.station_id === '2' ? '#3b82f6' : c.station_id === '3' ? '#22c55e' : '#eab308',
                                 isOnline: true
-                            })) : []} trackName={(Array.isArray(Object.values(liveCars)) && Object.values(liveCars).length > 0) ? (Object.values(liveCars)[0] as any)?.track : 'Circuito'} />
+                            })) : []} trackName={(Array.isArray(Object.values(liveCars)) && Object.values(liveCars).length > 0) ? Object.values(liveCars)[0]?.track || 'Circuito' : 'Circuito'} />
                         </div>
 
                         {/* Right: Driver Status Cards */}
                         <div className="col-span-4 flex flex-col space-y-4 overflow-hidden">
                             <h2 className="text-xl font-black italic tracking-tighter text-yellow-500 uppercase">Estado de Pista</h2>
-                            {Array.isArray(Object.values(liveCars)) && Object.values(liveCars).slice(0, 4).map((car: any) => (
+                            {Array.isArray(Object.values(liveCars)) && Object.values(liveCars).slice(0, 4).map((car) => (
                                 <div key={car.station_id} className="bg-gray-900/80 border-l-4 border-yellow-500 p-4 rounded-r-xl shadow-xl transition-all hover:translate-x-1">
                                     <div className="flex justify-between items-start mb-2">
                                         <div className="font-black text-lg uppercase leading-none tracking-tighter italic">{car.driver}</div>
@@ -176,7 +176,7 @@ export const TVMode = () => {
                                         <div className="bg-white/5 p-1 px-2 rounded">
                                             <div className="text-gray-500">Daño</div>
                                             <div className={car.damage?.some((d: number) => d > 0.1) ? 'text-red-500' : 'text-green-500'}>
-                                                {car.damage ? Math.round(car.damage.reduce((a: any, b: any) => a + b, 0) * 10) : 0}%
+                                                {car.damage ? Math.round((car.damage as number[]).reduce((a: number, b: number) => a + b, 0) * 10) : 0}%
                                             </div>
                                         </div>
                                     </div>
@@ -246,9 +246,10 @@ export const TVMode = () => {
             case 'SPONSORSHIP':
                 return <AdsView />;
 
-            case 'JOIN_QR':
-                const publicUrl = safeSettings.find((s: any) => s.key === 'bar_public_url')?.value || window.location.origin + '/mobile';
+            case 'JOIN_QR': {
+                const publicUrl = safeSettings.find((s: { key: string; value: string }) => s.key === 'bar_public_url')?.value || window.location.origin + '/mobile';
                 return <JoinView url={publicUrl} />;
+            }
 
             default:
                 return (

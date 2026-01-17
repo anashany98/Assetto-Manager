@@ -48,7 +48,7 @@ export default function MobilePassport() {
     // Filter Logic
     const filteredDrivers = useMemo(() => {
         if (!Array.isArray(drivers)) return [];
-        return drivers.filter((d: any) =>
+        return drivers.filter((d: { driver_name: string }) =>
             d.driver_name.toLowerCase().includes(searchTerm.toLowerCase())
         );
     }, [drivers, searchTerm]);
@@ -143,9 +143,9 @@ export default function MobilePassport() {
                                     <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Puntos de Fidelidad</span>
                                 </div>
                                 <div className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${loyalty.tier === 'platinum' ? 'bg-purple-600 text-white' :
-                                        loyalty.tier === 'gold' ? 'bg-amber-500 text-black' :
-                                            loyalty.tier === 'silver' ? 'bg-gray-400 text-black' :
-                                                'bg-amber-800 text-amber-200'
+                                    loyalty.tier === 'gold' ? 'bg-amber-500 text-black' :
+                                        loyalty.tier === 'silver' ? 'bg-gray-400 text-black' :
+                                            'bg-amber-800 text-amber-200'
                                     }`}>
                                     {loyalty.tier}
                                 </div>
@@ -180,7 +180,7 @@ export default function MobilePassport() {
                     <div className="space-y-3">
                         <h3 className="text-gray-400 text-xs font-bold uppercase tracking-widest ml-1">Últimas Sesiones</h3>
                         {Array.isArray(profile?.recent_sessions) && profile.recent_sessions.length > 0 ? (
-                            profile.recent_sessions.map((session: any, i: number) => (
+                            profile.recent_sessions.map((session: { track_name?: string; car_model?: string; best_lap: number; date?: string }, i: number) => (
                                 <div key={i} className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-center justify-between">
                                     <div>
                                         <div className="font-bold text-sm uppercase">{session.track_name?.replace(/_/g, ' ')}</div>
@@ -267,7 +267,7 @@ export default function MobilePassport() {
                         <p className="text-sm font-bold uppercase tracking-widest">No hay pilotos que coincidan</p>
                     </div>
                 ) : (
-                    Array.isArray(filteredDrivers) && filteredDrivers.map((driver: any) => (
+                    Array.isArray(filteredDrivers) && filteredDrivers.map((driver: { driver_name: string; rank_tier?: string; total_laps?: number }) => (
                         <button
                             key={driver.driver_name}
                             onClick={() => setSelectedDriver(driver.driver_name)}

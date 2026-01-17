@@ -29,7 +29,7 @@ export default function SessionAnalysis({ lapId }: SessionAnalysisProps) {
                 // Transform backend data (short keys) to Analyzer format (full keys) if needed
                 // Backend: t, s, r, g, n, x, z...
                 // Analyzer: timestamp, speed, rpm, gear, etc.
-                const samples: TelemetrySample[] = response.data.map((p: any) => ({
+                const samples: TelemetrySample[] = response.data.map((p: { t: number; s: number; r: number; g: number; str?: number; gas?: number; brk?: number; n: number }) => ({
                     timestamp: p.t / 1000,
                     speed: p.s / 3.6, // km/h to m/s
                     rpm: p.r,
@@ -172,7 +172,7 @@ export default function SessionAnalysis({ lapId }: SessionAnalysisProps) {
     );
 }
 
-function MetricBadge({ label, val, goodLimit, inverse }: any) {
+function MetricBadge({ label, val, goodLimit, inverse }: { label: string; val: number; goodLimit: number; unit?: string; inverse?: boolean }) {
     const isGood = inverse ? val <= goodLimit : val >= goodLimit;
     const color = isGood ? "text-green-400" : "text-orange-400";
 

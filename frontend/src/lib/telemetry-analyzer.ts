@@ -139,7 +139,7 @@ export function classifyCarType(samples: TelemetrySample[]): { carClass: CarClas
     const hardBrakeRatio = totalBrakeFrames > 0 ? hardBrakeFrames / totalBrakeFrames : 0;
 
     // Reglas Heurísticas
-    let scores: Record<CarClass, number> = {
+    const scores: Record<CarClass, number> = {
         MONOPLAZA: 0,
         GT3: 0,
         TURISMO: 0,
@@ -192,7 +192,7 @@ function calculateReactionTime(samples: TelemetrySample[]): number {
     // Heurística: Tiempo desde que suelto gas (100% -> 0%) hasta que toco freno (>5%)
     // Esto mide "Coasting". En racing ideal, coasting debe ser 0.
 
-    let reactionEvents = [];
+    const reactionEvents = [];
     let state: "GAS" | "COAST" | "BRAKE" = "GAS";
     let coastStartTime = 0;
 
@@ -257,7 +257,7 @@ function calculateThrottleJerk(samples: TelemetrySample[], dt: number): number {
     // Promedio de los máximos por ventana de 1s
 
     const windowSize = Math.floor(1.0 / dt); // muestras por segundo
-    let maxJerks: number[] = [];
+    const maxJerks: number[] = [];
     let currentWindowMax = 0;
 
     for (let i = 1; i < samples.length; i++) {

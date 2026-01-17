@@ -44,8 +44,8 @@ export function TelemetryChart({ lapId, compareLapId }: TelemetryChartProps) {
             try {
                 const res = await axios.get<TelemetryPoint[]>(`${API_URL}/telemetry/lap/${lapId}/telemetry`);
                 return res.data;
-            } catch (err: any) {
-                console.error(`Error fetching telemetry for lap ${lapId}:`, err.response?.status, err.response?.data);
+            } catch (err) {
+                console.error(`Error fetching telemetry for lap ${lapId}:`, (err as { response?: { status: number; data: unknown } })?.response?.status, (err as { response?: { status: number; data: unknown } })?.response?.data);
                 throw err;
             }
         },
@@ -217,11 +217,11 @@ export function TelemetryChart({ lapId, compareLapId }: TelemetryChartProps) {
                                 contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px', fontSize: '12px' }}
                                 itemStyle={{ color: '#F3F4F6' }}
                                 labelFormatter={(v) => `Posición: ${v}%`}
-                                formatter={(value: any, name: any) => {
+                                formatter={(value: number | string, name: string) => {
                                     if (name === 'Velocidad' || name === 'Rival') return [`${Math.round(Number(value))} km/h`, name];
                                     if (name === 'RPM') return [Math.round(Number(value)), name];
                                     if (name === 'Marcha') return [`G${value}`, name];
-                                    return [value, name];
+                                    return [String(value), name];
                                 }}
                             />
                             <Legend iconSize={8} wrapperStyle={{ fontSize: '10px' }} />
@@ -314,7 +314,7 @@ export function TelemetryChart({ lapId, compareLapId }: TelemetryChartProps) {
                                         contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px', fontSize: '12px' }}
                                         itemStyle={{ color: '#F3F4F6' }}
                                         labelFormatter={(v) => `Posición: ${v}%`}
-                                        formatter={(value: any) => [`${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(3)}s`, 'Delta']}
+                                        formatter={(value: number | string | undefined) => [`${Number(value ?? 0) >= 0 ? '+' : ''}${Number(value ?? 0).toFixed(3)}s`, 'Delta']}
                                     />
                                     <Area
                                         type="monotone"

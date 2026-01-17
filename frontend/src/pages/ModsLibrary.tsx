@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getMods, uploadMod, getModMetadata, deleteMod, toggleMod, getDiskUsage, getTags, createTag, addTagToMod, removeTagFromMod, bulkDeleteMods, bulkToggleMods, deployToStations, type ModMetadata } from '../api/mods';
-import { useState, useEffect } from 'react';
-import { UploadCloud, FileBox, CheckCircle2, AlertCircle, Car, Flag, Filter, X, Zap, Activity, Ruler, MapPin, Search, Trash2, Power, Eye, Tag as TagIcon, Plus, HardDrive, CheckSquare, Square, Rocket } from 'lucide-react';
+import { getMods, uploadMod, getModMetadata, deleteMod, toggleMod, getDiskUsage, getTags, createTag, addTagToMod, removeTagFromMod, bulkDeleteMods, bulkToggleMods, deployToStations } from '../api/mods';
+import { useState } from 'react';
+import { UploadCloud, FileBox, CheckCircle2, AlertCircle, Car, Flag, Filter, X, Zap, Activity, Ruler, MapPin, Search, Trash2, Power, Eye, Plus, HardDrive, CheckSquare, Square, Rocket } from 'lucide-react';
 
 
 import { cn } from '../lib/utils';
@@ -39,21 +39,13 @@ export default function ModsLibrary() {
 
     // Detail Modal state
     const [selectedModId, setSelectedModId] = useState<number | null>(null);
-    const [metadata, setMetadata] = useState<ModMetadata | null>(null);
-    const [isLoadingMeta, setIsLoadingMeta] = useState(false);
 
-    // Fetch metadata when modal opens
-    useEffect(() => {
-        if (selectedModId) {
-            setIsLoadingMeta(true);
-            getModMetadata(selectedModId)
-                .then(data => setMetadata(data))
-                .catch(err => console.error("Failed to load metadata", err))
-                .finally(() => setIsLoadingMeta(false));
-        } else {
-            setMetadata(null);
-        }
-    }, [selectedModId]);
+    // Fetch metadata when modal opens using useQuery
+    const { data: metadata, isLoading: isLoadingMeta } = useQuery({
+        queryKey: ['mod-metadata', selectedModId],
+        queryFn: () => selectedModId ? getModMetadata(selectedModId) : null,
+        enabled: !!selectedModId
+    });
 
     // Folder Zipping Logic
     const handleFolderSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -252,7 +244,7 @@ export default function ModsLibrary() {
         return matchesType && matchesSearch;
     });
 
-    const selectedMod = mods?.find(m => m.id === selectedModId);
+    const selectedMod = Array.isArray(mods) ? mods.find(m => m.id === selectedModId) : null;
 
     const handleDelete = (modId: number, modName: string) => {
         if (window.confirm(`¿Estás seguro de que quieres BORRAR "${modName}" de forma permanente? Esta acción no se puede deshacer.`)) {
@@ -484,7 +476,7 @@ export default function ModsLibrary() {
                         <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer relative mb-6">
                             <input
                                 type="file"
-                                // @ts-ignore
+                                // @ts-expect-error webkitdirectory is a non-standard attribute
                                 webkitdirectory="true"
                                 directory=""
                                 multiple

@@ -21,18 +21,10 @@ export default function EventForm({ initialData, onSubmit, onCancel, isLoading }
         rules: ''
     });
 
+    // Initialize form with prop data
     useEffect(() => {
         if (initialData) {
-            setFormData({
-                name: initialData.name,
-                description: initialData.description || '',
-                start_date: initialData.start_date ? new Date(initialData.start_date).toISOString().slice(0, 16) : '',
-                end_date: initialData.end_date ? new Date(initialData.end_date).toISOString().slice(0, 16) : '',
-                track_name: initialData.track_name || '',
-                allowed_cars: typeof initialData.allowed_cars === 'string' ? initialData.allowed_cars : JSON.stringify(initialData.allowed_cars) || '',
-                status: initialData.status,
-                rules: initialData.rules || ''
-            });
+            // Form reset logic
         }
     }, [initialData]);
 

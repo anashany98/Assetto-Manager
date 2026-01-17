@@ -22,7 +22,7 @@ export default function PublicBookingPage() {
     const [step, setStep] = useState(1); // 1: Date/Time, 2: Details, 3: Confirmation
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
     const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
-    const [bookingComplete, setBookingComplete] = useState<any>(null);
+    const [bookingComplete, setBookingComplete] = useState<{ id: number } | null>(null);
 
     const [formData, setFormData] = useState({
         customer_name: '',
@@ -42,8 +42,8 @@ export default function PublicBookingPage() {
         }
     });
 
-    const barName = settings?.find((s: any) => s.key === 'bar_name')?.value || 'VRacing Bar';
-    const barLogo = settings?.find((s: any) => s.key === 'bar_logo')?.value || '/logo.png';
+    const barName = settings?.find((s: { key: string; value: string }) => s.key === 'bar_name')?.value || 'VRacing Bar';
+    const barLogo = settings?.find((s: { key: string; value: string }) => s.key === 'bar_logo')?.value || '/logo.png';
 
     // Fetch available slots
     const { data: availability, isLoading: loadingSlots } = useQuery({
@@ -58,7 +58,7 @@ export default function PublicBookingPage() {
 
     // Create booking mutation
     const createBooking = useMutation({
-        mutationFn: async (data: any) => {
+        mutationFn: async (data: typeof formData & { date: string; time_slot: string }) => {
             const res = await axios.post(`${API_URL}/bookings/`, data);
             return res.data;
         },
@@ -361,7 +361,7 @@ export default function PublicBookingPage() {
                         {createBooking.isError && (
                             <div className="bg-red-900/30 border border-red-500/50 rounded-xl p-3 text-red-400 text-sm">
                                 <AlertCircle size={16} className="inline mr-2" />
-                                {(createBooking.error as any)?.response?.data?.detail || 'Error al crear la reserva'}
+                                {(createBooking.error as Error)?.message || 'Error al crear la reserva'}
                             </div>
                         )}
 
