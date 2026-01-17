@@ -15,6 +15,8 @@ interface Booking {
     time_slot: string;
     status: string;
     notes: string | null;
+    num_players?: number;
+    duration_minutes?: number;
 }
 
 interface SlotAvailability {
@@ -42,6 +44,7 @@ export default function BookingsPage() {
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
     const [showBookingForm, setShowBookingForm] = useState(false);
     const [selectedBooking, setSelectedBooking] = useState<Partial<Booking> | null>(null);
+    const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
 
     // Form state
     const [formData, setFormData] = useState({

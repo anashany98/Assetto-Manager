@@ -1,0 +1,228 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e5]:
+  - generic [ref=e6]:
+    - generic [ref=e8]:
+      - img [ref=e10]
+      - generic [ref=e16]:
+        - heading "SimRacing Bar" [level=1] [ref=e17]
+        - generic [ref=e20]: OFFLINE
+    - generic [ref=e21]:
+      - button "Tiempos" [ref=e22]
+      - button "Mapa" [ref=e23]
+      - button "Telemetría" [ref=e24]
+      - button "Leyendas" [ref=e25]
+      - button [ref=e26]:
+        - img [ref=e27]
+    - generic [ref=e30]:
+      - generic [ref=e31]:
+        - generic:
+          - img
+        - textbox "Buscar tu nombre..." [ref=e32]
+      - generic [ref=e33]:
+        - generic [ref=e34]:
+          - img [ref=e36]
+          - combobox [ref=e39]:
+            - option "TODOS LOS CIRCUITOS" [selected]
+            - option "SILVERSTONE"
+            - option "BARCELONA"
+            - option "NURBURGRING"
+            - option "SPA"
+            - option "MONZA"
+            - option "IMOLA"
+            - option "SUZUKA"
+        - generic [ref=e40]:
+          - img [ref=e42]
+          - combobox [ref=e46]:
+            - option "TODOS LOS COCHES" [selected]
+            - option "MCLAREN_720S_GT3"
+            - option "FERRARI_488_GT3"
+            - option "MERCEDES_AMG_GT3"
+            - option "LAMBORGHINI_HURACAN_GT3"
+            - option "AUDI_R8_LMS"
+            - option "PORSCHE_911_GT3_R"
+  - generic [ref=e48]:
+    - generic [ref=e50]:
+      - generic [ref=e51]:
+        - generic [ref=e52]: "1"
+        - generic [ref=e53]:
+          - heading "Lewis Hamilton" [level=3] [ref=e54]
+          - generic [ref=e55]:
+            - generic [ref=e56]:
+              - img [ref=e57]
+              - text: audi r8 lms
+            - generic [ref=e62]:
+              - img [ref=e63]
+              - text: imola
+      - generic [ref=e66]:
+        - generic [ref=e67]: 1:46.015
+        - generic [ref=e68]: 22 dic
+    - generic [ref=e71]:
+      - generic [ref=e72]:
+        - generic [ref=e73]: "2"
+        - generic [ref=e74]:
+          - heading "Daniel Ricciardo" [level=3] [ref=e75]
+          - generic [ref=e76]:
+            - generic [ref=e77]:
+              - img [ref=e78]
+              - text: mercedes amg gt3
+            - generic [ref=e83]:
+              - img [ref=e84]
+              - text: spa
+      - generic [ref=e87]:
+        - generic [ref=e88]: 1:46.028
+        - generic [ref=e89]: 25 dic
+    - generic [ref=e92]:
+      - generic [ref=e93]:
+        - generic [ref=e94]: "3"
+        - generic [ref=e95]:
+          - heading "Sergio Perez" [level=3] [ref=e96]
+          - generic [ref=e97]:
+            - generic [ref=e98]:
+              - img [ref=e99]
+              - text: ferrari 488 gt3
+            - generic [ref=e104]:
+              - img [ref=e105]
+              - text: imola
+      - generic [ref=e108]:
+        - generic [ref=e109]: 1:46.030
+        - generic [ref=e110]: 13 ene
+    - generic [ref=e113]:
+      - generic [ref=e114]:
+        - generic [ref=e115]: "4"
+        - generic [ref=e116]:
+          - heading "Yuki Tsunoda" [level=3] [ref=e117]
+          - generic [ref=e118]:
+            - generic [ref=e119]:
+              - img [ref=e120]
+              - text: audi r8 lms
+            - generic [ref=e125]:
+              - img [ref=e126]
+              - text: spa
+      - generic [ref=e129]:
+        - generic [ref=e130]: 1:46.042
+        - generic [ref=e131]: 22 dic
+    - generic [ref=e134]:
+      - generic [ref=e135]:
+        - generic [ref=e136]: "5"
+        - generic [ref=e137]:
+          - heading "Charles Leclerc" [level=3] [ref=e138]
+          - generic [ref=e139]:
+            - generic [ref=e140]:
+              - img [ref=e141]
+              - text: lamborghini huracan gt3
+            - generic [ref=e146]:
+              - img [ref=e147]
+              - text: monza
+      - generic [ref=e150]:
+        - generic [ref=e151]: 1:46.070
+        - generic [ref=e152]: 14 ene
+    - generic [ref=e155]:
+      - generic [ref=e156]:
+        - generic [ref=e157]: "6"
+        - generic [ref=e158]:
+          - heading "Alex Albon" [level=3] [ref=e159]
+          - generic [ref=e160]:
+            - generic [ref=e161]:
+              - img [ref=e162]
+              - text: mercedes amg gt3
+            - generic [ref=e167]:
+              - img [ref=e168]
+              - text: silverstone
+      - generic [ref=e171]:
+        - generic [ref=e172]: 1:46.125
+        - generic [ref=e173]: 5 ene
+    - generic [ref=e176]:
+      - generic [ref=e177]:
+        - generic [ref=e178]: "7"
+        - generic [ref=e179]:
+          - heading "Fernando Alonso" [level=3] [ref=e180]
+          - generic [ref=e181]:
+            - generic [ref=e182]:
+              - img [ref=e183]
+              - text: mclaren 720s gt3
+            - generic [ref=e188]:
+              - img [ref=e189]
+              - text: nurburgring
+      - generic [ref=e192]:
+        - generic [ref=e193]: 1:46.147
+        - generic [ref=e194]: 25 dic
+    - generic [ref=e197]:
+      - generic [ref=e198]:
+        - generic [ref=e199]: "8"
+        - generic [ref=e200]:
+          - heading "Max Verstappen" [level=3] [ref=e201]
+          - generic [ref=e202]:
+            - generic [ref=e203]:
+              - img [ref=e204]
+              - text: audi r8 lms
+            - generic [ref=e209]:
+              - img [ref=e210]
+              - text: monza
+      - generic [ref=e213]:
+        - generic [ref=e214]: 1:46.164
+        - generic [ref=e215]: 8 ene
+    - generic [ref=e218]:
+      - generic [ref=e219]:
+        - generic [ref=e220]: "9"
+        - generic [ref=e221]:
+          - heading "Oscar Piastri" [level=3] [ref=e222]
+          - generic [ref=e223]:
+            - generic [ref=e224]:
+              - img [ref=e225]
+              - text: lamborghini huracan gt3
+            - generic [ref=e230]:
+              - img [ref=e231]
+              - text: nurburgring
+      - generic [ref=e234]:
+        - generic [ref=e235]: 1:46.164
+        - generic [ref=e236]: 3 ene
+    - generic [ref=e239]:
+      - generic [ref=e240]:
+        - generic [ref=e241]: "10"
+        - generic [ref=e242]:
+          - heading "George Russell" [level=3] [ref=e243]
+          - generic [ref=e244]:
+            - generic [ref=e245]:
+              - img [ref=e246]
+              - text: lamborghini huracan gt3
+            - generic [ref=e251]:
+              - img [ref=e252]
+              - text: silverstone
+      - generic [ref=e255]:
+        - generic [ref=e256]: 1:46.253
+        - generic [ref=e257]: 13 ene
+    - generic [ref=e260]:
+      - generic [ref=e261]:
+        - generic [ref=e262]: "11"
+        - generic [ref=e263]:
+          - heading "Lando Norris" [level=3] [ref=e264]
+          - generic [ref=e265]:
+            - generic [ref=e266]:
+              - img [ref=e267]
+              - text: mercedes amg gt3
+            - generic [ref=e272]:
+              - img [ref=e273]
+              - text: nurburgring
+      - generic [ref=e276]:
+        - generic [ref=e277]: 1:46.258
+        - generic [ref=e278]: 25 dic
+    - generic [ref=e281]:
+      - generic [ref=e282]:
+        - generic [ref=e283]: "12"
+        - generic [ref=e284]:
+          - heading "Carlos Sainz" [level=3] [ref=e285]
+          - generic [ref=e286]:
+            - generic [ref=e287]:
+              - img [ref=e288]
+              - text: mclaren 720s gt3
+            - generic [ref=e293]:
+              - img [ref=e294]
+              - text: monza
+      - generic [ref=e297]:
+        - generic [ref=e298]: 1:46.302
+        - generic [ref=e299]: 7 ene
+    - generic [ref=e302]:
+      - generic: Patrocinado
+```
