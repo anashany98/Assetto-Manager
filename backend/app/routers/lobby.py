@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import logging
 
 from .. import models, schemas, database
-from .websockets import connected_agents
+from .websockets import manager
 
 logger = logging.getLogger("api.lobby")
 
@@ -214,7 +214,7 @@ async def start_lobby(
     host = db.query(models.Station).filter(models.Station.id == lobby.host_station_id).first()
     
     # Send create_lobby command to host agent
-    host_ws = connected_agents.get(host.name)
+    host_ws = manager.active_agents.get(host.id)
     if host_ws:
         try:
             import json
@@ -237,7 +237,7 @@ async def start_lobby(
         if station.id == lobby.host_station_id:
             continue  # Skip host
         
-        ws = connected_agents.get(station.name)
+        ws = manager.active_agents.get(station.id)
         if ws:
             try:
                 import json
@@ -277,7 +277,7 @@ async def cancel_lobby(
     # If running, send stop command to host
     if lobby.status == "running":
         host = db.query(models.Station).filter(models.Station.id == lobby.host_station_id).first()
-        ws = connected_agents.get(host.name)
+        ws = manager.active_agents.get(host.id)
         if ws:
             try:
                 import json

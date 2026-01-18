@@ -26,13 +26,8 @@ cd frontend
 start "AC Frontend" npm run dev -- --host
 cd ..
 
-:START_BACKEND
-echo Starting Backend Watchdog...
-start "AC Backend" /wait cmd /c "python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload"
-
-echo [WARNING] Backend crashed or closed. Restarting in 5 seconds...
-timeout /t 5
-goto START_BACKEND
+echo Starting Backend...
+start "AC Backend" cmd /k "python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload"
 
 echo.
 echo SYSTEM RUNNING.

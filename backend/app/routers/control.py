@@ -182,9 +182,6 @@ async def install_mod(station_id: int, mod_id: int, db: Session = Depends(get_db
         await agent_ws.send_text(json.dumps(payload))
         return {"status": "installing", "payload": payload}
     else:
-        raise HTTPException(status_code=404, detail="Agent not connected")
-            raise HTTPException(status_code=500, detail="Failed to communicate with Agent")
-    else:
         logger.warning(f"Station {station_id} not connected")
         raise HTTPException(status_code=404, detail=f"Station {station_id} is not online")
 
