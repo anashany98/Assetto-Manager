@@ -6,8 +6,7 @@ from .routers import stations, mods, telemetry, websockets, settings, profiles, 
 
 # ...
 
-app.include_router(control.router)
-app.include_router(hardware.router)
+
 from .routers.logs import MemoryLogHandler
 from .services.scheduler import start_scheduler, stop_scheduler
 
@@ -107,6 +106,7 @@ app.include_router(push.router)
 app.include_router(elimination.router)
 app.include_router(elo.router)
 app.include_router(hardware.router)
+app.include_router(control.router)
 
 
 # @app.get("/")
