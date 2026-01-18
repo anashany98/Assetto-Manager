@@ -10,6 +10,7 @@ export interface Station {
     is_active: boolean;
     is_online: boolean;
     status: string;
+    ac_path?: string;
 }
 
 export const getStations = async (): Promise<Station[]> => {

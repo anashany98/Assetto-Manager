@@ -33,6 +33,7 @@ const TVMode = lazy(() => import('./pages/TVMode').then(module => ({ default: mo
 const EliminationTV = lazy(() => import('./pages/EliminationTV'));
 const EliminationAdmin = lazy(() => import('./pages/EliminationAdmin'));
 const HardwareMonitor = lazy(() => import('./pages/HardwareMonitor'));
+const KioskMode = lazy(() => import('./pages/KioskMode'));
 
 import { useBranding } from './hooks/useBranding';
 
@@ -77,7 +78,7 @@ function App() {
               <Route path="/remote" element={<PrivateRoute><TVRemote /></PrivateRoute>} />
               <Route path="/leaderboard" element={<Leaderboard />} />
               <Route path="/hall-of-fame" element={<HallOfFame />} />
-              <Route path="/kiosk" element={<LandingPage />} />
+              <Route path="/kiosk" element={<KioskMode />} />
               <Route path="/battle" element={<BattleMode />} />
               <Route path="/live-map" element={<LiveMapPage />} />
               <Route path="/tv" element={<TVMode />} />
@@ -107,4 +108,3 @@ function App() {
 }
 
 export default App;
-

@@ -16,7 +16,7 @@ export default function Configuration() {
 
     // Simulator Editing State
     const [editingId, setEditingId] = useState<number | null>(null);
-    const [editForm, setEditForm] = useState<{ name: string, ip: string }>({ name: '', ip: '' });
+    const [editForm, setEditForm] = useState<{ name: string, ip: string, ac_path: string }>({ name: '', ip: '', ac_path: '' });
 
     const stationMutation = useMutation({
         mutationFn: ({ id, data }: { id: number; data: Partial<Station> }) => updateStation(id, data),
@@ -28,13 +28,13 @@ export default function Configuration() {
 
     const startEdit = (station: Station) => {
         setEditingId(station.id);
-        setEditForm({ name: station.name || '', ip: station.ip_address || '' });
+        setEditForm({ name: station.name || '', ip: station.ip_address || '', ac_path: station.ac_path || '' });
     };
 
     const saveEdit = (id: number) => {
         stationMutation.mutate({
             id,
-            data: { name: editForm.name, ip_address: editForm.ip }
+            data: { name: editForm.name, ip_address: editForm.ip, ac_path: editForm.ac_path }
         });
     };
 
@@ -201,6 +201,24 @@ export default function Configuration() {
                                                 )}
                                             </div>
                                         </div>
+                                        {/* AC Path Input - Visible when editing */}
+                                        {editingId === station.id && (
+                                            <div className="mt-4 flex items-center space-x-2">
+                                                <span className="text-xs text-gray-500 font-bold uppercase">Ruta AC:</span>
+                                                <input
+                                                    className="flex-1 border-b border-gray-600 focus:outline-none bg-blue-500/10 px-2 py-1 text-white text-sm font-mono"
+                                                    value={editForm.ac_path}
+                                                    onChange={e => setEditForm({ ...editForm, ac_path: e.target.value })}
+                                                    placeholder="C:\Program Files (x86)\Steam\steamapps\common\assettocorsa"
+                                                />
+                                            </div>
+                                        )}
+                                        {/* Show AC Path when not editing */}
+                                        {editingId !== station.id && station.ac_path && (
+                                            <div className="mt-2 text-xs text-gray-600 font-mono truncate max-w-md" title={station.ac_path}>
+                                                📁 {station.ac_path}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 

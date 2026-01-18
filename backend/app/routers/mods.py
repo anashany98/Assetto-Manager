@@ -29,6 +29,35 @@ router = APIRouter(
 MODS_DIR = STORAGE_DIR / "mods"
 MODS_DIR.mkdir(parents=True, exist_ok=True)
 
+
+# --- KIOSK CONTENT ENDPOINT ---
+@router.get("/station/{station_id}/content")
+def get_station_content(station_id: int, db: Session = Depends(database.get_db)):
+    """
+    Return cached cars/tracks for a specific station.
+    This is used by the Kiosk UI to show real installed content.
+    """
+    station = db.query(models.Station).filter(models.Station.id == station_id).first()
+    if not station:
+        raise HTTPException(status_code=404, detail=f"Station {station_id} not found")
+    
+    if station.content_cache:
+        return {
+            "station_id": station_id,
+            "cars": station.content_cache.get("cars", []),
+            "tracks": station.content_cache.get("tracks", []),
+            "updated": station.content_cache_updated.isoformat() if station.content_cache_updated else None
+        }
+    else:
+        # Return empty but valid structure
+        return {
+            "station_id": station_id,
+            "cars": [],
+            "tracks": [],
+            "updated": None,
+            "message": "Content not scanned yet. Trigger scan via /control/station/{id}/content"
+        }
+
 def _sanitize_name(value: str, fallback: str) -> str:
     cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", value.strip())
     cleaned = cleaned.strip("._-")

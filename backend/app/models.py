@@ -25,6 +25,17 @@ mod_dependencies = Table(
     Column("child_mod_id", Integer, ForeignKey("mods.id")),
 )
 
+# Lobby Players Association
+lobby_players = Table(
+    "lobby_players",
+    Base.metadata,
+    Column("lobby_id", Integer, ForeignKey("lobbies.id")),
+    Column("station_id", Integer, ForeignKey("stations.id")),
+    Column("slot", Integer),  # Car slot number (0-7)
+    Column("ready", Boolean, default=False),
+    Column("joined_at", DateTime(timezone=True)),
+)
+
 class Driver(Base):
     __tablename__ = "drivers"
     id = Column(Integer, primary_key=True, index=True)
@@ -57,11 +68,46 @@ class Station(Base):
     is_active = Column(Boolean, default=True)
     is_online = Column(Boolean, default=False)
     status = Column(String, default="offline")
+    ac_path = Column(String, default="C:\\Program Files (x86)\\Steam\\steamapps\\common\\assettocorsa")
+    content_cache = Column(JSON, nullable=True)  # Cached cars/tracks from scan
+    content_cache_updated = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), onupdate=lambda: datetime.now(timezone.utc))
     
     active_profile_id = Column(Integer, ForeignKey("profiles.id"), nullable=True)
     active_profile = relationship("Profile")
+
+
+class Lobby(Base):
+    """Multiplayer lobby for coordinating multi-station races"""
+    __tablename__ = "lobbies"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    status = Column(String, default="waiting")  # waiting, starting, running, finished, cancelled
+    
+    # Host station that runs acServer.exe
+    host_station_id = Column(Integer, ForeignKey("stations.id"))
+    host_station = relationship("Station", foreign_keys=[host_station_id])
+    
+    # Race configuration
+    track = Column(String)
+    car = Column(String)  # Single car model for equal races
+    max_players = Column(Integer, default=8)
+    laps = Column(Integer, default=5)
+    
+    # Server networking
+    port = Column(Integer, default=9600)
+    server_ip = Column(String, nullable=True)  # Filled when server starts
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    finished_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # Connected players (via association table)
+    players = relationship("Station", secondary=lobby_players, backref="lobbies")
+
 
 class Mod(Base):
     __tablename__ = "mods"

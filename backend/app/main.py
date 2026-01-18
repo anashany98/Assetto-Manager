@@ -108,6 +108,10 @@ app.include_router(elo.router)
 app.include_router(hardware.router)
 app.include_router(control.router)
 
+# Lobby / Multiplayer
+from .routers import lobby
+app.include_router(lobby.router)
+
 
 # @app.get("/")
 # async def root():

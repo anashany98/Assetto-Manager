@@ -110,6 +110,23 @@ async def websocket_agent_endpoint(websocket: WebSocket):
                         await manager.register_agent(websocket, station_id)
                     continue
 
+                # Handle Content Scan Result from Agent
+                if data.get("type") == "content_scan_result":
+                    station_id = manager.ws_to_station.get(websocket)
+                    if station_id:
+                        content_data = data.get("data", {})
+                        db = SessionLocal()
+                        try:
+                            station = db.query(models.Station).filter(models.Station.id == station_id).first()
+                            if station:
+                                station.content_cache = content_data
+                                station.content_cache_updated = datetime.now()
+                                db.commit()
+                                logger.info(f"Cached content for Station {station_id}: {len(content_data.get('cars',[]))} cars, {len(content_data.get('tracks',[]))} tracks")
+                        finally:
+                            db.close()
+                    continue
+
                 # 1. Broadcast immediately to all clients (Live visual updates)
                 await manager.broadcast(raw_data)
                 

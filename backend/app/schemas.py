@@ -29,6 +29,7 @@ class StationBase(BaseModel):
     ip_address: str 
     mac_address: str
     hostname: str
+    ac_path: Optional[str] = "C:\\Program Files (x86)\\Steam\\steamapps\\common\\assettocorsa"
 
 class StationCreate(StationBase):
     pass
@@ -39,6 +40,7 @@ class StationUpdate(BaseModel):
     status: Optional[str] = None
     is_active: Optional[bool] = None
     active_profile_id: Optional[int] = None
+    ac_path: Optional[str] = None
 
 class ChampionshipBase(BaseModel):
     name: str
@@ -62,6 +64,7 @@ class Station(StationBase):
     is_active: bool
     is_online: bool
     status: str
+    ac_path: Optional[str]
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
 
@@ -356,3 +359,46 @@ class MultiDriverComparisonResponse(BaseModel):
     drivers: List[ComparisonStats]
 
 
+# --- LOBBY SCHEMAS ---
+
+class LobbyStatus(str, Enum):
+    waiting = "waiting"
+    starting = "starting"
+    running = "running"
+    finished = "finished"
+    cancelled = "cancelled"
+
+class LobbyCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=50)
+    track: str
+    car: str
+    max_players: int = Field(default=8, ge=2, le=24)
+    laps: int = Field(default=5, ge=1, le=100)
+
+class LobbyPlayer(BaseModel):
+    station_id: int
+    station_name: str
+    slot: int
+    ready: bool
+
+class Lobby(BaseModel):
+    id: int
+    name: str
+    status: str
+    host_station_id: int
+    track: str
+    car: str
+    max_players: int
+    laps: int
+    port: int
+    server_ip: Optional[str] = None
+    created_at: datetime
+    started_at: Optional[datetime] = None
+    player_count: int = 0
+    players: List[LobbyPlayer] = []
+
+    class Config:
+        from_attributes = True
+
+class LobbyJoin(BaseModel):
+    station_id: int
