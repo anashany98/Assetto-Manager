@@ -51,6 +51,52 @@ async def global_panic():
 
 # --- KIOSK MODE ENDPOINTS ---
 
+class KioskCommand(BaseModel):
+    enabled: bool
+
+@router.post("/station/{station_id}/kiosk")
+async def set_station_kiosk(station_id: int, cmd: KioskCommand, db: Session = Depends(get_db)):
+    """
+    Toggle Kiosk Mode on the Agent.
+    """
+    station = db.query(StationModel).filter(StationModel.id == station_id).first()
+    if not station:
+        raise HTTPException(status_code=404, detail="Station not found")
+        
+    # Update DB
+    station.is_kiosk_mode = cmd.enabled
+    db.commit()
+    
+    # Send Command
+    agent_ws = manager.active_agents.get(station_id)
+    if agent_ws:
+        try:
+            payload = {"command": "set_kiosk", "enabled": cmd.enabled}
+            await agent_ws.send_text(json.dumps(payload))
+            logger.info(f"Kiosk mode {'ENABLED' if cmd.enabled else 'DISABLED'} for Station {station_id}")
+            return {"status": "ok", "kiosk_mode": cmd.enabled}
+        except Exception as e:
+            logger.error(f"Failed to send Kiosk command: {e}")
+            raise HTTPException(status_code=500, detail="Failed to communicate with Agent")
+    else:
+        logger.warning(f"Station {station_id} offline, but DB updated.")
+        return {"status": "offline_updated", "message": "Station updated in DB but is offline."}
+
+
+@router.post("/station/{station_id}/config")
+async def update_station_config(station_id: int, data: dict, db: Session = Depends(get_db)):
+    """Update station configuration (e.g. is_vr)"""
+    station = db.query(StationModel).filter(StationModel.id == station_id).first()
+    if not station:
+        raise HTTPException(status_code=404, detail="Station not found")
+        
+    if 'is_vr' in data:
+        station.is_vr = data['is_vr']
+        
+    db.commit()
+    return {"status": "updated", "is_vr": station.is_vr}
+
+
 class LaunchSessionCommand(BaseModel):
     driver_id: Optional[int] = None
     driver_name: Optional[str] = None
@@ -90,6 +136,7 @@ async def launch_station_session(station_id: int, cmd: LaunchSessionCommand, db:
     }
 
     # Send to specific station
+    logger.info(f"[DEBUG] Active agents: {list(manager.active_agents.keys())}")
     agent_ws = manager.active_agents.get(station_id)
     if agent_ws:
         try:
@@ -235,3 +282,64 @@ async def stop_station_session(station_id: int):
             raise HTTPException(status_code=500, detail="Failed to communicate with Agent")
     else:
         raise HTTPException(status_code=404, detail=f"Station {station_id} is not online")
+
+
+# --- WHEEL PROFILES ENDPOINTS ---
+
+@router.get("/profiles", response_model=list[dict])
+async def list_wheel_profiles(db: Session = Depends(get_db)):
+    """List all wheel profiles"""
+    from ..models import WheelProfile
+    profiles = db.query(WheelProfile).filter(WheelProfile.is_active == True).all()
+    return [{"id": p.id, "name": p.name, "description": p.description, "model_type": p.model_type} for p in profiles]
+
+@router.post("/profiles")
+async def create_wheel_profile(data: dict, db: Session = Depends(get_db)):
+    """Create a new wheel profile"""
+    from ..models import WheelProfile
+    
+    if db.query(WheelProfile).filter(WheelProfile.name == data['name']).first():
+        raise HTTPException(status_code=400, detail="Profile name already exists")
+        
+    profile = WheelProfile(
+        name=data['name'],
+        description=data.get('description'),
+        config_ini=data.get('config_ini'),
+        model_type=data.get('model_type', 'custom')
+    )
+    db.add(profile)
+    db.commit()
+    db.refresh(profile)
+    return profile
+
+@router.post("/station/{station_id}/profile/{profile_id}")
+async def apply_wheel_profile(station_id: int, profile_id: int, db: Session = Depends(get_db)):
+    """
+    Send a set_controls command to the agent with the profile content.
+    """
+    # 1. Get Profile
+    from ..models import WheelProfile
+    profile = db.query(WheelProfile).filter(WheelProfile.id == profile_id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+        
+    # 2. Get Agent
+    agent_ws = manager.active_agents.get(station_id)
+    if not agent_ws:
+        raise HTTPException(status_code=404, detail="Station not online")
+        
+    # 3. Send Command
+    payload = {
+        "command": "set_controls",
+        "profile_name": profile.name,
+        "ini_content": profile.config_ini
+    }
+    
+    try:
+        await agent_ws.send_text(json.dumps(payload))
+        logger.info(f"Sent profile '{profile.name}' to Station {station_id}")
+        return {"status": "sent", "profile": profile.name}
+    except Exception as e:
+        logger.error(f"Failed to send profile: {e}")
+        raise HTTPException(status_code=500, detail="Failed to send command to agent")
+

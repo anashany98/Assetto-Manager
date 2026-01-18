@@ -34,6 +34,7 @@ const EliminationTV = lazy(() => import('./pages/EliminationTV'));
 const EliminationAdmin = lazy(() => import('./pages/EliminationAdmin'));
 const HardwareMonitor = lazy(() => import('./pages/HardwareMonitor'));
 const KioskMode = lazy(() => import('./pages/KioskMode'));
+const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
 
 import { useBranding } from './hooks/useBranding';
 

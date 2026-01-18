@@ -10,7 +10,7 @@ import {
     Truck, Settings as SettingsIcon, Plus, FileText,
     Layout, Monitor, Wifi, WifiOff, Edit2, CheckCircle,
     Activity, Upload, QrCode, Gamepad2, Volume2,
-    Trash2, MonitorPlay, Globe, Terminal, Megaphone, Database, Bell
+    Trash2, MonitorPlay, Globe, Terminal, Megaphone, Database, Bell, BadgeDollarSign
 } from 'lucide-react';
 import { LogViewer } from '../components/LogViewer';
 import AdsSettings from '../components/AdsSettings';
@@ -30,7 +30,7 @@ const AC_CATEGORIES = [
 
 export default function SettingsPage() {
     const queryClient = useQueryClient();
-    const [activeTab, setActiveTab] = useState<'branding' | 'stations' | 'game' | 'logs' | 'ads' | 'database'>('branding');
+    const [activeTab, setActiveTab] = useState<'branding' | 'stations' | 'game' | 'logs' | 'ads' | 'database' | 'pricing'>('branding');
     const pushNotifications = usePushNotifications();
 
     const handleExport = async () => {
@@ -171,14 +171,14 @@ export default function SettingsPage() {
                     {[
                         { id: 'branding', label: 'Marca y TV', icon: Layout },
                         { id: 'ads', label: 'Promociones', icon: Megaphone },
+                        { id: 'pricing', label: 'Precios', icon: BadgeDollarSign }, // New Tab
                         { id: 'stations', label: 'Simuladores', icon: MonitorPlay },
-                        { id: 'game', label: 'Assetto Corsa', icon: Gamepad2 },
                         { id: 'logs', label: 'Logs Sistema', icon: Terminal },
                         { id: 'database', label: 'Base de Datos', icon: Database }
                     ].map(tab => (
                         <button
                             key={tab.id}
-                            onClick={() => setActiveTab(tab.id as 'branding' | 'ads' | 'stations' | 'game' | 'logs' | 'database')}
+                            onClick={() => setActiveTab(tab.id as any)}
                             className={cn(
                                 "flex items-center space-x-2 px-5 py-2.5 rounded-xl text-sm font-black transition-all uppercase tracking-wide",
                                 activeTab === tab.id
@@ -299,9 +299,60 @@ export default function SettingsPage() {
                     </div>
                 )}
 
+                {/* --- TAB: PRICING --- */}
+                {activeTab === 'pricing' && (
+                    <div className="max-w-2xl animate-in fade-in duration-300">
+                        <div className="bg-gray-800 p-8 rounded-3xl border border-gray-700">
+                            <h2 className="text-xl font-black text-white uppercase mb-6 flex items-center">
+                                <BadgeDollarSign className="mr-2 text-green-400" /> Configuración de Precios
+                            </h2>
+                            <p className="text-gray-400 mb-6 text-sm">Define las tarifas base por tiempo. El sistema calculará automáticamente el precio.</p>
+
+                            <div className="space-y-6">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Precio Base (15 Minutos)</label>
+                                    <div className="relative">
+                                        <span className="absolute left-4 top-3.5 text-gray-400">€</span>
+                                        <input
+                                            type="number"
+                                            step="0.5"
+                                            className="w-full p-3 pl-8 rounded-xl bg-gray-900 border border-gray-700 text-white font-bold outline-none focus:border-green-500 transition-all text-lg"
+                                            defaultValue={safeBranding.find((s: any) => s.key === 'pricing_base_15min')?.value || '5.0'}
+                                            onBlur={e => updateBranding.mutate({ key: 'pricing_base_15min', value: e.target.value })}
+                                        />
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-1">Tarifa estándar para simuladores de pantalla normal.</p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Recargo VR (por 15 Minutos)</label>
+                                    <div className="relative">
+                                        <span className="absolute left-4 top-3.5 text-gray-400">+ €</span>
+                                        <input
+                                            type="number"
+                                            step="0.5"
+                                            className="w-full p-3 pl-10 rounded-xl bg-gray-900 border border-gray-700 text-white font-bold outline-none focus:border-purple-500 transition-all text-lg"
+                                            defaultValue={safeBranding.find((s: any) => s.key === 'pricing_vr_surcharge')?.value || '2.0'}
+                                            onBlur={e => updateBranding.mutate({ key: 'pricing_vr_surcharge', value: e.target.value })}
+                                        />
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-1">Costo adicional que se suma al precio base si se usa VR.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* --- TAB: STATIONS --- */}
                 {activeTab === 'stations' && (
                     <div className="grid gap-4 max-w-5xl animate-in fade-in duration-300">
+                        {(!stations || stations.length === 0) && (
+                            <div className="bg-gray-800/50 border border-gray-700/50 rounded-2xl p-12 text-center">
+                                <MonitorPlay className="w-16 h-16 text-gray-700 mx-auto mb-4" />
+                                <h3 className="text-xl font-bold text-gray-400 mb-2">No se detectan estaciones</h3>
+                                <p className="text-gray-600">Asegúrate de que el agente (client.py) esté ejecutándose en los simuladores.</p>
+                            </div>
+                        )}
                         {Array.isArray(stations) && stations.map((station) => (
                             <div key={station.id} className="bg-gray-800 p-6 rounded-2xl border border-gray-700 flex justify-between items-center">
                                 <div className="flex items-center space-x-6">
@@ -336,171 +387,6 @@ export default function SettingsPage() {
                                 </div>
                             </div>
                         ))}
-                    </div>
-                )}
-
-                {/* --- TAB: GAME CONFIG --- */}
-                {activeTab === 'game' && (
-                    <div className="flex flex-col h-full animate-in fade-in duration-300">
-                        <div className="flex flex-col md:flex-row gap-8 h-full">
-                            {/* Sidebar Categories */}
-                            <div className="w-full md:w-64 space-y-2 shrink-0">
-                                {AC_CATEGORIES.map(cat => (
-                                    <button key={cat.id} onClick={() => setSelectedCategory(cat.id)}
-                                        className={cn(
-                                            "w-full flex items-center space-x-3 px-4 py-4 rounded-xl transition-all font-black uppercase text-sm tracking-wide relative overflow-hidden group",
-                                            selectedCategory === cat.id
-                                                ? "bg-blue-600 text-white shadow-lg shadow-blue-900/50 scale-[1.02] ring-2 ring-blue-400"
-                                                : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white border border-gray-700"
-                                        )}>
-                                        <div className={cn("absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-0 transition-opacity", selectedCategory === cat.id && "opacity-100")} />
-                                        <cat.icon size={20} className={cn("relative z-10", selectedCategory === cat.id ? "text-white" : "text-gray-500 group-hover:text-blue-400")} />
-                                        <span className="relative z-10">{cat.name}</span>
-                                    </button>
-                                ))}
-
-                                <div className="hidden md:block pt-6 mt-6 border-t border-gray-800">
-                                    <button onClick={() => deployMutation.mutate()}
-                                        className={cn(
-                                            "w-full py-5 rounded-xl font-black uppercase text-sm flex justify-center items-center space-x-2 transition-all transform active:scale-95 group relative overflow-hidden",
-                                            Object.keys(selectedProfiles).length > 0
-                                                ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xl shadow-blue-900/30 hover:shadow-blue-500/40 border border-blue-400/30"
-                                                : "bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700"
-                                        )}>
-                                        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
-                                        <div className="absolute -inset-full top-0 block h-full w-1/2 -skew-x-12 bg-gradient-to-r from-transparent to-white opacity-20 group-hover:animate-shine" />
-                                        <Upload size={20} className="relative z-10" />
-                                        <span className="relative z-10">APLICAR CAMBIOS</span>
-                                    </button>
-
-                                    {/* Selection Summary */}
-                                    <div className="mt-6 space-y-3">
-                                        <h4 className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-1">Configuración Actual</h4>
-                                        {Object.entries(selectedProfiles).length === 0 ? (
-                                            <p className="text-xs text-gray-600 italic pl-1">Selecciona perfiles para aplicar...</p>
-                                        ) : (
-                                            Object.entries(selectedProfiles).map(([c, f]) => (
-                                                <div key={c} className="bg-gray-800 p-3 rounded-xl border border-gray-700 flex justify-between items-center group hover:border-blue-500/50 transition-colors">
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">{c}</span>
-                                                        <span className="text-xs font-bold text-white truncate max-w-[140px]">{f.replace('.ini', '')}</span>
-                                                    </div>
-                                                    <button onClick={() => { const n = { ...selectedProfiles }; delete n[c]; setSelectedProfiles(n) }}
-                                                        className="text-gray-600 hover:text-red-400 p-1 rounded-md hover:bg-gray-700 transition-colors">
-                                                        &times;
-                                                    </button>
-                                                </div>
-                                            ))
-                                        )}
-                                    </div>
-
-                                    {/* Station Selector */}
-                                    <div className="mt-6 space-y-3">
-                                        <div className="flex items-center justify-between">
-                                            <h4 className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-1">Destino</h4>
-                                            <button
-                                                onClick={() => setSelectedStationIds([])}
-                                                className="text-[10px] text-blue-400 hover:text-blue-300"
-                                            >
-                                                {selectedStationIds.length === 0 ? 'TODAS' : 'Limpiar'}
-                                            </button>
-                                        </div>
-                                        {!Array.isArray(stations) || stations.length === 0 ? (
-                                            <p className="text-xs text-gray-600 italic pl-1">No hay estaciones configuradas</p>
-                                        ) : selectedStationIds.length === 0 ? (
-                                            <p className="text-xs text-green-400 font-bold pl-1">→ Todas las estaciones activas</p>
-                                        ) : (
-                                            <div className="space-y-1">
-                                                {stations.filter((s: Station) => selectedStationIds.includes(s.id)).map((s: Station) => (
-                                                    <div key={s.id} className="bg-gray-800 px-3 py-2 rounded-lg border border-gray-700 flex justify-between items-center">
-                                                        <span className="text-xs font-bold text-white">{s.name}</span>
-                                                        <button onClick={() => setSelectedStationIds(prev => prev.filter(id => id !== s.id))}
-                                                            className="text-gray-500 hover:text-red-400 text-xs">×</button>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                        <div className="max-h-32 overflow-y-auto space-y-1">
-                                            {Array.isArray(stations) && stations.filter((s: Station) => !selectedStationIds.includes(s.id)).map((s: Station) => (
-                                                <button key={s.id}
-                                                    onClick={() => setSelectedStationIds(prev => [...prev, s.id])}
-                                                    className="w-full text-left px-3 py-2 rounded-lg bg-gray-900 hover:bg-gray-800 border border-gray-800 hover:border-gray-600 transition-colors"
-                                                >
-                                                    <span className="text-xs text-gray-400 hover:text-white">{s.name}</span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Main Content Areas - Cards Layout */}
-                            <div className="flex-1 bg-gray-950 rounded-3xl p-2 md:p-0 overflow-y-auto">
-                                <div className="flex justify-between items-end mb-8 border-b border-gray-800 pb-4">
-                                    <div>
-                                        <h2 className="text-3xl font-black text-white italic uppercase tracking-tighter">
-                                            {AC_CATEGORIES.find(c => c.id === selectedCategory)?.name}
-                                        </h2>
-                                        <p className="text-gray-400 text-sm font-bold mt-1">Selecciona un perfil predefinido</p>
-                                    </div>
-                                    <button onClick={() => { setNewProfileName(''); setIsEditorOpen(true); }}
-                                        className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase transition-colors border border-gray-700">
-                                        <Plus size={14} /> Crear Nuevo
-                                    </button>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                                    {(profiles?.[selectedCategory] || []).map((file: string) => {
-                                        const isSelected = selectedProfiles[selectedCategory] === file;
-                                        const name = file.replace('.ini', '');
-                                        // Try to derive a "type" for icons
-                                        const isRain = name.toLowerCase().includes('rain') || name.toLowerCase().includes('lluvia');
-                                        const isPro = name.toLowerCase().includes('pro') || name.toLowerCase().includes('hard');
-
-                                        return (
-                                            <div key={file} onClick={() => setSelectedProfiles({ ...selectedProfiles, [selectedCategory]: file })}
-                                                className={cn(
-                                                    "relative group cursor-pointer rounded-2xl p-6 transition-all duration-300 border-2 overflow-hidden",
-                                                    isSelected
-                                                        ? "bg-blue-600 border-blue-400 shadow-2xl shadow-blue-900/40 scale-[1.02]"
-                                                        : "bg-gray-900 border-gray-800 hover:bg-gray-800 hover:border-gray-600 hover:shadow-xl"
-                                                )}>
-                                                {/* Background Pattern/Glow */}
-                                                {isSelected && <div className="absolute -right-10 -top-10 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />}
-
-                                                <div className="flex justify-between items-start mb-4 relative z-10">
-                                                    <div className={cn("p-3 rounded-xl", isSelected ? "bg-white/20 text-white" : "bg-gray-800 text-gray-500 group-hover:text-blue-400 group-hover:bg-gray-700")}>
-                                                        {isRain ? <Activity size={24} /> : isPro ? <Gamepad2 size={24} /> : <FileText size={24} />}
-                                                    </div>
-                                                    <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <button onClick={(e) => { e.stopPropagation(); handleEditProfile(file) }} className={cn("p-2 rounded-lg hover:bg-black/20", isSelected ? "text-white hover:text-white" : "text-gray-500 hover:text-white")} title="Editar">
-                                                            <Edit2 size={16} />
-                                                        </button>
-                                                        <button className={cn("p-2 rounded-lg hover:bg-red-500/20 hover:text-red-400", isSelected ? "text-blue-200" : "text-gray-500")} title="Borrar">
-                                                            <Trash2 size={16} />
-                                                        </button>
-                                                    </div>
-                                                </div>
-
-                                                <h3 className={cn("text-xl font-black uppercase tracking-tight mb-2 truncate relative z-10", isSelected ? "text-white" : "text-gray-200")}>
-                                                    {name}
-                                                </h3>
-
-                                                <div className={cn("h-1 w-12 rounded-full mb-4", isSelected ? "bg-white/50" : "bg-gray-700 group-hover:bg-blue-500/50 transition-colors")} />
-
-                                                <div className={cn("text-xs font-bold uppercase tracking-widest flex items-center gap-2", isSelected ? "text-blue-100" : "text-gray-500")}>
-                                                    {isSelected ? (
-                                                        <><CheckCircle size={14} className="text-white" /> Seleccionado</>
-                                                    ) : (
-                                                        "Click para seleccionar"
-                                                    )}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 )}
 

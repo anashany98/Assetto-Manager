@@ -1,6 +1,16 @@
 import axios from 'axios';
 import { API_URL } from '../config';
 
+export interface StationDiagnostics {
+    cpu_percent: number;
+    ram_total_gb: number;
+    ram_used_gb: number;
+    ram_percent: number;
+    disk_total_gb: number;
+    disk_used_gb: number;
+    disk_percent: number;
+}
+
 export interface Station {
     id: number;
     name: string;
@@ -9,8 +19,11 @@ export interface Station {
     hostname: string;
     is_active: boolean;
     is_online: boolean;
+    is_kiosk_mode?: boolean;
+    is_vr?: boolean;
     status: string;
     ac_path?: string;
+    diagnostics?: StationDiagnostics;
 }
 
 export const getStations = async (): Promise<Station[]> => {

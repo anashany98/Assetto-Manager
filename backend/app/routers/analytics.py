@@ -1,215 +1,131 @@
-"""
-Analytics Router - Dashboard analytics and reporting
-"""
-from fastapi import APIRouter
-from datetime import datetime, timedelta, date
-from collections import defaultdict
-
-from .. import database, models
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func, desc
+from sqlalchemy import func
+from typing import List, Optional
+from datetime import datetime, timedelta, timezone
+from ..database import get_db
+from ..models import Session as SessionModel
 
-router = APIRouter(prefix="/analytics", tags=["analytics"])
+router = APIRouter(
+    prefix="/analytics",
+    tags=["Analytics"],
+    responses={404: {"description": "Not found"}},
+)
 
+@router.get("/revenue")
+async def get_revenue_analytics(range_days: int = 30, db: Session = Depends(get_db)):
+    """
+    Get daily revenue for the specified range.
+    """
+    start_date = datetime.now(timezone.utc) - timedelta(days=range_days)
+    
+    # query daily revenue
+    daily_revenue = db.query(
+        func.date(SessionModel.start_time).label('date'),
+        func.sum(SessionModel.price).label('revenue'),
+        func.count(SessionModel.id).label('sessions')
+    ).filter(
+        SessionModel.start_time >= start_date,
+        SessionModel.is_paid == True
+    ).group_by(
+        func.date(SessionModel.start_time)
+    ).order_by(
+        func.date(SessionModel.start_time)
+    ).all()
+    
+    # Fill missing days with 0
+    result = []
+    revenue_map = {str(d.date): d.revenue for d in daily_revenue}
+    
+    for i in range(range_days):
+        d = (datetime.now(timezone.utc) - timedelta(days=range_days - 1 - i)).strftime("%Y-%m-%d")
+        result.append({
+            "date": d,
+            "revenue": revenue_map.get(d, 0),
+            "sessions": next((r.sessions for r in daily_revenue if str(r.date) == d), 0)
+        })
+        
+    return result
 
-@router.get("/overview")
-async def get_analytics_overview():
-    """Get comprehensive analytics overview for dashboard"""
-    db: Session = database.SessionLocal()
-    try:
-        now = datetime.now()
-        today = date.today()
-        week_ago = today - timedelta(days=7)
-        month_ago = today - timedelta(days=30)
-        
-        # === SESSIONS STATS ===
-        total_sessions = db.query(models.SessionResult).count()
-        sessions_today = db.query(models.SessionResult).filter(
-            func.date(models.SessionResult.date) == today
-        ).count()
-        sessions_this_week = db.query(models.SessionResult).filter(
-            func.date(models.SessionResult.date) >= week_ago
-        ).count()
-        sessions_this_month = db.query(models.SessionResult).filter(
-            func.date(models.SessionResult.date) >= month_ago
-        ).count()
-        
-        # === DRIVERS STATS ===
-        total_drivers = db.query(models.Driver).count()
-        active_drivers_week = db.query(models.SessionResult.driver_name).filter(
-            func.date(models.SessionResult.date) >= week_ago
-        ).distinct().count()
-        
-        # === TOP DRIVERS (by sessions this month) ===
-        top_drivers = db.query(
-            models.SessionResult.driver_name,
-            func.count(models.SessionResult.id).label('sessions'),
-            func.min(models.SessionResult.best_lap).label('best_lap')
-        ).filter(
-            func.date(models.SessionResult.date) >= month_ago
-        ).group_by(models.SessionResult.driver_name).order_by(
-            desc('sessions')
-        ).limit(5).all()
-        
-        # === POPULAR TRACKS ===
-        popular_tracks = db.query(
-            models.SessionResult.track_name,
-            func.count(models.SessionResult.id).label('sessions')
-        ).filter(
-            func.date(models.SessionResult.date) >= month_ago
-        ).group_by(models.SessionResult.track_name).order_by(
-            desc('sessions')
-        ).limit(5).all()
-        
-        # === POPULAR CARS ===
-        popular_cars = db.query(
-            models.SessionResult.car_model,
-            func.count(models.SessionResult.id).label('sessions')
-        ).filter(
-            func.date(models.SessionResult.date) >= month_ago
-        ).group_by(models.SessionResult.car_model).order_by(
-            desc('sessions')
-        ).limit(5).all()
-        
-        # === SESSIONS PER DAY (last 14 days) ===
-        sessions_per_day = []
-        for i in range(13, -1, -1):
-            day = today - timedelta(days=i)
-            count = db.query(models.SessionResult).filter(
-                func.date(models.SessionResult.date) == day
-            ).count()
-            sessions_per_day.append({
-                "date": day.isoformat(),
-                "day": day.strftime("%a"),
-                "sessions": count
-            })
-        
-        # === BOOKINGS STATS ===
-        try:
-            total_bookings = db.query(models.Booking).count()
-            pending_bookings = db.query(models.Booking).filter(
-                models.Booking.status == "pending"
-            ).count()
-            confirmed_bookings = db.query(models.Booking).filter(
-                models.Booking.status == "confirmed"
-            ).count()
-            bookings_today = db.query(models.Booking).filter(
-                func.date(models.Booking.date) == today,
-                models.Booking.status.in_(["pending", "confirmed"])
-            ).count()
-        except:
-            total_bookings = 0
-            pending_bookings = 0
-            confirmed_bookings = 0
-            bookings_today = 0
-        
-        # === LOYALTY STATS ===
-        try:
-            total_points_issued = db.query(func.sum(models.PointsTransaction.points)).filter(
-                models.PointsTransaction.points > 0
-            ).scalar() or 0
-            total_points_redeemed = abs(db.query(func.sum(models.PointsTransaction.points)).filter(
-                models.PointsTransaction.points < 0
-            ).scalar() or 0)
+@router.get("/utilization")
+async def get_utilization_analytics(range_days: int = 30, db: Session = Depends(get_db)):
+    """
+    Get average sessions per hour of day to identify peak times.
+    """
+    start_date = datetime.now(timezone.utc) - timedelta(days=range_days)
+    
+    # Extract hour from start_time (SQLite specific: strftime('%H', ...))
+    # Postgre: extract('hour', ...)
+    # Let's try to be generic if possible, or use SQLite syntax as we are likely on SQLite dev
+    
+    # Assuming SQLite for this project based on standard setups, but let's check.
+    # The user mentioned "Migrating... to Supabase (PostgreSQL)" in history, but current state might be mixed.
+    # Inspecting models.py might give a hint or we can do python-side aggregation for safety if volume is low.
+    # Given "Revenue Dashboard" implies low volume (hundreds of sessions), Python aggregation is safe and db-agnostic.
+    
+    sessions = db.query(SessionModel).filter(
+        SessionModel.start_time >= start_date
+    ).all()
+    
+    # Initialize 0-23 hours
+    hourly_counts = {h: 0 for h in range(24)}
+    
+    for s in sessions:
+        if s.start_time:
+            # excessive logic isn't needed, just simplest peak hour estimation
+            h = s.start_time.hour # UTC... we might want local time?
+            # Ideally frontend handles timezone or we store localized.
+            # Let's send UTC hour and frontend shifts it, or assume server local time.
+            # Actually models say `start_time = Column(DateTime(timezone=True)`
+            # So .hour will be correct if timezone aware.
             
-            # Tier distribution
-            tier_distribution = {}
-            for tier in ["bronze", "silver", "gold", "platinum"]:
-                count = db.query(models.Driver).filter(
-                    models.Driver.membership_tier == tier
-                ).count()
-                tier_distribution[tier] = count
-        except:
-            total_points_issued = 0
-            total_points_redeemed = 0
-            tier_distribution = {"bronze": 0, "silver": 0, "gold": 0, "platinum": 0}
-        
-        # === PEAK HOURS ===
-        peak_hours = []
-        try:
-            for hour in range(10, 23):
-                slot = f"{hour:02d}:00"
-                count = db.query(models.Booking).filter(
-                    models.Booking.time_slot.like(f"{slot}%")
-                ).count()
-                peak_hours.append({"hour": slot, "bookings": count})
-        except:
-            pass
-        
-        return {
-            "summary": {
-                "total_sessions": total_sessions,
-                "sessions_today": sessions_today,
-                "sessions_this_week": sessions_this_week,
-                "sessions_this_month": sessions_this_month,
-                "total_drivers": total_drivers,
-                "active_drivers_week": active_drivers_week,
-            },
-            "bookings": {
-                "total": total_bookings,
-                "pending": pending_bookings,
-                "confirmed": confirmed_bookings,
-                "today": bookings_today
-            },
-            "loyalty": {
-                "total_points_issued": total_points_issued,
-                "total_points_redeemed": total_points_redeemed,
-                "tier_distribution": tier_distribution
-            },
-            "top_drivers": [
-                {
-                    "name": d[0],
-                    "sessions": d[1],
-                    "best_lap": d[2]
-                }
-                for d in top_drivers
-            ],
-            "popular_tracks": [
-                {"name": (t[0] or "Unknown").replace("_", " "), "sessions": t[1]}
-                for t in popular_tracks
-            ],
-            "popular_cars": [
-                {"name": (c[0] or "Unknown").replace("_", " "), "sessions": c[1]}
-                for c in popular_cars
-            ],
-            "sessions_per_day": sessions_per_day,
-            "peak_hours": peak_hours,
-            "generated_at": now.isoformat()
-        }
-    finally:
-        db.close()
-
-
-@router.get("/revenue-estimate")
-async def get_revenue_estimate(price_per_hour: float = 25.0):
-    """Estimate revenue based on completed sessions and bookings"""
-    db: Session = database.SessionLocal()
-    try:
-        today = date.today()
-        month_ago = today - timedelta(days=30)
-        
-        # Completed bookings this month
-        try:
-            completed_bookings = db.query(models.Booking).filter(
-                func.date(models.Booking.date) >= month_ago,
-                models.Booking.status == "completed"
-            ).all()
+            # If we want simple local time of the "shop", we might simply just take the hour.
+            hourly_counts[h] += 1
             
-            booking_revenue = sum(
-                (b.duration_minutes / 60) * price_per_hour * (b.num_players or 1)
-                for b in completed_bookings
-            )
-            booking_hours = sum(b.duration_minutes / 60 for b in completed_bookings)
-        except:
-            booking_revenue = 0
-            booking_hours = 0
-        
-        return {
-            "period": "last_30_days",
-            "price_per_hour": price_per_hour,
-            "estimated_revenue": round(booking_revenue, 2),
-            "total_hours_booked": round(booking_hours, 1),
-            "completed_bookings": len(completed_bookings) if 'completed_bookings' in dir() else 0
-        }
-    finally:
-        db.close()
+    return [{"hour": h, "count": c} for h, c in hourly_counts.items()]
+
+@router.get("/kpi")
+async def get_kpi_stats(range_days: int = 30, db: Session = Depends(get_db)):
+    """
+    Get top-level KPIs
+    """
+    start_date = datetime.now(timezone.utc) - timedelta(days=range_days)
+    
+    stats = db.query(
+        func.sum(SessionModel.price).label('total_revenue'),
+        func.avg(SessionModel.price).label('avg_ticket'),
+        func.count(SessionModel.id).label('total_sessions')
+    ).filter(
+        SessionModel.start_time >= start_date,
+        SessionModel.is_paid == True
+    ).first()
+    
+    return {
+        "total_revenue": stats.total_revenue or 0,
+        "avg_ticket": round(stats.avg_ticket or 0, 2),
+        "total_sessions": stats.total_sessions or 0,
+        "revenue_per_session": round((stats.total_revenue or 0) / (stats.total_sessions or 1), 2)
+    }
+
+@router.get("/payment-methods")
+async def get_payment_method_stats(range_days: int = 30, db: Session = Depends(get_db)):
+    """
+    Get revenue breakdown by payment method.
+    """
+    start_date = datetime.now(timezone.utc) - timedelta(days=range_days)
+    
+    stats = db.query(
+        SessionModel.payment_method,
+        func.sum(SessionModel.price).label('revenue'),
+        func.count(SessionModel.id).label('count')
+    ).filter(
+        SessionModel.start_time >= start_date,
+        SessionModel.is_paid == True
+    ).group_by(
+        SessionModel.payment_method
+    ).all()
+    
+    return [
+        {"method": s.payment_method or "unknown", "revenue": s.revenue or 0, "count": s.count}
+        for s in stats
+    ]

@@ -44,6 +44,8 @@ class Driver(Base):
     metadata_json = Column(JSON, nullable=True) 
     vms_id = Column(String, unique=True, index=True, nullable=True)
     email = Column(String, nullable=True)
+    phone = Column(String, nullable=True)  # For contact/reservations
+    photo_path = Column(String, nullable=True)  # Profile photo for digital card
     
     # Stats
     elo_rating = Column(Float, default=1200.0)
@@ -57,6 +59,7 @@ class Driver(Base):
     loyalty_points = Column(Integer, default=0)
     total_points_earned = Column(Integer, default=0)
     membership_tier = Column(String, default="bronze")  # bronze, silver, gold, platinum
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 class Station(Base):
     __tablename__ = "stations"
@@ -67,10 +70,12 @@ class Station(Base):
     hostname = Column(String)
     is_active = Column(Boolean, default=True)
     is_online = Column(Boolean, default=False)
+    is_kiosk_mode = Column(Boolean, default=False)
     status = Column(String, default="offline")
     ac_path = Column(String, default="C:\\Program Files (x86)\\Steam\\steamapps\\common\\assettocorsa")
     content_cache = Column(JSON, nullable=True)  # Cached cars/tracks from scan
     content_cache_updated = Column(DateTime(timezone=True), nullable=True)
+    diagnostics = Column(JSON, nullable=True)  # CPU/RAM/Disk metrics from agent
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), onupdate=lambda: datetime.now(timezone.utc))
     
@@ -363,4 +368,51 @@ class EliminationParticipant(Base):
     laps_completed = Column(Integer, default=0)
     final_position = Column(Integer, nullable=True)
     
+    
     race = relationship("EliminationRace", back_populates="participants")
+
+class Session(Base):
+    """Paid/Timed Session Control"""
+    __tablename__ = "sessions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    station_id = Column(Integer, ForeignKey("stations.id"))
+    driver_name = Column(String(100), nullable=True) # Optional, can be anonymous
+    
+    start_time = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    duration_minutes = Column(Integer, default=15)
+    end_time = Column(DateTime(timezone=True), nullable=True) # Calculated or actual end
+    
+    status = Column(String(20), default="active", index=True) # active, paused, completed, expired
+    
+    # Financials
+    price = Column(Float, default=0.0)
+    is_paid = Column(Boolean, default=False)
+    payment_method = Column(String(50), default="cash", nullable=True) # cash, online, card_nayax
+    is_vr = Column(Boolean, default=False)
+    
+    notes = Column(String(255), nullable=True)
+    
+    station = relationship("Station")
+
+
+class WheelProfile(Base):
+    """Configuration profile for Steering Wheels (controls.ini)"""
+    __tablename__ = "wheel_profiles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), unique=True, index=True)
+    description = Column(String(255), nullable=True)
+    
+    # We store the raw content of controls.ini
+    config_ini = Column(String, nullable=True) 
+    
+    # Or strict JSON structure if we parse it
+    config_json = Column(JSON, nullable=True)
+    
+    # Type: "g29", "fanatec", "moza", "custom"
+    model_type = Column(String(50), default="custom")
+    
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+

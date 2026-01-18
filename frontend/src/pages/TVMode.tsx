@@ -5,7 +5,7 @@ import { HallOfFame } from './HallOfFame';
 import { LiveMap } from '../components/LiveMap';
 import EventCountdown from '../components/EventCountdown';
 import { useQuery } from '@tanstack/react-query';
-import { useTelemetry } from '../hooks/useTelemetry';
+import { useTelemetry, type TelemetryPacket } from '../hooks/useTelemetry';
 import { getEvents } from '../api/events';
 import axios from 'axios';
 import { API_URL } from '../config';
@@ -14,8 +14,9 @@ import { TournamentVersusWrapper } from '../components/TournamentVersusWrapper';
 import TournamentBracket from '../components/TournamentBracket';
 import { Trophy, AlertTriangle } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import { TelemetryGauges } from '../components/TelemetryGauges';
 
-const VIEWS = ['LEADERBOARD', 'HALL_OF_FAME', 'LIVE_MAP', 'COUNTDOWN', 'TOURNAMENT', 'BRACKET', 'SPONSORSHIP', 'JOIN_QR'];
+const VIEWS = ['LEADERBOARD', 'HALL_OF_FAME', 'LIVE_MAP', 'COUNTDOWN', 'TOURNAMENT', 'BRACKET', 'SPONSORSHIP', 'JOIN_QR', 'SPY_VIEW', 'BATTLE_VIEW'];
 
 export const TVMode = () => {
     const [currentViewIndex, setCurrentViewIndex] = useState(0);
@@ -251,6 +252,41 @@ export const TVMode = () => {
                 return <JoinView url={publicUrl} />;
             }
 
+            case 'SPY_VIEW': {
+                // Pick the first live car for spy view, or show placeholder
+                const carsArray = Object.values(liveCars);
+                if (carsArray.length === 0) {
+                    return (
+                        <div className="h-full w-full flex items-center justify-center bg-gray-900">
+                            <div className="text-center">
+                                <div className="w-24 h-24 border-4 border-yellow-500/30 border-t-yellow-500 rounded-full animate-spin mx-auto mb-4" />
+                                <h2 className="text-2xl font-bold text-gray-500 uppercase tracking-widest">Esperando Telemetría</h2>
+                                <p className="text-gray-600 text-sm mt-2">Conecta un simulador con un piloto activo</p>
+                            </div>
+                        </div>
+                    );
+                }
+                const activeCar = carsArray[0];
+                return <SpyView data={activeCar} />;
+            }
+
+            case 'BATTLE_VIEW': {
+                // Show up to 4 live drivers in a 2x2 grid
+                const carsArray = Object.values(liveCars).slice(0, 4);
+                if (carsArray.length < 2) {
+                    return (
+                        <div className="h-full w-full flex items-center justify-center bg-gray-900">
+                            <div className="text-center">
+                                <div className="w-24 h-24 border-4 border-red-500/30 border-t-red-500 rounded-full animate-spin mx-auto mb-4" />
+                                <h2 className="text-2xl font-bold text-gray-500 uppercase tracking-widest">Esperando Contendientes</h2>
+                                <p className="text-gray-600 text-sm mt-2">Se necesitan al menos 2 pilotos activos</p>
+                            </div>
+                        </div>
+                    );
+                }
+                return <BattleView drivers={carsArray} />;
+            }
+
             default:
                 return (
                     <div className="h-full w-full flex items-center justify-center bg-black">
@@ -409,6 +445,116 @@ function JoinView({ url }: { url: string }) {
                     </div>
                 </div>
 
+            </div>
+        </div>
+    );
+}
+
+function SpyView({ data }: { data: TelemetryPacket }) {
+    return (
+        <div className="h-full w-full">
+            <TelemetryGauges data={data} />
+        </div>
+    );
+}
+
+function BattleView({ drivers }: { drivers: TelemetryPacket[] }) {
+    const colors = [
+        { bg: 'from-blue-600/20 to-blue-900/10', border: 'border-blue-500', text: 'text-blue-400', label: 'BLUE' },
+        { bg: 'from-red-600/20 to-red-900/10', border: 'border-red-500', text: 'text-red-400', label: 'RED' },
+        { bg: 'from-green-600/20 to-green-900/10', border: 'border-green-500', text: 'text-green-400', label: 'GREEN' },
+        { bg: 'from-yellow-600/20 to-yellow-900/10', border: 'border-yellow-500', text: 'text-yellow-400', label: 'YELLOW' },
+    ];
+
+    // Find fastest based on current speed
+    const fastestDriver = drivers.reduce((prev, current) =>
+        (current.speed_kmh || 0) > (prev.speed_kmh || 0) ? current : prev
+    );
+
+    const gridCols = drivers.length <= 2 ? 'grid-cols-2' : 'grid-cols-2';
+    const gridRows = drivers.length <= 2 ? '' : 'grid-rows-2';
+
+    return (
+        <div className="h-full w-full bg-gray-950 text-white relative overflow-hidden">
+            {/* Background */}
+            <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]" />
+
+            {/* Header */}
+            <header className="absolute top-0 left-0 right-0 z-30 p-4 flex justify-between items-center bg-black/50 backdrop-blur-sm border-b border-white/10">
+                <div className="flex items-center gap-3">
+                    <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                    <h1 className="text-2xl font-black uppercase tracking-tighter italic">Battle Mode</h1>
+                </div>
+                <div className="text-sm font-mono text-gray-400 uppercase tracking-widest">
+                    {drivers.length} PILOTOS ACTIVOS
+                </div>
+            </header>
+
+            {/* Driver Grid */}
+            <div className={`h-full pt-16 grid ${gridCols} ${gridRows} gap-1`}>
+                {drivers.map((driver, idx) => {
+                    const color = colors[idx % colors.length];
+                    const isFastest = driver.station_id === fastestDriver.station_id;
+
+                    return (
+                        <motion.div
+                            key={driver.station_id}
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ delay: idx * 0.1 }}
+                            className={`relative bg-gradient-to-br ${color.bg} border-l-4 ${color.border} p-6 flex flex-col justify-between overflow-hidden`}
+                        >
+                            {/* Corner Label */}
+                            <div className={`absolute top-4 right-4 text-6xl font-black italic opacity-20 ${color.text}`}>
+                                {idx + 1}
+                            </div>
+
+                            {/* Driver Info */}
+                            <div>
+                                <div className={`text-xs font-bold uppercase tracking-widest ${color.text} mb-1`}>
+                                    {color.label} CORNER
+                                </div>
+                                <h2 className="text-3xl font-black uppercase tracking-tighter text-white truncate">
+                                    {driver.driver || 'PILOTO'}
+                                </h2>
+                                <p className="text-sm text-gray-500 font-mono truncate">{driver.car || '-'}</p>
+                            </div>
+
+                            {/* Speed */}
+                            <div className="flex-1 flex items-center justify-center">
+                                <div className="text-center">
+                                    <div className={`text-7xl font-black tabular-nums ${isFastest ? 'text-yellow-400' : 'text-white'}`}>
+                                        {Math.round(driver.speed_kmh || 0)}
+                                    </div>
+                                    <div className="text-sm font-bold text-gray-500 uppercase tracking-widest">KM/H</div>
+                                </div>
+                            </div>
+
+                            {/* Stats Row */}
+                            <div className="grid grid-cols-3 gap-2 text-center">
+                                <div className="bg-black/30 p-2 rounded-lg">
+                                    <div className="text-[10px] text-gray-500 uppercase">RPM</div>
+                                    <div className="text-lg font-bold font-mono">{Math.round(driver.rpm || 0)}</div>
+                                </div>
+                                <div className="bg-black/30 p-2 rounded-lg">
+                                    <div className="text-[10px] text-gray-500 uppercase">Marcha</div>
+                                    <div className="text-lg font-bold">{driver.gear === 0 ? 'N' : driver.gear === -1 ? 'R' : driver.gear}</div>
+                                </div>
+                                <div className="bg-black/30 p-2 rounded-lg">
+                                    <div className="text-[10px] text-gray-500 uppercase">Vuelta</div>
+                                    <div className="text-lg font-bold">{driver.laps || 0}</div>
+                                </div>
+                            </div>
+
+                            {/* Fastest Indicator */}
+                            {isFastest && (
+                                <div className="absolute bottom-4 right-4 bg-yellow-500 text-black px-3 py-1 rounded-full text-xs font-black uppercase">
+                                    LÍDER
+                                </div>
+                            )}
+                        </motion.div>
+                    );
+                })}
             </div>
         </div>
     );

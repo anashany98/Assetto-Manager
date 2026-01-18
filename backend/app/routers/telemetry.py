@@ -550,6 +550,11 @@ def get_pilot_profile(driver_name: str, db: Session = Depends(database.get_db)):
         db.commit()
         db.refresh(driver_obj)
 
+    from pathlib import Path
+    photo_url = None
+    if driver_obj.photo_path:
+        photo_url = f"/static/drivers/{Path(driver_obj.photo_path).name}"
+
     return schemas.PilotProfile(
         driver_name=driver_name,
         total_laps=total_laps,
@@ -561,7 +566,10 @@ def get_pilot_profile(driver_name: str, db: Session = Depends(database.get_db)):
         recent_sessions=recent_sessions,
         total_wins=driver_obj.total_wins,
         total_podiums=driver_obj.total_podiums,
-        elo_rating=driver_obj.elo_rating
+        elo_rating=driver_obj.elo_rating,
+        photo_url=photo_url,
+        phone=driver_obj.phone,
+        driver_id=driver_obj.id
     )
 
 @router.post("/seed")

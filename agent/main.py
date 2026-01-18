@@ -489,9 +489,24 @@ def synchronize_content(station_id):
 
 def send_heartbeat(station_id, status="online"):
     try:
+        import psutil
+        # Gather system diagnostics
+        cpu_percent = psutil.cpu_percent(interval=0.1)
+        memory = psutil.virtual_memory()
+        disk = psutil.disk_usage('/')
+        
         data = {
             "is_active": True,
-            "status": status
+            "status": status,
+            "diagnostics": {
+                "cpu_percent": cpu_percent,
+                "ram_total_gb": round(memory.total / (1024**3), 2),
+                "ram_used_gb": round(memory.used / (1024**3), 2),
+                "ram_percent": memory.percent,
+                "disk_total_gb": round(disk.total / (1024**3), 2),
+                "disk_used_gb": round(disk.used / (1024**3), 2),
+                "disk_percent": disk.percent
+            }
         }
         requests.put(f"{SERVER_URL}/stations/{station_id}", json=data, timeout=REQUEST_TIMEOUT)
     except Exception as e:
@@ -592,19 +607,28 @@ class TelemetryThread(threading.Thread):
                     }))
 
                     # Run send and receive loops concurrently
-                    await asyncio.gather(
+                    # return_exceptions=True prevents one task from killing the other
+                    results = await asyncio.gather(
                         self.send_loop(websocket),
-                        self.receive_loop(websocket)
+                        self.receive_loop(websocket),
+                        return_exceptions=True
                     )
+                    # Log any exceptions
+                    for i, result in enumerate(results):
+                        if isinstance(result, Exception):
+                            logger.error(f"[DEBUG] Loop {i} raised exception: {result}")
 
             except Exception as e:
                 logger.error(f"Error WS Telemetría: {e}")
                 await asyncio.sleep(5) # Delay reconexión
 
     async def send_loop(self, websocket):
+        logger.info("[DEBUG] send_loop started - streaming telemetry")
+        loop = asyncio.get_event_loop()
         while self.running:
             try:
-                data = self.ac.read_data()
+                # Run blocking I/O in executor to avoid blocking event loop
+                data = await loop.run_in_executor(None, self.ac.read_data)
                 if data:
                     # 1. Stream Tiempo Real al Backend (para Live View)
                     data['station_id'] = self.station_id
@@ -653,11 +677,23 @@ class TelemetryThread(threading.Thread):
                 break
 
     async def receive_loop(self, websocket):
+        logger.info("[DEBUG] receive_loop started - waiting for commands")
         while self.running:
             try:
-                msg = await websocket.recv()
+                # Use timeout to periodically check self.running and not block forever
+                try:
+                    msg = await asyncio.wait_for(websocket.recv(), timeout=5.0)
+                except asyncio.TimeoutError:
+                    continue  # No message received, check running flag and continue
+                    
                 data = json.loads(msg)
                 command = data.get("command")
+                
+                # DEBUG: Log all incoming commands
+                if command:
+                    logger.info(f"[DEBUG] Received command from server: {command}")
+                else:
+                    logger.debug(f"[DEBUG] Received non-command message: {list(data.keys())}")
                 
                 if command == "shutdown":
                     logger.info("Received SHUTDOWN command")
@@ -720,6 +756,39 @@ class TelemetryThread(threading.Thread):
                     # Find AC Documents folder (Steam version)
                     ac_docs_path = os.path.join(os.path.expanduser("~"), "Documents", "Assetto Corsa", "cfg")
                     
+                    # 1.5. Update player.ini with custom driver name
+                    player_ini_path = os.path.join(ac_docs_path, "player.ini")
+                    try:
+                        # Read existing player.ini
+                        if os.path.exists(player_ini_path):
+                            with open(player_ini_path, 'r') as f:
+                                player_content = f.read()
+                            
+                            # Parse and update NAME and NICKNAME fields
+                            import re
+                            # Update NAME= in [PROFILE] section
+                            player_content = re.sub(
+                                r'^NAME=.*$',
+                                f'NAME={driver_name}',
+                                player_content,
+                                flags=re.MULTILINE
+                            )
+                            # Update NICKNAME= if it exists
+                            player_content = re.sub(
+                                r'^NICKNAME=.*$',
+                                f'NICKNAME={driver_name}',
+                                player_content,
+                                flags=re.MULTILINE
+                            )
+                            
+                            with open(player_ini_path, 'w') as f:
+                                f.write(player_content)
+                            logger.info(f"Updated player.ini with driver name: {driver_name}")
+                        else:
+                            logger.warning(f"player.ini not found at {player_ini_path}")
+                    except Exception as e:
+                        logger.error(f"Failed to update player.ini: {e}")
+                    
                     # 2. Write assist.ini based on difficulty settings
                     assist_ini_path = os.path.join(ac_docs_path, "assist.ini")
                     try:
@@ -729,17 +798,14 @@ AUTOCLUTCH=1
 AUTOSHIFT={assists.get('auto_shifter', 0)}
 STABILITY_CONTROL={assists.get('stability_aid', 0)}
 TRACTION_CONTROL={assists.get('tc', 1)}
-VISUAL_DAMAGE=0
-DAMAGE=0
-FUEL_RATE=100
-TYRE_BLANKETS=1
-SLIPSTREAM_EFFECT=100
 """
                         with open(assist_ini_path, 'w') as f:
                             f.write(assist_content)
-                        logger.info(f"Wrote assist.ini to {assist_ini_path}")
+                        logger.info(f"Updated assist.ini with difficulty: {assists}")
                     except Exception as e:
-                        logger.error(f"Failed to write assist.ini: {e}")
+                        logger.error(f"Failed to update assist.ini: {e}")
+
+
                     
                     # 3. Write race.ini with selected car and track
                     race_ini_path = os.path.join(ac_docs_path, "race.ini")
@@ -821,6 +887,40 @@ LAPS=0
                             logger.error(f"acs.exe not found at: {acs_exe}")
                     else:
                         logger.warning("No ac_path configured for this station. Cannot launch.")
+
+                elif command == "set_controls":
+                    profile_name = data.get("profile_name")
+                    ini_content = data.get("ini_content")
+                    logger.info(f"Received SET_CONTROLS command: {profile_name}")
+                    
+                    try:
+                        cfg_path = os.path.join(os.path.expanduser("~"), "Documents", "Assetto Corsa", "cfg")
+                        controls_path = os.path.join(cfg_path, "controls.ini")
+                        
+                        if os.path.exists(cfg_path) and ini_content:
+                            # Backup
+                            if os.path.exists(controls_path):
+                                try:
+                                    import shutil
+                                    shutil.copy(controls_path, f"{controls_path}.bak")
+                                except: pass
+                            
+                            with open(controls_path, 'w') as f:
+                                f.write(ini_content)
+                            logger.info(f"Applied profile: {profile_name}")
+                        else:
+                            logger.error("Invalid path or content for controls")
+                    except Exception as e:
+                        logger.error(f"Failed to set controls: {e}")
+
+                elif command == "set_kiosk":
+                    enabled = data.get("enabled", False)
+                    logger.info(f"Received SET_KIOSK command: {enabled}")
+                    if platform.system() == "Windows":
+                        cmd = "taskkill /F /IM explorer.exe" if enabled else "start explorer.exe"
+                        threading.Thread(target=os.system, args=(cmd,)).start()
+                    else:
+                        logger.warning("Kiosk mode only on Windows")
 
                 elif command == "scan_content":
                     # Scan the AC content folder and return via WebSocket

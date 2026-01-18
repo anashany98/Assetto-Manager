@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Search, Trophy, Car, ChevronRight, Award, AlertTriangle, FileDown, Star, Gift } from 'lucide-react';
+import { useState, useMemo, useRef } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Search, Trophy, Car, ChevronRight, Award, AlertTriangle, FileDown, Star, Gift, Camera } from 'lucide-react';
 import axios from 'axios';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { API_URL } from '../config';
@@ -18,6 +19,8 @@ const getDriverProfile = async (name: string) => {
 export default function MobilePassport() {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedDriver, setSelectedDriver] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const queryClient = useQueryClient();
 
     // Fetch All Drivers for Search
     const { data: drivers, isLoading: isLoadingList, error: listError } = useQuery({
@@ -34,6 +37,27 @@ export default function MobilePassport() {
         queryFn: () => getDriverProfile(selectedDriver!),
         enabled: !!selectedDriver
     });
+
+    // Upload Photo Mutation
+    const uploadPhotoMutation = useMutation({
+        mutationFn: async (file: File) => {
+            if (!profile?.driver_id) throw new Error("Driver ID missing");
+            const formData = new FormData();
+            formData.append('file', file);
+            return await axios.post(`${API_URL}/drivers/${profile.driver_id}/photo`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['driverProfile', selectedDriver] });
+        }
+    });
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            uploadPhotoMutation.mutate(e.target.files[0]);
+        }
+    };
 
     // Fetch Loyalty Points
     const { data: loyalty } = useQuery({
@@ -79,6 +103,8 @@ export default function MobilePassport() {
             );
         }
 
+        const passportUrl = `${window.location.origin}/passport?driver=${encodeURIComponent(selectedDriver)}`;
+
         return (
             <div className="min-h-screen bg-gray-950 text-white pb-safe">
                 {/* Header */}
@@ -104,16 +130,53 @@ export default function MobilePassport() {
                     {/* Identity Card */}
                     <div className="bg-gradient-to-br from-blue-900/40 to-gray-900 border border-blue-500/30 rounded-2xl p-6 relative overflow-hidden shadow-2xl">
                         <div className="absolute top-0 right-0 p-2 opacity-10">
-                            <Trophy size={120} />
+                            <QRCodeSVG
+                                value={passportUrl}
+                                size={100}
+                                level="L"
+                                bgColor="transparent"
+                                fgColor="#ffffff"
+                            />
                         </div>
 
                         <div className="relative z-10 flex flex-col items-center">
-                            <div className="w-20 h-20 rounded-full bg-gray-800 border-2 border-blue-400 flex items-center justify-center text-3xl font-black mb-3 shadow-lg">
-                                {profile.driver_name?.charAt(0).toUpperCase() || '?'}
+                            <div className="relative group">
+                                <div className="w-24 h-24 rounded-full bg-gray-800 border-2 border-blue-400 flex items-center justify-center text-3xl font-black mb-3 shadow-lg overflow-hidden">
+                                    {profile.photo_url ? (
+                                        <img src={`${API_URL}${profile.photo_url}`} alt={profile.driver_name} className="w-full h-full object-cover" />
+                                    ) : (
+                                        profile.driver_name?.charAt(0).toUpperCase() || '?'
+                                    )}
+                                </div>
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="absolute bottom-3 right-0 bg-blue-600 rounded-full p-1.5 border-2 border-gray-900 text-white hover:bg-blue-500 transition-colors"
+                                >
+                                    <Camera size={14} />
+                                </button>
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    className="hidden"
+                                    accept="image/*"
+                                    onChange={handleFileChange}
+                                />
+                                {uploadPhotoMutation.isPending && (
+                                    <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
+                                        <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    </div>
+                                )}
                             </div>
+
                             <h1 className="text-2xl font-black uppercase tracking-tight text-center">{profile.driver_name}</h1>
-                            <div className="mt-2 px-3 py-1 bg-blue-600/20 border border-blue-500/50 rounded-full text-blue-300 text-xs font-bold uppercase tracking-widest">
-                                {profile.total_laps > 100 ? "Pro Driver" : "Rookie"}
+                            <div className="flex gap-2 mt-2">
+                                <div className="px-3 py-1 bg-blue-600/20 border border-blue-500/50 rounded-full text-blue-300 text-xs font-bold uppercase tracking-widest">
+                                    {profile.total_laps > 100 ? "Pro Driver" : "Rookie"}
+                                </div>
+                                <div className="px-3 py-1 bg-yellow-600/20 border border-yellow-500/50 rounded-full text-yellow-300 text-xs font-bold uppercase tracking-widest flex items-center gap-1">
+                                    <Trophy size={10} />
+                                    ELO {Math.round(profile.elo_rating || 1200)}
+                                </div>
                             </div>
                         </div>
 
@@ -133,6 +196,7 @@ export default function MobilePassport() {
                             </div>
                         </div>
                     </div>
+
 
                     {/* Loyalty Points Card */}
                     {loyalty && (

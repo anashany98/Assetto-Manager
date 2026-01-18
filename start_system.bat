@@ -9,11 +9,11 @@ echo.
 
 :: 1. Start Backend (Background)
 echo [1/2] Starting Backend Server (Port 8000, 0.0.0.0)...
-start "AC Manager Backend" /min cmd /k "cd backend && .venv\Scripts\activate && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000"
+start "🔴 BACKEND SERVER" cmd /k "title 🔴 BACKEND SERVER && color 0C && cd backend && venv\Scripts\activate && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000"
 
 :: 2. Start Frontend
 echo [2/2] Starting Frontend Interface...
-start "AC Manager Frontend" /min cmd /k "cd frontend && npm run dev -- --host"
+start "🔵 FRONTEND WEB" cmd /k "title 🔵 FRONTEND WEB && color 09 && cd frontend && npm run dev -- --host"
 
 echo.
 echo   System is running!

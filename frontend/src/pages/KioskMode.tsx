@@ -655,6 +655,30 @@ export default function KioskMode() {
                         </div>
                     </div>
                 </div>
+
+                {/* CANCEL SESSION BUTTON */}
+                <div className="mt-8 border-t border-gray-800 pt-6">
+                    <button
+                        onClick={async () => {
+                            if (confirm('¿Seguro que quieres CANCELAR la sesión? El juego se cerrará.')) {
+                                try {
+                                    await axios.post(`${API_URL}/control/station/${stationId}/panic`);
+                                } catch (e) {
+                                    console.error('Error sending panic:', e);
+                                }
+                                // Reset to step 1
+                                setIsLaunched(false);
+                                setStep(1);
+                                setSelection(null);
+                                setDriver(null);
+                            }
+                        }}
+                        className="w-full bg-red-600/20 hover:bg-red-600 border-2 border-red-600/50 text-red-400 hover:text-white font-black text-2xl py-6 rounded-2xl transition-all flex items-center justify-center gap-4"
+                    >
+                        <LogOut size={28} />
+                        CANCELAR SESIÓN
+                    </button>
+                </div>
             </div>
         )
     };

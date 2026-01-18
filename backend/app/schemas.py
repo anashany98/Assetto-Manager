@@ -39,37 +39,33 @@ class StationUpdate(BaseModel):
     ip_address: Optional[str] = None
     status: Optional[str] = None
     is_active: Optional[bool] = None
+    is_vr: Optional[bool] = None
     active_profile_id: Optional[int] = None
     ac_path: Optional[str] = None
+    diagnostics: Optional[dict] = None
 
-class ChampionshipBase(BaseModel):
-    name: str
-    description: Optional[str] = None
-    start_date: Optional[datetime] = None
-    end_date: Optional[datetime] = None
-    is_active: bool = True
-
-class ChampionshipCreate(ChampionshipBase):
-    pass
-
-class Championship(ChampionshipBase):
-    id: int
-    events: List['Event'] = []
-
-    class Config:
-        from_attributes = True
+# ...
 
 class Station(StationBase):
     id: int
     is_active: bool
     is_online: bool
+    is_kiosk_mode: bool
+    is_vr: bool = False
     status: str
     ac_path: Optional[str]
+    diagnostics: Optional[dict] = None
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
+# ...
 
-    class Config:
-        from_attributes = True
+class SessionStart(BaseModel):
+    station_id: int
+    driver_name: Optional[str] = None
+    duration_minutes: int = 15
+    price: float = 0.0
+    is_vr: bool = False
+    payment_method: str = "cash" # cash, card_nayax, online
 
 class TagBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=30)
@@ -312,6 +308,7 @@ class DriverSummary(BaseModel):
     rank_tier: str # Rookie, Pro, Alien (based on consistency/speed)
 
 class PilotProfile(BaseModel):
+    driver_id: Optional[int] = None
     driver_name: str
     total_laps: int
     total_km: float
@@ -322,7 +319,10 @@ class PilotProfile(BaseModel):
     recent_sessions: List[SessionSummary]
     total_wins: int = 0
     total_podiums: int = 0
+    total_podiums: int = 0
     elo_rating: float = 1200.0
+    photo_url: Optional[str] = None
+    phone: Optional[str] = None
 
 class HallOfFameEntry(BaseModel):
     driver_name: str
@@ -402,3 +402,31 @@ class Lobby(BaseModel):
 
 class LobbyJoin(BaseModel):
     station_id: int
+
+# --- Wheel Profile Schemas ---
+
+class WheelProfileBase(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    description: Optional[str] = None
+    config_ini: Optional[str] = None
+    config_json: Optional[Any] = None
+    model_type: Optional[str] = "custom"
+    is_active: bool = True
+
+class WheelProfileCreate(WheelProfileBase):
+    pass
+
+class WheelProfileUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    config_ini: Optional[str] = None
+    model_type: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class WheelProfile(WheelProfileBase):
+    id: int
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+

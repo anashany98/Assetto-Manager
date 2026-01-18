@@ -138,6 +138,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     <NavItem to="/championships" icon={Trophy} collapsed={!isSidebarOpen}>Campeonatos</NavItem>
                     <NavItem to="/history" icon={HistoryIcon} collapsed={!isSidebarOpen}>Historial</NavItem>
                     <NavItem to="/bookings" icon={CalendarCheck} collapsed={!isSidebarOpen}>Reservas</NavItem>
+                    <NavItem to="/analytics" icon={LayoutDashboard} collapsed={!isSidebarOpen}>Ingresos</NavItem>
                     <NavItem to="/mods" icon={Library} collapsed={!isSidebarOpen}>Librería</NavItem>
 
                     {/* CONFIGURACIÓN */}
@@ -145,6 +146,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                         Sistema
                     </div>
                     <NavItem to="/settings" icon={Settings} collapsed={!isSidebarOpen}>Configuración</NavItem>
+                    <NavItem to="/config" icon={Settings} collapsed={!isSidebarOpen}>Editor AC</NavItem>
                     <NavItem to="/profiles" icon={Users} collapsed={!isSidebarOpen}>Perfiles</NavItem>
 
                     {/* VISTA PÚBLICA */}

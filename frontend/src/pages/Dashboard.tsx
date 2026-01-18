@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     Activity,
     Users,
@@ -13,17 +14,25 @@ import {
     Sun,
     CloudRain,
     CloudLightning,
-    Wind
+    Wind,
+    Play,
+    Glasses
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getDashboardStats, type DashboardStats } from '../api/dashboard';
 import { getStations } from '../api/stations';
+import { getActiveSessions, type Session } from '../api/sessions';
 import { AlertTriangle } from 'lucide-react';
 import axios from 'axios';
 import { API_URL } from '../config';
 import AnalyticsPanel from '../components/AnalyticsPanel';
+import SessionTimer from '../components/SessionTimer';
+import StartSessionModal from '../components/StartSessionModal';
 
 export default function Dashboard() {
+    const queryClient = useQueryClient();
+    const [startModalStation, setStartModalStation] = useState<{ id: number, name: string, is_vr?: boolean } | null>(null);
+
     const { data: stats, isLoading, error } = useQuery<DashboardStats>({
         queryKey: ['dashboardStats'],
         queryFn: getDashboardStats,
@@ -35,6 +44,30 @@ export default function Dashboard() {
         queryFn: getStations,
         refetchInterval: 5000
     });
+
+    const { data: activeSessions, refetch: refetchSessions } = useQuery<Session[]>({
+        queryKey: ['activeSessions'],
+        queryFn: getActiveSessions,
+        refetchInterval: 2000 // Faster refresh for timers
+    });
+
+    const { data: profiles } = useQuery({
+        queryKey: ['wheel-profiles'],
+        queryFn: async () => {
+            const res = await axios.get(`${API_URL}/control/profiles`);
+            return res.data;
+        }
+    });
+
+    const applyProfile = async (stationId: number, profileId: number, stationName: string) => {
+        if (!confirm(`¿Aplicar perfil de volante a ${stationName}?`)) return;
+        try {
+            await axios.post(`${API_URL}/control/station/${stationId}/profile/${profileId}`);
+            alert(`Perfil aplicado correctamente a ${stationName}`);
+        } catch {
+            alert("Error al aplicar el perfil");
+        }
+    };
 
     const sendPanic = async (id: number, name: string) => {
         if (confirm(`⚠ PRECAUCIÓN: ¿Estás seguro de enviar la señal de EMERGENCIA a ${name}?\n\nEsto cerrará forzosamente todos los juegos.`)) {
@@ -261,24 +294,87 @@ export default function Dashboard() {
                         <div className="p-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {Array.isArray(stations) ? (
-                                    stations.map((station) => (
-                                        <div key={station.id} className="bg-gray-900 border border-gray-700 rounded-xl p-4 flex items-center justify-between">
-                                            <div>
-                                                <div className="flex items-center gap-2">
-                                                    <div className={`w-2 h-2 rounded-full ${station.is_online ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
-                                                    <h3 className="font-bold text-white leading-none">{station.name || `Simulador ${station.id}`}</h3>
+                                    stations.map((station) => {
+                                        const session = activeSessions?.find(s => s.station_id === station.id);
+                                        return (
+                                            <div key={station.id} className="bg-gray-900 border border-gray-700 rounded-xl p-4 relative group">
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <div>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className={`w-2 h-2 rounded-full ${station.is_online ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                                                            <h3 className="font-bold text-white leading-none">{station.name || `Simulador ${station.id}`}</h3>
+                                                            {station.is_vr && (
+                                                                <span className="bg-purple-500/20 text-purple-400 text-[10px] px-1.5 py-0.5 rounded border border-purple-500/30 font-bold flex items-center gap-1">
+                                                                    <Glasses size={10} /> VR
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-xs text-gray-500 font-mono mt-1">{station.ip_address}</p>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => sendPanic(station.id, station.name || `Station ${station.id}`)}
+                                                        className="bg-red-500/10 hover:bg-red-600 hover:text-white text-red-500 border border-red-500/30 p-2 rounded-lg transition-all active:scale-95"
+                                                        title="Panic Button: Forzar cierre"
+                                                    >
+                                                        <AlertTriangle size={18} />
+                                                    </button>
                                                 </div>
-                                                <p className="text-xs text-gray-500 font-mono mt-1">{station.ip_address}</p>
+
+                                                {/* Diagnostics Section */}
+                                                {station.diagnostics && (
+                                                    <div className="space-y-2 pt-2 border-t border-gray-800">
+                                                        <DiagnosticBar label="CPU" value={station.diagnostics.cpu_percent} color="blue" />
+                                                        <DiagnosticBar label="RAM" value={station.diagnostics.ram_percent} suffix={`${station.diagnostics.ram_used_gb}/${station.diagnostics.ram_total_gb} GB`} color="green" />
+                                                        <DiagnosticBar label="Disco" value={station.diagnostics.disk_percent} suffix={`${station.diagnostics.disk_used_gb}/${station.diagnostics.disk_total_gb} GB`} color="purple" />
+                                                    </div>
+                                                )}
+                                                {!station.diagnostics && station.is_online && (
+                                                    <p className="text-xs text-gray-600 italic pt-2 border-t border-gray-800">Esperando datos de diagnóstico...</p>
+                                                )}
+
+                                                {/* Profile Quick Action */}
+                                                <div className="mt-3 pt-3 border-t border-gray-800 flex gap-2">
+                                                    <select
+                                                        className="flex-1 bg-gray-950 text-gray-400 text-xs rounded border border-gray-800 outline-none p-1"
+                                                        onChange={(e) => applyProfile(station.id, parseInt(e.target.value), station.name)}
+                                                        defaultValue=""
+                                                    >
+                                                        <option value="" disabled>Aplicar Perfil...</option>
+                                                        {profiles?.map((p: any) => (
+                                                            <option key={p.id} value={p.id}>{p.name}</option>
+                                                        ))}
+                                                    </select>
+                                                    <button
+                                                        onClick={async () => {
+                                                            const newMode = !station.is_kiosk_mode;
+                                                            if (confirm(`¿${newMode ? 'ACTIVAR' : 'DESACTIVAR'} Modo Kiosko en ${station.name}?\n\nEsto ${newMode ? 'cerrará Explorer.exe' : 'restaurará el escritorio'}.`)) {
+                                                                try {
+                                                                    await axios.post(`${API_URL}/control/station/${station.id}/kiosk`, { enabled: newMode });
+                                                                    /* optimistically update? or wait for refetch */
+                                                                } catch { alert("Error al cambiar modo kiosko"); }
+                                                            }
+                                                        }}
+                                                        className={`px-2 rounded border transition-all ${station.is_kiosk_mode ? 'bg-purple-500 text-white border-purple-500' : 'bg-gray-800 text-gray-500 border-gray-700 hover:text-gray-300'}`}
+                                                        title="Modo Kiosko (Bloqueo de Escritorio)"
+                                                    >
+                                                        {station.is_kiosk_mode ? '🔒' : '🔓'}
+                                                    </button>
+                                                </div>
+
+                                                {/* Session Control - New */}
+                                                {session ? (
+                                                    <SessionTimer session={session} onUpdate={refetchSessions} />
+                                                ) : (
+                                                    <button
+                                                        onClick={() => setStartModalStation({ id: station.id, name: station.name, is_vr: station.is_vr })}
+                                                        className="w-full mt-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 border-dashed text-gray-400 hover:text-white rounded-xl py-2 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all opacity-50 group-hover:opacity-100"
+                                                    >
+                                                        <Play size={14} fill="currentColor" /> Nueva Sesión
+                                                    </button>
+                                                )}
                                             </div>
-                                            <button
-                                                onClick={() => sendPanic(station.id, station.name || `Station ${station.id}`)}
-                                                className="bg-red-500/10 hover:bg-red-600 hover:text-white text-red-500 border border-red-500/30 p-2 rounded-lg transition-all active:scale-95"
-                                                title="Panic Button: Forzar cierre"
-                                            >
-                                                <AlertTriangle size={18} />
-                                            </button>
-                                        </div>
-                                    ))
+                                        )
+                                    })
                                 ) : (
                                     <p className="text-gray-500 italic col-span-full py-4 text-center bg-gray-900/50 rounded-xl border border-dashed border-gray-700">
                                         No se detectan estaciones o el formato de datos es incorrecto.
@@ -300,6 +396,20 @@ export default function Dashboard() {
             <div className="mt-10">
                 <AnalyticsPanel />
             </div>
+
+            {/* MODALS */}
+            {startModalStation && (
+                <StartSessionModal
+                    stationId={startModalStation.id}
+                    stationName={startModalStation.name}
+                    initialIsVR={startModalStation.is_vr}
+                    onClose={() => setStartModalStation(null)}
+                    onSuccess={() => {
+                        setStartModalStation(null);
+                        queryClient.invalidateQueries({ queryKey: ['active-sessions'] });
+                    }}
+                />
+            )}
         </div>
     );
 }
@@ -373,3 +483,30 @@ function WeatherBtn({ icon: Icon, label, color, onClick }: any) {
         </button>
     )
 }
+
+function DiagnosticBar({ label, value, suffix, color }: { label: string; value: number; suffix?: string; color: string }) {
+    const colors: Record<string, { bg: string; fill: string }> = {
+        blue: { bg: "bg-blue-500/20", fill: "bg-blue-500" },
+        green: { bg: "bg-green-500/20", fill: "bg-green-500" },
+        purple: { bg: "bg-purple-500/20", fill: "bg-purple-500" },
+        red: { bg: "bg-red-500/20", fill: "bg-red-500" },
+    };
+    const c = colors[color] || colors.blue;
+    const isHigh = value > 80;
+
+    return (
+        <div className="flex items-center gap-2 text-xs">
+            <span className="text-gray-400 w-10">{label}</span>
+            <div className={`flex-1 h-2 rounded-full ${c.bg} overflow-hidden`}>
+                <div
+                    className={`h-full rounded-full transition-all ${isHigh ? 'bg-red-500' : c.fill}`}
+                    style={{ width: `${Math.min(value, 100)}%` }}
+                />
+            </div>
+            <span className={`w-16 text-right font-mono ${isHigh ? 'text-red-400' : 'text-gray-400'}`}>
+                {suffix || `${value.toFixed(0)}%`}
+            </span>
+        </div>
+    );
+}
+
