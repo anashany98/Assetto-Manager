@@ -695,6 +695,154 @@ class TelemetryThread(threading.Thread):
                     logger.info(f"Comando recibido: Instalar Mod {data.get('mod_name')}")
                     threading.Thread(target=install_mod_logic, args=(data,)).start()
 
+                elif command == "set_weather":
+                     weather = data.get("value")
+                     logger.info(f"Received SET_WEATHER command: {weather}")
+                     # TODO: Inject simulated keypresses if running in foreground
+                     # E.g. /admin weather {weather}
+                     # For now, we just acknowledge receipt
+
+                elif command == "launch_session":
+                    car = data.get("car")
+                    track = data.get("track")
+                    assists = data.get("assists", {})
+                    driver_name = data.get("driver_name", "Guest")
+                    ac_path = data.get("ac_path")  # Path to AC installation
+                    duration_minutes = data.get("duration_minutes", 15)
+                    logger.info(f"Received LAUNCH_SESSION command: {driver_name} -> {car} @ {track} ({duration_minutes}min)")
+                    
+                    # 1. Kill any running game instance first
+                    if platform.system() == "Windows":
+                        os.system("taskkill /F /IM acs.exe 2>nul")
+                    else:
+                        os.system("pkill -9 acs 2>/dev/null")
+                    
+                    # Find AC Documents folder (Steam version)
+                    ac_docs_path = os.path.join(os.path.expanduser("~"), "Documents", "Assetto Corsa", "cfg")
+                    
+                    # 2. Write assist.ini based on difficulty settings
+                    assist_ini_path = os.path.join(ac_docs_path, "assist.ini")
+                    try:
+                        assist_content = f"""[ASSISTS]
+ABS={assists.get('abs', 1)}
+AUTOCLUTCH=1
+AUTOSHIFT={assists.get('auto_shifter', 0)}
+STABILITY_CONTROL={assists.get('stability_aid', 0)}
+TRACTION_CONTROL={assists.get('tc', 1)}
+VISUAL_DAMAGE=0
+DAMAGE=0
+FUEL_RATE=100
+TYRE_BLANKETS=1
+SLIPSTREAM_EFFECT=100
+"""
+                        with open(assist_ini_path, 'w') as f:
+                            f.write(assist_content)
+                        logger.info(f"Wrote assist.ini to {assist_ini_path}")
+                    except Exception as e:
+                        logger.error(f"Failed to write assist.ini: {e}")
+                    
+                    # 3. Write race.ini with selected car and track
+                    race_ini_path = os.path.join(ac_docs_path, "race.ini")
+                    try:
+                        race_content = f"""[RACE]
+MODEL={car}
+MODEL_CONFIG=
+SKIN=
+TRACK={track}
+CONFIG_TRACK=
+AI_LEVEL=95
+
+[CAR_0]
+MODEL={car}
+SKIN=
+DRIVER_NAME={driver_name}
+NATION=
+
+[GROOVE]
+PRESET=0
+
+[SESSION_0]
+NAME=Practice
+TIME={duration_minutes}
+SPAWN_SET=PIT
+
+[SESSION_1]
+NAME=Qualify
+TIME=0
+
+[SESSION_2]
+NAME=Race
+LAPS=0
+"""
+                        with open(race_ini_path, 'w') as f:
+                            f.write(race_content)
+                        logger.info(f"Wrote race.ini to {race_ini_path} (Car: {car}, Track: {track})")
+                    except Exception as e:
+                        logger.error(f"Failed to write race.ini: {e}")
+                    
+                    # 4. Launch Assetto Corsa
+                    if ac_path:
+                        acs_exe = os.path.join(ac_path, "acs.exe")
+                        if os.path.exists(acs_exe):
+                            logger.info(f"Launching AC from: {acs_exe}")
+                            try:
+                                import subprocess
+                                
+                                # Launch AC
+                                subprocess.Popen([acs_exe], cwd=ac_path)
+                                logger.info(f"AC launched successfully: {car} @ {track}")
+                                
+                                # 5. Start Watchdog to monitor for crashes
+                                session_config = {
+                                    "car": car,
+                                    "track": track,
+                                    "ac_path": ac_path,
+                                    "driver_name": driver_name
+                                }
+                                watchdog.start(session_config)
+                                
+                                # 6. Session Timer - Kill game after duration_minutes
+                                def session_timer():
+                                    logger.info(f"Session timer started: {duration_minutes} minutes")
+                                    time.sleep(duration_minutes * 60)
+                                    logger.info("Session time expired! Closing game...")
+                                    watchdog.stop()  # Stop watchdog so it doesn't restart
+                                    if platform.system() == "Windows":
+                                        os.system("taskkill /F /IM acs.exe 2>nul")
+                                    else:
+                                        os.system("pkill -9 acs 2>/dev/null")
+                                
+                                timer_thread = threading.Thread(target=session_timer, daemon=True)
+                                timer_thread.start()
+                                
+                            except Exception as e:
+                                logger.error(f"Failed to launch AC: {e}")
+                        else:
+                            logger.error(f"acs.exe not found at: {acs_exe}")
+                    else:
+                        logger.warning("No ac_path configured for this station. Cannot launch.")
+
+                elif command == "scan_content":
+                    # Scan the AC content folder and return via WebSocket
+                    ac_path = data.get("ac_path")
+                    logger.info(f"Received SCAN_CONTENT command for: {ac_path}")
+                    content = scan_ac_content(ac_path)
+                    # Send response back
+                    await websocket.send(json.dumps({
+                        "type": "content_scan_result",
+                        "data": content
+                    }))
+                    logger.info(f"Sent content scan result: {len(content.get('cars', []))} cars, {len(content.get('tracks', []))} tracks")
+
+                elif command == "stop_session":
+                    # Manual stop command from backend
+                    logger.info("Received STOP_SESSION command")
+                    watchdog.stop()
+                    if platform.system() == "Windows":
+                        os.system("taskkill /F /IM acs.exe 2>nul")
+                    else:
+                        os.system("pkill -9 acs 2>/dev/null")
+
             except websockets.ConnectionClosed:
                 break
             except Exception as e:
@@ -909,164 +1057,7 @@ def stop_lobby_server():
         logger.info("Stopped acServer.exe")
     except Exception as e:
         logger.error(f"Failed to stop lobby server: {e}")
-                        os.system("taskkill /F /IM \"Content Manager.exe\"")
-                    else:
-                        os.system("pkill -9 acs")
 
-                elif command == "set_weather":
-                     weather = data.get("value")
-                     logger.info(f"Received SET_WEATHER command: {weather}")
-                     # TODO: Inject simulated keypresses if running in foreground
-                     # E.g. /admin weather {weather}
-                     # For now, we just acknowledge receipt
-
-                elif command == "launch_session":
-                    car = data.get("car")
-                    track = data.get("track")
-                    assists = data.get("assists", {})
-                    driver_name = data.get("driver_name", "Guest")
-                    ac_path = data.get("ac_path")  # Path to AC installation
-                    duration_minutes = data.get("duration_minutes", 15)
-                    logger.info(f"Received LAUNCH_SESSION command: {driver_name} -> {car} @ {track} ({duration_minutes}min)")
-                    
-                    # 1. Kill any running game instance first
-                    if platform.system() == "Windows":
-                        os.system("taskkill /F /IM acs.exe 2>nul")
-                    else:
-                        os.system("pkill -9 acs 2>/dev/null")
-                    
-                    # Find AC Documents folder (Steam version)
-                    ac_docs_path = os.path.join(os.path.expanduser("~"), "Documents", "Assetto Corsa", "cfg")
-                    
-                    # 2. Write assist.ini based on difficulty settings
-                    assist_ini_path = os.path.join(ac_docs_path, "assist.ini")
-                    try:
-                        assist_content = f"""[ASSISTS]
-ABS={assists.get('abs', 1)}
-AUTOCLUTCH=1
-AUTOSHIFT={assists.get('auto_shifter', 0)}
-STABILITY_CONTROL={assists.get('stability_aid', 0)}
-TRACTION_CONTROL={assists.get('tc', 1)}
-VISUAL_DAMAGE=0
-DAMAGE=0
-FUEL_RATE=100
-TYRE_BLANKETS=1
-SLIPSTREAM_EFFECT=100
-"""
-                        with open(assist_ini_path, 'w') as f:
-                            f.write(assist_content)
-                        logger.info(f"Wrote assist.ini to {assist_ini_path}")
-                    except Exception as e:
-                        logger.error(f"Failed to write assist.ini: {e}")
-                    
-                    # 3. Write race.ini with selected car and track
-                    race_ini_path = os.path.join(ac_docs_path, "race.ini")
-                    try:
-                        race_content = f"""[RACE]
-MODEL={car}
-MODEL_CONFIG=
-SKIN=
-TRACK={track}
-CONFIG_TRACK=
-AI_LEVEL=95
-
-[CAR_0]
-MODEL={car}
-SKIN=
-DRIVER_NAME={driver_name}
-NATION=
-
-[GROOVE]
-PRESET=0
-
-[SESSION_0]
-NAME=Practice
-TIME={duration_minutes}
-SPAWN_SET=PIT
-
-[SESSION_1]
-NAME=Qualify
-TIME=0
-
-[SESSION_2]
-NAME=Race
-LAPS=0
-"""
-                        with open(race_ini_path, 'w') as f:
-                            f.write(race_content)
-                        logger.info(f"Wrote race.ini to {race_ini_path} (Car: {car}, Track: {track})")
-                    except Exception as e:
-                        logger.error(f"Failed to write race.ini: {e}")
-                    
-                    # 4. Launch Assetto Corsa
-                    if ac_path:
-                        acs_exe = os.path.join(ac_path, "acs.exe")
-                        if os.path.exists(acs_exe):
-                            logger.info(f"Launching AC from: {acs_exe}")
-                            try:
-                                import subprocess
-                                
-                                # Launch AC
-                                subprocess.Popen([acs_exe], cwd=ac_path)
-                                logger.info(f"AC launched successfully: {car} @ {track}")
-                                
-                                # 5. Start Watchdog to monitor for crashes
-                                session_config = {
-                                    "car": car,
-                                    "track": track,
-                                    "ac_path": ac_path,
-                                    "driver_name": driver_name
-                                }
-                                watchdog.start(session_config)
-                                
-                                # 6. Session Timer - Kill game after duration_minutes
-                                def session_timer():
-                                    logger.info(f"Session timer started: {duration_minutes} minutes")
-                                    time.sleep(duration_minutes * 60)
-                                    logger.info("Session time expired! Closing game...")
-                                    watchdog.stop()  # Stop watchdog so it doesn't restart
-                                    if platform.system() == "Windows":
-                                        os.system("taskkill /F /IM acs.exe 2>nul")
-                                    else:
-                                        os.system("pkill -9 acs 2>/dev/null")
-                                
-                                timer_thread = threading.Thread(target=session_timer, daemon=True)
-                                timer_thread.start()
-                                
-                            except Exception as e:
-                                logger.error(f"Failed to launch AC: {e}")
-                        else:
-                            logger.error(f"acs.exe not found at: {acs_exe}")
-                    else:
-                        logger.warning("No ac_path configured for this station. Cannot launch.")
-
-                elif command == "scan_content":
-                    # Scan the AC content folder and return via WebSocket
-                    ac_path = data.get("ac_path")
-                    logger.info(f"Received SCAN_CONTENT command for: {ac_path}")
-                    content = scan_ac_content(ac_path)
-                    # Send response back
-                    await websocket.send(json.dumps({
-                        "type": "content_scan_result",
-                        "data": content
-                    }))
-                    logger.info(f"Sent content scan result: {len(content.get('cars', []))} cars, {len(content.get('tracks', []))} tracks")
-
-                elif command == "stop_session":
-                    # Manual stop command from backend
-                    logger.info("Received STOP_SESSION command")
-                    watchdog.stop()
-                    if platform.system() == "Windows":
-                        os.system("taskkill /F /IM acs.exe 2>nul")
-                    else:
-                        os.system("pkill -9 acs 2>/dev/null")
-
-                        
-            except websockets.ConnectionClosed:
-                break
-            except Exception as e:
-                logger.error(f"Error receiving command: {e}")
-                break
 
 if __name__ == "__main__":
     main()
