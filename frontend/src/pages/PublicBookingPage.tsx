@@ -172,7 +172,7 @@ export default function PublicBookingPage() {
                             <label className="text-xs text-gray-400 uppercase font-bold block mb-2">
                                 <Calendar size={14} className="inline mr-1" /> Fecha
                             </label>
-                            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+                            <div data-testid="date-scroll" className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
                                 {getNextDays().map((day) => {
                                     const isSelected = day.toDateString() === selectedDate.toDateString();
                                     const isToday = day.toDateString() === new Date().toDateString();

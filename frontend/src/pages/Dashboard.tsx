@@ -8,7 +8,12 @@ import {
     ExternalLink,
     HardDrive,
     Zap,
-    Flag
+    Flag,
+    Cloud,
+    Sun,
+    CloudRain,
+    CloudLightning,
+    Wind
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getDashboardStats, type DashboardStats } from '../api/dashboard';
@@ -39,6 +44,16 @@ export default function Dashboard() {
             } catch {
                 alert("Error al enviar la orden");
             }
+        }
+    };
+
+    const setWeather = async (type: string, label: string) => {
+        if (!confirm(`¿Cambiar clima global a ${label}?`)) return;
+        try {
+            await axios.post(`${API_URL}/control/global/weather`, { weather_type: type });
+            alert("Comando enviado: " + label);
+        } catch {
+            alert("Error al enviar comando");
         }
     };
 
@@ -133,6 +148,28 @@ export default function Dashboard() {
                     color={stats?.syncing_stations && stats.syncing_stations > 0 ? "blue" : "gray"}
                     animate={Boolean(stats?.syncing_stations && stats.syncing_stations > 0)}
                 />
+            </div>
+
+            {/* MASTER CONTROL (WEATHER) */}
+            <div className="mb-8 bg-gradient-to-r from-indigo-900/50 to-purple-900/50 border border-indigo-500/30 rounded-2xl p-6 backdrop-blur-sm relative overflow-hidden group">
+                <div className="absolute inset-0 bg-grid-white/[0.05] bg-[length:20px_20px]" />
+                <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div>
+                        <h2 className="text-xl font-black text-white italic tracking-tighter flex items-center gap-2">
+                            <CloudLightning className="text-yellow-400" />
+                            CONTROL METEOROLÓGICO "DIOS"
+                        </h2>
+                        <p className="text-indigo-200 text-sm mt-1">Modifica el clima de toda la sala en tiempo real.</p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                        <WeatherBtn icon={Sun} label="SOL" color="yellow" onClick={() => setWeather('sol', 'Sol')} />
+                        <WeatherBtn icon={Wind} label="NIEBLA" color="gray" onClick={() => setWeather('fog', 'Niebla')} />
+                        <WeatherBtn icon={Cloud} label="NUBLADO" color="blue" onClick={() => setWeather('cloudy', 'Nublado')} />
+                        <WeatherBtn icon={CloudRain} label="LLUVIA" color="indigo" onClick={() => setWeather('rain', 'Lluvia')} />
+                        <WeatherBtn icon={CloudLightning} label="TORMENTA" color="purple" onClick={() => setWeather('storm', 'Tormenta')} />
+                    </div>
+                </div>
             </div>
 
             {/* ACTION PANELS */}
@@ -278,23 +315,25 @@ interface StatCardProps {
 }
 
 function StatCard({ label, value, subvalue, icon: Icon, color, animate }: StatCardProps) {
-    const colors: Record<string, string> = {
-        green: "text-green-400 bg-green-500/20",
-        orange: "text-orange-400 bg-orange-500/20",
-        blue: "text-blue-400 bg-blue-500/20",
-        indigo: "text-indigo-400 bg-indigo-500/20",
-        gray: "text-gray-400 bg-gray-700/50"
+    const colors: Record<string, { icon: string; border: string; glow: string }> = {
+        green: { icon: "text-emerald-400 bg-emerald-500/20", border: "border-emerald-500/20 hover:border-emerald-500/40", glow: "shadow-emerald-500/10" },
+        orange: { icon: "text-orange-400 bg-orange-500/20", border: "border-orange-500/20 hover:border-orange-500/40", glow: "shadow-orange-500/10" },
+        blue: { icon: "text-blue-400 bg-blue-500/20", border: "border-blue-500/20 hover:border-blue-500/40", glow: "shadow-blue-500/10" },
+        indigo: { icon: "text-indigo-400 bg-indigo-500/20", border: "border-indigo-500/20 hover:border-indigo-500/40", glow: "shadow-indigo-500/10" },
+        gray: { icon: "text-gray-400 bg-gray-700/50", border: "border-gray-700/50", glow: "" }
     };
 
+    const c = colors[color] || colors.gray;
+
     return (
-        <div className="bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-700 flex items-start justify-between hover:border-gray-600 transition-all">
+        <div className={`glass-card glass-card-hover p-6 flex items-start justify-between border ${c.border} ${c.glow} shadow-lg`}>
             <div>
-                <p className="text-gray-400 font-bold uppercase text-xs tracking-wider mb-1">{label}</p>
-                <h3 className="text-2xl font-black text-white mb-1 tracking-tight">{value}</h3>
+                <p className="text-gray-400 font-bold uppercase text-xs tracking-wider mb-2">{label}</p>
+                <h3 className="text-3xl font-black text-white mb-1 tracking-tight">{value}</h3>
                 <p className="text-xs text-gray-500 font-medium">{subvalue}</p>
             </div>
-            <div className={`p-3 rounded-xl ${colors[color]} ${animate ? 'animate-pulse' : ''}`}>
-                <Icon size={24} />
+            <div className={`p-4 rounded-xl ${c.icon} ${animate ? 'animate-pulse' : ''}`}>
+                <Icon size={28} />
             </div>
         </div>
     )
@@ -302,16 +341,35 @@ function StatCard({ label, value, subvalue, icon: Icon, color, animate }: StatCa
 
 function QuickAction({ to, title, desc, color }: { to: string; title: string; desc: string; color: string }) {
     const colors: Record<string, string> = {
-        blue: "hover:border-blue-500/50 hover:bg-blue-500/10 group-hover:text-blue-400",
-        indigo: "hover:border-indigo-500/50 hover:bg-indigo-500/10 group-hover:text-indigo-400",
-        purple: "hover:border-purple-500/50 hover:bg-purple-500/10 group-hover:text-purple-400",
-        green: "hover:border-green-500/50 hover:bg-green-500/10 group-hover:text-green-400",
+        blue: "hover:border-blue-500/50 hover:bg-blue-500/10 hover:shadow-blue-500/10",
+        indigo: "hover:border-indigo-500/50 hover:bg-indigo-500/10 hover:shadow-indigo-500/10",
+        purple: "hover:border-purple-500/50 hover:bg-purple-500/10 hover:shadow-purple-500/10",
+        green: "hover:border-green-500/50 hover:bg-green-500/10 hover:shadow-green-500/10",
     }
 
     return (
-        <Link to={to} className={`block p-4 rounded-xl border border-gray-700 bg-gray-900 shadow-sm transition-all group ${colors[color]}`}>
-            <h3 className="font-bold text-gray-200 mb-1 transition-colors">{title}</h3>
-            <p className="text-sm text-gray-500">{desc}</p>
+        <Link to={to} className={`block p-5 rounded-xl border border-white/5 bg-white/5 backdrop-blur-sm shadow-lg transition-all duration-300 group hover:-translate-y-1 hover:shadow-xl ${colors[color]}`}>
+            <h3 className="font-bold text-white mb-1 group-hover:translate-x-1 transition-transform">{title}</h3>
+            <p className="text-sm text-gray-400">{desc}</p>
         </Link>
+    )
+}
+
+function WeatherBtn({ icon: Icon, label, color, onClick }: any) {
+    const colors: any = {
+        yellow: "hover:bg-yellow-500 hover:text-white border-yellow-500/50 text-yellow-400",
+        gray: "hover:bg-gray-500 hover:text-white border-gray-500/50 text-gray-400",
+        blue: "hover:bg-blue-500 hover:text-white border-blue-500/50 text-blue-400",
+        indigo: "hover:bg-indigo-500 hover:text-white border-indigo-500/50 text-indigo-400",
+        purple: "hover:bg-purple-500 hover:text-white border-purple-500/50 text-purple-400",
+    }
+    return (
+        <button
+            onClick={onClick}
+            className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl border bg-black/40 transition-all active:scale-95 ${colors[color]}`}
+        >
+            <Icon size={20} />
+            <span className="text-[10px] font-bold">{label}</span>
+        </button>
     )
 }

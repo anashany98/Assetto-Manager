@@ -1,128 +1,96 @@
-"""
-ELO Rating Service for Racing
-
-This implements an adapted ELO rating system for racing simulations.
-Instead of head-to-head matches, we use race results to calculate
-ELO changes based on finishing positions.
-"""
-
-from typing import List, Tuple
+from typing import List, Dict, Optional
 from sqlalchemy.orm import Session
 from ..models import Driver
 
-# ELO Constants
-DEFAULT_RATING = 1200
-MIN_RATING = 100
-MAX_RATING = 3000
-K_FACTOR_NEW = 40      # Higher K for new drivers (< 30 races)
-K_FACTOR_NORMAL = 24   # Normal K-factor
-K_FACTOR_PRO = 16      # Lower K for experienced drivers (> 100 races)
+DEFAULT_RATING = 1200.0
 
+TIERS = [
+    {"name": "grandmaster", "min": 2400, "color": "#FF4500"},
+    {"name": "master", "min": 2000, "color": "#9B30FF"},
+    {"name": "diamond", "min": 1700, "color": "#00BFFF"},
+    {"name": "platinum", "min": 1400, "color": "#00CED1"},
+    {"name": "gold", "min": 1200, "color": "#FFD700"},
+    {"name": "silver", "min": 1000, "color": "#C0C0C0"},
+    {"name": "bronze", "min": 0, "color": "#CD7F32"},
+]
 
-def get_k_factor(total_races: int) -> int:
-    """Get K-factor based on driver's experience."""
-    if total_races < 30:
-        return K_FACTOR_NEW
-    elif total_races > 100:
-        return K_FACTOR_PRO
-    return K_FACTOR_NORMAL
+def get_elo_tier(rating: float) -> str:
+    for tier in TIERS:
+        if rating >= tier["min"]:
+            return tier["name"]
+    return "bronze"
 
+def get_elo_color(tier_name: str) -> str:
+    for tier in TIERS:
+        if tier["name"] == tier_name:
+            return tier["color"]
+    return "#CD7F32"
 
-def expected_score(rating_a: float, rating_b: float) -> float:
-    """Calculate expected score of player A against player B."""
-    return 1 / (1 + 10 ** ((rating_b - rating_a) / 400))
-
-
-def calculate_race_elo_changes(
-    participants: List[Tuple[str, float, int, int]]  # (driver_name, current_elo, finish_position, total_races)
-) -> List[Tuple[str, float, float]]:  # Returns (driver_name, old_elo, new_elo)
+def calculate_expected_score(rating_a, rating_b):
     """
-    Calculate ELO changes for all participants in a race.
-    
-    For each driver, we compare against all other drivers:
-    - If you finished ahead of someone, you "beat" them (score = 1)
-    - If you finished behind, you "lost" (score = 0)
-    - The rating change is averaged across all comparisons
+    Calculate the expected probability of player A winning against player B.
+    Formula: 1 / (1 + 10^((Rb - Ra) / 400))
     """
-    if len(participants) < 2:
-        return [(p[0], p[1], p[1]) for p in participants]
+    return 1.0 / (1.0 + 10.0 ** ((rating_b - rating_a) / 400.0))
+
+def calculate_race_elo_changes(results: List[Dict], k_factor=32) -> Dict[int, float]:
+    """
+    Calculate ELO changes for a race (Multiplayer FFA).
+    Results should be a list of dicts:
+    [
+        {'driver_id': 1, 'rating': 1200.0, 'position': 1},
+        {'driver_id': 2, 'rating': 1300.0, 'position': 2},
+        ...
+    ]
     
-    results = []
+    Algorithm: Treat race as N*(N-1)/2 individual 1v1 matches.
+    Scale K-factor by (N-1) to prevent inflation in large grids.
+    """
+    n = len(results)
+    if n < 2:
+        return {r['driver_id']: 0.0 for r in results}
+
+    match_k = k_factor / (n - 1)
     
-    for driver_name, current_elo, finish_pos, total_races in participants:
-        k = get_k_factor(total_races)
-        total_delta = 0.0
-        comparison_count = 0
-        
-        for other_name, other_elo, other_pos, _ in participants:
-            if other_name == driver_name:
-                continue
-                
-            # Determine actual result (1 = win, 0 = loss, 0.5 = tie)
-            if finish_pos < other_pos:
-                actual_score = 1.0  # We finished ahead
-            elif finish_pos > other_pos:
-                actual_score = 0.0  # We finished behind
-            else:
-                actual_score = 0.5  # Same position (unlikely)
+    # Store changes
+    rating_changes = {r['driver_id']: 0.0 for r in results}
+
+    for i in range(n):
+        for j in range(i + 1, n):
+            driver_a = results[i]
+            driver_b = results[j]
             
-            # Calculate expected and delta
-            expected = expected_score(current_elo, other_elo)
-            delta = k * (actual_score - expected)
-            total_delta += delta
-            comparison_count += 1
-        
-        # Average the delta across all comparisons
-        if comparison_count > 0:
-            avg_delta = total_delta / comparison_count
-        else:
-            avg_delta = 0
-        
-        new_elo = current_elo + avg_delta
-        new_elo = max(MIN_RATING, min(MAX_RATING, new_elo))  # Clamp
-        
-        results.append((driver_name, current_elo, new_elo))
-    
-    return results
+            id_a = driver_a['driver_id']
+            id_b = driver_b['driver_id']
+            
+            # Determine actual outcome
+            # Lower position is better (1st < 2nd)
+            if driver_a['position'] < driver_b['position']:
+                score_a = 1.0
+                score_b = 0.0
+            elif driver_a['position'] > driver_b['position']:
+                score_a = 0.0
+                score_b = 1.0
+            else:
+                score_a = 0.5
+                score_b = 0.5
+                
+            # Expected outcome
+            expected_a = calculate_expected_score(driver_a['rating'], driver_b['rating'])
+            expected_b = calculate_expected_score(driver_b['rating'], driver_a['rating'])
+            
+            # Change
+            change_a = match_k * (score_a - expected_a)
+            change_b = match_k * (score_b - expected_b)
+            
+            rating_changes[id_a] += change_a
+            rating_changes[id_b] += change_b
 
+    return rating_changes
 
-def update_driver_elo(db: Session, driver_name: str, new_elo: float) -> Driver:
-    """Update a driver's ELO rating in the database."""
-    driver = db.query(Driver).filter(Driver.name == driver_name).first()
+def update_driver_elo(db: Session, driver_id: int, new_rating: float):
+    """Update a driver's ELO in the database."""
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
     if driver:
-        driver.elo_rating = round(new_elo, 1)
+        driver.elo_rating = new_rating
         db.commit()
-        db.refresh(driver)
-    return driver
-
-
-def get_elo_tier(elo: float) -> str:
-    """Get display tier based on ELO rating."""
-    if elo >= 2400:
-        return "grandmaster"
-    elif elo >= 2000:
-        return "master"
-    elif elo >= 1700:
-        return "diamond"
-    elif elo >= 1400:
-        return "platinum"
-    elif elo >= 1200:
-        return "gold"
-    elif elo >= 1000:
-        return "silver"
-    else:
-        return "bronze"
-
-
-def get_elo_color(tier: str) -> str:
-    """Get color for ELO tier."""
-    colors = {
-        "grandmaster": "#FF4500",  # Red-Orange
-        "master": "#9B30FF",       # Purple
-        "diamond": "#00BFFF",      # Cyan
-        "platinum": "#00CED1",     # Teal
-        "gold": "#FFD700",         # Gold
-        "silver": "#C0C0C0",       # Silver
-        "bronze": "#CD7F32",       # Bronze
-    }
-    return colors.get(tier, "#808080")

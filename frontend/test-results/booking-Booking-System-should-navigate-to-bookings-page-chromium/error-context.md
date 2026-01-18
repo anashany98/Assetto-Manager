@@ -1,23 +1,74 @@
 # Page snapshot
 
 ```yaml
-- generic [ref=e6]:
-  - generic [ref=e7]:
-    - heading "Assetto Manager" [level=1] [ref=e8]
-    - paragraph [ref=e9]: Sign In
-  - generic [ref=e10]:
-    - generic [ref=e11]:
-      - generic [ref=e12]: Username
-      - generic [ref=e13]:
-        - generic:
-          - img
-        - textbox "admin" [ref=e14]
-    - generic [ref=e15]:
-      - generic [ref=e16]: Password
-      - generic [ref=e17]:
-        - generic:
-          - img
-        - textbox "••••••••" [ref=e18]
-    - button "Sign In" [ref=e19]
-  - button "First time? Setup Admin" [ref=e21]
+- generic [ref=e4]:
+  - button [ref=e5]:
+    - img [ref=e6]
+  - generic [ref=e8]:
+    - img "VRacing Bar" [ref=e9]
+    - heading "VRacing Bar" [level=2] [ref=e10]
+  - navigation [ref=e11]:
+    - generic [ref=e12]: Gestión
+    - link "Panel Control" [ref=e13] [cursor=pointer]:
+      - /url: /admin
+      - img [ref=e15]
+      - generic [ref=e20]: Panel Control
+    - link "Pilotos" [ref=e21] [cursor=pointer]:
+      - /url: /drivers
+      - img [ref=e23]
+      - generic [ref=e28]: Pilotos
+    - link "Torneos" [ref=e29] [cursor=pointer]:
+      - /url: /events
+      - img [ref=e31]
+      - generic [ref=e33]: Torneos
+    - link "Campeonatos" [ref=e34] [cursor=pointer]:
+      - /url: /championships
+      - img [ref=e36]
+      - generic [ref=e42]: Campeonatos
+    - link "Historial" [ref=e43] [cursor=pointer]:
+      - /url: /history
+      - img [ref=e45]
+      - generic [ref=e49]: Historial
+    - link "Reservas" [ref=e50] [cursor=pointer]:
+      - /url: /bookings
+      - img [ref=e52]
+      - generic [ref=e55]: Reservas
+    - link "Librería" [ref=e57] [cursor=pointer]:
+      - /url: /mods
+      - img [ref=e59]
+      - generic [ref=e61]: Librería
+    - generic [ref=e62]: Sistema
+    - link "Configuración" [ref=e63] [cursor=pointer]:
+      - /url: /settings
+      - img [ref=e65]
+      - generic [ref=e68]: Configuración
+    - link "Perfiles" [ref=e69] [cursor=pointer]:
+      - /url: /profiles
+      - img [ref=e71]
+      - generic [ref=e76]: Perfiles
+    - generic [ref=e77]: Sala & TV
+    - link "Mando TV" [ref=e78] [cursor=pointer]:
+      - /url: /remote
+      - img [ref=e80]
+      - generic [ref=e83]: Mando TV
+    - link "Clasificación" [ref=e84] [cursor=pointer]:
+      - /url: /leaderboard
+      - img [ref=e86]
+      - generic [ref=e87]: Clasificación
+    - link "Salón Fama" [ref=e88] [cursor=pointer]:
+      - /url: /hall-of-fame
+      - img [ref=e90]
+      - generic [ref=e92]: Salón Fama
+    - link "Menú Pantallas" [ref=e93] [cursor=pointer]:
+      - /url: /kiosk
+      - img [ref=e95]
+      - generic [ref=e98]: Menú Pantallas
+  - generic [ref=e100]:
+    - generic [ref=e101]:
+      - generic [ref=e102]: A
+      - generic [ref=e103]:
+        - paragraph [ref=e104]: Operador
+        - paragraph [ref=e105]: Conectado
+    - button "Cambiar a modo claro" [ref=e107]:
+      - img [ref=e108]
 ```

@@ -257,9 +257,21 @@ def main():
         else:
             time.sleep(5)
     
+
     # Iniciar Streamer de Telemetría (Buffer + Envio WS tiempo real)
     telemetry_thread = TelemetryThread(station_id, SERVER_URL)
     telemetry_thread.start()
+
+    # Iniciar Monitor de Hardware (CPU/RAM/Temp)
+    try:
+        from monitor import HardwareMonitor
+        monitor_thread = HardwareMonitor(station_id, SERVER_URL)
+        monitor_thread.start()
+    except ImportError:
+        logger.error("No se pudo cargar monitor.py. Monitorización de HW desactivada.")
+    except Exception as e:
+        logger.error(f"Error iniciando monitor de hardware: {e}")
+
 
     # Bucle Principal
     while True:
@@ -403,6 +415,14 @@ class TelemetryThread(threading.Thread):
                         os.system("taskkill /F /IM \"Content Manager.exe\"")
                     else:
                         os.system("pkill -9 acs")
+
+                elif command == "set_weather":
+                     weather = data.get("value")
+                     logger.info(f"Received SET_WEATHER command: {weather}")
+                     # TODO: Inject simulated keypresses if running in foreground
+                     # E.g. /admin weather {weather}
+                     # For now, we just acknowledge receipt
+
 
                         
             except websockets.ConnectionClosed:

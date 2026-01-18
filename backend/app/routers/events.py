@@ -329,6 +329,7 @@ def get_event_leaderboard(
         
     return leaderboard
 
+
 @router.post("/{event_id}/process_results")
 def process_event_results(event_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_active_user)):
     """
@@ -337,6 +338,8 @@ def process_event_results(event_id: int, db: Session = Depends(database.get_db),
     2. Update Pilot Stats (Wins, Podiums, Races).
     3. Mark event as completed.
     """
+    from ..services.elo import calculate_race_elo_changes, DEFAULT_RATING
+
     event = db.query(models.Event).filter(models.Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -344,8 +347,7 @@ def process_event_results(event_id: int, db: Session = Depends(database.get_db),
     if event.status == "completed":
         raise HTTPException(status_code=400, detail="Event already processed")
 
-    # Get Leaderboard (Sorted by position)
-    # Re-using logic from get_event_leaderboard but we need the driver objects
+    # Get Leaderboard (Sorted by position i.e. Best Lap Ascending)
     subquery = db.query(
         models.SessionResult.driver_name,
         func.min(models.SessionResult.best_lap).label('min_lap')
@@ -365,61 +367,50 @@ def process_event_results(event_id: int, db: Session = Depends(database.get_db),
     if not results:
         return {"message": "No results to process"}
 
-    # Update Stats
+    # 1. Prepare Data & Update Stats
+    elo_input = []
+    drivers_by_id = {}
+
     for idx, result in enumerate(results):
         driver = db.query(models.Driver).filter(models.Driver.name == result.driver_name).first()
         if not driver:
-            driver = models.Driver(name=result.driver_name, elo_rating=1200.0)
+            driver = models.Driver(name=result.driver_name, elo_rating=DEFAULT_RATING)
             db.add(driver)
+            db.commit()
+            db.refresh(driver)
         
+        drivers_by_id[driver.id] = driver
+        
+        # Stats Update
         driver.total_races += 1
         if idx == 0: driver.total_wins += 1
-        if idx < 3: driver.total_podiums += 1
+        if idx < 3: driver.total_podiums += 1 # 1st, 2nd, 3rd
         
-        # ELO Calculation
-        # Simple implementation: compare vs average ELO of the field? 
-        # Or better: Standard Multiplayer ELO.
-        # Let's use a simplified approach: ELO change = (PerformanceRating - CurrentELO) * Multiplier?
-        # No, let's use: Change = K * (ActualScore - ExpectedScore)
-        # Actual Score for P1 = 1.0, P_Last = 0.0?
-        # Let's do a Pairwise Sum approach for accuracy or just simple position weight.
-        
-        # Simplified:
-        # P1 gains 20, P2 gains 10, P3 gains 5. 
-        # Lower half loses points.
-        # This is a placeholder. A real ELO system requires pairwise comparisons or a complex generalized formula.
-        
-        # Implementation of Linear Weights for now (e.g. F1 style points converted to ELO?)
-        # Let's try to be a bit smarter: Compare against the Field Average ELO.
-        
-        # 1. Calculate Field Average
-        # (Optimized: we could fetch all drivers first, but for loop ok for <20 drivers)
-        # ... Skipping exact math for MVP, using Position Bonus/Penalty
-        
-        k_factor = 32
-        n_players = len(results)
-        expected_pos = n_players / 2 # Middle of pack
-        
-        # Inverted position (0 is best) -> Score from 1 to 0
-        actual_score = (n_players - 1 - idx) / max(1, (n_players - 1)) # Normalized 1.0 to 0.0
-        
-        # Expected score based on rating diff vs field average (simplified)
-        # Using 1200 as baseline if everyone equal
-        # Rating Diff = DriverElo - FieldAvg
-        # Expected = 1 / (1 + 10 ** (-Diff / 400))
-        
-        # Let's assume field average is 1200 for now or calculate strict?
-        # Let's just reward Top 50% and punish Bottom 50%
-        
-        rating_change = 0
-        if idx < n_players / 2:
-            rating_change = k_factor * (1.0 - (idx / n_players)) # Gain
-        else:
-            rating_change = -k_factor * ((idx / n_players)) # Loss
+        elo_input.append({
+            'driver_id': driver.id,
+            'rating': float(driver.elo_rating) if driver.elo_rating else DEFAULT_RATING,
+            'position': idx + 1
+        })
+
+    # 2. Calculate ELO Changes
+    changes = calculate_race_elo_changes(elo_input)
+    
+    # 3. Apply ELO Changes
+    for driver_id, change in changes.items():
+        if driver_id in drivers_by_id:
+            driver = drivers_by_id[driver_id]
+            current = float(driver.elo_rating) if driver.elo_rating else DEFAULT_RATING
+            driver.elo_rating = current + change
             
-        driver.elo_rating += rating_change
+            # Log for debugging
+            logger.info(f"Driver {driver.name}: {current} -> {driver.elo_rating} (Change: {change})")
         
     event.status = "completed"
     db.commit()
     
-    return {"message": "Results processed", "participants": len(results)}
+    return {
+        "message": "Results processed", 
+        "participants": len(results),
+        "elo_changes": changes
+    }
+

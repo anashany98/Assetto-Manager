@@ -31,14 +31,17 @@ const NavItem = ({ to, icon: Icon, children, collapsed }: { to: string, icon: Re
     return (
         <Link
             to={to}
-            className={`flex items-center ${collapsed ? 'justify-center' : 'space-x-3'} px-4 py-3 rounded-lg transition-colors ${isActive
-                ? 'bg-blue-600 text-white shadow-lg'
-                : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+            className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-4 py-3 rounded-xl transition-all duration-200 group ${isActive
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25'
+                : 'text-gray-400 hover:bg-white/5 hover:text-white'
                 }`}
             title={collapsed ? children as string : ''}
         >
-            <Icon size={20} />
-            <span className={`font-medium transition-all ${collapsed ? 'hidden w-0' : 'block'}`}>{children}</span>
+            <span className={`flex-shrink-0 ${isActive ? 'drop-shadow-lg' : 'group-hover:scale-110 transition-transform'}`}>
+                <Icon size={20} />
+            </span>
+            <span className={`font-medium transition-all ${collapsed ? 'hidden w-0 opacity-0' : 'block opacity-100'}`}>{children}</span>
+            {isActive && !collapsed && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
         </Link>
     );
 };
@@ -50,13 +53,13 @@ const ThemeToggle = ({ collapsed }: { collapsed: boolean }) => {
     return (
         <button
             onClick={toggleTheme}
-            className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors"
+            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all hover:scale-105"
             title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
         >
             {theme === 'dark' ? (
-                <Sun size={collapsed ? 16 : 18} className="text-yellow-400" />
+                <Sun size={collapsed ? 16 : 18} className="text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.5)]" />
             ) : (
-                <Moon size={collapsed ? 16 : 18} className="text-blue-400" />
+                <Moon size={collapsed ? 16 : 18} className="text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.5)]" />
             )}
         </button>
     );
@@ -99,15 +102,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     }
 
     return (
-        <div className="flex h-screen bg-gray-950 text-gray-100">
+        <div className="flex h-screen text-gray-100 overflow-hidden">
             {/* Sidebar */}
-            <div className={`${isSidebarOpen ? 'w-64' : 'w-20'} bg-gray-900 text-white flex flex-col transition-all duration-300 relative border-r border-gray-800`}>
+            <div className={`${isSidebarOpen ? 'w-64' : 'w-20'} glass-sidebar text-white flex flex-col transition-all duration-300 relative`}>
                 {/* Toggle Button */}
                 <button
                     onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                    className="absolute -right-3 top-6 bg-blue-600 rounded-full p-1 shadow-lg border border-gray-800 z-50 hover:bg-blue-700 transition-transform hover:scale-110"
+                    className="absolute -right-3 top-7 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full p-1.5 shadow-lg shadow-blue-500/30 z-50 hover:scale-110 transition-all border border-white/20"
                 >
-                    {isSidebarOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+                    {isSidebarOpen ? <ChevronLeft size={14} className="text-white" /> : <ChevronRight size={14} className="text-white" />}
                 </button>
 
                 {/* Logo Section */}
@@ -155,14 +158,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 </nav>
 
                 {/* User Profile / Status */}
-                <div className="p-4 border-t border-gray-800 bg-gray-900/50">
+                <div className="p-4 border-t border-white/5 bg-black/20">
                     <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center font-bold flex-shrink-0 shadow-lg shadow-blue-900/50">A</div>
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-bold flex-shrink-0 shadow-lg shadow-blue-500/30 text-sm">A</div>
                             <div className={`transition-all overflow-hidden ${!isSidebarOpen ? 'w-0 opacity-0' : 'w-auto opacity-100'}`}>
-                                <p className="text-sm font-medium whitespace-nowrap">Operador</p>
-                                <p className="text-xs text-green-400 flex items-center gap-1">
-                                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                                <p className="text-sm font-semibold whitespace-nowrap">Operador</p>
+                                <p className="text-xs text-emerald-400 flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-lg shadow-emerald-500/50"></span>
                                     Conectado
                                 </p>
                             </div>
@@ -173,8 +176,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </div>
 
             {/* Main Content Area */}
-            <div className="flex-1 overflow-auto bg-gray-950 relative">
-                {children}
+            <div className="flex-1 overflow-auto relative racing-stripe">
+                <div className="min-h-full">
+                    {children}
+                </div>
             </div>
         </div>
     );

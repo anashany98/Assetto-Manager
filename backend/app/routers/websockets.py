@@ -57,6 +57,18 @@ class ConnectionManager:
             except Exception:
                 self.disconnect_client(connection)
 
+    async def broadcast_to_agents(self, message: dict):
+        # Broadcast command to all active Agents
+        payload = json.dumps(message)
+        for station_id, ws in list(self.active_agents.items()):
+            try:
+                await ws.send_text(payload)
+                logger.info(f"Sent command to Station {station_id}: {message.get('command')}")
+            except Exception as e:
+                logger.error(f"Failed to send to Station {station_id}: {e}")
+                # We let the receive loop handle invalidation/disconnect
+
+
 
 
 manager = ConnectionManager()

@@ -2,6 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { getEventLeaderboard } from '../api/events';
 import { cn } from '../lib/utils';
 import { Trophy } from 'lucide-react';
+import { EloBadge } from './EloBadge';
+
 
 interface Props {
     eventId: number;
@@ -70,7 +72,14 @@ export function TournamentLeaderboard({ eventId, eventName, description }: Props
                                             {index + 1}
                                         </div>
                                     </td>
-                                    <td className="p-6">{entry.driver_name}</td>
+
+                                    <td className="p-6">
+                                        <div className="flex items-center gap-3">
+                                            {entry.driver_name}
+                                            <EloBadge driverName={entry.driver_name} size="md" />
+                                        </div>
+                                    </td>
+
                                     <td className="p-6 text-lg text-gray-400 font-medium">{entry.car_model}</td>
                                     <td className="p-6 text-right font-mono text-3xl">
                                         {new Date(entry.lap_time).toISOString().substr(14, 9)}

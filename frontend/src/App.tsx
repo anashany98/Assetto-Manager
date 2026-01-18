@@ -32,6 +32,7 @@ const PublicBookingPage = lazy(() => import('./pages/PublicBookingPage'));
 const TVMode = lazy(() => import('./pages/TVMode').then(module => ({ default: module.TVMode })));
 const EliminationTV = lazy(() => import('./pages/EliminationTV'));
 const EliminationAdmin = lazy(() => import('./pages/EliminationAdmin'));
+const HardwareMonitor = lazy(() => import('./pages/HardwareMonitor'));
 
 import { useBranding } from './hooks/useBranding';
 
@@ -93,6 +94,7 @@ function App() {
               {/* Elimination Mode */}
               <Route path="/elimination" element={<PrivateRoute><EliminationAdmin /></PrivateRoute>} />
               <Route path="/elimination-tv/:id" element={<EliminationTV />} />
+              <Route path="/hardware" element={<PrivateRoute><HardwareMonitor /></PrivateRoute>} />
 
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />

@@ -181,7 +181,7 @@ export default function BookingsPage() {
             {/* Calendar Grid */}
             {isLoading ? (
                 <div className="flex items-center justify-center py-12">
-                    <Loader2 className="animate-spin text-blue-500" size={32} />
+                    <Loader2 data-testid="bookings-loader" className="animate-spin text-blue-500" size={32} />
                 </div>
             ) : (
                 <div className="grid grid-cols-7 gap-3">
@@ -203,7 +203,7 @@ export default function BookingsPage() {
                             </div>
 
                             <div className="space-y-1.5">
-                                {day.bookings?.map((booking: Booking) => (
+                                {day.bookings?.map((booking) => (
                                     <div
                                         key={booking.id}
                                         onClick={() => setSelectedBooking(booking)}

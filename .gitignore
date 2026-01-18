@@ -35,3 +35,8 @@ backend/.env
 # Local Config
 LOCAL
 NETWORK
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/

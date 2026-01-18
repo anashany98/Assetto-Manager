@@ -6,6 +6,8 @@ import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
 import ManualEntryModal from '../components/ManualEntryModal';
 import { TelemetryChart } from '../components/TelemetryChart';
+import { EloBadge } from '../components/EloBadge';
+
 
 import { API_URL } from '../config';
 
@@ -439,10 +441,10 @@ export default function LeaderboardPage() {
                                     >
                                         <td className="px-6 py-5">
                                             <div className={cn(
-                                                "w-8 h-8 flex items-center justify-center rounded-lg font-black font-mono text-lg",
-                                                index === 0 ? "bg-yellow-500 text-black shadow-[0_0_15px_rgba(234,179,8,0.4)]" :
-                                                    index === 1 ? "bg-gray-400 text-black" :
-                                                        index === 2 ? "bg-orange-700 text-white" : "text-gray-500 bg-gray-800"
+                                                "w-10 h-10 flex items-center justify-center rounded-xl font-black font-mono text-lg transition-transform hover:scale-110",
+                                                index === 0 ? "bg-gradient-to-br from-yellow-400 to-amber-600 text-black shadow-lg shadow-yellow-500/40 ring-2 ring-yellow-400/50" :
+                                                    index === 1 ? "bg-gradient-to-br from-gray-300 to-gray-500 text-black shadow-lg shadow-gray-400/30 ring-2 ring-gray-400/30" :
+                                                        index === 2 ? "bg-gradient-to-br from-orange-400 to-orange-700 text-white shadow-lg shadow-orange-500/30 ring-2 ring-orange-400/30" : "text-gray-400 bg-gray-800/80 border border-gray-700"
                                             )}>
                                                 {entry.rank}
                                             </div>
@@ -462,12 +464,15 @@ export default function LeaderboardPage() {
                                                     )}
                                                 </div>
                                                 <div>
-                                                    <div className="font-bold text-gray-200 text-lg group-hover:text-white transition-all uppercase italic flex items-center">
+
+                                                    <div className="font-bold text-gray-200 text-lg group-hover:text-white transition-all uppercase italic flex items-center gap-3">
                                                         {entry.driver_name}
+                                                        {!isTVMode && <EloBadge driverName={entry.driver_name} size="sm" />}
                                                     </div>
                                                     <div className="text-xs text-gray-500 font-mono mt-0.5">
                                                         {new Date(entry.timestamp).toLocaleDateString()}
                                                     </div>
+
                                                 </div>
                                             </div>
                                         </td>

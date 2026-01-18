@@ -15,89 +15,17 @@ import {
 import { LogViewer } from '../components/LogViewer';
 import AdsSettings from '../components/AdsSettings';
 import { usePushNotifications } from '../hooks/usePushNotifications';
-
-// --- SUB-COMPONENTS FROM CONFIGPAGE ---
-// (We keep SpecializedEditor here or move to a separate file, keeping here for simplicity)
-function SpecializedEditor({ category, content, onUpdate }: { category: string, content: Record<string, Record<string, string>>, onUpdate: (s: string, k: string, v: string) => void }) {
-    // Re-using the exact logic from ConfigPage for consistency
-    if (category === 'gameplay') {
-        const assists = content['ASSISTS'] || {};
-        // const race = content['RACE'] || {};
-        return (
-            <div className="space-y-8">
-                <div className="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-sm">
-                    <h3 className="text-lg font-black text-white mb-4 flex items-center"><Truck className="mr-2 text-orange-500" /> Ayudas a la Conducción</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label className="block text-xs font-bold text-gray-400 uppercase mb-2">ABS (Frenos)</label>
-                            <div className="flex gap-2 bg-gray-900 p-1 rounded-xl">
-                                <button onClick={() => onUpdate('ASSISTS', 'ABS', '1')} className={cn("flex-1 py-2 rounded-lg text-sm font-bold transition-all", assists.ABS === '1' ? "bg-gray-700 text-white shadow-sm" : "text-gray-500")}>Activado</button>
-                                <button onClick={() => onUpdate('ASSISTS', 'ABS', '0')} className={cn("flex-1 py-2 rounded-lg text-sm font-bold transition-all", assists.ABS === '0' ? "bg-gray-700 text-white shadow-sm" : "text-gray-500")}>Desactivado</button>
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Control de Tracción (TC)</label>
-                            <div className="flex gap-2 bg-gray-900 p-1 rounded-xl">
-                                <button onClick={() => onUpdate('ASSISTS', 'TRACTION_CONTROL', '1')} className={cn("flex-1 py-2 rounded-lg text-sm font-bold transition-all", assists.TRACTION_CONTROL === '1' ? "bg-gray-700 text-white shadow-sm" : "text-gray-500")}>Activado</button>
-                                <button onClick={() => onUpdate('ASSISTS', 'TRACTION_CONTROL', '0')} className={cn("flex-1 py-2 rounded-lg text-sm font-bold transition-all", assists.TRACTION_CONTROL === '0' ? "bg-gray-700 text-white shadow-sm" : "text-gray-500")}>Desactivado</button>
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Control de Estabilidad</label>
-                            <div className="flex items-center space-x-3">
-                                <input type="range" min="0" max="100" step="5" className="flex-1 accent-orange-500 h-2 bg-gray-900 rounded-lg appearance-none cursor-pointer" value={Number(assists.STABILITY_CONTROL || 0)} onChange={e => onUpdate('ASSISTS', 'STABILITY_CONTROL', e.target.value)} />
-                                <span className="text-sm font-bold text-orange-500 w-12 text-right">{assists.STABILITY_CONTROL || 0}%</span>
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Embrague Automático</label>
-                            <button onClick={() => onUpdate('ASSISTS', 'AUTO_CLUTCH', assists.AUTO_CLUTCH === '1' ? '0' : '1')} className={cn("w-12 h-6 rounded-full transition-colors relative", assists.AUTO_CLUTCH === '1' ? "bg-green-500" : "bg-gray-600")}>
-                                <div className={cn("absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform", assists.AUTO_CLUTCH === '1' ? "translate-x-6" : "")} />
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-    // ... Simplified Logic for other editors to keep file size manageable, ideally split files
-    // For now returning generic editor for others as fallback or checking Controls/Video
-    if (category === 'controls') {
-        const ffb = content['FFB'] || {};
-        return (
-            <div className="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-sm">
-                <h3 className="text-lg font-black text-white mb-4 flex items-center"><Gamepad2 className="mr-2 text-blue-500" /> Force Feedback</h3>
-                <input type="range" min="0" max="2.0" step="0.05" className="w-full accent-blue-500 h-3 bg-gray-900 rounded-lg cursor-pointer" value={ffb.GAIN || '1.0'} onChange={e => onUpdate('FFB', 'GAIN', e.target.value)} />
-                <p className="text-xs text-gray-500 mt-2">Gain: {Math.round(Number(ffb.GAIN || 1) * 100)}%</p>
-            </div>
-        )
-    }
-
-    // Generic
-    return (
-        <div className="space-y-6">
-            {Object.entries(content).map(([sectionName, keys]) => (
-                <div key={sectionName} className="bg-gray-800 rounded-2xl border border-gray-700 p-6 shadow-sm">
-                    <h3 className="text-lg font-black text-white uppercase tracking-tight mb-4">[{sectionName}]</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {Object.entries(keys as object).map(([key, val]) => (
-                            <div key={key}>
-                                <label className="text-xs font-bold text-gray-400 uppercase mb-1">{key}</label>
-                                <input className="w-full px-4 py-2 rounded-xl border border-gray-600 bg-gray-900 text-white text-sm" value={val as string} onChange={(e) => onUpdate(sectionName, key, e.target.value)} />
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            ))}
-        </div>
-    );
-}
+import ACSettingsEditor from '../components/ACSettingsEditor';
+import { Camera, Cloud, Bot } from 'lucide-react';
 
 const AC_CATEGORIES = [
-    { id: 'controls', name: 'Controles', icon: Gamepad2, color: 'text-blue-500 bg-blue-50' },
-    { id: 'gameplay', name: 'Ayudas / Gameplay', icon: Truck, color: 'text-orange-500 bg-orange-50' },
-    { id: 'video', name: 'Gráficos', icon: Monitor, color: 'text-purple-500 bg-purple-50' },
-    { id: 'audio', name: 'Audio', icon: Volume2, color: 'text-green-500 bg-green-50' },
+    { id: 'controls', name: 'Controles', icon: Gamepad2, color: 'text-blue-500' },
+    { id: 'gameplay', name: 'Ayudas / Gameplay', icon: Truck, color: 'text-orange-500' },
+    { id: 'video', name: 'Gráficos', icon: Monitor, color: 'text-purple-500' },
+    { id: 'audio', name: 'Audio', icon: Volume2, color: 'text-green-500' },
+    { id: 'camera', name: 'Cámara', icon: Camera, color: 'text-cyan-500' },
+    { id: 'race', name: 'IA / Carrera', icon: Bot, color: 'text-red-500' },
+    { id: 'weather', name: 'Clima', icon: Cloud, color: 'text-yellow-500' },
 ];
 
 export default function SettingsPage() {
@@ -188,9 +116,9 @@ export default function SettingsPage() {
     // --- GAME CONFIG STATE ---
     const [selectedCategory, setSelectedCategory] = useState(AC_CATEGORIES[0].id);
     const [isEditorOpen, setIsEditorOpen] = useState(false);
-    const [parsedContent, setParsedContent] = useState<Record<string, Record<string, string>>>({});
     const [newProfileName, setNewProfileName] = useState('');
     const [selectedProfiles, setSelectedProfiles] = useState<Record<string, string>>({});
+    const [selectedStationIds, setSelectedStationIds] = useState<number[]>([]);
 
     const { data: profiles } = useQuery({
         queryKey: ['config_profiles'],
@@ -199,25 +127,28 @@ export default function SettingsPage() {
 
     const deployMutation = useMutation({
         mutationFn: async () => {
-            if (Object.keys(selectedProfiles).length === 0) return alert("Selecciona perfiles");
-            await axios.post(`${API_URL}/configs/deploy`, selectedProfiles);
+            if (Object.keys(selectedProfiles).length === 0) {
+                throw new Error("Selecciona perfiles");
+            }
+            await axios.post(`${API_URL}/configs/deploy`, {
+                deploy_map: selectedProfiles,
+                station_ids: selectedStationIds.length > 0 ? selectedStationIds : null
+            });
         },
-        onSuccess: () => alert("Despliegue Iniciado")
+        onSuccess: () => {
+            const msg = selectedStationIds.length > 0
+                ? `Despliegue iniciado a ${selectedStationIds.length} estación(es)`
+                : "Despliegue iniciado a TODAS las estaciones";
+            alert(msg);
+        },
+        onError: (error) => alert(error instanceof Error ? error.message : "Error en despliegue")
     });
 
-    const handleEditProfile = async (filename: string) => {
+    const handleEditProfile = (filename: string) => {
         setNewProfileName(filename.replace('.ini', ''));
-        const res = await axios.get(`${API_URL}/configs/profile/${selectedCategory}/${filename}/parsed`);
-        setParsedContent(res.data.sections);
         setIsEditorOpen(true);
     };
 
-    const saveProfileMutation = useMutation({
-        mutationFn: async () => {
-            await axios.post(`${API_URL}/configs/profile/${selectedCategory}/${newProfileName}/parsed`, { sections: parsedContent });
-        },
-        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['config_profiles'] }); setIsEditorOpen(false); }
-    });
 
     const safeBranding = Array.isArray(branding) ? branding : [];
     const barName = safeBranding.find((s: { key: string; value: string }) => s.key === 'bar_name')?.value || 'VRacing Bar';
@@ -462,6 +393,44 @@ export default function SettingsPage() {
                                             ))
                                         )}
                                     </div>
+
+                                    {/* Station Selector */}
+                                    <div className="mt-6 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <h4 className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-1">Destino</h4>
+                                            <button
+                                                onClick={() => setSelectedStationIds([])}
+                                                className="text-[10px] text-blue-400 hover:text-blue-300"
+                                            >
+                                                {selectedStationIds.length === 0 ? 'TODAS' : 'Limpiar'}
+                                            </button>
+                                        </div>
+                                        {!Array.isArray(stations) || stations.length === 0 ? (
+                                            <p className="text-xs text-gray-600 italic pl-1">No hay estaciones configuradas</p>
+                                        ) : selectedStationIds.length === 0 ? (
+                                            <p className="text-xs text-green-400 font-bold pl-1">→ Todas las estaciones activas</p>
+                                        ) : (
+                                            <div className="space-y-1">
+                                                {stations.filter((s: Station) => selectedStationIds.includes(s.id)).map((s: Station) => (
+                                                    <div key={s.id} className="bg-gray-800 px-3 py-2 rounded-lg border border-gray-700 flex justify-between items-center">
+                                                        <span className="text-xs font-bold text-white">{s.name}</span>
+                                                        <button onClick={() => setSelectedStationIds(prev => prev.filter(id => id !== s.id))}
+                                                            className="text-gray-500 hover:text-red-400 text-xs">×</button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        <div className="max-h-32 overflow-y-auto space-y-1">
+                                            {Array.isArray(stations) && stations.filter((s: Station) => !selectedStationIds.includes(s.id)).map((s: Station) => (
+                                                <button key={s.id}
+                                                    onClick={() => setSelectedStationIds(prev => [...prev, s.id])}
+                                                    className="w-full text-left px-3 py-2 rounded-lg bg-gray-900 hover:bg-gray-800 border border-gray-800 hover:border-gray-600 transition-colors"
+                                                >
+                                                    <span className="text-xs text-gray-400 hover:text-white">{s.name}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -474,7 +443,7 @@ export default function SettingsPage() {
                                         </h2>
                                         <p className="text-gray-400 text-sm font-bold mt-1">Selecciona un perfil predefinido</p>
                                     </div>
-                                    <button onClick={() => { setNewProfileName(''); setParsedContent({}); setIsEditorOpen(true) }}
+                                    <button onClick={() => { setNewProfileName(''); setIsEditorOpen(true); }}
                                         className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase transition-colors border border-gray-700">
                                         <Plus size={14} /> Crear Nuevo
                                     </button>
@@ -593,17 +562,21 @@ export default function SettingsPage() {
                 <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-8 backdrop-blur-sm">
                     <div className="bg-gray-900 w-full max-w-4xl h-full max-h-[90vh] rounded-3xl border border-gray-800 flex flex-col shadow-2xl overflow-hidden">
                         <div className="p-6 border-b border-gray-800 flex justify-between items-center">
-                            <h3 className="text-xl font-black text-white uppercase">Editor de Perfil</h3>
+                            <h3 className="text-xl font-black text-white uppercase">
+                                Editor de {AC_CATEGORIES.find(c => c.id === selectedCategory)?.name}
+                            </h3>
                             <button onClick={() => setIsEditorOpen(false)}><Plus className="rotate-45 text-gray-500 hover:text-white" size={28} /></button>
                         </div>
                         <div className="p-8 overflow-y-auto flex-1 bg-gray-950">
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Nombre archivo</label>
-                            <input value={newProfileName} onChange={e => setNewProfileName(e.target.value)} className="w-full text-xl font-bold bg-transparent border-b border-gray-700 focus:border-blue-500 outline-none text-white mb-8 pb-2" placeholder="Nombre..." />
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Nombre del perfil</label>
+                            <input value={newProfileName} onChange={e => setNewProfileName(e.target.value)} className="w-full text-xl font-bold bg-transparent border-b border-gray-700 focus:border-blue-500 outline-none text-white mb-8 pb-2" placeholder="Nombre del perfil..." />
 
-                            <SpecializedEditor category={selectedCategory} content={parsedContent} onUpdate={(s, k, v) => setParsedContent({ ...parsedContent, [s]: { ...parsedContent[s], [k]: v } })} />
-                        </div>
-                        <div className="p-6 border-t border-gray-800 bg-gray-900 flex justify-end">
-                            <button onClick={() => saveProfileMutation.mutate()} className="bg-blue-600 text-white px-8 py-3 rounded-xl font-black uppercase hover:bg-blue-500 transition-colors shadow-lg shadow-blue-900/20">Guardar Cambios</button>
+                            {newProfileName && (
+                                <ACSettingsEditor
+                                    category={selectedCategory as 'controls' | 'gameplay' | 'video' | 'audio'}
+                                    profileName={`${newProfileName}.ini`}
+                                />
+                            )}
                         </div>
                     </div>
                 </div>

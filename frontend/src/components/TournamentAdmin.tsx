@@ -4,7 +4,8 @@ import axios from 'axios';
 import { API_URL } from '../config';
 import { Trophy, Shuffle } from 'lucide-react';
 
-export default function TournamentAdmin({ eventId }: { eventId: number }) {
+
+export default function TournamentAdmin({ eventId, isCompleted }: { eventId: number; isCompleted: boolean }) {
     const queryClient = useQueryClient();
     const [participants, setParticipants] = useState<string>(''); // Text area input for simple list
 
@@ -41,6 +42,22 @@ export default function TournamentAdmin({ eventId }: { eventId: number }) {
         }
     });
 
+
+    // Process Results Mutation (ELO + Stats)
+    const processResultsMutation = useMutation({
+        mutationFn: async () => {
+            const res = await axios.post(`${API_URL}/events/${eventId}/process_results`);
+            return res.data;
+        },
+        onSuccess: (data: any) => {
+            alert(`¡Evento Finalizado! ELO actualizado para ${data.participants} pilotos.`);
+            window.location.reload();
+        },
+        onError: (err: any) => {
+            alert("Error: " + (err.response?.data?.detail || err.message));
+        }
+    });
+
     const handleGenerate = () => {
         const list = participants.split('\n').map(p => p.trim()).filter(p => p.length > 0);
         if (list.length < 2) return alert("Se necesitan al menos 2 participantes");
@@ -49,23 +66,53 @@ export default function TournamentAdmin({ eventId }: { eventId: number }) {
 
     if (!bracket) {
         return (
-            <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
-                <h3 className="text-white font-bold mb-4 flex items-center">
-                    <Shuffle className="mr-2 text-blue-500" /> Generar Cuadro
-                </h3>
-                <textarea
-                    className="w-full bg-gray-900 text-white p-4 rounded-lg border border-gray-700 mb-4 h-40 font-mono text-sm"
-                    placeholder="Escribe los nombres de los pilotos (uno por línea)..."
-                    value={participants}
-                    onChange={(e) => setParticipants(e.target.value)}
-                />
-                <button
-                    onClick={handleGenerate}
-                    disabled={generateMutation.isPending}
-                    className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition-colors flex justify-center items-center"
-                >
-                    {generateMutation.isPending ? 'Generando...' : 'Crear Torneo'}
-                </button>
+            <div className="space-y-8">
+                <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
+                    <h3 className="text-white font-bold mb-4 flex items-center">
+                        <Shuffle className="mr-2 text-blue-500" /> Generar Cuadro (Torneo)
+                    </h3>
+                    <p className="text-gray-400 text-sm mb-4">Si este evento es un torneo eliminatorio, introduce los participantes aquí. Si es una carrera normal, usa el botón de finalizar abajo.</p>
+                    <textarea
+                        className="w-full bg-gray-900 text-white p-4 rounded-lg border border-gray-700 mb-4 h-40 font-mono text-sm"
+                        placeholder="Escribe los nombres de los pilotos (uno por línea)..."
+                        value={participants}
+                        onChange={(e) => setParticipants(e.target.value)}
+                    />
+                    <button
+                        onClick={handleGenerate}
+                        disabled={generateMutation.isPending || isCompleted}
+                        className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition-colors flex justify-center items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {generateMutation.isPending ? 'Generando...' : 'Crear Torneo'}
+                    </button>
+                </div>
+
+                <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
+                    <h3 className="text-white font-bold mb-4 flex items-center">
+                        <Trophy className="mr-2 text-yellow-500" /> Finalizar Evento (Estándar)
+                    </h3>
+                    <p className="text-gray-400 text-sm mb-4">
+                        Calcula los puntos ELO basados en la clasificación actual (tiempos de vuelta) y cierra el evento.
+                    </p>
+
+                    {isCompleted ? (
+                        <div className="bg-green-900/30 border border-green-800 text-green-400 p-4 rounded-lg text-center font-bold">
+                            ✅ Evento Finalizado y Procesado
+                        </div>
+                    ) : (
+                        <button
+                            onClick={() => {
+                                if (confirm("¿Seguro que quieres finalizar el evento? Se calculará el ELO y no se podrán añadir más tiempos.")) {
+                                    processResultsMutation.mutate();
+                                }
+                            }}
+                            disabled={processResultsMutation.isPending}
+                            className="w-full bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-3 rounded-lg transition-colors flex justify-center items-center"
+                        >
+                            {processResultsMutation.isPending ? 'Procesando...' : 'Finalizar y Calcular ELO'}
+                        </button>
+                    )}
+                </div>
             </div>
         );
     }
@@ -103,14 +150,17 @@ export default function TournamentAdmin({ eventId }: { eventId: number }) {
     );
 }
 
+
+
 function MatchAdminCard({ match, onUpdate }: { match: { id: number; match_num: number; player1?: string; player2?: string; score1?: number; score2?: number; winner?: string; status: string }, onUpdate: (d: { score1: number; score2: number; winner: string }) => void }) {
     const isLocked = !match.player1 || !match.player2;
     const isCompleted = match.status === 'completed';
 
-    const [s1, setS1] = useState(match.score1);
-    const [s2, setS2] = useState(match.score2);
+    const [s1, setS1] = useState(match.score1 ?? 0);
+    const [s2, setS2] = useState(match.score2 ?? 0);
 
-    const handleSave = (winnerName: string) => {
+    const handleSave = (winnerName?: string) => {
+        if (!winnerName) return;
         if (!confirm(`¿Confirmar a ${winnerName} como ganador?`)) return;
         onUpdate({ score1: s1, score2: s2, winner: winnerName });
     };
@@ -180,3 +230,4 @@ function MatchAdminCard({ match, onUpdate }: { match: { id: number; match_num: n
         </div>
     );
 }
+

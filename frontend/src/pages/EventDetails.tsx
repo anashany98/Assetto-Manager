@@ -126,9 +126,11 @@ export default function EventDetails() {
                         <TournamentBracket eventId={eventId} isAdmin={true} />
                     </div>
                 ) : (
+
                     <div className="p-8 bg-gray-900 rounded-b-xl h-full min-h-[500px]">
-                        <TournamentAdmin eventId={eventId} />
+                        <TournamentAdmin eventId={eventId} isCompleted={event.status === 'completed'} />
                     </div>
+
                 )}
             </div>
         </div>
