@@ -43,7 +43,7 @@ def read_stations(skip: int = 0, limit: int = 100, db: Session = Depends(databas
 import json
 
 @router.put("/{station_id}", response_model=schemas.Station)
-def update_station(station_id: int, station_update: schemas.StationUpdate, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_active_user)):
+def update_station(station_id: int, station_update: schemas.StationUpdate, db: Session = Depends(database.get_db)):
     db_station = db.query(models.Station).filter(models.Station.id == station_id).first()
     if not db_station:
         raise HTTPException(status_code=404, detail="Station not found")
