@@ -3,30 +3,19 @@ from sqlalchemy.orm import Session as DBSession
 from sqlalchemy import func
 from typing import List, Optional
 from datetime import datetime, timezone, timedelta
-from pydantic import BaseModel
 
 from ..database import get_db
 from ..models import Session, Station
+from .. import schemas
 
 router = APIRouter(
     prefix="/sessions",
     tags=["sessions"]
 )
 
-class SessionCreate(BaseModel):
-    station_id: int
-    driver_name: Optional[str] = None
-    duration_minutes: int = 15
-    price: Optional[float] = 0.0
-    payment_method: Optional[str] = "cash"
-    is_vr: Optional[bool] = False
-    notes: Optional[str] = None
-
-# ... (SessionUpdate, SessionResponse as passed)
-
-@router.post("/start", response_model=SessionResponse)
+@router.post("/start", response_model=schemas.SessionResponse)
 def start_session(
-    session_data: SessionCreate, 
+    session_data: schemas.SessionStart, 
     db: DBSession = Depends(get_db)
 ):
     # Check if station exists
@@ -66,7 +55,7 @@ def start_session(
     
     return _map_session_response(new_session, station.name)
 
-@router.get("/active", response_model=List[SessionResponse])
+@router.get("/active", response_model=List[schemas.SessionResponse])
 def get_active_sessions(db: DBSession = Depends(get_db)):
     active_sessions = db.query(Session).join(Station).filter(
         Session.status.in_(["active", "paused"])
@@ -119,7 +108,7 @@ def add_time(session_id: int, minutes: int = Body(..., embed=True), db: DBSessio
     
     return _map_session_response(session, session.station.name)
 
-def _map_session_response(session: Session, station_name: str) -> SessionResponse:
+def _map_session_response(session: Session, station_name: str) -> schemas.SessionResponse:
     now = datetime.now(timezone.utc)
     remaining = 0.0
     
@@ -133,15 +122,19 @@ def _map_session_response(session: Session, station_name: str) -> SessionRespons
              delta = session.end_time - now
              remaining = max(0.0, delta.total_seconds() / 60)
              
-    return SessionResponse(
+    # Create response object manually to match schema structure
+    return schemas.SessionResponse(
         id=session.id,
         station_id=session.station_id,
-        station_name=station_name,
+        station_name=station_name, # Not in DB, passed from join
         driver_name=session.driver_name,
         start_time=session.start_time,
         end_time=session.end_time,
         duration_minutes=session.duration_minutes,
         remaining_minutes=round(remaining, 1),
         status=session.status,
-        price=session.price
+        price=session.price,
+        is_paid=session.is_paid,
+        notes=session.notes,
+        payment_method=session.payment_method
     )

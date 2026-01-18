@@ -66,6 +66,18 @@ class SessionStart(BaseModel):
     price: float = 0.0
     is_vr: bool = False
     payment_method: str = "cash" # cash, card_nayax, online
+    payment_method: str = "cash" # cash, card_nayax, online
+
+class SessionResponse(SessionStart):
+    id: int
+    start_time: datetime
+    end_time: Optional[datetime] = None
+    status: str
+    is_paid: bool
+    notes: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
 
 class TagBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=30)
@@ -264,6 +276,23 @@ class Event(EventBase):
     updated_at: Optional[datetime]
     championship_id: Optional[int] = None
     
+    class Config:
+        from_attributes = True
+
+class ChampionshipBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    scoring_rules: Optional[Any] = None # Dict[int, int] but JSON often comes as str keys
+    is_active: bool = True
+
+class ChampionshipCreate(ChampionshipBase):
+    pass
+
+class Championship(ChampionshipBase):
+    id: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
     class Config:
         from_attributes = True
 

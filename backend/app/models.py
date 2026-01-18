@@ -265,6 +265,30 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
+
+class Scenario(Base):
+    """
+    Defines a curated set of content (cars/tracks) and settings for Kiosk mode.
+    Used for specific events (e.g., "Drift Comp", "F1 Tournament").
+    """
+    __tablename__ = "scenarios"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), unique=True, index=True)
+    description = Column(String(255), nullable=True)
+    
+    # JSON lists of IDs or names
+    allowed_cars = Column(JSON, default=list) 
+    allowed_tracks = Column(JSON, default=list) 
+    
+    # Duration options (e.g., [10, 15, 30])
+    allowed_durations = Column(JSON, default=[10, 15, 20])
+    
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), onupdate=lambda: datetime.now(timezone.utc))
+
+
 class PointsTransaction(Base):
     """Track all points earned/spent by drivers"""
     __tablename__ = "points_transactions"

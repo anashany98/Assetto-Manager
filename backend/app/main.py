@@ -115,6 +115,10 @@ app.include_router(sessions.router)
 from .routers import lobby
 app.include_router(lobby.router)
 
+# Scenarios
+from .routers import scenarios
+app.include_router(scenarios.router)
+
 
 # @app.get("/")
 # async def root():

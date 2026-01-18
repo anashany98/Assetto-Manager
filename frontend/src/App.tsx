@@ -33,6 +33,7 @@ const TVMode = lazy(() => import('./pages/TVMode').then(module => ({ default: mo
 const EliminationTV = lazy(() => import('./pages/EliminationTV'));
 const EliminationAdmin = lazy(() => import('./pages/EliminationAdmin'));
 const HardwareMonitor = lazy(() => import('./pages/HardwareMonitor'));
+const ScenariosManager = lazy(() => import('./pages/ScenariosManager'));
 const KioskMode = lazy(() => import('./pages/KioskMode'));
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
 
@@ -56,6 +57,7 @@ function App() {
             <Routes>
               <Route path="/" element={<LandingPage />} />
               <Route path="/admin" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+              <Route path="/admin/scenarios" element={<PrivateRoute><ScenariosManager /></PrivateRoute>} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/analysis/:id" element={<LapAnalysisPage />} />
 
