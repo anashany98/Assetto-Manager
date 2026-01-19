@@ -34,6 +34,7 @@ import { Rocket } from 'lucide-react';
 export default function Dashboard() {
     const queryClient = useQueryClient();
     const [showLaunchModal, setShowLaunchModal] = useState(false);
+    const [startModalStation, setStartModalStation] = useState<any | null>(null);
 
     const { data: stats, isLoading, error } = useQuery<DashboardStats>({
         queryKey: ['dashboardStats'],
@@ -43,74 +44,69 @@ export default function Dashboard() {
 
     // ... (keep existing code) ...
 
-    <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <button
-            onClick={() => setShowLaunchModal(true)}
-            className="block p-5 rounded-xl border border-white/5 bg-white/5 backdrop-blur-sm shadow-lg transition-all duration-300 group hover:-translate-y-1 hover:shadow-xl hover:border-red-500/50 hover:bg-red-500/10 hover:shadow-red-500/10 text-left"
-        >
-            <h3 className="font-bold text-white mb-1 group-hover:translate-x-1 transition-transform flex items-center gap-2 text-lg">
-                <Rocket size={20} className="text-red-500" /> LANZAMIENTO
-            </h3>
-            <p className="text-sm text-gray-400">Despliegue masivo en simuladores</p>
-        </button>
+    return (
+        <>
+            <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button
+                    onClick={() => setShowLaunchModal(true)}
+                    className="block p-5 rounded-xl border border-white/5 bg-white/5 backdrop-blur-sm shadow-lg transition-all duration-300 group hover:-translate-y-1 hover:shadow-xl hover:border-red-500/50 hover:bg-red-500/10 hover:shadow-red-500/10 text-left"
+                >
+                    <h3 className="font-bold text-white mb-1 group-hover:translate-x-1 transition-transform flex items-center gap-2 text-lg">
+                        <Rocket size={20} className="text-red-500" /> LANZAMIENTO
+                    </h3>
+                    <p className="text-sm text-gray-400">Despliegue masivo en simuladores</p>
+                </button>
 
-        <QuickAction
-            to="/profiles"
-            title="Perfiles Volante"
-            desc="Aplicar FFB y config hardware"
-            color="blue"
-        />
-        <QuickAction
-            to="/events"
-            title="Organizar Torneo"
-            desc="Crear eliminatorias y brackets"
-            color="indigo"
-        />
-        <QuickAction
-            to="/championships"
-            title="Gestionar Campeonato"
-            desc="Administrar puntos de temporada"
-            color="purple"
-        />
-    </div>
-                    </div >
+                <QuickAction
+                    to="/profiles"
+                    title="Perfiles Volante"
+                    desc="Aplicar FFB y config hardware"
+                    color="blue"
+                />
+                <QuickAction
+                    to="/events"
+                    title="Organizar Torneo"
+                    desc="Crear eliminatorias y brackets"
+                    color="indigo"
+                />
+                <QuickAction
+                    to="/championships"
+                    title="Gestionar Campeonato"
+                    desc="Administrar puntos de temporada"
+                    color="purple"
+                />
+            </div>
 
-        <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl shadow-xl overflow-hidden text-white">
-            {/* ... (keep existing code) ... */}
-        </div>
-                </div >
+            <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl shadow-xl overflow-hidden text-white">
+                {/* ... (keep existing code) ... */}
+            </div>
 
-        {/* RIGHT: SYSTEM STATUS SIDEBAR (Placeholder for logs or alerts) */ }
-    {/* ... (keep existing code) ... */ }
+            {/* ANALYTICS SECTION */}
+            <div className="mt-10">
+                <AnalyticsPanel />
+            </div>
 
-            </div >
-
-        {/* ANALYTICS SECTION */ }
-        < div className = "mt-10" >
-            <AnalyticsPanel />
-            </div >
-
-        {/* MODALS */ }
-    {
-        showLaunchModal && (
-            <MassLaunchModal onClose={() => setShowLaunchModal(false)} />
-        )
-    }
-    {
-        startModalStation && (
-            <StartSessionModal
-                stationId={startModalStation.id}
-                stationName={startModalStation.name}
-                initialIsVR={startModalStation.is_vr}
-                onClose={() => setStartModalStation(null)}
-                onSuccess={() => {
-                    setStartModalStation(null);
-                    queryClient.invalidateQueries({ queryKey: ['active-sessions'] });
-                }}
-            />
-        )
-    }
-        </div >
+            {/* MODALS */}
+            {
+                showLaunchModal && (
+                    <MassLaunchModal onClose={() => setShowLaunchModal(false)} />
+                )
+            }
+            {
+                startModalStation && (
+                    <StartSessionModal
+                        stationId={startModalStation.id}
+                        stationName={startModalStation.name}
+                        initialIsVR={startModalStation.is_vr}
+                        onClose={() => setStartModalStation(null)}
+                        onSuccess={() => {
+                            setStartModalStation(null);
+                            queryClient.invalidateQueries({ queryKey: ['active-sessions'] });
+                        }}
+                    />
+                )
+            }
+        </>
     );
 }
 
