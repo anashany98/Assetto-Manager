@@ -131,6 +131,37 @@ def update_bracket_match(bracket: dict, match_id: int, score1: int, score2: int,
 
     return bracket
 
+def find_active_match(bracket: dict, player_name: str) -> dict:
+    for round_matches in bracket.get("rounds", []):
+        for match in round_matches:
+            if match.get("status") == "pending":
+                if match.get("player1") == player_name or match.get("player2") == player_name:
+                    return match
+    return None
+
+def advance_bracket_for_winner(event: models.Event, winner_name: str, db: Session) -> dict:
+    bracket = load_bracket(event)
+    if not bracket:
+        return None
+
+    # Find the active match for this player
+    target_match = find_active_match(bracket, winner_name)
+            
+    if target_match:
+        # Check if match is already completed (safety)
+        if target_match.get("status") == "completed":
+             return bracket
+
+        # Determine score (just set 1-0 for now as we don't have detailed scores)
+        score1 = 1 if target_match["player1"] == winner_name else 0
+        score2 = 1 if target_match["player2"] == winner_name else 0
+        
+        updated = update_bracket_match(bracket, target_match["id"], score1, score2, winner_name)
+        save_bracket(event, updated, db)
+        return updated
+
+    return None
+
 # --------------------------
 # ENDPOINTS
 # --------------------------

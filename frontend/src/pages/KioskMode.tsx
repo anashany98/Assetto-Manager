@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
+import { useIdleTimer } from 'react-idle-timer';
+import { QRCodeCanvas } from 'qrcode.react';
 import {
     Car,
     Flag,
     Play,
     ChevronRight,
+    ChevronLeft,
     Gauge,
     ShieldCheck,
     Activity,
@@ -13,12 +16,35 @@ import {
     Clock,
     Trophy,
     Medal,
-    WifiOff
+    WifiOff,
+    ScanQrCode,
+    Map,
+    Sun,
+    Sunset,
+    Cloud,
+    CloudRain,
+    Gamepad2,
+    Footprints,
+    Disc,
+    Zap,
+    TrendingUp,
+    Info,
+    AlertCircle
 } from 'lucide-react';
 import axios from 'axios';
+import {
+    LineChart,
+    Line,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    ResponsiveContainer
+} from 'recharts';
 import { API_URL } from '../config';
 import { getCars, getTracks } from '../api/content';
-import { getScenarios, Scenario } from '../api/scenarios';
+import { getScenarios } from '../api/scenarios';
+import type { Scenario } from '../api/scenarios';
 
 // Driver creation is handled inline for now. Backend may provide endpoint.
 
@@ -29,17 +55,96 @@ export default function KioskMode() {
     const [selection, setSelection] = useState<{
         car: string,
         track: string,
+        type?: 'practice' | 'qualify' | 'race' | 'hotlap' | 'scenario' | 'lobby',
+        scenarioId?: number,
+        weather?: string,
+        time?: number | string,
         isLobby?: boolean,
         isHost?: boolean,
         lobbyId?: number
     } | null>(null);
     const [difficulty, setDifficulty] = useState<'novice' | 'amateur' | 'pro'>('amateur');
+    const [transmission, setTransmission] = useState<'automatic' | 'manual'>('automatic');
+    const [timeOfDay, setTimeOfDay] = useState<'day' | 'noon' | 'evening' | 'night'>('noon');
+    const [weather, setWeather] = useState<'sun' | 'cloud' | 'rain'>('sun');
     const [duration, setDuration] = useState<number>(15);  // Session duration in minutes
     const [selectedScenario, setSelectedScenario] = useState<Scenario | null>(null);
     const [isLaunched, setIsLaunched] = useState(false);
 
-    // Station Detection: Priority: URL param > localStorage > default 1
+    // Queries
+    const { data: cars = [] } = useQuery({ queryKey: ['cars'], queryFn: () => getCars() });
+    const { data: tracks = [] } = useQuery({ queryKey: ['tracks'], queryFn: () => getTracks() });
+
+    // Active Scenarios (Hoisted for Attract Mode)
+    const { data: scenarios = [] } = useQuery({
+        queryKey: ['available-scenarios'],
+        queryFn: async () => {
+            const all = await getScenarios();
+            return all.filter(s => s.is_active);
+        },
+        refetchInterval: 1000
+    });
+
+    // Find selected objects
+    const selectedCarObj = cars.find(c => c.id === selection?.car);
+    const selectedTrackObj = tracks.find(t => t.id === selection?.track);
+
+    // Fetch Record
+    // Fetch Leaderboard
+    const { data: leaderboard = [] } = useQuery({
+        queryKey: ['leaderboard', selection?.track, selection?.car],
+        queryFn: async () => {
+            if (!selection?.track || !selection?.car) return [];
+            try {
+                // If using mocked backend without real data, this might be empty.
+                // We'll trust the endpoint we just created.
+                const res = await axios.get(`${API_URL}/leaderboard/top`, {
+                    params: { track: selection.track, car: selection.car, limit: 5 }
+                });
+                return res.data;
+            } catch (e) {
+                console.error("Failed to fetch leaderboard", e);
+                // Fallback for demo if backend is empty
+                return [
+                    { rank: 1, driver_name: "Stig", time: "1:42.550" },
+                    { rank: 2, driver_name: "Akira", time: "1:43.100" },
+                    { rank: 3, driver_name: "Takumi", time: "1:43.800" },
+                ];
+            }
+        },
+        enabled: !!selection?.track && !!selection?.car
+    });
+
+    // Station ID State
     const [stationId, setStationId] = useState<number>(1);
+
+    // Fetch Hardware Status (Agent, Wheel, Pedals)
+    const { data: hardwareStatus } = useQuery({
+        queryKey: ['hardware-status', stationId],
+        queryFn: async () => {
+            try {
+                const res = await axios.get(`${API_URL}/hardware/status/${stationId}`);
+                if (res.data) return res.data;
+                throw new Error("Empty data");
+            } catch (err) {
+                // Simulation ONLY in development mode
+                if (import.meta.env.DEV) {
+                    return {
+                        is_online: true,
+                        wheel_connected: true,
+                        pedals_connected: true,
+                        station_id: stationId,
+                        station_name: `Simulated Station ${stationId}`
+                    };
+                }
+                console.error("Hardware status fetch failed", err);
+                return null;
+            }
+        },
+        refetchInterval: 2000,
+        retry: false
+    });
+
 
     useEffect(() => {
         // Check URL param first (e.g., /kiosk?station=3)
@@ -59,88 +164,365 @@ export default function KioskMode() {
         }
     }, [searchParams]);
 
+    // --- ATTRACT MODE (SCREENSAVER) ---
+    const [isIdle, setIsIdle] = useState(false);
+
+    const onIdle = () => {
+        setIsIdle(true);
+    };
+
+    const onActive = () => {
+        setIsIdle(false);
+    };
+
+    useIdleTimer({
+        onIdle,
+        onActive,
+        timeout: 5 * 60 * 1000, // 5 minutes
+        throttle: 500
+    });
+
+    const AttractMode = () => {
+        const [slide, setSlide] = useState(0);
+
+        useEffect(() => {
+            if (!isIdle) return;
+            const timer = setInterval(() => {
+                setSlide(prev => (prev + 1) % 2);
+            }, 5000);
+            return () => clearInterval(timer);
+        }, [isIdle]);
+
+        if (!isIdle) return null;
+
+        return (
+            <div className="fixed inset-0 z-50 bg-black flex items-center justify-center overflow-hidden animate-in fade-in duration-1000">
+                {/* VIDEO BACKGROUND */}
+                <div className="absolute inset-0 opacity-60">
+                    <video
+                        autoPlay
+                        loop
+                        muted
+                        className="w-full h-full object-cover"
+                        src="https://cdn.pixabay.com/video/2020/09/20/49964-463327685_large.mp4"
+                    />
+                </div>
+
+                {/* CONTENT OVERLAY */}
+                <div className="relative z-10 text-center space-y-8 max-w-4xl mx-auto px-4">
+                    {slide === 0 ? (
+                        <div className="animate-in slide-in-from-bottom-10 duration-700 fade-in">
+                            <h1 className="text-9xl font-black text-white italic tracking-tighter drop-shadow-2xl mb-4">
+                                RACE READY
+                            </h1>
+                            <p className="text-4xl text-blue-400 font-bold tracking-[1em] uppercase mb-12">
+                                Kiosk Mode
+                            </p>
+                            <div className="bg-white/10 backdrop-blur-md px-12 py-6 rounded-full border border-white/20 inline-block animate-pulse">
+                                <p className="text-2xl text-white font-bold">TOCA LA PANTALLA PARA EMPEZAR</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="animate-in slide-in-from-bottom-10 duration-700 fade-in">
+                            <h2 className="text-6xl font-black text-white italic mb-12 drop-shadow-lg">
+                                EVENTOS DE HOY
+                            </h2>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+                                {scenarios.slice(0, 4).map(sc => (
+                                    <div key={sc.id} className="bg-black/50 backdrop-blur-md p-6 rounded-2xl border border-white/10 flex items-center justify-between">
+                                        <div>
+                                            <h3 className="text-2xl font-bold text-white mb-2">{sc.name}</h3>
+                                            <span className="text-blue-400 font-mono text-xl font-bold">
+                                                {sc.allowed_durations?.[0]} min
+                                            </span>
+                                        </div>
+                                        <div className="bg-white/20 p-3 rounded-full">
+                                            <ChevronRight className="text-white" size={32} />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
+
+    // --- STEP 1: SCENARIO SELECTION ---
     // --- STEP 1: SCENARIO SELECTION ---
     const ScenarioStep = () => {
-        const { data: scenarios = [] } = useQuery({
-            queryKey: ['available-scenarios'],
-            queryFn: async () => {
-                const all = await getScenarios();
-                return all.filter(s => s.is_active);
-            }
+
+
+        // 1. Fetch Active Lobbies
+        const { data: lobbies = [] } = useQuery({
+            queryKey: ['lobbies'],
+            queryFn: () => axios.get(`${API_URL}/lobby/list?status=active`).then(r => r.data),
+            refetchInterval: 5000
         });
 
-        // Local state for this step to handle 2-stage confirm (Scenario -> Time)
-        // Or just show times in the card?
-        // Let's do: Click Scenario -> Expand to show times -> Click time to proceed.
+        // "Surprise Me" Logic
+        const handleSurpriseMe = () => {
+            if (scenarios.length > 0) {
+                const randomScenario = scenarios[Math.floor(Math.random() * scenarios.length)];
+                // Pick random car/track from the scenario's allowed lists
+                const randomCar = randomScenario.allowed_cars?.[Math.floor(Math.random() * randomScenario.allowed_cars.length)] || 'ks_mercedes_amg_gt3';
+                const randomTrack = randomScenario.allowed_tracks?.[Math.floor(Math.random() * randomScenario.allowed_tracks.length)] || 'spa';
+
+                setSelection({
+                    type: 'scenario',
+                    scenarioId: randomScenario.id,
+                    track: randomTrack,
+                    car: randomCar,
+                    time: 10, // Default 10 min for surprise
+                    isLobby: false
+                });
+                setDuration(10); // Update duration state
+                setStep(2);
+            } else {
+                alert("No hay escenarios disponibles para aleatorizar.");
+            }
+        };
+
+        // "Daily Challenge" Logic
+        const getDailyChallenge = () => {
+            if (scenarios.length === 0) return null;
+            const today = new Date();
+            const seed = today.getFullYear() * 1000 + (today.getMonth() + 1) * 31 + today.getDate();
+            const scenario = scenarios[seed % scenarios.length];
+
+            // Deterministic car/track based on date seed too
+            const carIndex = seed % (scenario.allowed_cars?.length || 1);
+            const trackIndex = seed % (scenario.allowed_tracks?.length || 1);
+
+            return {
+                ...scenario,
+                selectedCar: scenario.allowed_cars?.[carIndex] || 'ks_mercedes_amg_gt3',
+                selectedTrack: scenario.allowed_tracks?.[trackIndex] || 'spa'
+            };
+        };
+        const dailyScenario = getDailyChallenge();
+
+        // Standard Select Handler
+        // Note: For standard scenarios, we might want to respect the original flow of "Expand -> Pick Time"
+        // But the previous card simplified it to just "Click -> Step 2".
+        // Let's restore the "Expand to pick time" flow as it was seemingly the V1 design, 
+        // OR standardise everything to "Selection -> Step 2 where time is picked?"
+        // The original code (lines 137-146) showed strict time selection.
+        // I will keep the time selection flow for standard scenarios for robustness.
+
         const [expandedId, setExpandedId] = useState<number | null>(null);
 
         const handleSelect = (scenario: Scenario, time: number) => {
-            setSelectedScenario(scenario);
-            setDuration(time);
-            setStep(2); // Go to Driver Step
+            // For standard selection, if multiple cars/tracks are allowed, we ideally should let user pick.
+            // But for now, let's default to the first one or a "Preset" mode.
+            // V1 Kiosk usually implies simplicity.
+            // Let's pick the FIRST defined car/track as the default for this button.
+            // In a future V2 we could add a sub-step "Select Car".
+
+            const defaultCar = scenario.allowed_cars?.[0] || 'ks_mercedes_amg_gt3';
+            const defaultTrack = scenario.allowed_tracks?.[0] || 'spa';
+
+            setSelection({
+                type: 'scenario',
+                scenarioId: scenario.id!,
+                track: defaultTrack,
+                car: defaultCar,
+                time: time,
+                isLobby: false
+            });
+            setDuration(time); // Update duration state
+            setStep(2);
         };
 
         return (
-            <div className="h-full flex flex-col items-center justify-center animate-in fade-in zoom-in duration-300 gap-8">
-                <div className="text-center mb-8">
-                    <h1 className="text-5xl font-black text-white italic mb-4 tracking-tighter">SELECCIONA TU EXPERIENCIA</h1>
-                    <p className="text-xl text-gray-400">Elige un tipo de competición y el tiempo de juego</p>
-                </div>
+            <div className="h-full flex flex-col animate-in zoom-in duration-300">
+                <h2 className="text-4xl font-black text-white italic tracking-tighter mb-8 text-center drop-shadow-lg">
+                    ELIGE TU COMPETICIÓN
+                </h2>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 w-full max-w-7xl px-4">
-                    {scenarios.map(scenario => (
-                        <div
-                            key={scenario.id}
-                            onClick={() => setExpandedId(expandedId === scenario.id ? null : scenario.id!)}
-                            className={`relative bg-gradient-to-br from-gray-800 to-gray-900 rounded-3xl p-8 border-4 cursor-pointer transition-all shadow-2xl group overflow-hidden ${expandedId === scenario.id ? 'border-blue-500 scale-105 z-10' : 'border-gray-700 hover:border-gray-500 hover:scale-[1.02]'}`}
-                        >
-                            {/* Header */}
-                            <div className="flex justify-between items-start mb-4">
-                                <Trophy size={48} className={expandedId === scenario.id ? "text-blue-400" : "text-gray-600"} />
-                                {scenario.allowed_cars.length > 0 && (
-                                    <span className="bg-gray-700 text-white text-xs font-bold px-2 py-1 rounded">
-                                        RESTRICTED
-                                    </span>
-                                )}
-                            </div>
+                <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-12">
 
-                            <h3 className="text-3xl font-black text-white mb-2 uppercase">{scenario.name}</h3>
-                            <p className="text-gray-400 mb-6 min-h-[3rem]">{scenario.description || 'Competición abierto'}</p>
-
-                            {/* Time Selection (Visible only when expanded) */}
-                            {expandedId === scenario.id ? (
-                                <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                                    <p className="text-sm font-bold text-blue-400 uppercase tracking-widest mb-2">ELIGE DURACIÓN:</p>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        {(scenario.allowed_durations?.length ? scenario.allowed_durations : [10, 15, 20]).map(mins => (
-                                            <button
-                                                key={mins}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleSelect(scenario, mins);
-                                                }}
-                                                className="bg-blue-600 hover:bg-blue-500 text-white font-black py-3 rounded-xl border border-blue-400/30 flex items-center justify-center gap-2 transition-transform active:scale-95"
-                                            >
-                                                <Clock size={18} /> {mins} MIN
-                                            </button>
-                                        ))}
+                    {/* SECTION 1: LIVE MULTIPLAYER */}
+                    {lobbies.length > 0 && (
+                        <div>
+                            <h3 className="text-2xl font-black text-blue-400 mb-6 flex items-center gap-3 border-b border-blue-900/50 pb-2">
+                                <Activity className="animate-pulse" /> SALAS MULTIJUGADOR EN VIVO
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {lobbies.map((l: any) => (
+                                    <div
+                                        key={l.id}
+                                        onClick={() => {
+                                            setSelection({
+                                                type: 'lobby',
+                                                lobbyId: l.id,
+                                                track: l.track,
+                                                car: l.car,
+                                                isLobby: true,
+                                                isHost: false
+                                            });
+                                            setStep(2);
+                                        }}
+                                        className="bg-blue-900/20 border-2 border-blue-500/50 hover:bg-blue-900/40 hover:border-blue-400 p-6 rounded-3xl cursor-pointer transition-all group hover:scale-[1.02] shadow-xl shadow-blue-900/20"
+                                    >
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div className="bg-blue-600 text-white text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider">
+                                                ONLINE
+                                            </div>
+                                            {l.status === 'running' ? (
+                                                <span className="flex items-center gap-2 text-red-400 font-bold text-xs uppercase animate-pulse">
+                                                    <span className="w-2 h-2 rounded-full bg-red-500" /> EN CARRERA
+                                                </span>
+                                            ) : (
+                                                <span className="flex items-center gap-2 text-green-400 font-bold text-xs uppercase">
+                                                    <span className="w-2 h-2 rounded-full bg-green-500" /> ESPERANDO
+                                                </span>
+                                            )}
+                                        </div>
+                                        <h4 className="text-2xl font-black text-white group-hover:text-blue-200 truncate">{l.name}</h4>
+                                        <p className="text-blue-200/60 font-mono text-sm mt-1">{l.track} | {l.car}</p>
+                                        <div className="mt-6 flex items-center justify-between">
+                                            <div className="flex -space-x-3">
+                                                {Array.from({ length: Math.min(3, l.player_count) }).map((_, i) => (
+                                                    <div key={i} className="w-8 h-8 rounded-full bg-gray-700 border-2 border-gray-900 flex items-center justify-center text-xs text-white font-bold">
+                                                        P{i + 1}
+                                                    </div>
+                                                ))}
+                                                {l.player_count > 3 && (
+                                                    <div className="w-8 h-8 rounded-full bg-gray-800 border-2 border-gray-900 flex items-center justify-center text-xs text-white font-bold">
+                                                        +{l.player_count - 3}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <span className="text-white font-black text-lg">{l.player_count} / {l.max_players}</span>
+                                        </div>
                                     </div>
-                                </div>
-                            ) : (
-                                <div className="mt-4 flex items-center gap-2 text-gray-500 font-bold group-hover:text-white transition-colors">
-                                    <span>SELECCIONAR</span> <ChevronRight />
-                                </div>
-                            )}
-                        </div>
-                    ))}
-
-                    {/* Fallback if no scenarios */}
-                    {scenarios.length === 0 && (
-                        <div className="col-span-full text-center text-gray-500">
-                            <WifiOff size={48} className="mx-auto mb-4 opacity-50" />
-                            <p>No hay escenarios disponibles. Contacta con el administrador.</p>
+                                ))}
+                            </div>
                         </div>
                     )}
+
+                    {/* SECTION 2: SPECIAL EVENTS */}
+                    <div>
+                        <h3 className="text-2xl font-black text-yellow-500 mb-6 flex items-center gap-3 border-b border-yellow-900/30 pb-2">
+                            <Trophy className="text-yellow-500" /> EVENTOS ESPECIALES
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {/* DAILY CHALLENGE */}
+                            {dailyScenario && (
+                                <div
+                                    onClick={() => {
+                                        setSelection({
+                                            type: 'scenario',
+                                            scenarioId: dailyScenario.id!,
+                                            track: dailyScenario.selectedTrack,
+                                            car: dailyScenario.selectedCar,
+                                            time: 10,
+                                            isLobby: false
+                                        });
+                                        setDuration(10); // Update duration state
+                                        setStep(2);
+                                    }}
+                                    className="group relative bg-gradient-to-br from-yellow-600 to-orange-700 rounded-3xl p-6 cursor-pointer border-4 border-yellow-400/50 hover:border-white shadow-2xl hover:scale-[1.03] transition-all overflow-hidden flex flex-col justify-between h-80"
+                                >
+                                    <div className="absolute top-0 right-0 bg-yellow-400 text-black font-black text-xs px-3 py-1 rounded-bl-xl z-20">
+                                        RETO DEL DÍA
+                                    </div>
+                                    <div className="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition-all z-0" />
+
+                                    <div className="relative z-10 text-center mt-4 flex-1 flex flex-col items-center justify-center">
+                                        <Trophy size={64} className="mx-auto text-yellow-200 mb-4 drop-shadow-lg animate-bounce" />
+                                        <h3 className="text-3xl font-black text-white leading-none uppercase">DAILY<br />CHALLENGE</h3>
+                                        <p className="mt-2 text-yellow-200 font-bold uppercase">{dailyScenario.selectedTrack} • {dailyScenario.selectedCar}</p>
+                                        <p className="text-xs text-white/70 mt-1">{dailyScenario.name}</p>
+                                    </div>
+                                    <button className="relative z-10 w-full bg-white text-black font-black py-3 rounded-xl mt-4 hover:bg-gray-200 transition-colors uppercase text-sm tracking-wider">
+                                        ACEPTAR RETO
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* SURPRISE ME */}
+                            <div
+                                onClick={handleSurpriseMe}
+                                className="group relative bg-gradient-to-br from-purple-600 to-pink-600 rounded-3xl p-6 cursor-pointer border-4 border-white/10 hover:border-white shadow-2xl hover:scale-[1.03] transition-all overflow-hidden flex flex-col justify-between h-80"
+                            >
+                                <div className="absolute inset-0 flex flex-col items-center justify-center opacity-20 z-0">
+                                    <div className="text-9xl font-black text-white">?</div>
+                                </div>
+                                <div className="relative z-10 flex flex-col items-center justify-center h-full text-center">
+                                    <Gauge size={80} className="text-white mb-6 drop-shadow-lg group-hover:rotate-180 transition-transform duration-700" />
+                                    <h3 className="text-4xl font-black text-white leading-tight">¡SORPRÉNDEME!</h3>
+                                    <p className="text-pink-200 mt-2 font-medium">Combinación Aleatoria</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* SECTION 3: STANDARD SCENARIOS */}
+                    <div>
+                        <h3 className="text-2xl font-black text-gray-400 mb-6 flex items-center gap-3 border-b border-gray-800 pb-2">
+                            <Flag /> PRÁCTICA LIBRE
+                        </h3>
+                        {scenarios.length === 0 ? (
+                            <div className="text-center text-gray-500 py-12">
+                                <WifiOff size={48} className="mx-auto mb-4 opacity-50" />
+                                <p>No hay escenarios disponibles.</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                {scenarios.map(scenario => (
+                                    <div
+                                        key={scenario.id}
+                                        onClick={() => setExpandedId(expandedId === scenario.id ? null : scenario.id!)}
+                                        className={`relative bg-gradient-to-br from-gray-800 to-gray-900 rounded-3xl p-8 border-4 cursor-pointer transition-all shadow-2xl group overflow-hidden ${expandedId === scenario.id ? 'border-blue-500 scale-105 z-10' : 'border-gray-700 hover:border-gray-500 hover:scale-[1.02]'}`}
+                                    >
+                                        {/* Header */}
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div className="bg-gray-700 p-3 rounded-2xl">
+                                                <Flag size={32} className={expandedId === scenario.id ? "text-blue-400" : "text-gray-400"} />
+                                            </div>
+                                            {scenario.allowed_cars.length > 0 && (
+                                                <span className="bg-gray-700 text-white text-xs font-bold px-2 py-1 rounded">
+                                                    RESTRICTED
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        <h3 className="text-3xl font-black text-white mb-2 uppercase leading-none">{scenario.name}</h3>
+                                        <p className="text-gray-400 mb-6 min-h-[3rem] text-sm line-clamp-2">{scenario.description || 'Competición abierta'}</p>
+
+                                        {/* Time Selection (Visible only when expanded) */}
+                                        {expandedId === scenario.id ? (
+                                            <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                                                <p className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-2">ELIGE DURACIÓN:</p>
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    {(scenario.allowed_durations?.length ? scenario.allowed_durations : [10, 15, 20]).map((mins: number) => (
+                                                        <button
+                                                            key={mins}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleSelect(scenario, mins);
+                                                            }}
+                                                            className="bg-blue-600 hover:bg-blue-500 text-white font-black py-3 rounded-xl border border-blue-400/30 flex items-center justify-center gap-2 transition-transform active:scale-95"
+                                                        >
+                                                            <Clock size={16} /> {mins}m
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="mt-4 flex items-center gap-2 text-gray-500 font-bold group-hover:text-white transition-colors">
+                                                <span>SELECCIONAR</span> <ChevronRight />
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         );
@@ -183,7 +565,13 @@ export default function KioskMode() {
             e.preventDefault();
             try {
                 setDriver({ id: 1, name: name || "Guest Driver" });
-                setStep(2);
+
+                // If content is already selected (e.g. Surprise/Daily/Lobby), skip ContentStep
+                if (selection?.car && selection?.track) {
+                    setStep(4); // Go to Difficulty
+                } else {
+                    setStep(3); // Select Content
+                }
             } catch {
                 alert("Error registering driver");
             }
@@ -292,11 +680,180 @@ export default function KioskMode() {
         const [selCar, setSelCar] = useState<string | null>(null);
         const [selTrack, setSelTrack] = useState<string | null>(null);
 
+        // --- STEP 1: SCENARIO SELECTION ---
+        const ScenarioStep = () => {
+            const { data: scenarios = [] } = useQuery({
+                queryKey: ['scenarios'],
+                queryFn: getScenarios
+            });
+
+            // "Surprise Me" Logic
+            const handleSurpriseMe = () => {
+                // We need full content list first. If not loaded, we can't fully randomize effectively here unless we move logic.
+                // But actually, we already have `getCars` and `getTracks` available.
+                // We can trigger a quick random selection if we fetch them.
+                // Alternatively, since we are in Step 1, we might not have content loaded (Step 3).
+                // Strategy: Jump to Step 3, trigger randomization immediately there?
+                // Or better: Just set a flag "randomize: true" or pick from scenarios if available.
+                // Let's assume we want to pick from "Content" (Cars/Tracks) directly, skipping the manual content step.
+
+                // Simpler approach for now: Pick a random Scenario if any exist, or make it a "virtual" mode.
+                // Given the user wants chaos/fun, let's make it pick a random scenario from the list.
+                if (scenarios.length > 0) {
+                    const random = scenarios[Math.floor(Math.random() * scenarios.length)];
+                    setSelection({
+                        type: 'scenario',
+                        scenarioId: random.id,
+                        track: random.allowed_tracks?.[0] || '',
+                        car: random.allowed_cars?.[0] || '',
+                        weather: 'sun',
+                        time: 'noon',
+                        isLobby: false
+                    });
+                    setStep(2); // Go to Driver
+                } else {
+                    alert("No hay escenarios disponibles para aleatorizar.");
+                }
+            };
+
+            // "Daily Challenge" Logic
+            // Deterministic Scenario based on Date
+            const getDailyChallenge = () => {
+                if (scenarios.length === 0) return null;
+                const today = new Date();
+                const seed = today.getFullYear() * 1000 + (today.getMonth() + 1) * 31 + today.getDate();
+                return scenarios[seed % scenarios.length]; // Consistent daily pick
+            };
+
+            const dailyScenario = getDailyChallenge();
+
+            return (
+                <div className="h-full flex flex-col animate-in zoom-in duration-300">
+                    <h2 className="text-4xl font-black text-white italic tracking-tighter mb-8 text-center drop-shadow-lg">
+                        ELIGE TU COMPETICIÓN
+                    </h2>
+
+                    <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 overflow-y-auto px-4 pb-4">
+
+                        {/* DAILY CHALLENGE CARD */}
+                        {dailyScenario && (
+                            <div
+                                onClick={() => {
+                                    setSelection({
+                                        type: 'scenario',
+                                        scenarioId: dailyScenario.id,
+                                        track: dailyScenario.allowed_tracks?.[0] || '',
+                                        car: dailyScenario.allowed_cars?.[0] || '',
+                                        weather: 'sun',
+                                        time: 'noon',
+                                        isLobby: false
+                                    });
+                                    setStep(2);
+                                }}
+                                className="group relative bg-gradient-to-br from-yellow-600 to-orange-700 rounded-3xl p-6 cursor-pointer border-4 border-yellow-400/50 hover:border-white shadow-2xl hover:scale-[1.03] transition-all overflow-hidden flex flex-col justify-between"
+                            >
+                                <div className="absolute top-0 right-0 bg-yellow-400 text-black font-black text-xs px-3 py-1 rounded-bl-xl z-20">
+                                    RED DEL DÍA
+                                </div>
+                                <div className="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition-all z-0" />
+
+                                <div className="relative z-10 text-center mt-4">
+                                    <Trophy size={64} className="mx-auto text-yellow-200 mb-2 drop-shadow-lg animate-bounce" />
+                                    <h3 className="text-2xl font-black text-white leading-tight uppercase">DAILY CHALLENGE</h3>
+                                    <div className="mt-4 bg-black/40 p-3 rounded-xl backdrop-blur-sm">
+                                        <p className="text-white font-bold text-lg">{dailyScenario.track}</p>
+                                        <p className="text-yellow-200 text-sm">{dailyScenario.car}</p>
+                                    </div>
+                                </div>
+                                <button className="relative z-10 w-full bg-white text-black font-black py-3 rounded-xl mt-4 hover:bg-gray-200 transition-colors uppercase text-sm tracking-wider">
+                                    ACEPTAR RETO
+                                </button>
+                            </div>
+                        )}
+
+                        {/* SURPRISE ME CARD */}
+                        <div
+                            onClick={handleSurpriseMe}
+                            className="group relative bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-600 rounded-3xl p-1 cursor-pointer hover:scale-[1.03] transition-all shadow-2xl hover:shadow-purple-500/50 overflow-hidden"
+                        >
+                            {/* Animated Background Overlay */}
+                            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_120%,rgba(255,255,255,0.2),transparent)] opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+
+                            {/* Inner Container */}
+                            <div className="relative h-full w-full bg-white/5 backdrop-blur-sm rounded-[22px] border-2 border-white/10 group-hover:border-white/40 flex flex-col items-center justify-center p-6 transition-colors">
+
+                                {/* Background Icon */}
+                                <div className="absolute -right-6 -top-6 text-white/5 transform rotate-12 group-hover:rotate-45 transition-transform duration-700">
+                                    <Gauge size={180} />
+                                </div>
+
+                                <div className="relative z-10 flex flex-col items-center text-center">
+                                    <div className="mb-6 relative">
+                                        <div className="absolute inset-0 bg-white/20 blur-xl rounded-full animate-pulse" />
+                                        <Gauge size={72} className="relative text-white drop-shadow-lg group-hover:rotate-[360deg] transition-transform duration-1000 ease-out" />
+                                    </div>
+
+                                    <h3 className="text-4xl font-black text-white italic tracking-tighter drop-shadow-xl mb-2">
+                                        ¡SORPRÉNDEME!
+                                    </h3>
+
+                                    <span className="bg-black/30 text-white/90 text-xs font-bold uppercase tracking-[0.2em] px-4 py-2 rounded-full border border-white/10 group-hover:bg-white group-hover:text-purple-600 transition-colors">
+                                        Modo Aleatorio
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+
+                        {/* EXISTING SCENARIOS MAPPED */}
+                        {scenarios.map((s: any) => (
+                            <div
+                                key={s.id}
+                                onClick={() => {
+                                    setSelection({
+                                        type: 'scenario',
+                                        scenarioId: s.id,
+                                        track: s.track,
+                                        car: s.car,
+                                        weather: s.weather,
+                                        time: s.time,
+                                        isLobby: false
+                                    });
+                                    setStep(2);
+                                }}
+                                className="group relative h-64 bg-gray-900 rounded-3xl overflow-hidden cursor-pointer border-2 border-gray-700 hover:border-blue-500 transition-all hover:scale-[1.02] hover:shadow-2xl hover:shadow-blue-900/50"
+                            >
+                                {/* ... existing card content ... */}
+                                <img
+                                    src={s.image || "/api/placeholder/400/320"}
+                                    alt={s.name}
+                                    className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
+
+                                <div className="absolute bottom-0 left-0 right-0 p-6">
+                                    <span className="bg-blue-600 text-xs font-bold px-2 py-1 rounded-md text-white mb-2 inline-block">
+                                        {s.category || 'SCENARIO'}
+                                    </span>
+                                    <h3 className="text-2xl font-black text-white leading-none mb-1">{s.name}</h3>
+                                    <div className="flex items-center gap-2 text-gray-300 text-sm font-medium">
+                                        <span>{s.track}</span>
+                                        <span>•</span>
+                                        <span>{s.car}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )
+        };
+
         const handleNext = () => {
             if (selCar && selTrack) {
                 setSelection({ car: selCar, track: selTrack });
                 setStep(4); // Skip to Wait/Difficulty (Step 4 is Difficulty now in my mind, let's check code)
-                // Wait, original Step 3 is Difficulty. 
+                // Wait, original Step 3 is Difficulty.
                 // My new flow: 1:Scenario -> 2:Driver -> 3:Content -> 4:Difficulty
             }
         }
@@ -392,6 +949,9 @@ export default function KioskMode() {
                     car: selection?.car,
                     track: selection?.track,
                     difficulty,
+                    transmission, // Added transmission
+                    time_of_day: timeOfDay,
+                    weather: weather,
                     duration_minutes: duration
                 });
             },
@@ -400,62 +960,189 @@ export default function KioskMode() {
 
         return (
             <div className="h-full flex flex-col items-center justify-center animate-in zoom-in duration-300 max-w-4xl mx-auto w-full">
-                <h2 className="text-4xl font-black text-white mb-8">ELIGE TU NIVEL</h2>
+                <h2 className="text-4xl font-black text-white mb-6">CONFIGURA TU SESIÓN</h2>
 
-                <div className="grid grid-cols-3 gap-6 w-full mb-8">
-                    <button
-                        onClick={() => setDifficulty('novice')}
-                        className={`p-8 rounded-3xl border-4 flex flex-col items-center gap-4 transition-all ${difficulty === 'novice' ? 'border-green-500 bg-green-500/20 scale-105 shadow-2xl shadow-green-500/20' : 'border-gray-700 bg-gray-800/50 hover:border-gray-600 hover:bg-gray-800'}`}
-                    >
-                        <ShieldCheck size={64} className={difficulty === 'novice' ? 'text-green-400' : 'text-gray-500'} />
-                        <div className="text-center">
-                            <h3 className="text-2xl font-black text-white">NOVATO</h3>
-                            <p className="text-gray-400 mt-2">Marchas Auto<br />ABS & TC Activados</p>
-                        </div>
-                    </button>
 
-                    <button
-                        onClick={() => setDifficulty('amateur')}
-                        className={`p-8 rounded-3xl border-4 flex flex-col items-center gap-4 transition-all ${difficulty === 'amateur' ? 'border-yellow-500 bg-yellow-500/20 scale-105 shadow-2xl shadow-yellow-500/20' : 'border-gray-700 bg-gray-800/50 hover:border-gray-600 hover:bg-gray-800'}`}
-                    >
-                        <Activity size={64} className={difficulty === 'amateur' ? 'text-yellow-400' : 'text-gray-500'} />
-                        <div className="text-center">
-                            <h3 className="text-2xl font-black text-white">AMATEUR</h3>
-                            <p className="text-gray-400 mt-2">Levas Manuales<br />Ayudas Fábrica</p>
-                        </div>
-                    </button>
+                {/* INFO PANEL: CAR & TRACK */}
+                {(() => {
+                    // Mock Generators (Inline for access)
+                    const getMockSpecs = (id: string = '') => {
+                        const seed = id.charCodeAt(0) || 0;
+                        return {
+                            bhp: `${400 + (seed % 20) * 10} HP`,
+                            weight: `${1100 + (seed % 10) * 20} kg`,
+                            top_speed: `${260 + (seed % 15) * 5} km/h`
+                        };
+                    };
+                    const specs = selectedCarObj?.specs?.bhp ? selectedCarObj.specs : getMockSpecs(selectedCarObj?.id);
+                    const mapUrl = selectedTrackObj?.map_url || "https://upload.wikimedia.org/wikipedia/commons/thumb/6/67/Circuit_de_Spa-Francorchamps_trace.svg/1200px-Circuit_de_Spa-Francorchamps_trace.svg.png";
 
-                    <button
-                        onClick={() => setDifficulty('pro')}
-                        className={`p-8 rounded-3xl border-4 flex flex-col items-center gap-4 transition-all ${difficulty === 'pro' ? 'border-red-500 bg-red-500/20 scale-105 shadow-2xl shadow-red-500/20' : 'border-gray-700 bg-gray-800/50 hover:border-gray-600 hover:bg-gray-800'}`}
-                    >
-                        <Gauge size={64} className={difficulty === 'pro' ? 'text-red-400' : 'text-gray-500'} />
-                        <div className="text-center">
-                            <h3 className="text-2xl font-black text-white">PRO</h3>
-                            <p className="text-gray-400 mt-2">Manual + Embrague<br />Sin Ayudas</p>
+                    return (
+                        <div className="w-full grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                            {/* CAR SPECS */}
+                            <div className="bg-gray-800/60 border border-gray-700 rounded-3xl p-6 flex flex-col relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-30 transition-opacity">
+                                    <Car size={120} />
+                                </div>
+                                <h4 className="text-gray-400 font-bold text-xs tracking-widest uppercase mb-4">VEHÍCULO SELECCIONADO</h4>
+                                <div className="text-2xl font-black text-white mb-1">{selectedCarObj?.name || selection?.car}</div>
+                                <div className="text-blue-400 font-bold text-sm mb-6">{selectedCarObj?.brand || 'Marca Desconocida'}</div>
+
+                                <div className="grid grid-cols-3 gap-4 mt-auto relative z-10">
+                                    <div className="bg-black/30 rounded-xl p-3 text-center">
+                                        <div className="text-gray-500 text-[10px] font-bold uppercase">Potencia</div>
+                                        <div className="text-white font-black text-lg">{specs.bhp}</div>
+                                    </div>
+                                    <div className="bg-black/30 rounded-xl p-3 text-center">
+                                        <div className="text-gray-500 text-[10px] font-bold uppercase">Peso</div>
+                                        <div className="text-white font-black text-lg">{specs.weight}</div>
+                                    </div>
+                                    <div className="bg-black/30 rounded-xl p-3 text-center">
+                                        <div className="text-gray-500 text-[10px] font-bold uppercase">Top Speed</div>
+                                        <div className="text-white font-black text-lg">{specs.top_speed}</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* TRACK MAP & RECORD */}
+                            <div className="bg-gray-800/60 border border-gray-700 rounded-3xl p-6 flex flex-col relative overflow-hidden">
+                                <div className="flex justify-between items-start mb-4">
+                                    <div>
+                                        <h4 className="text-gray-400 font-bold text-xs tracking-widest uppercase mb-1">CIRCUITO</h4>
+                                        <div className="text-xl font-black text-white">{selectedTrackObj?.name || selection?.track}</div>
+                                    </div>
+                                    <div className="text-right w-full max-w-[50%]">
+                                        <div className="text-yellow-500 font-bold text-xs uppercase flex items-center justify-end gap-1 mb-2">
+                                            <Trophy size={12} /> Top Tiempos
+                                        </div>
+                                        <div className="space-y-1">
+                                            {leaderboard.slice(0, 3).map((entry: any, idx: number) => (
+                                                <div key={idx} className="flex justify-between items-center text-xs gap-3">
+                                                    <span className={`font-mono font-bold ${idx === 0 ? 'text-yellow-400' : 'text-gray-400'}`}>
+                                                        {idx + 1}. {entry.driver_name}
+                                                    </span>
+                                                    <span className="font-mono text-white">{entry.time}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex-1 flex items-center justify-center relative min-h-[120px] p-4">
+                                    {/* MAP */}
+                                    <img src={mapUrl} className="h-full w-auto object-contain opacity-80 drop-shadow-[0_0_10px_rgba(255,255,255,0.3)] filter invert" alt="Track Map" />
+                                </div>
+                            </div>
                         </div>
-                    </button>
+                    );
+                })()}
+
+                {/* VISUAL & WEATHER CONDITIONS */}
+                <div className="w-full mb-8">
+                    <p className="text-gray-400 font-bold mb-4 ml-2 uppercase text-sm tracking-widest">CONDICIONES DE PISTA</p>
+                    <div className="bg-gray-800/50 p-2 rounded-2xl grid grid-cols-4 gap-2">
+                        <button onClick={() => setTimeOfDay('noon')} className={`p-3 rounded-xl flex flex-col items-center gap-2 transition-all ${timeOfDay === 'noon' ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20' : 'hover:bg-gray-700 text-gray-400'}`}>
+                            <Sun size={20} />
+                            <span className="text-xs font-bold">MEDIODÍA</span>
+                        </button>
+                        <button onClick={() => setTimeOfDay('evening')} className={`p-3 rounded-xl flex flex-col items-center gap-2 transition-all ${timeOfDay === 'evening' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'hover:bg-gray-700 text-gray-400'}`}>
+                            <Sunset size={20} />
+                            <span className="text-xs font-bold">ATARDECER</span>
+                        </button>
+                        <button onClick={() => setWeather('cloud')} className={`p-3 rounded-xl flex flex-col items-center gap-2 transition-all ${weather === 'cloud' ? 'bg-gray-500 text-white shadow-lg' : 'hover:bg-gray-700 text-gray-400'}`}>
+                            <Cloud size={20} />
+                            <span className="text-xs font-bold">NUBLADO</span>
+                        </button>
+                        <button onClick={() => setWeather('rain')} className={`p-3 rounded-xl flex flex-col items-center gap-2 transition-all ${weather === 'rain' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'hover:bg-gray-700 text-gray-400'}`}>
+                            <CloudRain size={20} />
+                            <span className="text-xs font-bold">LLUVIA</span>
+                        </button>
+                    </div>
+                </div>
+                <div className="w-full mb-8">
+                    <p className="text-gray-400 font-bold mb-4 ml-2 uppercase text-sm tracking-widest">TRANSMISIÓN</p>
+                    <div className="grid grid-cols-2 gap-6">
+                        <button
+                            onClick={() => setTransmission('automatic')}
+                            className={`p-6 rounded-2xl border-2 flex items-center justify-center gap-3 transition-all ${transmission === 'automatic' ? 'bg-blue-600 border-blue-400 text-white shadow-lg shadow-blue-500/30' : 'bg-gray-800 border-gray-700 text-gray-400 hover:bg-gray-700'}`}
+                        >
+                            <Gauge size={32} />
+                            <div className="text-left">
+                                <div className="font-black text-xl">AUTOMÁTICO</div>
+                                <div className="text-xs font-medium opacity-80">Cambios automáticos</div>
+                            </div>
+                        </button>
+                        <button
+                            onClick={() => setTransmission('manual')}
+                            className={`p-6 rounded-2xl border-2 flex items-center justify-center gap-3 transition-all ${transmission === 'manual' ? 'bg-blue-600 border-blue-400 text-white shadow-lg shadow-blue-500/30' : 'bg-gray-800 border-gray-700 text-gray-400 hover:bg-gray-700'}`}
+                        >
+                            <Activity size={32} />
+                            <div className="text-left">
+                                <div className="font-black text-xl">MANUAL</div>
+                                <div className="text-xs font-medium opacity-80">Levas o Palanca</div>
+                            </div>
+                        </button>
+                    </div>
                 </div>
 
-                {/* DURATION DISPLAY (Read Only) */}
-                <div className="w-full mb-8 flex items-center justify-center gap-4 bg-gray-800/50 p-4 rounded-xl border border-gray-700">
+                {/* DIFFICULTY SELECTOR */}
+                <div className="w-full mb-8">
+                    <p className="text-gray-400 font-bold mb-4 ml-2 uppercase text-sm tracking-widest">NIVEL DE AYUDAS</p>
+                    <div className="grid grid-cols-3 gap-6 w-full">
+                        <button
+                            onClick={() => setDifficulty('novice')}
+                            className={`p-8 rounded-3xl border-4 flex flex-col items-center gap-4 transition-all ${difficulty === 'novice' ? 'border-green-500 bg-green-500/20 scale-105 shadow-2xl shadow-green-500/20' : 'border-gray-700 bg-gray-800/50 hover:border-gray-600 hover:bg-gray-800'}`}
+                        >
+                            <ShieldCheck size={64} className={difficulty === 'novice' ? 'text-green-400' : 'text-gray-500'} />
+                            <div className="text-center">
+                                <h3 className="text-2xl font-black text-white">NOVATO</h3>
+                                <p className="text-gray-400 mt-2">ABS & TC Máximos<br />Control Estabilidad</p>
+                            </div>
+                        </button>
+
+                        <button
+                            onClick={() => setDifficulty('amateur')}
+                            className={`p-8 rounded-3xl border-4 flex flex-col items-center gap-4 transition-all ${difficulty === 'amateur' ? 'border-yellow-500 bg-yellow-500/20 scale-105 shadow-2xl shadow-yellow-500/20' : 'border-gray-700 bg-gray-800/50 hover:border-gray-600 hover:bg-gray-800'}`}
+                        >
+                            <Activity size={64} className={difficulty === 'amateur' ? 'text-yellow-400' : 'text-gray-500'} />
+                            <div className="text-center">
+                                <h3 className="text-2xl font-black text-white">AMATEUR</h3>
+                                <p className="text-gray-400 mt-2">ABS & TC Fábrica<br />Daños Visuales</p>
+                            </div>
+                        </button>
+
+                        <button
+                            onClick={() => setDifficulty('pro')}
+                            className={`p-8 rounded-3xl border-4 flex flex-col items-center gap-4 transition-all ${difficulty === 'pro' ? 'border-red-500 bg-red-500/20 scale-105 shadow-2xl shadow-red-500/20' : 'border-gray-700 bg-gray-800/50 hover:border-gray-600 hover:bg-gray-800'}`}
+                        >
+                            <Trophy size={64} className={difficulty === 'pro' ? 'text-red-400' : 'text-gray-500'} />
+                            <div className="text-center">
+                                <h3 className="text-2xl font-black text-white">PRO</h3>
+                                <p className="text-gray-400 mt-2">Sin Ayudas<br />Daños Reales 100%</p>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                {/* DURATION (READ ONLY OR SELECTABLE?) */}
+                <div className="w-full bg-gray-900/50 p-6 rounded-2xl border border-gray-800 flex items-center justify-center gap-4 mb-8">
                     <Clock className="text-blue-400" />
-                    <span className="text-gray-400 font-bold uppercase">Duración Seleccionada:</span>
-                    <span className="text-2xl font-black text-white">{duration} Minutos</span>
+                    <span className="font-bold text-gray-300">DURACIÓN SELECCIONADA:</span>
+                    <span className="font-black text-2xl text-white">{duration} Minutos</span>
                 </div>
 
                 <div className="w-full">
                     <button
                         onClick={() => LaunchSession.mutate()}
                         disabled={LaunchSession.isPending}
-                        className="w-full bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-black text-4xl py-8 rounded-3xl shadow-2xl shadow-red-600/30 active:scale-95 transition-all flex items-center justify-center gap-6"
+                        className="w-full bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-black text-3xl py-8 rounded-3xl shadow-2xl shadow-red-600/20 active:scale-95 transition-all flex items-center justify-center gap-4 disabled:opacity-50"
                     >
-                        {LaunchSession.isPending ? 'INICIANDO MOTORES...' : <> <Play fill="currentColor" size={40} /> LANZAR SESIÓN</>}
+                        {LaunchSession.isPending ? 'INICIANDO...' : 'LANZAR SESIÓN'} <Play fill="currentColor" size={32} />
                     </button>
-                    <p className="text-center text-gray-500 mt-4 text-lg">Simulador #{stationId} • Al pulsar, el juego se iniciará automáticamente.</p>
+                    <p className="text-center text-gray-500 mt-4 text-sm">Simulador #{stationId} • Al pulsar, el juego se iniciará automáticamente.</p>
                 </div>
             </div>
-        )
+        );
     };
 
     // --- STEP 5: WAITING ROOM ---
@@ -466,19 +1153,21 @@ export default function KioskMode() {
             refetchInterval: 1000,
             enabled: !!selection?.isLobby && !!selection?.lobbyId
         });
-        // ... (rest of waiting room logic same as before, just renaming ID if needed)
-        // Actually I'm cutting the replacement before the inner logic to save context, 
-        // but the WaitingRoom component was huge. 
-        // Let me just replace the render switch and the DifficultyStep.
-        // I will return the WaitingRoom start but I need to be careful with the end line.
-        // The previous WaitingRoom started around line 487.
-        // I will just replace up to renderStep.
 
         const StartRaceMutation = useMutation({
             mutationFn: async () => {
                 await axios.post(`${API_URL}/lobby/${selection?.lobbyId}/start`, {}, {
                     params: { requesting_station_id: stationId }
                 });
+            }
+        });
+
+        const ReadyMutation = useMutation({
+            mutationFn: async (isReady: boolean) => {
+                await axios.post(`${API_URL}/lobby/${selection?.lobbyId}/ready`, {}, {
+                    params: { station_id: stationId, is_ready: isReady }
+                });
+                refetch();
             }
         });
 
@@ -489,19 +1178,123 @@ export default function KioskMode() {
             }
         }, [lobbyData?.status]);
 
-        const isHost = selection?.isHost;
+        const isHost = stationId === lobbyData?.host_station_id;
+        const myPlayer = lobbyData?.players?.find((p: any) => p.station_id === stationId);
+        const isReady = myPlayer?.ready || false;
+
+        // Auto-Start Timer Logic
+        const [timeLeft, setTimeLeft] = useState(120); // 2 minutes default
+
+        useEffect(() => {
+            if (!lobbyData?.created_at) return;
+            const createdTime = new Date(lobbyData.created_at).getTime();
+            const now = new Date().getTime();
+            const elapsed = Math.floor((now - createdTime) / 1000);
+            const remaining = Math.max(0, 120 - elapsed);
+
+            setTimeLeft(remaining);
+
+            // Auto-Start if host and time is up
+            if (remaining === 0 && isHost && lobbyData.status === 'waiting' && !StartRaceMutation.isPending) {
+                // Check if at least 2 players? User didn't specify, but lobby requires 2.
+                // We will try to start. If backend rejects (only 1 player), it will fail silently here or log error.
+                if ((lobbyData.players?.length || 0) >= 2) {
+                    console.log("Auto-starting race due to timeout...");
+                    StartRaceMutation.mutate();
+                }
+            }
+        }, [lobbyData?.created_at, lobbyData?.status, isHost, StartRaceMutation]);
+
+        // Calculate total ready
+        const allReady = lobbyData?.players?.length > 0 && lobbyData?.players?.every((p: any) => p.ready);
+
+        const formatTime = (seconds: number) => {
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            return `${m}:${s.toString().padStart(2, '0')}`;
+        };
 
         return (
-            <div className="h-full flex flex-col items-center justify-center animate-in zoom-in duration-300 max-w-4xl mx-auto w-full">
-                <div className="mb-12 text-center">
-                    <span className="bg-purple-600 text-white px-4 py-1 rounded-full font-bold text-sm tracking-widest mb-4 inline-block animate-pulse">
-                        SALA DE ESPERA
-                    </span>
-                    <h2 className="text-5xl font-black text-white">{lobbyData?.name || 'Cargando...'}</h2>
-                    <p className="text-gray-400 mt-2 font-mono text-xl">{lobbyData?.track} | {lobbyData?.car}</p>
+            <div className="h-full flex flex-col items-center p-8 animate-in zoom-in duration-300 max-w-6xl mx-auto w-full">
+                <div className="w-full flex justify-between items-end mb-8 border-b border-gray-800 pb-6">
+                    <div>
+                        <span className="bg-purple-600 text-white px-4 py-1 rounded-full font-bold text-sm tracking-widest mb-4 inline-block animate-pulse">
+                            SALA DE ESPERA
+                        </span>
+                        <h2 className="text-5xl font-black text-white">{lobbyData?.name || 'Cargando...'}</h2>
+                        <p className="text-gray-400 mt-2 font-mono text-xl">{lobbyData?.track} | {lobbyData?.car}</p>
+                    </div>
+                    <div className="text-right flex flex-col items-end">
+                        <p className="text-gray-500 font-bold uppercase tracking-widest mb-1">INICIO AUTOMÁTICO EN</p>
+                        <p className={`text-4xl font-black font-mono ${timeLeft <= 10 ? 'text-red-500 animate-pulse' : 'text-white'}`}>
+                            {formatTime(timeLeft)}
+                        </p>
+                        <p className="text-sm font-bold text-blue-400 mt-2">{lobbyData?.status?.toUpperCase()}</p>
+                    </div>
                 </div>
-                {/* Simplified view for brevity in this replace, assuming inner content is similar */}
-                <p className="text-center text-gray-500">Esperando jugadores...</p>
+
+                {/* PLAYER GRID */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full flex-1 overflow-y-auto mb-8">
+                    {lobbyData?.players?.map((player: { station_id: number; station_name: string; slot: number; ready: boolean }, idx: number) => {
+                        const isMe = player.station_id === stationId;
+                        return (
+                            <div key={player.station_id} className={`p-6 rounded-2xl border-2 flex items-center justify-between ${isMe ? 'bg-blue-900/20 border-blue-500' : 'bg-gray-800/50 border-gray-700'}`}>
+                                <div className="flex items-center gap-4">
+                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center font-black text-xl ${player.ready ? 'bg-green-500 text-black' : 'bg-gray-700 text-gray-400'}`}>
+                                        {idx + 1}
+                                    </div>
+                                    <div>
+                                        <p className={`font-bold text-xl ${isMe ? 'text-white' : 'text-gray-300'}`}>
+                                            {player.station_name} {isMe && '(YO)'}
+                                        </p>
+                                        <p className="text-sm text-gray-500">Slot {player.slot}</p>
+                                    </div>
+                                </div>
+
+                                {player.ready ? (
+                                    <span className="bg-green-500/20 text-green-400 px-4 py-2 rounded-lg font-bold border border-green-500/50 flex items-center gap-2">
+                                        <ShieldCheck size={20} /> LISTO
+                                    </span>
+                                ) : (
+                                    <span className="bg-gray-700/50 text-gray-500 px-4 py-2 rounded-lg font-bold border border-gray-600 flex items-center gap-2">
+                                        <Clock size={20} /> ESPERANDO
+                                    </span>
+                                )}
+                            </div>
+                        );
+                    })}
+
+                    {/* Empty Slots */}
+                    {Array.from({ length: Math.max(0, (lobbyData?.max_players || 0) - (lobbyData?.players?.length || 0)) }).map((_, i) => (
+                        <div key={`empty-${i}`} className="p-6 rounded-2xl border-2 border-gray-800 border-dashed flex items-center justify-center text-gray-700 font-bold">
+                            ESPERANDO JUGADOR...
+                        </div>
+                    ))}
+                </div>
+
+                {/* CONTROLS */}
+                <div className="w-full flex gap-6 h-24">
+                    {/* READY BUTTON (Everyone) */}
+                    <button
+                        onClick={() => ReadyMutation.mutate(!isReady)}
+                        disabled={ReadyMutation.isPending}
+                        className={`flex-1 rounded-2xl font-black text-2xl transition-all shadow-xl flex items-center justify-center gap-4 ${isReady ? 'bg-yellow-600 hover:bg-yellow-500 text-white' : 'bg-green-600 hover:bg-green-500 text-white'}`}
+                    >
+                        {isReady ? 'CANCELAR LISTO' : '¡ESTOY LISTO!'}
+                    </button>
+
+                    {/* HOST START BUTTON */}
+                    {isHost && (
+                        <button
+                            onClick={() => StartRaceMutation.mutate()}
+                            disabled={!allReady || StartRaceMutation.isPending}
+                            className={`flex-1 rounded-2xl font-black text-2xl transition-all shadow-xl flex items-center justify-center gap-4 ${allReady ? 'bg-blue-600 hover:bg-blue-500 text-white animate-pulse' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}
+                        >
+                            {StartRaceMutation.isPending ? 'INICIANDO...' : 'INICIAR CARRERA'}
+                            {!allReady && <span className="text-sm font-normal opacity-70 ml-2">(Esperando a todos)</span>}
+                        </button>
+                    )}
+                </div>
             </div>
         )
     }
@@ -516,7 +1309,8 @@ export default function KioskMode() {
                 setRemainingSeconds(prev => {
                     if (prev <= 1) {
                         clearInterval(timer);
-                        // Session ended - could trigger auto-return to start
+                        setIsLaunched(false);
+                        setStep(6); // Go to Results
                         return 0;
                     }
                     return prev - 1;
@@ -632,6 +1426,251 @@ export default function KioskMode() {
         )
     };
 
+
+    // --- COACH SECTION COMPONENT ---
+    const CoachSection = ({ lapId }: { lapId?: number }) => {
+        const { data: coachAnalysis, isLoading } = useQuery({
+            queryKey: ['coach-analysis', lapId],
+            queryFn: async () => {
+                if (!lapId) return null;
+                const res = await axios.get(`${API_URL}/telemetry/coach/${lapId}`);
+                return res.data;
+            },
+            enabled: !!lapId
+        });
+
+        if (isLoading) return <div className="bg-gray-800/20 p-8 rounded-3xl border border-gray-700 animate-pulse text-center text-gray-400">Analizando telemetría...</div>;
+        if (!coachAnalysis || coachAnalysis.tips.length === 0) return (
+            <div className="bg-gray-800/20 p-6 rounded-3xl border border-gray-700 text-center">
+                <p className="text-gray-400 italic">No hay suficientes datos para el análisis comparativo todavía.</p>
+            </div>
+        );
+
+        // Merge telemetry for chart
+        // We assume n (normalized position) as the key
+        const telemetryChartData = coachAnalysis.ghost_telemetry.map((g: any, i: number) => {
+            const u = coachAnalysis.user_telemetry[i] || {};
+            return {
+                n: g.n,
+                ghost: g.s,
+                user: u.s
+            };
+        });
+
+        return (
+            <div className="space-y-6">
+                {/* TIPS CAROUSEL/GRID */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {coachAnalysis.tips.map((tip: any, idx: number) => (
+                        <div key={idx} className={`p-4 rounded-2xl border flex gap-4 items-start ${tip.severity === 'high' ? 'bg-red-500/10 border-red-500/30' : 'bg-orange-500/10 border-orange-500/30'
+                            }`}>
+                            <div className={`p-2 rounded-lg ${tip.severity === 'high' ? 'bg-red-500 text-white' : 'bg-orange-500 text-white'}`}>
+                                {tip.type === 'braking' ? <Zap size={20} /> : tip.type === 'apex' ? <TrendingUp size={20} /> : <Zap size={20} />}
+                            </div>
+                            <div>
+                                <h5 className="font-bold text-white uppercase text-xs mb-1 tracking-wider">
+                                    {tip.type === 'braking' ? 'Punto de frenada' : tip.type === 'apex' ? 'Velocidad en el vértice' : 'Tracción / Salida'}
+                                </h5>
+                                <p className="text-sm text-gray-300 leading-tight">{tip.message}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* COMPARISON CHART */}
+                <div className="bg-gray-900/50 p-6 rounded-3xl border border-gray-800">
+                    <div className="flex justify-between items-center mb-4">
+                        <h4 className="text-white font-bold flex items-center gap-2">
+                            <Activity size={18} className="text-green-400" /> VELOCIDAD VS GHOST ({coachAnalysis.reference_driver_name})
+                        </h4>
+                        <div className="flex gap-4 text-xs font-bold">
+                            <div className="flex items-center gap-1"><div className="w-3 h-3 bg-blue-500 rounded-full"></div> TÚ</div>
+                            <div className="flex items-center gap-1"><div className="w-3 h-3 bg-green-500 rounded-full"></div> GHOST</div>
+                        </div>
+                    </div>
+                    <div className="h-48 w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={telemetryChartData}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
+                                <XAxis dataKey="n" hide />
+                                <YAxis hide domain={['auto', 'auto']} />
+                                <Tooltip
+                                    contentStyle={{ backgroundColor: '#111827', border: 'none', borderRadius: '8px' }}
+                                    itemStyle={{ fontSize: '12px' }}
+                                />
+                                <Line type="monotone" dataKey="user" stroke="#3b82f6" strokeWidth={2} dot={false} />
+                                <Line type="monotone" dataKey="ghost" stroke="#22c55e" strokeWidth={2} dot={false} strokeDasharray="5 5" />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+
+    // --- STEP 6: POST-RACE RESULTS ---
+    const ResultsStep = () => {
+        // Fetch last session for this driver+track
+        const { data: recentSessions, isLoading } = useQuery({
+            queryKey: ['recent-sessions', driver?.name, selection?.track],
+            queryFn: async () => {
+                // Wait a bit for backend to process
+                await new Promise(r => setTimeout(r, 2000));
+                const res = await axios.get(`${API_URL}/telemetry/sessions`, {
+                    params: {
+                        driver_name: driver?.name,
+                        track_name: selection?.track,
+                        limit: 1 // Get the very last one
+                    }
+                });
+                return res.data;
+            },
+            refetchInterval: (query) => {
+                const data = query.state.data as any[];
+                // Poll until we find a session that is "fresh" (within last 5 mins)
+                if (!data || data.length === 0) return 2000;
+                const sessTime = new Date(data[0].date).getTime();
+                const now = new Date().getTime();
+                if (now - sessTime > 10 * 60 * 1000) return 2000; // If data is old, keep polling
+                return false; // Stop polling
+            }
+        });
+
+        const session = recentSessions?.[0];
+        const isFresh = session && (new Date().getTime() - new Date(session.date).getTime() < 15 * 60 * 1000); // 15 min tolerance
+
+        // Also fetch detailed stats for graphs
+        const { data: driverStats } = useQuery({
+            queryKey: ['driver-details', driver?.name, selection?.track],
+            queryFn: () => axios.get(`${API_URL}/telemetry/details/${selection?.track}/${driver?.name}`).then(r => r.data),
+            enabled: !!session
+        });
+
+        // Telemetry Data for Chart (Best Lap or Last Lap?)
+        // Let's use the 'lap_history' from driverStats or maybe we need a specific endpoint for the session laps.
+        // For V1 let's use the generic "Best Lap" telemetry if available, to show "Optimized Line".
+        // Or if we implemented the graph in backend...
+        // Let's assume we want to show the specific lap telemetry. 
+        // We'll use the 'lap_history' simply as a progress over time for now, or the 'Best Lap' trace if available.
+        // Actually, let's fetch the detailed telemetry for the BEST lap of this session if possible.
+        // But for now, let's use driverStats.lap_history to show consistency.
+
+        // Prepare Chart Data
+        const chartData = driverStats?.lap_history?.map((time: number, i: number) => ({
+            lap: i + 1,
+            time: time / 1000, // seconds
+        })) || [];
+
+        // Formatting
+        const formatTime = (ms: number) => {
+            const m = Math.floor(ms / 60000);
+            const s = ((ms % 60000) / 1000).toFixed(3);
+            return `${m}:${s.padStart(6, '0')}`;
+        };
+
+        if (isLoading || !isFresh) {
+            return (
+                <div className="h-full flex flex-col items-center justify-center animate-pulse">
+                    <Trophy size={80} className="text-gray-600 mb-6" />
+                    <h2 className="text-4xl font-black text-white">PROCESANDO RESULTADOS...</h2>
+                    <p className="text-gray-400 mt-2">Recibiendo telemetría del coche...</p>
+                </div>
+            );
+        }
+
+        return (
+            <div className="h-full flex flex-col p-8 animate-in zoom-in duration-500 max-w-7xl mx-auto w-full">
+                <div className="text-center mb-8">
+                    <h2 className="text-5xl font-black text-white italic tracking-tighter mb-2">RESULTADOS DE SESIÓN</h2>
+                    <p className="text-xl text-gray-400">{session?.track_name} • {session?.car_model}</p>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 flex-1 min-h-0">
+                    {/* COL 1: Main Stats */}
+                    <div className="lg:col-span-1 space-y-6">
+                        <div className="bg-gray-800/50 p-6 rounded-3xl border border-gray-700 text-center">
+                            <div className="text-gray-400 font-bold mb-2">MEJOR VUELTA</div>
+                            <div className="text-6xl font-numeric text-white">{formatTime(session?.best_lap || 0)}</div>
+                        </div>
+
+                        <div className="bg-gray-800/50 p-6 rounded-3xl border border-gray-700 flex flex-col items-center">
+                            <h4 className="text-gray-400 font-bold mb-4">CONSISTENCIA</h4>
+                            {/* Gauge Visualization */}
+                            <div className="relative w-40 h-40 flex items-center justify-center">
+                                <svg className="w-full h-full transform -rotate-90">
+                                    <circle cx="80" cy="80" r="70" stroke="#374151" strokeWidth="12" fill="none" />
+                                    <circle
+                                        cx="80" cy="80" r="70" stroke="#3b82f6" strokeWidth="12" fill="none"
+                                        strokeDasharray={440}
+                                        strokeDashoffset={440 - (440 * (driverStats?.consistency_score || 0)) / 100}
+                                        className="transition-all duration-1000 ease-out"
+                                    />
+                                </svg>
+                                <span className="absolute text-4xl font-bold text-white">{driverStats?.consistency_score}%</span>
+                            </div>
+                        </div>
+
+                        {/* QR PASSPORT */}
+                        <div className="bg-white p-6 rounded-3xl border border-gray-700 flex flex-col items-center shadow-2xl">
+                            <h4 className="text-black font-black mb-4 flex items-center gap-2">
+                                <ScanQrCode size={24} /> PASAPORTE DIGITAL
+                            </h4>
+                            <div className="bg-white p-2 rounded-xl">
+                                <QRCodeCanvas
+                                    value={`https://assetto-manager.app/passport/${session?.driver_name}`}
+                                    size={150}
+                                    level={"H"}
+                                />
+                            </div>
+                            <p className="text-black/60 text-sm mt-3 font-bold text-center">ESCANEA PARA GUARDAR</p>
+                        </div>
+                    </div>
+
+                    {/* COL 2 & 3: Telemetry & Coach */}
+                    <div className="lg:col-span-2 space-y-8 min-h-0 flex flex-col">
+                        {/* COACH TIPS SECTION */}
+                        <CoachSection lapId={session?.best_lap_id} />
+
+                        <div className="bg-gray-800/30 p-6 rounded-3xl border border-gray-700 flex flex-col flex-1">
+                            <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                                <Activity size={20} className="text-blue-400" /> HISTORIAL DE VUELTAS
+                            </h3>
+                            <div className="flex-1 w-full min-h-[250px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={chartData}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                                        <XAxis dataKey="lap" stroke="#9ca3af" label={{ value: 'Vuelta', position: 'insideBottom', offset: -5 }} />
+                                        <YAxis domain={['auto', 'auto']} stroke="#9ca3af" width={40} />
+                                        <Tooltip
+                                            contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }}
+                                            labelStyle={{ color: '#9ca3af' }}
+                                        />
+                                        <Line type="monotone" dataKey="time" stroke="#60a5fa" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 8 }} />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+                    </div>
+                </div >
+
+                <div className="mt-8 flex justify-center">
+                    <button
+                        onClick={() => {
+                            setStep(1);
+                            setIsLaunched(false);
+                            setSelection(null);
+                            setDriver(null);
+                        }}
+                        className="bg-white text-black hover:bg-gray-200 px-12 py-4 rounded-2xl font-black text-xl shadow-lg transition-all flex items-center gap-3"
+                    >
+                        <LogOut size={24} /> VOLVER AL MENÚ
+                    </button>
+                </div>
+            </div >
+        )
+    }
+
     // --- RENDER CURRENT STEP ---
     const renderStep = () => {
         if (isLaunched) return <RaceMode />;
@@ -641,41 +1680,75 @@ export default function KioskMode() {
             case 2: return <DriverStep />;
             case 3: return <ContentStep />;
             case 4: return <DifficultyStep />;
-            case 5: return <WaitingRoom />; // If we kept multiplayer logic
+            case 5: return <WaitingRoom />;
+            case 6: return <ResultsStep />; // New Step
             default: return <ScenarioStep />;
         }
     }
 
+    // Missing imports fix (needs to be at top of file, but replacing here for context)
+    // I will use a clever way to access recharts if not imported: 
+    // Actually, I can't inject imports easily without replacing top of file.
+    // I must update imports first.
+
+
+
     return (
-        <div className="w-full h-screen bg-[#050505] text-white p-8 overflow-hidden font-sans select-none">
-            {/* BACKGROUND DECORATION */}
-            <div className="fixed inset-0 pointer-events-none opacity-20">
-                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600 rounded-full blur-[150px] -translate-y-1/2 translate-x-1/4" />
-                <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-indigo-900 rounded-full blur-[150px] translate-y-1/2 -translate-x-1/4" />
+        <div className="h-full w-full flex flex-col relative">
+            {/* BACKGROUND VIDEO/IMAGE */}
+            <div className="absolute inset-0 overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/95 to-gray-900/80 z-10" />
+                <div className="absolute inset-0 bg-[url('/bg-kiosk.jpg')] bg-cover bg-center opacity-30" />
             </div>
 
-            <div className="relative z-10 w-full h-full flex flex-col">
-                {/* TOP BAR */}
-                <div className="flex justify-between items-center mb-8">
-                    <div className="flex items-center gap-2">
-                        <Gauge className="text-gray-600" />
-                        <span className="text-gray-600 font-bold text-sm tracking-widest">AC MANAGER KIOSK v2.0 - {selectedScenario?.name || 'Standard'}</span>
-                    </div>
-                    {/* Step indicator */}
-                    {!isLaunched && (
-                        <div className="flex gap-2">
-                            {[1, 2, 3, 4].map(s => (
-                                <div key={s} className={`h-2 w-16 rounded-full transition-colors ${Math.floor(step) >= s ? 'bg-blue-500' : 'bg-gray-800'}`} />
-                            ))}
+            {true && (
+                <div className="relative z-20 h-full flex flex-col p-8 overflow-y-auto custom-scrollbar">
+                    {/* TOP BAR */}
+                    <div className="flex justify-between items-center mb-8">
+                        <div className="flex items-center gap-6">
+                            {/* BACK BUTTON */}
+                            {!isLaunched && step > 1 && (
+                                <button
+                                    onClick={() => setStep(step - 1)}
+                                    className="bg-gray-800 hover:bg-gray-700 text-white p-3 rounded-full transition-all border border-gray-700 hover:border-gray-500"
+                                >
+                                    <ChevronLeft size={24} />
+                                </button>
+                            )}
+                            <div className="flex items-center gap-2">
+                                <Gauge className="text-gray-600" />
+                                <span className="text-gray-600 font-bold text-sm tracking-widest">AC MANAGER KIOSK v2.0 - {selectedScenario?.name || 'Standard'}</span>
+                            </div>
                         </div>
-                    )}
-                </div>
 
-                {/* MAIN CONTENT AREA */}
-                <div className="flex-1 min-h-0">
-                    {renderStep()}
+                        <div className="flex items-center gap-4">
+                            {/* CONNECTED INDICATORS */}
+                            <div className="flex gap-2">
+                                {/* AGENT STATUS */}
+                                <div title={hardwareStatus?.is_online ? "Agente Online" : "Agente Offline"} className={`p-2 rounded-lg ${hardwareStatus?.is_online ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                                    <Activity size={20} className={hardwareStatus?.is_online ? "animate-pulse" : ""} />
+                                </div>
+                                {/* WHEEL STATUS */}
+                                <div title="Volante" className={`p-2 rounded-lg ${hardwareStatus?.wheel_connected ? 'bg-green-500/10 text-green-500' : 'bg-gray-800 text-gray-600'}`}>
+                                    <Disc size={20} className={hardwareStatus?.wheel_connected ? "animate-spin-slow" : ""} />
+                                </div>
+                                {/* PEDALS STATUS */}
+                                <div title="Pedales" className={`p-2 rounded-lg ${hardwareStatus?.pedals_connected ? 'bg-green-500/10 text-green-500' : 'bg-gray-800 text-gray-600'}`}>
+                                    <Footprints size={20} />
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-xs text-gray-500 font-bold uppercase">USUARIO</div>
+                                <div className="text-white font-bold">{driver ? driver.name : 'Invitado'}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex-1 flex flex-col justify-center max-w-7xl mx-auto w-full">
+                        {renderStep()}
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 }

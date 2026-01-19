@@ -7,12 +7,14 @@ import TournamentAdmin from '../components/TournamentAdmin';
 import { Calendar, MapPin, Trophy, Clock, Users, ArrowLeft, MonitorPlay } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '../lib/utils';
+import MassLaunchModal from '../components/MassLaunchModal';
 
 export default function EventDetails() {
     const { id } = useParams<{ id: string }>();
     const eventId = parseInt(id || '0');
 
     const [activeTab, setActiveTab] = useState<'leaderboard' | 'bracket' | 'admin'>('leaderboard');
+    const [showLaunchModal, setShowLaunchModal] = useState(false);
 
     const { data: event, isLoading: loadingEvent } = useQuery({
         queryKey: ['event', eventId],
@@ -133,6 +135,17 @@ export default function EventDetails() {
 
                 )}
             </div>
+
+            {showLaunchModal && (
+                <MassLaunchModal
+                    onClose={() => setShowLaunchModal(false)}
+                    initialTrack={event.track_name}
+                    initialMode={event.session_config?.mode || 'race'}
+                    initialDuration={event.session_config?.duration_minutes}
+                    initialLaps={event.session_config?.laps}
+                    forcedEventId={eventId}
+                />
+            )}
         </div>
     );
 }

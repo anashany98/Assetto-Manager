@@ -71,6 +71,8 @@ class Station(Base):
     is_active = Column(Boolean, default=True)
     is_online = Column(Boolean, default=False)
     is_kiosk_mode = Column(Boolean, default=False)
+    is_locked = Column(Boolean, default=False) # Cyber-Lock status
+    is_tv_mode = Column(Boolean, default=False)
     status = Column(String, default="offline")
     ac_path = Column(String, default="C:\\Program Files (x86)\\Steam\\steamapps\\common\\assettocorsa")
     content_cache = Column(JSON, nullable=True)  # Cached cars/tracks from scan
@@ -189,6 +191,7 @@ class Event(Base):
     status = Column(String, default="upcoming") 
     rules = Column(JSON, nullable=True) 
     bracket_data = Column(JSON, nullable=True)
+    session_config = Column(JSON, nullable=True) # {mode: 'practice'|'race', duration: 15, laps: 5}
     is_active = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), onupdate=lambda: datetime.now(timezone.utc))

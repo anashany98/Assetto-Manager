@@ -20,6 +20,7 @@ export interface Station {
     is_active: boolean;
     is_online: boolean;
     is_kiosk_mode?: boolean;
+    is_tv_mode?: boolean;
     is_vr?: boolean;
     status: string;
     ac_path?: string;
@@ -33,5 +34,17 @@ export const getStations = async (): Promise<Station[]> => {
 
 export const updateStation = async (id: number, data: Partial<Station>): Promise<Station> => {
     const response = await axios.put(`${API_URL}/stations/${id}`, data);
+    return response.data;
+};
+export const massLaunch = async (data: {
+    station_ids: number[],
+    car: string,
+    track: string,
+    mode: 'practice' | 'race',
+    duration_minutes?: number,
+    laps?: number,
+    name?: string
+}): Promise<any> => {
+    const response = await axios.post(`${API_URL}/stations/mass-launch`, data);
     return response.data;
 };

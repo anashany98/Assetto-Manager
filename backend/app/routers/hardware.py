@@ -56,6 +56,7 @@ class StationHealthStatus(BaseModel):
     current_track: Optional[str] = None
     current_car: Optional[str] = None
     alerts: List[str] = []
+    is_locked: bool = False
 
 
 # In-memory storage for health reports (in production, use Redis or DB)
@@ -194,6 +195,7 @@ async def get_station_health(station_id: int, db: Session = Depends(get_db)):
         current_track=cached.get("current_track"),
         current_car=cached.get("current_car"),
         alerts=[],
+        is_locked=station.is_locked
     )
 
 

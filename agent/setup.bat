@@ -49,8 +49,18 @@ if not exist "config.json" (
 echo.
 echo ===================================================
 echo   SETUP COMPLETE!
-echo   Starting Agent...
+echo.
+echo   [TIP] To make this agent 100%% autonomous:
+echo   1. Press Win + R, type 'shell:startup'
+echo   2. Create a shortcut to this .bat file there.
+echo   3. The agent will now start automatically with Windows.
 echo ===================================================
-
+echo.
+echo Starting Agent...
+:run
+call .venv\Scripts\activate
 python main.py
-pause
+echo.
+echo [WARNING] Agent stopped or crashed. Restarting in 5 seconds...
+timeout /t 5
+goto run

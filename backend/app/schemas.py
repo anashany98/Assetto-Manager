@@ -40,6 +40,8 @@ class StationUpdate(BaseModel):
     status: Optional[str] = None
     is_active: Optional[bool] = None
     is_vr: Optional[bool] = None
+    is_locked: Optional[bool] = None
+    is_tv_mode: Optional[bool] = None
     active_profile_id: Optional[int] = None
     ac_path: Optional[str] = None
     diagnostics: Optional[dict] = None
@@ -51,6 +53,8 @@ class Station(StationBase):
     is_active: bool
     is_online: bool
     is_kiosk_mode: bool
+    is_locked: bool = False
+    is_tv_mode: bool = False
     is_vr: bool = False
     status: str
     ac_path: Optional[str]
@@ -219,6 +223,7 @@ class SessionResult(BaseModel):
     car_model: str
     track_name: str
     best_lap: int
+    best_lap_id: Optional[int] = None
     sectors: Optional[Any] = None
     date: datetime
     session_type: SessionType
@@ -260,6 +265,7 @@ class EventBase(BaseModel):
     allowed_cars: Optional[Any] = None # JSON string or list
     status: Optional[EventStatus] = EventStatus.upcoming
     rules: Optional[str] = None
+    session_config: Optional[Any] = None # {mode, duration_minutes, laps}
 
 class EventCreate(EventBase):
     pass
@@ -388,6 +394,30 @@ class MultiDriverComparisonResponse(BaseModel):
     drivers: List[ComparisonStats]
 
 
+# --- Personal Coach Schemas ---
+
+class CoachTip(BaseModel):
+    type: Literal["braking", "apex", "exit", "general"]
+    severity: Literal["low", "medium", "high"]
+    message: str
+    position_normalized: float
+    delta_value: float # e.g. -20 for 20km/h slower
+
+class CoachAnalysis(BaseModel):
+    lap_id: int
+    reference_lap_id: int
+    driver_name: str
+    reference_driver_name: str
+    track_name: str
+    car_model: str
+    lap_time: int
+    reference_time: int
+    time_gap: int
+    tips: List[CoachTip]
+    user_telemetry: List[dict] # Simplified for chart
+    ghost_telemetry: List[dict] # Simplified for chart
+
+
 # --- LOBBY SCHEMAS ---
 
 class LobbyStatus(str, Enum):
@@ -459,3 +489,11 @@ class WheelProfile(WheelProfileBase):
     class Config:
         from_attributes = True
 
+class MassLaunchRequest(BaseModel):
+    station_ids: List[int]
+    car: str
+    track: str
+    mode: Literal["practice", "race"]
+    duration_minutes: int = 15
+    laps: int = 5
+    name: Optional[str] = "Mass Launch"

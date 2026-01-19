@@ -116,8 +116,13 @@ from .routers import lobby
 app.include_router(lobby.router)
 
 # Scenarios
+# Scenarios
 from .routers import scenarios
 app.include_router(scenarios.router)
+
+# Leaderboard
+from .routers import leaderboard
+app.include_router(leaderboard.router)
 
 
 # @app.get("/")

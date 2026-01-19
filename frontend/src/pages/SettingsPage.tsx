@@ -1,5 +1,6 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { cn } from '../lib/utils';
 import { API_URL } from '../config';
@@ -31,7 +32,28 @@ const AC_CATEGORIES = [
 export default function SettingsPage() {
     const queryClient = useQueryClient();
     const [activeTab, setActiveTab] = useState<'branding' | 'stations' | 'game' | 'logs' | 'ads' | 'database' | 'pricing'>('branding');
+    const [searchParams, setSearchParams] = useSearchParams();
     const pushNotifications = usePushNotifications();
+
+    // Sync tab with URL
+    useEffect(() => {
+        const tab = searchParams.get('tab');
+        if (tab && ['branding', 'stations', 'game', 'logs', 'ads', 'database', 'pricing'].includes(tab)) {
+            setActiveTab(tab as any);
+        }
+    }, [searchParams]);
+
+    const handleTabChange = (tab: string) => {
+        setActiveTab(tab as any);
+        setSearchParams({ tab });
+    };
+
+    const powerMutation = useMutation({
+        mutationFn: async ({ id, action }: { id: number; action: 'shutdown' | 'power-on' | 'panic' | 'restart' }) => {
+            await axios.post(`${API_URL}/stations/${id}/${action}`);
+        },
+        onSuccess: () => alert("Comando enviado")
+    });
 
     const handleExport = async () => {
         try {
@@ -107,7 +129,7 @@ export default function SettingsPage() {
     // --- STATIONS STATE ---
     const { data: stations } = useQuery({ queryKey: ['stations'], queryFn: getStations });
     const [editingId, setEditingId] = useState<number | null>(null);
-    const [editForm, setEditForm] = useState<{ name: string, ip: string }>({ name: '', ip: '' });
+    const [editForm, setEditForm] = useState<{ name: string, ip: string, ac_path: string }>({ name: '', ip: '', ac_path: '' });
     const stationMutation = useMutation({
         mutationFn: ({ id, data }: { id: number; data: Partial<Station> }) => updateStation(id, data),
         onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['stations'] }); setEditingId(null); }
@@ -171,14 +193,15 @@ export default function SettingsPage() {
                     {[
                         { id: 'branding', label: 'Marca y TV', icon: Layout },
                         { id: 'ads', label: 'Promociones', icon: Megaphone },
-                        { id: 'pricing', label: 'Precios', icon: BadgeDollarSign }, // New Tab
+                        { id: 'pricing', label: 'Precios', icon: BadgeDollarSign },
+                        { id: 'game', label: 'Editor AC', icon: Gamepad2 },
                         { id: 'stations', label: 'Simuladores', icon: MonitorPlay },
                         { id: 'logs', label: 'Logs Sistema', icon: Terminal },
                         { id: 'database', label: 'Base de Datos', icon: Database }
                     ].map(tab => (
                         <button
                             key={tab.id}
-                            onClick={() => setActiveTab(tab.id as any)}
+                            onClick={() => handleTabChange(tab.id)}
                             className={cn(
                                 "flex items-center space-x-2 px-5 py-2.5 rounded-xl text-sm font-black transition-all uppercase tracking-wide",
                                 activeTab === tab.id
@@ -361,32 +384,191 @@ export default function SettingsPage() {
                                     </div>
                                     <div>
                                         {editingId === station.id ? (
-                                            <input value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} className="bg-gray-900 text-white font-bold p-2 rounded-lg border border-blue-500 outline-none" autoFocus />
+                                            <div className="space-y-2">
+                                                <input
+                                                    value={editForm.name}
+                                                    onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                                                    className="bg-gray-900 text-white font-bold p-2 rounded-lg border border-blue-500 outline-none w-full"
+                                                    placeholder="Nombre estación"
+                                                    autoFocus
+                                                />
+                                                <input
+                                                    value={editForm.ip}
+                                                    onChange={e => setEditForm({ ...editForm, ip: e.target.value })}
+                                                    className="bg-gray-900 text-white p-2 rounded-lg border border-blue-500 outline-none w-full text-xs font-mono"
+                                                    placeholder="IP Address (ej. 192.168.1.50)"
+                                                />
+                                                <input
+                                                    value={editForm.ac_path}
+                                                    onChange={e => setEditForm({ ...editForm, ac_path: e.target.value })}
+                                                    className="bg-gray-900 text-white p-2 rounded-lg border border-blue-500 outline-none w-full text-[10px] font-mono"
+                                                    placeholder="Ruta Assetto Corsa (ej. C:\AC)"
+                                                />
+                                            </div>
                                         ) : (
-                                            <div className="flex items-center space-x-2">
-                                                <h3 className="text-lg font-black text-white uppercase">{station.name}</h3>
-                                                <button onClick={() => { setEditingId(station.id); setEditForm({ name: station.name, ip: station.ip_address }) }} className="text-gray-600 hover:text-white"><Edit2 size={14} /></button>
+                                            <div className="flex flex-col">
+                                                <div className="flex items-center space-x-2">
+                                                    <h3 className="text-lg font-black text-white uppercase">{station.name}</h3>
+                                                    <button onClick={() => { setEditingId(station.id); setEditForm({ name: station.name, ip: station.ip_address, ac_path: station.ac_path || '' }) }} className="text-gray-600 hover:text-white"><Edit2 size={14} /></button>
+                                                </div>
+                                                <div className="flex items-center space-x-4 mt-1 text-[10px] font-mono text-gray-500 uppercase font-black tracking-widest">
+                                                    <span>{station.hostname}</span>
+                                                    <span>•</span>
+                                                    <span>{station.ip_address}</span>
+                                                </div>
+                                                {station.ac_path && (
+                                                    <div className="text-[9px] text-gray-600 font-mono mt-1 opacity-60">📁 {station.ac_path}</div>
+                                                )}
                                             </div>
                                         )}
-                                        <div className="flex items-center space-x-4 mt-1 text-xs font-mono text-gray-500">
-                                            <span>{station.hostname}</span>
-                                            <span>•</span>
-                                            {editingId === station.id ? (
-                                                <input value={editForm.ip} onChange={e => setEditForm({ ...editForm, ip: e.target.value })} className="bg-gray-900 text-white p-1 rounded border border-blue-500 w-32" />
-                                            ) : (
-                                                <span>{station.ip_address}</span>
-                                            )}
-                                        </div>
                                     </div>
                                 </div>
                                 <div className="flex items-center space-x-4">
-                                    <span className={cn("px-3 py-1 rounded-full text-xs font-bold uppercase", station.status === 'online' ? 'bg-green-500/20 text-green-400' : 'bg-gray-700 text-gray-500')}>{station.status}</span>
+                                    <div className="flex flex-col items-end gap-2">
+                                        <span className={cn("px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest", station.status === 'online' ? 'bg-green-500/20 text-green-400' : 'bg-gray-700 text-gray-500')}>{station.status}</span>
+                                        <div className="flex items-center gap-2">
+                                            {station.is_online && (
+                                                <>
+                                                    <button
+                                                        onClick={() => { if (confirm("¿Reiniciar estación?")) powerMutation.mutate({ id: station.id, action: 'restart' }) }}
+                                                        className="p-2 bg-blue-500/10 text-blue-500 rounded-lg hover:bg-blue-500 hover:text-white transition-all"
+                                                        title="Reiniciar PC"
+                                                    >
+                                                        <Activity size={14} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => { if (confirm("¡EMERGENCIA! ¿Forzar cierre del juego?")) powerMutation.mutate({ id: station.id, action: 'panic' }) }}
+                                                        className="p-2 bg-yellow-500/10 text-yellow-500 rounded-lg hover:bg-yellow-500 hover:text-black transition-all"
+                                                        title="Botón del Pánico (Cerrar AC)"
+                                                    >
+                                                        <AlertTriangle size={14} />
+                                                    </button>
+                                                </>
+                                            )}
+                                            <button
+                                                onClick={() => { if (confirm("¿Apagar estación?")) powerMutation.mutate({ id: station.id, action: 'shutdown' }) }}
+                                                className="p-2 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all"
+                                                title="Apagar PC"
+                                            >
+                                                <Power size={14} />
+                                            </button>
+                                        </div>
+                                    </div>
                                     {editingId === station.id && (
-                                        <button onClick={() => stationMutation.mutate({ id: station.id, data: { name: editForm.name, ip_address: editForm.ip } })} className="bg-blue-600 p-2 rounded-lg text-white hover:bg-blue-500"><CheckCircle size={20} /></button>
+                                        <button onClick={() => stationMutation.mutate({ id: station.id, data: { name: editForm.name, ip_address: editForm.ip, ac_path: editForm.ac_path } })} className="bg-blue-600 p-2 rounded-lg text-white hover:bg-blue-500"><CheckCircle size={20} /></button>
                                     )}
                                 </div>
                             </div>
                         ))}
+                    </div>
+                )}
+
+                {/* --- TAB: GAME (AC EDITOR) --- */}
+                {activeTab === 'game' && (
+                    <div className="max-w-6xl space-y-8 animate-in fade-in duration-300">
+                        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                            {/* Categories Selector */}
+                            <div className="space-y-2">
+                                <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest pl-2 mb-4">Categorías .ini</h3>
+                                {AC_CATEGORIES.map(cat => (
+                                    <button
+                                        key={cat.id}
+                                        onClick={() => setSelectedCategory(cat.id)}
+                                        className={cn(
+                                            "w-full flex items-center justify-between p-4 rounded-2xl border transition-all font-bold",
+                                            selectedCategory === cat.id
+                                                ? "bg-gray-800 border-blue-500/50 text-white shadow-lg"
+                                                : "bg-gray-900/50 border-transparent text-gray-500 hover:bg-gray-800"
+                                        )}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <cat.icon size={18} className={cat.color} />
+                                            <span>{cat.name}</span>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Profiles and Deployment */}
+                            <div className="lg:col-span-3 space-y-6">
+                                <div className="bg-gray-800 p-8 rounded-3xl border border-gray-700">
+                                    <div className="flex justify-between items-center mb-8">
+                                        <h3 className="text-xl font-black text-white uppercase flex items-center gap-3">
+                                            <FileText className="text-blue-400" /> Perfiles Disponibles
+                                        </h3>
+                                        <button
+                                            onClick={() => { setNewProfileName(''); setIsEditorOpen(true); }}
+                                            className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-black uppercase flex items-center gap-2 transition-all shadow-lg"
+                                        >
+                                            <Plus size={16} /> Crear Nuevo
+                                        </button>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {profiles?.[selectedCategory]?.map((profile: string) => (
+                                            <div key={profile} className="bg-gray-900/50 p-4 rounded-2xl border border-gray-700 flex flex-col gap-4">
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <p className="text-white font-black uppercase text-sm">{profile.replace('.ini', '')}</p>
+                                                        <p className="text-[10px] text-gray-500 font-mono mt-0.5">{profile}</p>
+                                                    </div>
+                                                    <button onClick={() => handleEditProfile(profile)} className="text-gray-500 hover:text-blue-400"><Edit2 size={16} /></button>
+                                                </div>
+                                                <button
+                                                    onClick={() => setSelectedProfiles(prev => ({
+                                                        ...prev,
+                                                        [selectedCategory]: profile
+                                                    }))}
+                                                    className={cn(
+                                                        "w-full py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border",
+                                                        selectedProfiles[selectedCategory] === profile
+                                                            ? "bg-blue-500/20 text-blue-400 border-blue-500/50"
+                                                            : "bg-gray-800 text-gray-500 border-transparent hover:border-gray-600"
+                                                    )}
+                                                >
+                                                    {selectedProfiles[selectedCategory] === profile ? 'SELECCIONADO PARA DESPLIEGUE' : 'SELECCIONAR'}
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Deployment Footer */}
+                                <div className="bg-blue-900/10 border border-blue-500/20 p-8 rounded-3xl flex flex-col md:flex-row justify-between items-center gap-6">
+                                    <div className="flex-1">
+                                        <h4 className="text-lg font-black text-white uppercase mb-2">Lanzar Configuración</h4>
+                                        <p className="text-sm text-gray-400">
+                                            Se enviarán {Object.keys(selectedProfiles).length} perfiles a
+                                            {selectedStationIds.length > 0 ? ` ${selectedStationIds.length} estación(es)` : ' TODAS las estaciones'}.
+                                        </p>
+                                        <div className="flex flex-wrap gap-2 mt-4">
+                                            {Array.isArray(stations) && stations.filter((s: any) => s.is_online).map((s: any) => (
+                                                <button
+                                                    key={s.id}
+                                                    onClick={() => setSelectedStationIds(prev => prev.includes(s.id) ? prev.filter(id => id !== s.id) : [...prev, s.id])}
+                                                    className={cn(
+                                                        "px-3 py-1.5 rounded-lg text-[10px] font-black transition-all border",
+                                                        selectedStationIds.includes(s.id)
+                                                            ? "bg-blue-600 border-blue-400 text-white"
+                                                            : "bg-gray-800 border-gray-700 text-gray-500"
+                                                    )}
+                                                >
+                                                    {s.name}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <button
+                                        disabled={deployMutation.isPending || Object.keys(selectedProfiles).length === 0}
+                                        onClick={() => deployMutation.mutate()}
+                                        className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest transition-all shadow-[0_0_30px_rgba(37,99,235,0.3)] flex items-center gap-3"
+                                    >
+                                        <Upload size={20} />
+                                        {deployMutation.isPending ? 'DESPLEGANDO...' : 'DESPLEGAR AHORA'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 )}
 

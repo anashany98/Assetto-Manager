@@ -71,6 +71,21 @@ class ConnectionManager:
 
 
 
+    async def send_command(self, station_id: int, message: dict):
+        # Send targeted command to a specific Agent
+        ws = self.active_agents.get(station_id)
+        if ws:
+            try:
+                await ws.send_text(json.dumps(message))
+                logger.info(f"Command '{message.get('command')}' sent to Station {station_id}")
+                return True
+            except Exception as e:
+                logger.error(f"Failed to send command to Station {station_id}: {e}")
+                self.disconnect_agent(ws)
+                return False
+        return False
+
+
 manager = ConnectionManager()
 
 @router.websocket("/ws/telemetry/client")
@@ -108,6 +123,27 @@ async def websocket_agent_endpoint(websocket: WebSocket):
                     station_id = data.get("station_id")
                     if station_id:
                         await manager.register_agent(websocket, station_id)
+                        
+                        # NEW: Check if this is a TV Mode station and if there's an active race to join
+                        db = SessionLocal()
+                        try:
+                            station = db.query(models.Station).filter(models.Station.id == station_id).first()
+                            if station and station.is_tv_mode:
+                                # Look for running lobbies
+                                active_lobby = db.query(models.Lobby).filter(models.Lobby.status == "running").first()
+                                if active_lobby:
+                                    logger.info(f"Auto-joining TV Station {station_id} to running lobby {active_lobby.id}")
+                                    await websocket.send_text(json.dumps({
+                                        "command": "join_lobby",
+                                        "lobby_id": active_lobby.id,
+                                        "server_ip": active_lobby.server_ip,
+                                        "port": active_lobby.port,
+                                        "track": active_lobby.track,
+                                        "car": active_lobby.car,
+                                        "is_spectator": True
+                                    }))
+                        finally:
+                            db.close()
                     continue
 
                 # Handle Content Scan Result from Agent

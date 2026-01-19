@@ -9,7 +9,6 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const ProfilesPage = lazy(() => import('./pages/ProfilesPage'));
 const ModsLibrary = lazy(() => import('./pages/ModsLibrary'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
-const Configuration = lazy(() => import('./pages/Configuration'));
 const Leaderboard = lazy(() => import('./pages/Leaderboard'));
 const HallOfFame = lazy(() => import('./pages/HallOfFame').then(module => ({ default: module.HallOfFame }))); // Handle named export if needed, assuming default or named
 const EventsPage = lazy(() => import('./pages/EventsPage'));
@@ -36,6 +35,8 @@ const HardwareMonitor = lazy(() => import('./pages/HardwareMonitor'));
 const ScenariosManager = lazy(() => import('./pages/ScenariosManager'));
 const KioskMode = lazy(() => import('./pages/KioskMode'));
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
+const PilotPortal = lazy(() => import('./pages/PilotPortal'));
+const LockScreen = lazy(() => import('./pages/LockScreen'));
 
 import { useBranding } from './hooks/useBranding';
 
@@ -74,7 +75,6 @@ function App() {
 
               {/* System */}
               <Route path="/settings" element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
-              <Route path="/config" element={<PrivateRoute><Configuration /></PrivateRoute>} />
               <Route path="/profiles" element={<PrivateRoute><ProfilesPage /></PrivateRoute>} />
 
               {/* Public Views */}
@@ -87,6 +87,7 @@ function App() {
               <Route path="/tv" element={<TVMode />} />
               <Route path="/telemetry/:id" element={<LapAnalysisPage />} />
               <Route path="/reservar" element={<PublicBookingPage />} />
+              <Route path="/p/:driverName" element={<PilotPortal />} />
 
               {/* TV & Mobile (Handled by Layout to hide sidebar) */}
               <Route path="/tv/leaderboard" element={<Leaderboard />} />
@@ -99,6 +100,10 @@ function App() {
               <Route path="/elimination" element={<PrivateRoute><EliminationAdmin /></PrivateRoute>} />
               <Route path="/elimination-tv/:id" element={<EliminationTV />} />
               <Route path="/hardware" element={<PrivateRoute><HardwareMonitor /></PrivateRoute>} />
+              <Route path="/analytics" element={<PrivateRoute><AnalyticsPage /></PrivateRoute>} />
+
+              {/* Security */}
+              <Route path="/lock-screen" element={<LockScreen />} />
 
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />

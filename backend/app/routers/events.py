@@ -87,6 +87,25 @@ def update_event(event_id: int, event_update: schemas.EventCreate, db: Session =
     logger.info(f"Updated event {event_id}: {event.name}")
     return event
 
+@router.put("/{event_id}/config")
+def update_event_config(
+    event_id: int, 
+    config: dict, 
+    db: Session = Depends(database.get_db), 
+    current_user: models.User = Depends(get_current_active_user)
+):
+    event = db.query(models.Event).filter(models.Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    # Simple validation
+    if "mode" in config and config["mode"] not in ["practice", "race"]:
+        raise HTTPException(status_code=400, detail="Invalid mode. Must be 'practice' or 'race'")
+        
+    event.session_config = config
+    db.commit()
+    return {"status": "updated", "config": config}
+
 @router.delete("/{event_id}")
 def delete_event(event_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_active_user)):
     event = db.query(models.Event).filter(models.Event.id == event_id).first()

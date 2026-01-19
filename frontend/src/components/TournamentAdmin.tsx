@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { API_URL } from '../config';
-import { Trophy, Shuffle } from 'lucide-react';
+import { Trophy, Shuffle, Settings } from 'lucide-react';
 
 
 export default function TournamentAdmin({ eventId, isCompleted }: { eventId: number; isCompleted: boolean }) {
@@ -56,6 +56,22 @@ export default function TournamentAdmin({ eventId, isCompleted }: { eventId: num
         onError: (err: any) => {
             alert("Error: " + (err.response?.data?.detail || err.message));
         }
+    });
+
+    // Update Session Config Mutation
+    const updateConfigMutation = useMutation({
+        mutationFn: async (config: { mode: 'practice' | 'race', duration_minutes: number, laps: number }) => {
+            await axios.put(`${API_URL}/events/${eventId}/config`, config);
+        },
+        onSuccess: () => {
+            alert("Configuración de sesión actualizada");
+        }
+    });
+
+    const [config, setConfig] = useState({
+        mode: 'race' as 'practice' | 'race',
+        duration_minutes: 15,
+        laps: 5
     });
 
     const handleGenerate = () => {
@@ -126,6 +142,55 @@ export default function TournamentAdmin({ eventId, isCompleted }: { eventId: num
                 <span className="text-xs text-green-400 bg-green-900/30 px-3 py-1 rounded-full border border-green-800">
                     Cuadro Activo
                 </span>
+            </div>
+
+            {/* Session Configuration Form */}
+            <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
+                <h4 className="text-white font-bold mb-4 flex items-center">
+                    <Settings className="mr-2 text-blue-500" /> Configuración de Sesiones
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label className="block text-gray-400 text-xs font-bold uppercase mb-2">Modo de Competición</label>
+                        <select
+                            value={config.mode}
+                            onChange={e => setConfig({ ...config, mode: e.target.value as any })}
+                            className="w-full bg-gray-900 text-white rounded-lg p-3 border border-gray-700"
+                        >
+                            <option value="race">Carrera (Simultánea)</option>
+                            <option value="practice">Contrarreloj / Rally (Individual)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-gray-400 text-xs font-bold uppercase mb-2">Duración (Minutos)</label>
+                        <input
+                            type="number"
+                            value={config.duration_minutes}
+                            onChange={e => setConfig({ ...config, duration_minutes: parseInt(e.target.value) })}
+                            className="w-full bg-gray-900 text-white rounded-lg p-3 border border-gray-700"
+                            min={1}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-gray-400 text-xs font-bold uppercase mb-2">Vueltas</label>
+                        <input
+                            type="number"
+                            value={config.laps}
+                            onChange={e => setConfig({ ...config, laps: parseInt(e.target.value) })}
+                            className="w-full bg-gray-900 text-white rounded-lg p-3 border border-gray-700"
+                            min={1}
+                        />
+                    </div>
+                </div>
+                <div className="mt-4 flex justify-end">
+                    <button
+                        onClick={() => updateConfigMutation.mutate(config)}
+                        disabled={updateConfigMutation.isPending}
+                        className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-bold text-sm transition-colors"
+                    >
+                        {updateConfigMutation.isPending ? 'Guardando...' : 'Guardar Configuración'}
+                    </button>
+                </div>
             </div>
 
             <div className="grid gap-6">

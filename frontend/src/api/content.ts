@@ -6,6 +6,14 @@ export interface Car {
     name: string;
     brand?: string;
     image_url?: string;
+    specs?: {
+        bhp?: string;
+        torque?: string;
+        weight?: string;
+        top_speed?: string;
+        acceleration?: string;
+        pwratio?: string;
+    };
 }
 
 export interface Track {
@@ -13,6 +21,8 @@ export interface Track {
     name: string;
     layout?: string;
     image_url?: string;
+    map_url?: string;
+    geotags?: number[];
 }
 
 export interface StationContent {

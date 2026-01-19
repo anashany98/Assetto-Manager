@@ -15,7 +15,8 @@ import {
     History as HistoryIcon,
     CalendarCheck,
     Sun,
-    Moon
+    Moon,
+    Gamepad2
 } from 'lucide-react';
 import { useTheme } from '../contexts/useTheme';
 import { useQuery } from '@tanstack/react-query';
@@ -72,7 +73,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
     // Determine if we should show the full layout or just the content (e.g. for TV/Mobile/Public views)
     const publicPaths = ['/', '/tv', '/tv-mode', '/mobile', '/passport-scanner', '/hall-of-fame', '/live-map', '/battle', '/kiosk', '/login', '/leaderboard', '/remote', '/reservar'];
-    const isPublicView = publicPaths.includes(location.pathname) || location.pathname.startsWith('/tv/') || location.pathname.startsWith('/telemetry/');
+    const isPublicView = publicPaths.includes(location.pathname) ||
+        location.pathname.startsWith('/tv/') ||
+        location.pathname.startsWith('/telemetry/') ||
+        location.pathname.startsWith('/p/');
 
     // Branding Query
     const { data: branding } = useQuery({
@@ -90,6 +94,38 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     const safeBranding = Array.isArray(branding) ? branding : [];
     const barLogo = safeBranding.find((s: { key: string; value: string }) => s.key === 'bar_logo')?.value || '/logo.png';
     const barName = safeBranding.find((s: { key: string; value: string }) => s.key === 'bar_name')?.value || 'VRacing Bar';
+
+    // --- LOCK CHECK LOGIC ---
+    // Poll hardware stats for station 1 (default) or detect station ID from URL/Storage
+    // In a real multi-station deployment, the frontend knows its "Station ID" via config.
+    // For now, we assume stationId = 1 or use local storage logic similar to KioskMode.
+    const [stationId, setStationId] = useState<number>(() => {
+        const stored = localStorage.getItem('kiosk_station_id');
+        return stored ? parseInt(stored) : 1;
+    });
+
+    useQuery({
+        queryKey: ['lock-check', stationId],
+        queryFn: async () => {
+            try {
+                const res = await axios.get(`${API_URL}/hardware/status/${stationId}`);
+                if (res.data?.is_locked) {
+                    if (location.pathname !== '/lock-screen') {
+                        window.location.href = '/lock-screen';
+                    }
+                } else {
+                    // If unlocked and currently on lock screen, go back to home/kiosk
+                    if (location.pathname === '/lock-screen') {
+                        window.location.href = '/kiosk'; // Default to kiosk after unlock
+                    }
+                }
+                return res.data;
+            } catch { return null; }
+        },
+        refetchInterval: 2000, // Poll every 2s
+        enabled: !location.pathname.includes('/admin') // Admin panel should not be locked ideally, or maybe it should? Let's exclude admin for safety.
+    });
+
 
     if (isPublicView) {
         return (
@@ -139,6 +175,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     <NavItem to="/history" icon={HistoryIcon} collapsed={!isSidebarOpen}>Historial</NavItem>
                     <NavItem to="/bookings" icon={CalendarCheck} collapsed={!isSidebarOpen}>Reservas</NavItem>
                     <NavItem to="/analytics" icon={LayoutDashboard} collapsed={!isSidebarOpen}>Ingresos</NavItem>
+                    <NavItem to="/admin/scenarios" icon={Gamepad2} collapsed={!isSidebarOpen}>Sesiones Kiosk</NavItem>
                     <NavItem to="/mods" icon={Library} collapsed={!isSidebarOpen}>Librería</NavItem>
 
                     {/* CONFIGURACIÓN */}
@@ -146,7 +183,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                         Sistema
                     </div>
                     <NavItem to="/settings" icon={Settings} collapsed={!isSidebarOpen}>Configuración</NavItem>
-                    <NavItem to="/config" icon={Settings} collapsed={!isSidebarOpen}>Editor AC</NavItem>
+                    <NavItem to="/settings?tab=game" icon={Gamepad2} collapsed={!isSidebarOpen}>Editor AC</NavItem>
                     <NavItem to="/profiles" icon={Users} collapsed={!isSidebarOpen}>Perfiles</NavItem>
 
                     {/* VISTA PÚBLICA */}

@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Trophy, MonitorPlay, Map, QrCode } from 'lucide-react';
+import { Trophy, MonitorPlay, Map, QrCode, Medal, Swords } from 'lucide-react';
 
 export default function LandingPage() {
     const navigate = useNavigate();
@@ -32,6 +32,20 @@ export default function LandingPage() {
             icon: MonitorPlay,
             color: "purple",
             path: "/tv"
+        },
+        {
+            title: "Salón de la Fama",
+            description: "Los pilotos más rápidos de la historia",
+            icon: Medal,
+            color: "orange",
+            path: "/hall-of-fame"
+        },
+        {
+            title: "Modo Batalla",
+            description: "Encuentros 1vs1 directos",
+            icon: Swords,
+            color: "red",
+            path: "/battle"
         }
     ];
 

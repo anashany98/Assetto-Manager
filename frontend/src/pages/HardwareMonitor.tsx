@@ -4,7 +4,7 @@ import axios from 'axios';
 import {
     Monitor, Cpu, Thermometer,
     AlertTriangle, CheckCircle, XCircle,
-    Gamepad2, RefreshCw, Car, MapPin, User
+    Gamepad2, RefreshCw, Car, MapPin, User, Power, PowerOff
 } from 'lucide-react';
 import { API_URL } from '../config';
 import { cn } from '../lib/utils';
@@ -58,6 +58,23 @@ function ProgressBar({ value, color, label }: { value: number; color: string; la
 }
 
 function StationHealthCard({ station }: { station: StationHealth }) {
+    const [isPending, setIsPending] = useState(false);
+
+    const handlePower = async (action: 'shutdown' | 'power-on' | 'restart') => {
+        if (!window.confirm(`¿Seguro que quieres ${action === 'power-on' ? 'ENCENDER' : action === 'shutdown' ? 'APAGAR' : 'REINICIAR'} esta estación?`)) return;
+
+        setIsPending(true);
+        try {
+            await axios.post(`${API_URL}/stations/${station.station_id}/${action}`);
+            // Success notification implied by UI update soon
+        } catch (err) {
+            console.error("Power action failed", err);
+            alert("Error al ejecutar acción de energía");
+        } finally {
+            setIsPending(false);
+        }
+    };
+
     const hasAlerts = station.alerts.length > 0;
     const statusColor = !station.is_online ? 'border-red-500' :
         hasAlerts ? 'border-yellow-500' : 'border-green-500';
@@ -68,7 +85,7 @@ function StationHealthCard({ station }: { station: StationHealth }) {
             statusColor
         )}>
             {/* Header */}
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                     <Monitor className="w-5 h-5 text-blue-400" />
                     <span className="font-bold text-white">{station.station_name}</span>
@@ -81,6 +98,37 @@ function StationHealthCard({ station }: { station: StationHealth }) {
                 )}>
                     {station.is_online ? (hasAlerts ? "⚠️ Alerta" : "✅ Online") : "❌ Offline"}
                 </div>
+            </div>
+
+            {/* Power Controls overlay-like strip */}
+            <div className="flex gap-2 mb-4">
+                {!station.is_online ? (
+                    <button
+                        disabled={isPending}
+                        onClick={() => handlePower('power-on')}
+                        className="flex-1 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white py-2 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-[0_4px_15px_rgba(22,163,74,0.3)]"
+                    >
+                        <Power size={12} /> Encender (WoL)
+                    </button>
+                ) : (
+                    <>
+                        <button
+                            disabled={isPending}
+                            onClick={() => handlePower('shutdown')}
+                            className="flex-1 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white py-2 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all border border-red-500/30"
+                        >
+                            <PowerOff size={12} /> Apagar
+                        </button>
+                        <button
+                            disabled={isPending}
+                            onClick={() => handlePower('restart')}
+                            className="p-2 bg-blue-600/20 hover:bg-blue-600 text-blue-400 hover:text-white rounded-lg transition-all border border-blue-500/30 flex items-center justify-center"
+                            title="Reiniciar"
+                        >
+                            <RefreshCw size={12} className={isPending ? "animate-spin" : ""} />
+                        </button>
+                    </>
+                )}
             </div>
 
             {/* Current Activity */}
@@ -234,6 +282,26 @@ export default function HardwareMonitor() {
                     <p className="text-gray-400 text-sm mt-1">Estado en tiempo real de los simuladores</p>
                 </div>
                 <div className="flex items-center gap-3">
+                    <button
+                        onClick={async () => {
+                            if (window.confirm("¿Apagar TODAS las estaciones online?")) {
+                                try {
+                                    await Promise.all(
+                                        stations?.filter(s => s.is_online).map(s =>
+                                            axios.post(`${API_URL}/stations/${s.station_id}/shutdown`)
+                                        ) || []
+                                    );
+                                    refetch();
+                                } catch (e) {
+                                    alert("Error al apagar algunas estaciones");
+                                }
+                            }
+                        }}
+                        className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm flex items-center gap-2 transition shadow-lg"
+                    >
+                        <PowerOff className="w-4 h-4" />
+                        Apagar TODO
+                    </button>
                     <button
                         onClick={() => setAutoRefresh(!autoRefresh)}
                         className={cn(

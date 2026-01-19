@@ -40,6 +40,40 @@ class HardwareMonitor(threading.Thread):
         except:
             disk = 0
 
+        # GPU Metrics (NVIDIA)
+        gpu_percent = 0
+        gpu_temp = 0
+        try:
+            import subprocess
+            # Get GPU load and temp
+            cmd = "nvidia-smi --query-gpu=utilization.gpu,temperature.gpu --format=csv,noheader,nounits"
+            result = subprocess.check_output(cmd, shell=True).decode('utf-8').strip()
+            if result:
+                parts = result.split(',')
+                gpu_percent = float(parts[0])
+                gpu_temp = float(parts[1])
+        except Exception:
+            # Fallback for non-NVIDIA or if nvidia-smi fails
+            gpu_percent = 0
+            gpu_temp = 0
+
+        # Peripheral Detection (Basic check for Joypads/Controllers via PowerShell)
+        wheel_connected = False
+        pedals_connected = False
+        try:
+            # Use PowerShell to find HID devices for Gaming Controllers
+            cmd_ps = 'powershell "Get-PnpDevice -Class GameControllers -Status OK"'
+            out = subprocess.check_output(cmd_ps, shell=True).decode('utf-8')
+            if out and "OK" in out:
+                # If any device is found, we assume at least a wheel is there
+                # Identifying specifically wheel vs pedals requires semi-complex vendor ID parsing
+                # For now, if GameControllers are OK, we assume connected
+                wheel_connected = True
+                pedals_connected = True
+        except Exception:
+            wheel_connected = False
+            pedals_connected = False
+
         # AC Running Check
         ac_running = False
         try:
@@ -59,10 +93,11 @@ class HardwareMonitor(threading.Thread):
             "cpu_percent": round(cpu, 1),
             "ram_percent": round(ram, 1),
             "disk_percent": round(disk, 1),
-            "gpu_temp": 0, # Requiere librerías dependientes de vendor (NVML), pospuesto para V2
+            "gpu_percent": round(gpu_percent, 1),
+            "gpu_temp": round(gpu_temp, 1),
             "ac_running": ac_running,
-            "wheel_connected": True, # Placeholder
-            "pedals_connected": True
+            "wheel_connected": wheel_connected,
+            "pedals_connected": pedals_connected
         }
 
     def send_report(self, data):

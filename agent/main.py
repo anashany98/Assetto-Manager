@@ -157,12 +157,14 @@ def scan_ac_content(ac_path: str, station_ip: str = None) -> dict:
                 name = car_folder
                 brand = ""
                 
+                specs = {}
                 if os.path.exists(ui_json):
                     try:
                         with open(ui_json, 'r', encoding='utf-8', errors='ignore') as f:
                             ui_data = json.load(f)
                             name = ui_data.get("name", car_folder)
                             brand = ui_data.get("brand", "")
+                            specs = ui_data.get("specs", {})
                     except Exception:
                         pass
                 
@@ -176,7 +178,8 @@ def scan_ac_content(ac_path: str, station_ip: str = None) -> dict:
                     "id": car_folder,
                     "name": name,
                     "brand": brand,
-                    "image_url": image_url
+                    "image_url": image_url,
+                    "specs": specs
                 })
     
     # Scan Tracks
@@ -189,6 +192,7 @@ def scan_ac_content(ac_path: str, station_ip: str = None) -> dict:
                 ui_json = os.path.join(ui_dir, "ui_track.json")
                 name = track_folder
                 layout = ""
+                geotags = []
                 
                 if os.path.exists(ui_json):
                     try:
@@ -196,17 +200,21 @@ def scan_ac_content(ac_path: str, station_ip: str = None) -> dict:
                             ui_data = json.load(f)
                             name = ui_data.get("name", track_folder)
                             layout = ui_data.get("description", "")
+                            geotags = ui_data.get("geotags", [])
                     except Exception:
                         pass
                 
                 # Find preview image and generate proxy URL
-                image_url = find_image_url(ui_dir, content_path, "preview.png", "outline.png")
+                image_url = find_image_url(ui_dir, content_path, "preview.png")
+                map_url = find_image_url(ui_dir, content_path, "outline.png", "map.png")
                 
                 result["tracks"].append({
                     "id": track_folder,
                     "name": name,
                     "layout": layout,
-                    "image_url": image_url
+                    "image_url": image_url,
+                    "map_url": map_url,
+                    "geotags": geotags
                 })
     
     logger.info(f"Scanned AC content: {len(result['cars'])} cars, {len(result['tracks'])} tracks")
@@ -422,6 +430,10 @@ def download_file(url, local_path):
 def synchronize_content(station_id):
     logger.info("Starting synchronization check...")
 
+    if watchdog._is_game_running():
+        logger.warning("Game is running. Skipping content synchronization.")
+        return "online"
+
     if hashing is None:
         logger.error("Shared hashing module unavailable; skipping sync.")
         return "error"
@@ -469,13 +481,13 @@ def synchronize_content(station_id):
     # Update status to syncing
     requests.put(f"{SERVER_URL}/stations/{station_id}", json={"status": "syncing"}, timeout=REQUEST_TIMEOUT)
     
-    for file_path in files_to_delete:
-        try:
-            full_path = AC_CONTENT_DIR / file_path
-            if full_path.exists():
-                os.remove(full_path)
-        except Exception as e:
-            logger.error(f"Failed to delete {file_path}: {e}")
+    # for file_path in files_to_delete:
+    #     try:
+    #         full_path = AC_CONTENT_DIR / file_path
+    #         if full_path.exists():
+    #             os.remove(full_path)
+    #     except Exception as e:
+    #         logger.error(f"Failed to delete {file_path}: {e}")
 
     for file_path, info in files_to_download:
         local_path = AC_CONTENT_DIR / file_path
@@ -923,6 +935,13 @@ LAPS=0
                         logger.warning("Kiosk mode only on Windows")
 
                 elif command == "scan_content":
+                    if watchdog._is_game_running():
+                         logger.warning("Game is running. Skipping content scan.")
+                         # Send empty or error response? Or just ignore? 
+                         # Better to notify backend or just do nothing.
+                         # Let's send a log and maybe a status
+                         continue
+
                     # Scan the AC content folder and return via WebSocket
                     ac_path = data.get("ac_path")
                     logger.info(f"Received SCAN_CONTENT command for: {ac_path}")
@@ -933,6 +952,18 @@ LAPS=0
                         "data": content
                     }))
                     logger.info(f"Sent content scan result: {len(content.get('cars', []))} cars, {len(content.get('tracks', []))} tracks")
+
+                elif command == "create_lobby":
+                    logger.info("Received CREATE_LOBBY command")
+                    create_lobby_server(data)
+
+                elif command == "join_lobby":
+                    logger.info("Received JOIN_LOBBY command")
+                    join_lobby_client(data)
+
+                elif command == "stop_lobby":
+                    logger.info("Received STOP_LOBBY command")
+                    stop_lobby_server()
 
                 elif command == "stop_session":
                     # Manual stop command from backend
@@ -1111,6 +1142,8 @@ def join_lobby_client(data):
         # We need to construct a race.ini that points to the remote server
         # Standard AC launcher creates 'race.ini' with [REMOTE] section configuration
         
+        is_spectator = data.get("is_spectator", False)
+        
         race_ini = f"""[RACE]
 MODEL={data.get('car')}
 MODEL_CONFIG=
@@ -1125,10 +1158,11 @@ PENALTIES=1
 ACTIVE=1
 SERVER_IP={data.get('server_ip')}
 SERVER_PORT={data.get('port')}
-NAME=Driver
+NAME={"TV Broadcast" if is_spectator else "Driver"}
 TEAM=
 GUID=
 REQUEST_CAR={data.get('car')}
+SPECTATOR_MODE={1 if is_spectator else 0}
 password=
 """
         cfg_dir = os.path.join(os.path.expanduser("~"), "Documents", "Assetto Corsa", "cfg")
@@ -1146,7 +1180,22 @@ password=
         subprocess.Popen([acs_exe], cwd=ac_path)
         
         # Update watchdog
-        watchdog.start_watching({"ac_path": ac_path}, duration_minutes=60) # Watch for 1h default
+        watchdog.start({"ac_path": ac_path})
+        
+        # Session Timer for Lobby - Kill game after 60 minutes or custom duration
+        duration_minutes = data.get("duration_minutes", 60)
+        def lobby_timer():
+            logger.info(f"Lobby session timer started: {duration_minutes} minutes")
+            time.sleep(duration_minutes * 60)
+            if watchdog.watching:
+                logger.info("Lobby session time expired! Closing game...")
+                watchdog.stop()
+                if platform.system() == "Windows":
+                    os.system("taskkill /F /IM acs.exe 2>nul")
+                else:
+                    os.system("pkill -9 acs 2>/dev/null")
+        
+        threading.Thread(target=lobby_timer, daemon=True).start()
         
     except Exception as e:
         logger.error(f"Failed to join lobby: {e}")

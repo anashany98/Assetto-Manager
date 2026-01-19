@@ -23,6 +23,11 @@ export interface Event {
     bracket_data?: unknown;
     is_active: boolean;
     championship_id?: number;
+    session_config?: {
+        mode: 'practice' | 'race';
+        duration_minutes: number;
+        laps: number;
+    };
 }
 
 export interface EventCreate {

@@ -81,14 +81,16 @@ async def create_lobby(
 
 @router.get("/list", response_model=List[schemas.Lobby])
 async def list_lobbies(
-    status: str = "waiting",
+    status: str = "active",
     db: Session = Depends(database.get_db)
 ):
     """
-    List available lobbies. By default shows only waiting lobbies.
+    List available lobbies. Default 'active' shows waiting and running.
     """
     query = db.query(models.Lobby)
-    if status != "all":
+    if status == "active":
+        query = query.filter(models.Lobby.status.in_(["waiting", "running"]))
+    elif status != "all":
         query = query.filter(models.Lobby.status == status)
     
     lobbies = query.order_by(models.Lobby.created_at.desc()).limit(20).all()
@@ -122,13 +124,26 @@ async def get_lobby(lobby_id: int, db: Session = Depends(database.get_db)):
     if not lobby:
         raise HTTPException(status_code=404, detail="Lobby not found")
     
+    first_player = lobby.players[0] if lobby.players else None
+    
+    # Query association table for extra data? 
+    # SQLAlchemy handles association attributes via the association object if mapped properly, 
+    # but here we used a Table `lobby_players`. 
+    # We need to query the table directly to get 'ready' status for each station.
+    
+    stmt = models.lobby_players.select().where(models.lobby_players.c.lobby_id == lobby_id)
+    results = db.execute(stmt).fetchall()
+    
+    # Map station_id to ready status
+    ready_map = {row.station_id: row.ready for row in results}
+
     players = []
     for idx, station in enumerate(lobby.players):
         players.append(schemas.LobbyPlayer(
             station_id=station.id,
             station_name=station.name,
             slot=idx,
-            ready=False  # TODO: track ready state
+            ready=ready_map.get(station.id, False)
         ))
     
     return schemas.Lobby(
@@ -149,6 +164,34 @@ async def get_lobby(lobby_id: int, db: Session = Depends(database.get_db)):
     )
 
 
+@router.post("/{lobby_id}/ready")
+async def toggle_ready(
+    lobby_id: int,
+    station_id: int,
+    is_ready: bool,
+    db: Session = Depends(database.get_db)
+):
+    """Toggle ready status for a station in the lobby."""
+    # Verify lobby exists
+    lobby = db.query(models.Lobby).filter(models.Lobby.id == lobby_id).first()
+    if not lobby:
+        raise HTTPException(status_code=404, detail="Lobby not found")
+
+    # Update association table
+    stmt = models.lobby_players.update().where(
+        (models.lobby_players.c.lobby_id == lobby_id) & 
+        (models.lobby_players.c.station_id == station_id)
+    ).values(ready=is_ready)
+    
+    result = db.execute(stmt)
+    db.commit()
+    
+    if result.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Player not found in lobby")
+        
+    return {"status": "updated", "ready": is_ready}
+
+
 @router.post("/{lobby_id}/join")
 async def join_lobby(
     lobby_id: int,
@@ -160,7 +203,7 @@ async def join_lobby(
     if not lobby:
         raise HTTPException(status_code=404, detail="Lobby not found")
     
-    if lobby.status != "waiting":
+    if lobby.status not in ["waiting", "running"]:
         raise HTTPException(status_code=400, detail="Lobby is not accepting players")
     
     if len(lobby.players) >= lobby.max_players:
@@ -172,13 +215,44 @@ async def join_lobby(
     
     # Check if already in lobby
     if station in lobby.players:
-        return {"status": "already_joined", "lobby_id": lobby_id}
+        # If running, we might want to "re-join" (send command again) just in case
+        if lobby.status == "running":
+             # Logic below will handle sending the command if we don't return here.
+             # But usually we return status. Let's pass through if running? 
+             # No, standard is to return status. Let's assume client handles "already_joined".
+             pass
+        else:
+             return {"status": "already_joined", "lobby_id": lobby_id}
+    else:
+        lobby.players.append(station)
+        db.commit()
     
-    lobby.players.append(station)
-    db.commit()
-    
-    logger.info(f"Station {station.name} joined lobby {lobby.name}")
-    
+    logger.info(f"Station {station.name} joined lobby {lobby.name} (Status: {lobby.status})")
+
+    # If lobby is already running, send join command immediately
+    if lobby.status == "running":
+        ws = manager.active_agents.get(station.id)
+        if ws:
+            try:
+                import json
+                # Calculate slot (might be append)
+                # Note: Entry list is static on server, so slot number effectively maps to CAR_x
+                # We need to ensure we give a valid slot index.
+                slot_idx = len(lobby.players) - 1
+                
+                await ws.send(json.dumps({
+                    "command": "join_lobby",
+                    "lobby_id": lobby.id,
+                    "server_ip": lobby.server_ip,
+                    "port": lobby.port,
+                    "track": lobby.track,
+                    "car": lobby.car,
+                    "slot": slot_idx
+                }))
+                logger.info(f"Sent immediate join_lobby to {station.name} (Late Join)")
+            except Exception as e:
+                logger.error(f"Failed to send immediate join_lobby to {station.name}: {e}")
+
     return {"status": "joined", "lobby_id": lobby_id, "slot": len(lobby.players) - 1}
 
 
@@ -202,8 +276,8 @@ async def start_lobby(
     if lobby.status != "waiting":
         raise HTTPException(status_code=400, detail="Lobby already started or finished")
     
-    if len(lobby.players) < 2:
-        raise HTTPException(status_code=400, detail="Need at least 2 players to start")
+    if len(lobby.players) < 1:
+        raise HTTPException(status_code=400, detail="Need at least 1 player to start")
     
     # Update status
     lobby.status = "starting"
@@ -248,11 +322,40 @@ async def start_lobby(
                     "port": lobby.port,
                     "track": lobby.track,
                     "car": lobby.car,
-                    "slot": idx
+                    "slot": idx,
+                    "is_spectator": False
                 }))
                 logger.info(f"Sent join_lobby to {station.name}")
             except Exception as e:
                 logger.error(f"Failed to send join_lobby to {station.name}: {e}")
+    
+    # NEW: Automatically join TV Mode stations as spectators
+    tv_stations = db.query(models.Station).filter(
+        models.Station.is_tv_mode == True,
+        models.Station.is_online == True
+    ).all()
+    
+    for tv_station in tv_stations:
+        # Don't send if already in lobby as player (unlikely but safe)
+        if any(p.id == tv_station.id for p in lobby.players):
+            continue
+            
+        ws = manager.active_agents.get(tv_station.id)
+        if ws:
+            try:
+                import json
+                await ws.send(json.dumps({
+                    "command": "join_lobby",
+                    "lobby_id": lobby.id,
+                    "server_ip": lobby.server_ip,
+                    "port": lobby.port,
+                    "track": lobby.track,
+                    "car": lobby.car,
+                    "is_spectator": True
+                }))
+                logger.info(f"Sent join_lobby (Spectator) to TV Station {tv_station.name}")
+            except Exception as e:
+                logger.error(f"Failed to send spectator join to {tv_station.name}: {e}")
     
     lobby.status = "running"
     db.commit()

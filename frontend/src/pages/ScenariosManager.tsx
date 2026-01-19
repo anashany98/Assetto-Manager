@@ -11,7 +11,8 @@ import {
     Flag,
     Clock
 } from 'lucide-react';
-import { getScenarios, createScenario, updateScenario, deleteScenario, Scenario } from '../api/scenarios';
+import { getScenarios, createScenario, updateScenario, deleteScenario } from '../api/scenarios';
+import type { Scenario } from '../api/scenarios';
 import { getCars, getTracks } from '../api/content';
 
 export default function ScenariosManager() {
@@ -52,7 +53,25 @@ export default function ScenariosManager() {
 
     const updateMutation = useMutation({
         mutationFn: (data: { id: number, scenario: Partial<Scenario> }) => updateScenario(data.id, data.scenario),
-        onSuccess: () => {
+        onMutate: async (newData) => {
+            // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
+            await queryClient.cancelQueries({ queryKey: ['scenarios'] });
+
+            // Snapshot the previous value
+            const previousScenarios = queryClient.getQueryData(['scenarios']);
+
+            // Optimistically update to the new value
+            queryClient.setQueryData(['scenarios'], (old: Scenario[] = []) => {
+                return old.map(sc => sc.id === newData.id ? { ...sc, ...newData.scenario } : sc);
+            });
+
+            // Return a context object with the snapshotted value
+            return { previousScenarios };
+        },
+        onError: (err, newTodo, context) => {
+            queryClient.setQueryData(['scenarios'], context?.previousScenarios);
+        },
+        onSettled: () => {
             queryClient.invalidateQueries({ queryKey: ['scenarios'] });
             setEditingId(null);
             resetForm();
@@ -136,16 +155,16 @@ export default function ScenariosManager() {
                         <button onClick={() => { setIsCreating(false); setEditingId(null); }} className="text-gray-400 hover:text-white"><X /></button>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
                         {/* BASIC INFO */}
-                        <div className="space-y-4">
+                        <div className="space-y-6 lg:col-span-1">
                             <div>
                                 <label className="block text-gray-400 text-sm font-bold mb-1">NOMBRE</label>
                                 <input
                                     type="text"
                                     value={formData.name || ''}
                                     onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                    className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-blue-500 outline-none"
+                                    className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-blue-500 outline-none"
                                     placeholder="Ej. Torneo Drift JDM"
                                 />
                             </div>
@@ -154,7 +173,7 @@ export default function ScenariosManager() {
                                 <textarea
                                     value={formData.description || ''}
                                     onChange={e => setFormData({ ...formData, description: e.target.value })}
-                                    className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-blue-500 outline-none h-24"
+                                    className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-blue-500 outline-none h-32 resize-none"
                                     placeholder="Descripción breve para el usuario..."
                                 />
                             </div>
@@ -165,59 +184,70 @@ export default function ScenariosManager() {
                                         <button
                                             key={mins}
                                             onClick={() => setFormData({ ...formData, allowed_durations: toggleDuration(mins) })}
-                                            className={`px-3 py-1 rounded-lg text-sm font-bold border transition-all ${formData.allowed_durations?.includes(mins) ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-900 border-gray-700 text-gray-400 hover:border-gray-500'}`}
+                                            className={`px-3 py-2 rounded-lg text-sm font-bold border transition-all ${formData.allowed_durations?.includes(mins) ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-900 border-gray-700 text-gray-400 hover:border-gray-500'}`}
                                         >
                                             {mins}m
                                         </button>
                                     ))}
                                 </div>
                             </div>
+                            <div>
+                                <label className="flex items-center gap-3 p-3 bg-gray-900 border border-gray-700 rounded-lg cursor-pointer hover:border-blue-500 transition-colors">
+                                    <div className={`w-10 h-6 rounded-full p-1 transition-colors ${formData.is_active ? 'bg-green-500' : 'bg-gray-700'}`}>
+                                        <div className={`w-4 h-4 bg-white rounded-full transition-transform ${formData.is_active ? 'translate-x-4' : 'translate-x-0'}`} />
+                                    </div>
+                                    <span className="font-bold text-sm text-gray-300">ESCENARIO ACTIVO</span>
+                                    <input
+                                        type="checkbox"
+                                        className="hidden"
+                                        checked={formData.is_active || false}
+                                        onChange={e => setFormData({ ...formData, is_active: e.target.checked })}
+                                    />
+                                </label>
+                            </div>
                         </div>
 
-                        {/* CONTENT SELECTOR */}
-                        <div className="grid grid-cols-2 gap-4 h-96">
-                            {/* CARS */}
-                            <div className="flex flex-col h-full bg-gray-900/50 rounded-xl p-4 border border-gray-700">
-                                <h3 className="text-sm font-bold text-gray-400 mb-3 flex items-center gap-2"><Car size={16} /> COCHES PERMITIDOS</h3>
-                                <div className="flex-1 overflow-y-auto space-y-1 custom-scrollbar pr-2">
-                                    {allCars.map((c: any) => (
-                                        <div
-                                            key={c.id}
-                                            onClick={() => setFormData({ ...formData, allowed_cars: toggleSelection(formData.allowed_cars || [], c.id) })}
-                                            className={`p-2 rounded cursor-pointer text-sm flex items-center gap-2 ${formData.allowed_cars?.includes(c.id) ? 'bg-blue-600/20 text-blue-400' : 'text-gray-400 hover:bg-gray-800'}`}
-                                        >
-                                            <div className={`w-4 h-4 rounded border flex items-center justify-center ${formData.allowed_cars?.includes(c.id) ? 'bg-blue-600 border-blue-600' : 'border-gray-600'}`}>
-                                                {formData.allowed_cars?.includes(c.id) && <Check size={12} className="text-white" />}
-                                            </div>
-                                            <span className="truncate">{c.name}</span>
+                        {/* CARS */}
+                        <div className="flex flex-col h-[500px] bg-gray-900/50 rounded-xl p-4 border border-gray-700 lg:col-span-1">
+                            <h3 className="text-sm font-bold text-gray-400 mb-3 flex items-center gap-2"><Car size={16} /> COCHES PERMITIDOS</h3>
+                            <div className="flex-1 overflow-y-auto space-y-1 custom-scrollbar pr-2">
+                                {allCars.map((c: any) => (
+                                    <div
+                                        key={c.id}
+                                        onClick={() => setFormData({ ...formData, allowed_cars: toggleSelection(formData.allowed_cars || [], c.id) })}
+                                        className={`p-3 rounded-lg cursor-pointer text-sm flex items-center gap-3 transition-colors ${formData.allowed_cars?.includes(c.id) ? 'bg-blue-600/20 text-blue-400 border border-blue-600/30' : 'text-gray-400 hover:bg-gray-800 border border-transparent'}`}
+                                    >
+                                        <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${formData.allowed_cars?.includes(c.id) ? 'bg-blue-600 border-blue-600' : 'border-gray-600'}`}>
+                                            {formData.allowed_cars?.includes(c.id) && <Check size={14} className="text-white" />}
                                         </div>
-                                    ))}
-                                </div>
-                                <div className="mt-2 text-xs text-center text-gray-500">
-                                    {formData.allowed_cars?.length || 0} coches seleccionados (0 = Todos)
-                                </div>
+                                        <span className="truncate font-medium">{c.name}</span>
+                                    </div>
+                                ))}
                             </div>
+                            <div className="mt-3 pt-3 border-t border-gray-700 text-xs text-center text-gray-500 font-bold uppercase">
+                                {formData.allowed_cars?.length || 0} coches seleccionados (0 = Todos)
+                            </div>
+                        </div>
 
-                            {/* TRACKS */}
-                            <div className="flex flex-col h-full bg-gray-900/50 rounded-xl p-4 border border-gray-700">
-                                <h3 className="text-sm font-bold text-gray-400 mb-3 flex items-center gap-2"><Flag size={16} /> CIRCUITOS PERMITIDOS</h3>
-                                <div className="flex-1 overflow-y-auto space-y-1 custom-scrollbar pr-2">
-                                    {allTracks.map((t: any) => (
-                                        <div
-                                            key={t.id}
-                                            onClick={() => setFormData({ ...formData, allowed_tracks: toggleSelection(formData.allowed_tracks || [], t.id) })}
-                                            className={`p-2 rounded cursor-pointer text-sm flex items-center gap-2 ${formData.allowed_tracks?.includes(t.id) ? 'bg-green-600/20 text-green-400' : 'text-gray-400 hover:bg-gray-800'}`}
-                                        >
-                                            <div className={`w-4 h-4 rounded border flex items-center justify-center ${formData.allowed_tracks?.includes(t.id) ? 'bg-green-600 border-green-600' : 'border-gray-600'}`}>
-                                                {formData.allowed_tracks?.includes(t.id) && <Check size={12} className="text-white" />}
-                                            </div>
-                                            <span className="truncate">{t.name}</span>
+                        {/* TRACKS */}
+                        <div className="flex flex-col h-[500px] bg-gray-900/50 rounded-xl p-4 border border-gray-700 lg:col-span-1">
+                            <h3 className="text-sm font-bold text-gray-400 mb-3 flex items-center gap-2"><Flag size={16} /> CIRCUITOS PERMITIDOS</h3>
+                            <div className="flex-1 overflow-y-auto space-y-1 custom-scrollbar pr-2">
+                                {allTracks.map((t: any) => (
+                                    <div
+                                        key={t.id}
+                                        onClick={() => setFormData({ ...formData, allowed_tracks: toggleSelection(formData.allowed_tracks || [], t.id) })}
+                                        className={`p-3 rounded-lg cursor-pointer text-sm flex items-center gap-3 transition-colors ${formData.allowed_tracks?.includes(t.id) ? 'bg-green-600/20 text-green-400 border border-green-600/30' : 'text-gray-400 hover:bg-gray-800 border border-transparent'}`}
+                                    >
+                                        <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${formData.allowed_tracks?.includes(t.id) ? 'bg-green-600 border-green-600' : 'border-gray-600'}`}>
+                                            {formData.allowed_tracks?.includes(t.id) && <Check size={14} className="text-white" />}
                                         </div>
-                                    ))}
-                                </div>
-                                <div className="mt-2 text-xs text-center text-gray-500">
-                                    {formData.allowed_tracks?.length || 0} circuitos seleccionados (0 = Todos)
-                                </div>
+                                        <span className="truncate font-medium">{t.name}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="mt-3 pt-3 border-t border-gray-700 text-xs text-center text-gray-500 font-bold uppercase">
+                                {formData.allowed_tracks?.length || 0} circuitos seleccionados (0 = Todos)
                             </div>
                         </div>
                     </div>
@@ -254,7 +284,15 @@ export default function ScenariosManager() {
                         <div key={sc.id} className="bg-gray-800 rounded-2xl p-6 border border-gray-700 hover:border-blue-500 transition-all group">
                             <div className="flex justify-between items-start mb-4">
                                 <h3 className="text-xl font-black text-white">{sc.name}</h3>
-                                {sc.is_active && <span className="bg-green-500/20 text-green-400 text-xs font-bold px-2 py-1 rounded">ACTIVO</span>}
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        updateMutation.mutate({ id: sc.id!, scenario: { is_active: !sc.is_active } });
+                                    }}
+                                    className={`text-xs font-bold px-3 py-1 rounded transition-colors ${sc.is_active ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' : 'bg-gray-700 text-gray-500 hover:bg-gray-600'}`}
+                                >
+                                    {sc.is_active ? 'ACTIVO' : 'INACTIVO'}
+                                </button>
                             </div>
                             <p className="text-gray-400 text-sm mb-6 line-clamp-2 h-10">{sc.description || 'Sin descripción'}</p>
 

@@ -134,6 +134,54 @@ def upload_session_result(
         
         db.commit()
         return {"status": "ok", "session_id": new_session.id}
+
+        # 3. Tournament Auto-Advance Logic
+        if new_session.session_type == 'race' and new_session.event_id:
+            try:
+                event = db.query(models.Event).filter(models.Event.id == new_session.event_id).first()
+                if event and event.bracket_data:
+                    bracket = tournament.load_bracket(event)
+                    if bracket:
+                        # Find match where this driver is pending
+                        match = tournament.find_active_match(bracket, new_session.driver_name)
+                        if match:
+                            opponent_name = match["player2"] if match["player1"] == new_session.driver_name else match["player1"]
+                            
+                            if opponent_name and opponent_name != "BYE":
+                                # Look for opponent's recent result (last 1 hour)
+                                since = datetime.now(timezone.utc) - timedelta(hours=1)
+                                
+                                opp_session = db.query(models.SessionResult).filter(
+                                    models.SessionResult.event_id == event.id,
+                                    models.SessionResult.driver_name == opponent_name,
+                                    models.SessionResult.session_type == 'race',
+                                    models.SessionResult.date >= since
+                                ).order_by(desc(models.SessionResult.date)).first()
+                                
+                                if opp_session:
+                                    # Compare results
+                                    # 1. Total Laps (More is better)
+                                    my_laps_count = db.query(models.LapTime).filter(models.LapTime.session_id == new_session.id).count()
+                                    opp_laps_count = db.query(models.LapTime).filter(models.LapTime.session_id == opp_session.id).count()
+                                    
+                                    winner = None
+                                    if my_laps_count != opp_laps_count:
+                                        winner = new_session.driver_name if my_laps_count > opp_laps_count else opponent_name
+                                    else:
+                                        # 2. Total Time (Less is better)
+                                        my_total_time = db.query(func.sum(models.LapTime.time)).filter(models.LapTime.session_id == new_session.id).scalar() or 0
+                                        opp_total_time = db.query(func.sum(models.LapTime.time)).filter(models.LapTime.session_id == opp_session.id).scalar() or 0
+                                        
+                                        if my_total_time and opp_total_time:
+                                            winner = new_session.driver_name if my_total_time < opp_total_time else opponent_name
+                                            
+                                    if winner:
+                                        logger.info(f"Tournament Match Auto-Decided: {winner} wins against {opponent_name if winner == new_session.driver_name else new_session.driver_name}")
+                                        tournament.advance_bracket_for_winner(event, winner, db)
+
+            except Exception as e:
+                logger.error(f"Tournament auto-advance failed: {e}")
+
     except Exception as e:
         db.rollback()
         logger.error(f"Failed to upload session: {e}")
@@ -736,7 +784,25 @@ def get_recent_sessions(
         query = query.filter(models.SessionResult.driver_name.ilike(f"%{driver_name}%"))
     if car_model:
         query = query.filter(models.SessionResult.car_model.ilike(f"%{car_model}%"))
-    return query.order_by(desc(models.SessionResult.date)).limit(limit).all()
+    
+    sessions = query.order_by(desc(models.SessionResult.date)).limit(limit).all()
+    
+    # Fill best_lap_id for each session
+    results = []
+    for s in sessions:
+        # Find the actual ID of the best lap
+        best_lap_obj = db.query(models.LapTime).filter(
+            models.LapTime.session_id == s.id,
+            models.LapTime.valid == True
+        ).order_by(asc(models.LapTime.time)).first()
+        
+        # Pydantic conversion with extra field
+        # Use schemas.SessionResult.from_orm(s) and then add the field
+        session_data = schemas.SessionResult.from_orm(s)
+        session_data.best_lap_id = best_lap_obj.id if best_lap_obj else None
+        results.append(session_data)
+        
+    return results
 
 @router.get("/stats", response_model=schemas.LeaderboardStats)
 def get_teleboard_stats(db: Session = Depends(database.get_db)):
@@ -926,25 +992,37 @@ def compare_multi_drivers(
             stats = get_stats(driver)
             if stats:
                 drivers_stats.append(schemas.ComparisonStats(**stats))
+            else:
+                # Placeholder for driver with no data
+                drivers_stats.append(schemas.ComparisonStats(
+                    driver_name=driver,
+                    best_lap=0,
+                    total_laps=0,
+                    consistency=0.0,
+                    win_count=0
+                ))
         
         if len(drivers_stats) < 1:
-            raise HTTPException(status_code=404, detail="No data found for any of the requested drivers")
+            raise HTTPException(status_code=404, detail="No valid drivers selected")
 
-        # Sort by Best Lap (Ascending - Fastest first)
-        drivers_stats.sort(key=lambda x: x.best_lap)
+        # Sort by Best Lap (Fastest first, but no-data at the end)
+        drivers_stats.sort(key=lambda x: x.best_lap if x.best_lap > 0 else 999999999)
 
         # Calculate Win Counts / Highlights
-        # 1. Best Lap: Index 0 is already winner after sort
-        if drivers_stats:
-            drivers_stats[0].win_count += 1
-            
-        # 2. Consistency: Find min consistency
-        best_consistency = min(drivers_stats, key=lambda x: x.consistency)
-        best_consistency.win_count += 1
+        # Only active drivers with actual laps can win
+        active_drivers = [d for d in drivers_stats if d.total_laps > 0]
         
-        # 3. Total Laps: Find max laps
-        most_laps = max(drivers_stats, key=lambda x: x.total_laps)
-        most_laps.win_count += 1
+        if active_drivers:
+            # 1. Best Lap: Index 0 of sorted active
+            active_drivers[0].win_count += 1
+                
+            # 2. Consistency: Find min consistency
+            best_consistency = min(active_drivers, key=lambda x: x.consistency)
+            best_consistency.win_count += 1
+            
+            # 3. Total Laps: Find max laps
+            most_laps = max(active_drivers, key=lambda x: x.total_laps)
+            most_laps.win_count += 1
 
         return schemas.MultiDriverComparisonResponse(
             track_name=payload.track,
@@ -986,3 +1064,146 @@ def get_track_map(track_name: str, db: Session = Depends(database.get_db)):
                         return FileResponse(os.path.join(root, file))
     
     raise HTTPException(status_code=404, detail="Map not found for track")
+@router.get("/coach/{lap_id}", response_model=schemas.CoachAnalysis)
+def get_lap_coach_analysis(lap_id: int, db: Session = Depends(database.get_db)):
+    """
+    Automated driving coach. Compares a lap against the all-time best for that car/track.
+    """
+    # 1. Get User Lap
+    user_lap = db.query(models.LapTime).filter(models.LapTime.id == lap_id).first()
+    if not user_lap:
+        raise HTTPException(status_code=404, detail="Lap not found")
+    
+    # 2. Get Best Reference Lap (Ghost)
+    # Filter by track and car, grab the fastest valid one excluding the current lap
+    ghost_lap = db.query(models.LapTime).join(models.SessionResult).filter(
+        models.SessionResult.track_name == user_lap.session.track_name,
+        models.SessionResult.car_model == user_lap.session.car_model,
+        models.LapTime.valid == True,
+        models.LapTime.id != user_lap.id
+    ).order_by(asc(models.LapTime.time)).first()
+    
+    # Fallback: if no other lap, use itself but tips will be empty (or we can find another car)
+    if not ghost_lap:
+        # Try finding a lap with DIFFERENT car but same track as second fallback? 
+        # For now, let's just return no tips if solo.
+        ghost_lap = user_lap 
+
+    # 3. Load Telemetry
+    user_tel = _coerce_json_value(user_lap.telemetry_data) or []
+    ghost_tel = _coerce_json_value(ghost_lap.telemetry_data) or []
+    
+    if not user_tel or not ghost_tel:
+         return schemas.CoachAnalysis(
+            lap_id=lap_id,
+            reference_lap_id=ghost_lap.id,
+            driver_name=user_lap.session.driver_name,
+            reference_driver_name=ghost_lap.session.driver_name,
+            track_name=user_lap.session.track_name,
+            car_model=user_lap.session.car_model,
+            lap_time=user_lap.time,
+            reference_time=ghost_lap.time,
+            time_gap=user_lap.time - ghost_lap.time,
+            tips=[],
+            user_telemetry=[],
+            ghost_telemetry=[]
+        )
+
+    # 4. Normalize and Analysis
+    # Divide track into 100 buckets by 'n' (0.0 to 1.0)
+    NUM_BUCKETS = 100
+    user_buckets = [[] for _ in range(NUM_BUCKETS)]
+    ghost_buckets = [[] for _ in range(NUM_BUCKETS)]
+    
+    for p in user_tel:
+        idx = min(int(p.get('n', 0) * NUM_BUCKETS), NUM_BUCKETS - 1)
+        user_buckets[idx].append(p.get('s', 0))
+    for p in ghost_tel:
+        idx = min(int(p.get('n', 0) * NUM_BUCKETS), NUM_BUCKETS - 1)
+        ghost_buckets[idx].append(p.get('s', 0))
+        
+    avg_user = [sum(b)/len(b) if b else 0 for b in user_buckets]
+    avg_ghost = [sum(b)/len(b) if b else 0 for b in ghost_buckets]
+    
+    # Interpolate empty buckets (simple linear)
+    def interpolate(data):
+        for i in range(len(data)):
+            if data[i] == 0:
+                prev_v = next((v for v in reversed(data[:i]) if v > 0), 0)
+                next_v = next((v for v in data[i+1:] if v > 0), prev_v)
+                data[i] = (prev_v + next_v) / 2
+        return data
+
+    avg_user = interpolate(avg_user)
+    avg_ghost = interpolate(avg_ghost)
+    
+    tips = []
+    
+    # Simple Pattern Matching for Tips
+    for i in range(1, NUM_BUCKETS - 1):
+        u_speed = avg_user[i]
+        g_speed = avg_ghost[i]
+        diff = u_speed - g_speed
+        
+        # Tip Thresholds
+        if diff < -15: # 15km/h slower is significant
+            pos = i / NUM_BUCKETS
+            
+            # Check for "Braking Too Early"
+            # If ghost is still fast but user is already slowing down
+            if avg_ghost[i] > 200 and avg_user[i] < avg_user[i-1] - 5:
+                if not any(t.type == "braking" and abs(t.position_normalized - pos) < 0.1 for t in tips):
+                    tips.append(schemas.CoachTip(
+                        type="braking",
+                        severity="high" if diff < -30 else "medium",
+                        message=f"Estás frenando demasiado pronto. Puedes ganar tiempo retrasando la frenada aquí.",
+                        position_normalized=pos,
+                        delta_value=diff
+                    ))
+            
+            # Check for "Fast Corner/Apex Speed"
+            # If both are slow (cornering) but user is much slower
+            elif avg_ghost[i] < 150 and diff < -20:
+                if not any(t.type == "apex" and abs(t.position_normalized - pos) < 0.05 for t in tips):
+                    tips.append(schemas.CoachTip(
+                        type="apex",
+                        severity="medium",
+                        message=f"Tu velocidad en el vértice es baja. Intenta mantener más inercia en la curva.",
+                        position_normalized=pos,
+                        delta_value=diff
+                    ))
+            
+            # Check for "Exit Speed"
+            # If speed is rising but user is lagging behind ghost's acceleration
+            elif avg_user[i] > avg_user[i-1] + 2 and diff < -10:
+                if not any(t.type == "exit" and abs(t.position_normalized - pos) < 0.1 for t in tips):
+                    tips.append(schemas.CoachTip(
+                        type="exit",
+                        severity="medium",
+                        message=f"Salida lenta. Aplica el acelerador antes o con más decisión al salir de la curva.",
+                        position_normalized=pos,
+                        delta_value=diff
+                    ))
+
+    # Limit tips to the best 5 to avoid overwhelming the user
+    tips = sorted(tips, key=lambda x: abs(x.delta_value), reverse=True)[:5]
+    
+    # Simplified telemetry for the frontend chart (fewer points)
+    resample = 100
+    user_chart = [{"n": round(p.get('n',0), 2), "s": p.get('s',0)} for i, p in enumerate(user_tel) if i % (len(user_tel)//resample or 1) == 0]
+    ghost_chart = [{"n": round(p.get('n',0), 2), "s": p.get('s',0)} for i, p in enumerate(ghost_tel) if i % (len(ghost_tel)//resample or 1) == 0]
+
+    return schemas.CoachAnalysis(
+        lap_id=lap_id,
+        reference_lap_id=ghost_lap.id,
+        driver_name=user_lap.session.driver_name,
+        reference_driver_name=ghost_lap.session.driver_name,
+        track_name=user_lap.session.track_name,
+        car_model=user_lap.session.car_model,
+        lap_time=user_lap.time,
+        reference_time=ghost_lap.time,
+        time_gap=user_lap.time - ghost_lap.time,
+        tips=tips,
+        user_telemetry=user_chart,
+        ghost_telemetry=ghost_chart
+    )

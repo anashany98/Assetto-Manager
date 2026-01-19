@@ -142,6 +142,35 @@ async def check_and_send_reminders():
         db.close()
 
 
+from ..routers.websockets import manager as ws_manager
+
+async def sync_station_content():
+    """Trigger content scan on all active stations"""
+    logger.info("Triggering hourly content sync for active stations...")
+    try:
+        active_count = 0
+        for station_id, ws in ws_manager.active_agents.items():
+            try:
+                # We need to get the AC path for this station to send it back?
+                # The agent knows its path, but the command expects it?
+                # Looking at control.py: get_station_content sends "ac_path".
+                # We can fetch it from DB.
+                db = database.SessionLocal()
+                station = db.query(models.Station).filter(models.Station.id == station_id).first()
+                if station and station.ac_path:
+                    await ws.send_text(json.dumps({
+                        "command": "scan_content",
+                        "ac_path": station.ac_path
+                    }))
+                    active_count += 1
+                db.close()
+            except Exception as ex:
+                logger.error(f"Failed to sync station {station_id}: {ex}")
+        
+        logger.info(f"Content sync triggered for {active_count} stations")
+    except Exception as e:
+        logger.error(f"Error in global content sync: {e}")
+
 def start_scheduler():
     """Initialize and start the scheduler"""
     # Run reminder check every day at 18:00 (6 PM)
@@ -151,9 +180,18 @@ def start_scheduler():
         id="booking_reminders",
         replace_existing=True
     )
+
+    # Sync Content every hour
+    scheduler.add_job(
+        sync_station_content,
+        'interval',
+        minutes=60,
+        id="content_sync",
+        replace_existing=True
+    )
     
     scheduler.start()
-    logger.info("Scheduler started - Booking reminders scheduled for 18:00 daily")
+    logger.info("Scheduler started - Booking reminders (18:00) & Content Sync (Hourly)")
 
 
 def stop_scheduler():
