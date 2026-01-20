@@ -53,6 +53,16 @@ def fix_stations_columns():
             conn.execute(text("ALTER TABLE stations ADD COLUMN is_kiosk_mode BOOLEAN DEFAULT FALSE"))
             conn.execute(text("ALTER TABLE stations ADD COLUMN is_locked BOOLEAN DEFAULT FALSE"))
             
+            # Fix ac_path
+            print("Fixing ac_path...")
+            conn.execute(text("ALTER TABLE stations ADD COLUMN IF NOT EXISTS ac_path TEXT DEFAULT 'C:\\\\Program Files (x86)\\\\Steam\\\\steamapps\\\\common\\\\assettocorsa'"))
+            
+            # Fix content_cache and others
+            print("Fixing content_cache, diagnostics...")
+            conn.execute(text("ALTER TABLE stations ADD COLUMN IF NOT EXISTS content_cache JSONB DEFAULT NULL"))
+            conn.execute(text("ALTER TABLE stations ADD COLUMN IF NOT EXISTS content_cache_updated TIMESTAMP WITH TIME ZONE DEFAULT NULL"))
+            conn.execute(text("ALTER TABLE stations ADD COLUMN IF NOT EXISTS diagnostics JSONB DEFAULT NULL"))
+            
             print("✅ Columns fixed.")
             
         except Exception as e:
