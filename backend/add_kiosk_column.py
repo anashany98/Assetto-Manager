@@ -2,7 +2,7 @@ import sqlite3
 import os
 
 # Explicitly use the backend database
-DB_PATH = "vracing.db"
+DB_PATH = "ac_manager.db"
 
 def add_columns():
     if not os.path.exists(DB_PATH):
