@@ -1,0 +1,1 @@
+import{a,A as t}from"./index-MjGtIaAt.js";const r=async()=>(await a.get(`${t}/stations`)).data,c=async(s,n)=>(await a.put(`${t}/stations/${s}`,n)).data,p=async s=>(await a.post(`${t}/stations/mass-launch`,s)).data;export{r as g,p as m,c as u};
