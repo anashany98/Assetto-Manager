@@ -35,6 +35,18 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# CSP Middleware - Allow eval for React/Vite dev tools compatibility
+from starlette.middleware.base import BaseHTTPMiddleware
+
+class CSPMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        # Permissive CSP for SPA - allows inline scripts and eval
+        response.headers["Content-Security-Policy"] = "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;"
+        return response
+
+app.add_middleware(CSPMiddleware)
+
 # Global Exception Handler
 from fastapi.responses import JSONResponse
 from fastapi import Request
