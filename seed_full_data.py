@@ -1,6 +1,11 @@
 import random
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
+import os
+
+# Explicitly set DB path for seeding
+os.environ["DATABASE_URL"] = "sqlite:///backend/vracing.db"
+
 from backend.app.database import SessionLocal, engine
 from backend.app import models
 
@@ -9,7 +14,28 @@ models.Base.metadata.create_all(bind=engine)
 db = SessionLocal()
 
 def seed_data():
-    print("🌱 Seeding Assetto Corsa Manager with Rich Data...")
+    print("Seeding Assetto Corsa Manager with Rich Data...")
+
+    # --- 0. Stations ---
+    stations = [(1, "Simulador 1", "192.168.1.101"), (2, "Simulador 2", "192.168.1.102")]
+    for s_id, name, ip in stations:
+        station = db.query(models.Station).filter(models.Station.id == s_id).first()
+        if not station:
+            station = models.Station(
+                id=s_id,
+                name=name,
+                ip_address=ip,
+                mac_address=f"00:11:22:33:44:0{s_id}",
+                hostname=f"sim{s_id}",
+                is_active=True,
+                is_online=True,
+                is_kiosk_mode=False,
+                is_locked=False,
+                is_tv_mode=False
+            )
+            db.add(station)
+            db.commit()
+            print(f"Created Station: {name}")
 
     # --- 1. Drivers ---
     drivers_list = [
@@ -124,7 +150,7 @@ def seed_data():
                 db.add(lap)
                 
     db.commit()
-    print("✅ Database Seeded Successfully!")
+    print("Database Seeded Successfully!")
 
 if __name__ == "__main__":
     seed_data()

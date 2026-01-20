@@ -215,7 +215,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </div>
 
             {/* Main Content Area */}
-            <div className="flex-1 overflow-auto relative racing-stripe">
+            <div className="flex-1 overflow-auto relative">
                 <div className="min-h-full">
                     {children}
                 </div>

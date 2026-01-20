@@ -67,7 +67,15 @@ export default function AnalyticsPanel() {
         );
     }
 
-    const tierData = Object.entries(data.loyalty.tier_distribution).map(([tier, count]) => ({
+    const summary = data?.summary || { sessions_today: 0, sessions_this_week: 0, active_drivers_week: 0, sessions_this_month: 0, total_sessions: 0, total_drivers: 0 };
+    const bookings = data?.bookings || { today: 0, total: 0, pending: 0, confirmed: 0 };
+    const loyalty = data?.loyalty || { total_points_issued: 0, total_points_redeemed: 0, tier_distribution: {} };
+    const topDrivers = data?.top_drivers || [];
+    const popularTracks = data?.popular_tracks || [];
+    const popularCars = data?.popular_cars || [];
+    const sessionsPerDay = data?.sessions_per_day || [];
+
+    const tierData = Object.entries(loyalty.tier_distribution || {}).map(([tier, count]) => ({
         name: tier.charAt(0).toUpperCase() + tier.slice(1),
         value: count,
         color: TIER_COLORS[tier] || '#gray'
@@ -88,25 +96,25 @@ export default function AnalyticsPanel() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <QuickStat
                     label="Sesiones Hoy"
-                    value={data.summary.sessions_today}
+                    value={summary.sessions_today}
                     icon={Clock}
                     color="blue"
                 />
                 <QuickStat
                     label="Esta Semana"
-                    value={data.summary.sessions_this_week}
+                    value={summary.sessions_this_week}
                     icon={Calendar}
                     color="green"
                 />
                 <QuickStat
                     label="Pilotos Activos"
-                    value={data.summary.active_drivers_week}
+                    value={summary.active_drivers_week}
                     icon={Users}
                     color="purple"
                 />
                 <QuickStat
                     label="Reservas Hoy"
-                    value={data.bookings.today}
+                    value={bookings.today}
                     icon={Calendar}
                     color="amber"
                 />
@@ -119,7 +127,7 @@ export default function AnalyticsPanel() {
                 </h3>
                 <div className="h-48">
                     <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={data.sessions_per_day}>
+                        <BarChart data={sessionsPerDay}>
                             <XAxis dataKey="day" tick={{ fill: '#6b7280', fontSize: 10 }} axisLine={false} tickLine={false} />
                             <YAxis tick={{ fill: '#6b7280', fontSize: 10 }} axisLine={false} tickLine={false} />
                             <Tooltip
@@ -141,8 +149,8 @@ export default function AnalyticsPanel() {
                         Top Pilotos (Este Mes)
                     </h3>
                     <div className="space-y-3">
-                        {data.top_drivers.length > 0 ? (
-                            data.top_drivers.map((driver, i) => (
+                        {topDrivers.length > 0 ? (
+                            topDrivers.map((driver, i) => (
                                 <div key={driver.name} className="flex items-center justify-between bg-gray-900/50 p-3 rounded-xl">
                                     <div className="flex items-center gap-3">
                                         <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-sm ${i === 0 ? 'bg-yellow-500 text-black' :
@@ -172,9 +180,9 @@ export default function AnalyticsPanel() {
                         Circuitos Populares
                     </h3>
                     <div className="h-48">
-                        {data.popular_tracks.length > 0 ? (
+                        {popularTracks.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={data.popular_tracks} layout="vertical">
+                                <BarChart data={popularTracks} layout="vertical">
                                     <XAxis type="number" tick={{ fill: '#6b7280', fontSize: 10 }} axisLine={false} tickLine={false} />
                                     <YAxis type="category" dataKey="name" tick={{ fill: '#9ca3af', fontSize: 11 }} width={120} axisLine={false} tickLine={false} />
                                     <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }} />
@@ -194,9 +202,9 @@ export default function AnalyticsPanel() {
                         Coches Populares
                     </h3>
                     <div className="h-48">
-                        {data.popular_cars.length > 0 ? (
+                        {popularCars.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={data.popular_cars} layout="vertical">
+                                <BarChart data={popularCars} layout="vertical">
                                     <XAxis type="number" tick={{ fill: '#6b7280', fontSize: 10 }} axisLine={false} tickLine={false} />
                                     <YAxis type="category" dataKey="name" tick={{ fill: '#9ca3af', fontSize: 11 }} width={120} axisLine={false} tickLine={false} />
                                     <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }} />
@@ -242,11 +250,11 @@ export default function AnalyticsPanel() {
                     </div>
                     <div className="mt-4 flex justify-around text-center">
                         <div>
-                            <div className="text-2xl font-black text-green-400">{data.loyalty.total_points_issued.toLocaleString()}</div>
+                            <div className="text-2xl font-black text-green-400">{loyalty.total_points_issued.toLocaleString()}</div>
                             <div className="text-[10px] text-gray-500 uppercase">Puntos Emitidos</div>
                         </div>
                         <div>
-                            <div className="text-2xl font-black text-red-400">{data.loyalty.total_points_redeemed.toLocaleString()}</div>
+                            <div className="text-2xl font-black text-red-400">{loyalty.total_points_redeemed.toLocaleString()}</div>
                             <div className="text-[10px] text-gray-500 uppercase">Puntos Canjeados</div>
                         </div>
                     </div>
@@ -258,19 +266,19 @@ export default function AnalyticsPanel() {
                 <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Resumen Reservas</h3>
                 <div className="grid grid-cols-4 gap-4 text-center">
                     <div>
-                        <div className="text-3xl font-black text-white">{data.bookings.total}</div>
+                        <div className="text-3xl font-black text-white">{bookings.total}</div>
                         <div className="text-xs text-gray-500">Total</div>
                     </div>
                     <div>
-                        <div className="text-3xl font-black text-yellow-400">{data.bookings.pending}</div>
+                        <div className="text-3xl font-black text-yellow-400">{bookings.pending}</div>
                         <div className="text-xs text-gray-500">Pendientes</div>
                     </div>
                     <div>
-                        <div className="text-3xl font-black text-green-400">{data.bookings.confirmed}</div>
+                        <div className="text-3xl font-black text-green-400">{bookings.confirmed}</div>
                         <div className="text-xs text-gray-500">Confirmadas</div>
                     </div>
                     <div>
-                        <div className="text-3xl font-black text-blue-400">{data.bookings.today}</div>
+                        <div className="text-3xl font-black text-blue-400">{bookings.today}</div>
                         <div className="text-xs text-gray-500">Hoy</div>
                     </div>
                 </div>

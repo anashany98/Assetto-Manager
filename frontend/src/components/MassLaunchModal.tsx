@@ -52,7 +52,7 @@ export default function MassLaunchModal({ onClose, initialCar, initialTrack, ini
         queryFn: getStations
     });
 
-    const onlineStations = stations?.filter(s => s.is_online) || [];
+    const onlineStations = Array.isArray(stations) ? stations.filter((s: any) => s.is_online) : [];
 
     const handleLaunch = async () => {
         setIsLaunching(true);
@@ -295,7 +295,7 @@ export default function MassLaunchModal({ onClose, initialCar, initialTrack, ini
                                     <div className="text-xs font-black text-blue-400 uppercase tracking-[0.3em] mb-2">Simuladores Seleccionados</div>
                                     <div className="flex flex-wrap justify-center gap-2">
                                         {selectedStationIds.map(id => {
-                                            const name = stations?.find(s => s.id === id)?.name;
+                                            const name = Array.isArray(stations) ? stations.find((s: any) => s.id === id)?.name : 'Unknown';
                                             return <span key={id} className="bg-blue-600 text-white px-3 py-1 rounded-lg text-[10px] font-black">{name}</span>;
                                         })}
                                     </div>

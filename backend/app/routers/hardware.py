@@ -108,10 +108,10 @@ async def get_all_health(db: Session = Depends(get_db)):
         
         # Generate alerts
         alerts = []
-        cpu = cached.get("cpu_percent", 0)
-        ram = cached.get("ram_percent", 0)
-        gpu_temp = cached.get("gpu_temp", 0)
-        disk = cached.get("disk_percent", 0)
+        cpu = cached.get("cpu_percent") or 0
+        ram = cached.get("ram_percent") or 0
+        gpu_temp = cached.get("gpu_temp") or 0
+        disk = cached.get("disk_percent") or 0
         
         if cpu > 90:
             alerts.append("CPU crítico (>90%)")
@@ -123,9 +123,9 @@ async def get_all_health(db: Session = Depends(get_db)):
         elif ram > 80:
             alerts.append("RAM alta (>80%)")
             
-        if gpu_temp and gpu_temp > 85:
+        if gpu_temp > 85:
             alerts.append(f"GPU caliente ({gpu_temp}°C)")
-        elif gpu_temp and gpu_temp > 75:
+        elif gpu_temp > 75:
             alerts.append(f"GPU templada ({gpu_temp}°C)")
             
         if disk > 90:
@@ -146,8 +146,8 @@ async def get_all_health(db: Session = Depends(get_db)):
             last_seen=last_seen,
             cpu_percent=cpu,
             ram_percent=ram,
-            gpu_percent=cached.get("gpu_percent", 0),
-            gpu_temp=gpu_temp or 0,
+            gpu_percent=cached.get("gpu_percent") or 0,
+            gpu_temp=gpu_temp,
             disk_percent=disk,
             wheel_connected=cached.get("wheel_connected", False),
             pedals_connected=cached.get("pedals_connected", False),
@@ -182,11 +182,11 @@ async def get_station_health(station_id: int, db: Session = Depends(get_db)):
         station_name=station.name,
         is_online=is_online,
         last_seen=last_seen,
-        cpu_percent=cached.get("cpu_percent", 0),
-        ram_percent=cached.get("ram_percent", 0),
-        gpu_percent=cached.get("gpu_percent", 0),
-        gpu_temp=cached.get("gpu_temp", 0),
-        disk_percent=cached.get("disk_percent", 0),
+        cpu_percent=cached.get("cpu_percent") or 0,
+        ram_percent=cached.get("ram_percent") or 0,
+        gpu_percent=cached.get("gpu_percent") or 0,
+        gpu_temp=cached.get("gpu_temp") or 0,
+        disk_percent=cached.get("disk_percent") or 0,
         wheel_connected=cached.get("wheel_connected", False),
         pedals_connected=cached.get("pedals_connected", False),
         shifter_connected=cached.get("shifter_connected", False),
