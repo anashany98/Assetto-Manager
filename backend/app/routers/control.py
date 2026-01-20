@@ -104,6 +104,9 @@ class LaunchSessionCommand(BaseModel):
     track: str
     difficulty: str  # novice, amateur, pro
     duration_minutes: int = 15
+    transmission: Optional[str] = "automatic"
+    time_of_day: Optional[str] = "noon"
+    weather: Optional[str] = "sun"
 
 
 @router.post("/station/{station_id}/launch")
@@ -133,6 +136,9 @@ async def launch_station_session(station_id: int, cmd: LaunchSessionCommand, db:
         "duration_minutes": cmd.duration_minutes,
         "driver_name": cmd.driver_name or f"Driver_{cmd.driver_id or 'Guest'}",
         "ac_path": ac_path,
+        "transmission": cmd.transmission,
+        "time_of_day": cmd.time_of_day,
+        "weather": cmd.weather
     }
 
     # Send to specific station
