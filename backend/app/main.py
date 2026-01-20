@@ -41,8 +41,17 @@ from starlette.middleware.base import BaseHTTPMiddleware
 class CSPMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         response = await call_next(request)
-        # Permissive CSP for SPA - allows inline scripts and eval
-        response.headers["Content-Security-Policy"] = "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;"
+        # Permissive CSP for SPA - explicit script and worker sources
+        csp_policy = (
+            "default-src * data: blob: 'unsafe-inline' 'unsafe-eval'; "
+            "script-src * data: blob: 'unsafe-inline' 'unsafe-eval'; "
+            "worker-src * data: blob: 'unsafe-inline' 'unsafe-eval'; "
+            "style-src * data: blob: 'unsafe-inline'; "
+            "img-src * data: blob:; "
+            "font-src * data:; "
+            "connect-src * data: blob: wss: ws:;"
+        )
+        response.headers["Content-Security-Policy"] = csp_policy
         return response
 
 app.add_middleware(CSPMiddleware)
