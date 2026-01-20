@@ -70,6 +70,7 @@ export default function KioskMode() {
     const [duration, setDuration] = useState<number>(15);  // Session duration in minutes
     const [selectedScenario, setSelectedScenario] = useState<Scenario | null>(null);
     const [isLaunched, setIsLaunched] = useState(false);
+    const [remainingSeconds, setRemainingSeconds] = useState<number>(duration * 60);
 
     // Queries
     const { data: cars = [] } = useQuery({ queryKey: ['cars'], queryFn: () => getCars() });
@@ -1299,26 +1300,30 @@ export default function KioskMode() {
         )
     }
 
+    // Timer effect - runs when session is launched
+    useEffect(() => {
+        if (!isLaunched) return;
+
+        // Reset timer when launching
+        setRemainingSeconds(duration * 60);
+
+        const timer = setInterval(() => {
+            setRemainingSeconds(prev => {
+                if (prev <= 1) {
+                    clearInterval(timer);
+                    setIsLaunched(false);
+                    setStep(6); // Go to Results
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [isLaunched, duration]);
+
     // --- RACE MODE (Telemetry & Pit Controls) ---
     const RaceMode = () => {
-        // Countdown Timer State
-        const [remainingSeconds, setRemainingSeconds] = useState(duration * 60);
-
-        useEffect(() => {
-            const timer = setInterval(() => {
-                setRemainingSeconds(prev => {
-                    if (prev <= 1) {
-                        clearInterval(timer);
-                        setIsLaunched(false);
-                        setStep(6); // Go to Results
-                        return 0;
-                    }
-                    return prev - 1;
-                });
-            }, 1000);
-
-            return () => clearInterval(timer);
-        }, []);
 
         const minutes = Math.floor(remainingSeconds / 60);
         const seconds = remainingSeconds % 60;
