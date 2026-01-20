@@ -63,6 +63,20 @@ def fix_stations_columns():
             conn.execute(text("ALTER TABLE stations ADD COLUMN IF NOT EXISTS content_cache_updated TIMESTAMP WITH TIME ZONE DEFAULT NULL"))
             conn.execute(text("ALTER TABLE stations ADD COLUMN IF NOT EXISTS diagnostics JSONB DEFAULT NULL"))
             
+            # Fix Events table
+            print("Fixing events table...")
+            conn.execute(text("ALTER TABLE events ADD COLUMN IF NOT EXISTS session_config JSONB DEFAULT NULL"))
+            conn.execute(text("ALTER TABLE events ADD COLUMN IF NOT EXISTS bracket_data JSONB DEFAULT NULL"))
+            conn.execute(text("ALTER TABLE events ADD COLUMN IF NOT EXISTS rules JSONB DEFAULT NULL"))
+            
+            # Fix Championships table
+            print("Fixing championships table...")
+            conn.execute(text("ALTER TABLE championships ADD COLUMN IF NOT EXISTS scoring_rules JSONB DEFAULT NULL"))
+
+            # Fix laptimes table just in case
+            print("Fixing laptimes table...")
+            conn.execute(text("ALTER TABLE laptimes ADD COLUMN IF NOT EXISTS telemetry_data JSONB DEFAULT NULL"))
+            
             print("✅ Columns fixed.")
             
         except Exception as e:
