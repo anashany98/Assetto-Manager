@@ -11,7 +11,8 @@ import {
     Truck, Settings as SettingsIcon, Plus, FileText,
     Layout, Monitor, Wifi, WifiOff, Edit2, CheckCircle,
     Activity, Upload, QrCode, Gamepad2, Volume2,
-    Trash2, MonitorPlay, Globe, Terminal, Megaphone, Database, Bell, BadgeDollarSign
+    Trash2, MonitorPlay, Globe, Terminal, Megaphone, Database, Bell, BadgeDollarSign,
+    AlertTriangle, Power
 } from 'lucide-react';
 import { LogViewer } from '../components/LogViewer';
 import AdsSettings from '../components/AdsSettings';
