@@ -142,6 +142,14 @@ async def websocket_agent_endpoint(websocket: WebSocket):
                                         "car": active_lobby.car,
                                         "is_spectator": True
                                     }))
+                            
+                            # AUTO CONTENT SCAN: Trigger scan on Agent connect
+                            if station and station.ac_path:
+                                logger.info(f"Auto-triggering content scan for Station {station_id}")
+                                await websocket.send_text(json.dumps({
+                                    "command": "scan_content",
+                                    "ac_path": station.ac_path
+                                }))
                         finally:
                             db.close()
                     continue

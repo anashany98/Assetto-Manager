@@ -56,6 +56,17 @@ export default function SettingsPage() {
         onSuccess: () => alert("Comando enviado")
     });
 
+    const scanContentMutation = useMutation({
+        mutationFn: async (stationId: number) => {
+            await axios.get(`${API_URL}/control/station/${stationId}/content`);
+        },
+        onSuccess: () => {
+            alert("Escaneo de contenido iniciado. Los coches y pistas aparecerán en unos segundos.");
+            queryClient.invalidateQueries({ queryKey: ['stations'] });
+        },
+        onError: () => alert("Error al escanear contenido. ¿Está el agente conectado?")
+    });
+
     const handleExport = async () => {
         try {
             const token = localStorage.getItem('token');
@@ -430,6 +441,14 @@ export default function SettingsPage() {
                                         <div className="flex items-center gap-2">
                                             {station.is_online && (
                                                 <>
+                                                    <button
+                                                        onClick={() => scanContentMutation.mutate(station.id)}
+                                                        disabled={scanContentMutation.isPending}
+                                                        className="p-2 bg-green-500/10 text-green-500 rounded-lg hover:bg-green-500 hover:text-white transition-all disabled:opacity-50"
+                                                        title="Escanear Contenido AC"
+                                                    >
+                                                        <Monitor size={14} />
+                                                    </button>
                                                     <button
                                                         onClick={() => { if (confirm("¿Reiniciar estación?")) powerMutation.mutate({ id: station.id, action: 'restart' }) }}
                                                         className="p-2 bg-blue-500/10 text-blue-500 rounded-lg hover:bg-blue-500 hover:text-white transition-all"
