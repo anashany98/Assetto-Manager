@@ -17,11 +17,16 @@ const AdsSettings: React.FC = () => {
     const [newAdDuration, setNewAdDuration] = useState(15);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
+    const getAuthHeaders = () => {
+        const token = localStorage.getItem('token');
+        return token ? { Authorization: `Bearer ${token}` } : {};
+    };
+
     // FIX: Using full URL for fetching
     const { data: ads, isLoading, error } = useQuery({
         queryKey: ['ads'],
         queryFn: async () => {
-            const res = await fetch(`${API_URL}/ads/`);
+            const res = await fetch(`${API_URL}/ads/`, { headers: getAuthHeaders() });
             if (!res.ok) throw new Error("Failed to fetch ads");
             return res.json() as Promise<AdCampaign[]>;
         }
@@ -31,7 +36,8 @@ const AdsSettings: React.FC = () => {
         mutationFn: async (formData: FormData) => {
             const res = await fetch(`${API_URL}/ads/`, {
                 method: 'POST',
-                body: formData, // No Authorization header needed for now or handled globally?
+                headers: getAuthHeaders(),
+                body: formData,
             });
             if (!res.ok) throw new Error("Failed to upload ad");
             return res.json();
@@ -46,7 +52,10 @@ const AdsSettings: React.FC = () => {
 
     const toggleMutation = useMutation({
         mutationFn: async (id: number) => {
-            const res = await fetch(`${API_URL}/ads/${id}/toggle`, { method: 'PUT' });
+            const res = await fetch(`${API_URL}/ads/${id}/toggle`, {
+                method: 'PUT',
+                headers: getAuthHeaders()
+            });
             if (!res.ok) throw new Error("Toggle failed");
         },
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['ads'] })
@@ -54,7 +63,10 @@ const AdsSettings: React.FC = () => {
 
     const deleteMutation = useMutation({
         mutationFn: async (id: number) => {
-            const res = await fetch(`${API_URL}/ads/${id}`, { method: 'DELETE' });
+            const res = await fetch(`${API_URL}/ads/${id}`, {
+                method: 'DELETE',
+                headers: getAuthHeaders()
+            });
             if (!res.ok) throw new Error("Delete failed");
         },
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['ads'] })

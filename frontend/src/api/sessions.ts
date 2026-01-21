@@ -19,7 +19,7 @@ export type SessionCreate = {
     driver_name?: string;
     duration_minutes: number;
     price?: number;
-    payment_method?: 'cash' | 'card_nayax' | 'online';
+    payment_method?: 'cash' | 'card_nayax' | 'online' | 'stripe_qr' | 'bizum';
     is_vr?: boolean;
     notes?: string;
 }

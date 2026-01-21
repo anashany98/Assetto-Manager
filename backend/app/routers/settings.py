@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, File, UploadFile
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from typing import List
 from .. import models, schemas, database
 from .auth import require_admin
@@ -13,12 +14,31 @@ router = APIRouter(
     tags=["settings"]
 )
 
+SENSITIVE_PREFIXES = ("stripe_", "payment_", "bizum_")
+
+def _is_sensitive(key: str) -> bool:
+    return key.startswith(SENSITIVE_PREFIXES)
+
 @router.get("/", response_model=List[schemas.GlobalSettings])
 def get_settings(db: Session = Depends(database.get_db)):
-    return db.query(models.GlobalSettings).all()
+    settings = db.query(models.GlobalSettings).all()
+    return [s for s in settings if not _is_sensitive(s.key)]
+
+@router.get("/secure", response_model=List[schemas.GlobalSettings])
+def get_secure_settings(db: Session = Depends(database.get_db), current_user: models.User = Depends(require_admin)):
+    settings = db.query(models.GlobalSettings).filter(
+        or_(
+            models.GlobalSettings.key.like("stripe_%"),
+            models.GlobalSettings.key.like("payment_%"),
+            models.GlobalSettings.key.like("bizum_%"),
+        )
+    ).all()
+    return settings
 
 @router.get("/{key}", response_model=schemas.GlobalSettings)
 def get_setting(key: str, db: Session = Depends(database.get_db)):
+    if _is_sensitive(key):
+        return {"key": key, "value": ""}
     setting = db.query(models.GlobalSettings).filter(models.GlobalSettings.key == key).first()
     if not setting:
         return {"key": key, "value": ""}

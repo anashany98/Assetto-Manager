@@ -16,7 +16,8 @@ import {
     CalendarCheck,
     Sun,
     Moon,
-    Gamepad2
+    Gamepad2,
+    AlertTriangle
 } from 'lucide-react';
 import { useTheme } from '../contexts/useTheme';
 import { useQuery } from '@tanstack/react-query';
@@ -104,27 +105,31 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         return stored ? parseInt(stored) : 1;
     });
 
-    useQuery({
+    const isAdminView = location.pathname.startsWith('/admin');
+    const { data: lockStatus } = useQuery({
         queryKey: ['lock-check', stationId],
         queryFn: async () => {
             try {
                 const res = await axios.get(`${API_URL}/hardware/status/${stationId}`);
-                if (res.data?.is_locked) {
-                    if (location.pathname !== '/lock-screen') {
-                        window.location.href = '/lock-screen';
-                    }
-                } else {
-                    // If unlocked and currently on lock screen, go back to home/kiosk
-                    if (location.pathname === '/lock-screen') {
-                        window.location.href = '/kiosk'; // Default to kiosk after unlock
+                if (!isAdminView) {
+                    if (res.data?.is_locked) {
+                        if (location.pathname !== '/lock-screen') {
+                            window.location.href = '/lock-screen';
+                        }
+                    } else {
+                        // If unlocked and currently on lock screen, go back to home/kiosk
+                        if (location.pathname === '/lock-screen') {
+                            window.location.href = '/kiosk'; // Default to kiosk after unlock
+                        }
                     }
                 }
                 return res.data;
             } catch { return null; }
         },
-        refetchInterval: 2000, // Poll every 2s
-        enabled: !location.pathname.includes('/admin') // Admin panel should not be locked ideally, or maybe it should? Let's exclude admin for safety.
+        refetchInterval: 2000 // Poll every 2s
     });
+
+    const hardwareWarning = lockStatus && (lockStatus.is_online === false || !lockStatus.wheel_connected || !lockStatus.pedals_connected);
 
 
     if (isPublicView) {
@@ -217,6 +222,17 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             {/* Main Content Area */}
             <div className="flex-1 overflow-auto relative">
                 <div className="min-h-full">
+                    {hardwareWarning && (
+                        <div className="mx-8 mt-6 mb-2 bg-red-500/10 border border-red-500/30 rounded-2xl p-4 text-red-200 font-bold text-sm flex items-center gap-3">
+                            <AlertTriangle size={18} />
+                            <span>
+                                {!lockStatus?.is_online && 'Agente desconectado. '}
+                                {lockStatus?.is_online && (!lockStatus?.wheel_connected || !lockStatus?.pedals_connected) && 'Hardware no detectado: '}
+                                {lockStatus?.is_online && !lockStatus?.wheel_connected && 'volante '}
+                                {lockStatus?.is_online && !lockStatus?.pedals_connected && 'pedales'}
+                            </span>
+                        </div>
+                    )}
                     {children}
                 </div>
             </div>

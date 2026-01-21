@@ -82,6 +82,28 @@ class SessionResponse(SessionStart):
     
     model_config = ConfigDict(from_attributes=True)
 
+
+class PaymentCreate(BaseModel):
+    provider: Literal["stripe_qr", "bizum"]
+    station_id: int
+    duration_minutes: int
+    driver_name: Optional[str] = None
+    scenario_id: Optional[int] = None
+    is_vr: bool = False
+
+
+class PaymentResponse(BaseModel):
+    id: int
+    provider: str
+    status: str
+    amount: float
+    currency: str
+    checkout_url: Optional[str] = None
+    instructions: Optional[str] = None
+    reference: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
 class TagBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=30)
     color: Optional[str] = "#3b82f6"

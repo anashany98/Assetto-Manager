@@ -1,3 +1,4 @@
+import logging
 import os
 from pathlib import Path
 from sqlalchemy import create_engine
@@ -6,7 +7,7 @@ from dotenv import load_dotenv
 load_dotenv()
 load_dotenv(dotenv_path=Path(__file__).resolve().parents[1] / ".env")
 from sqlalchemy.orm import declarative_base, sessionmaker
-from sqlalchemy import event
+from sqlalchemy import event, inspect, text
 
 # SQLite for development ease, PostgreSQL for production
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./ac_manager.db")
@@ -43,6 +44,43 @@ if "sqlite" in SQLALCHEMY_DATABASE_URL:
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
+logger = logging.getLogger(__name__)
+
+def ensure_station_schema(db_engine):
+    inspector = inspect(db_engine)
+    if "stations" not in inspector.get_table_names():
+        return
+
+    existing = {col["name"] for col in inspector.get_columns("stations")}
+    column_specs = {
+        "is_kiosk_mode": ("BOOLEAN", "FALSE", "0"),
+        "is_locked": ("BOOLEAN", "FALSE", "0"),
+        "is_tv_mode": ("BOOLEAN", "FALSE", "0"),
+        "is_vr": ("BOOLEAN", "FALSE", "0"),
+    }
+
+    is_postgres = db_engine.dialect.name == "postgresql"
+    missing = [name for name in column_specs if name not in existing]
+    if not missing:
+        return
+
+    with db_engine.begin() as conn:
+        for name in missing:
+            col_type, default_pg, default_sqlite = column_specs[name]
+            default_value = default_pg if is_postgres else default_sqlite
+            if is_postgres:
+                conn.execute(
+                    text(
+                        f"ALTER TABLE stations ADD COLUMN IF NOT EXISTS {name} {col_type} DEFAULT {default_value}"
+                    )
+                )
+            else:
+                conn.execute(
+                    text(
+                        f"ALTER TABLE stations ADD COLUMN {name} {col_type} DEFAULT {default_value}"
+                    )
+                )
+            logger.info("Added missing column stations.%s", name)
 
 def get_db():
     db = SessionLocal()

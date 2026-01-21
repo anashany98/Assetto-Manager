@@ -111,6 +111,31 @@ def require_admin_or_agent(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
+def require_admin_or_public_token(
+    client_token: Optional[str] = Header(None, alias="X-Client-Token"),
+    current_user: Optional[models.User] = Depends(get_current_user_optional)
+):
+    if current_user:
+        if not current_user.is_active:
+            raise HTTPException(status_code=400, detail="Inactive user")
+        if current_user.role != "admin":
+            raise HTTPException(status_code=403, detail="Admin access required")
+        return current_user
+
+    env = os.getenv("ENVIRONMENT", "development")
+    expected = os.getenv("PUBLIC_API_TOKEN") or os.getenv("PUBLIC_WS_TOKEN")
+
+    if env == "production":
+        if not expected:
+            raise HTTPException(status_code=500, detail="PUBLIC_API_TOKEN not configured")
+        if client_token != expected:
+            raise HTTPException(status_code=403, detail="Unauthorized")
+        return "client"
+
+    if expected and client_token != expected:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    return "client"
+
 @router.post("/token")
 async def login_for_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],

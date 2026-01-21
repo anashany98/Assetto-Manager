@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from .websockets import manager
 from ..database import get_db
 from ..models import Station as StationModel
+from ..routers.auth import require_admin, require_admin_or_public_token
 import logging
 import json
 
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 class WeatherCommand(BaseModel):
     weather_type: str # solar, windy, rainy, storm, fog, clear
 
-@router.post("/global/weather")
+@router.post("/global/weather", dependencies=[Depends(require_admin)])
 async def set_global_weather(cmd: WeatherCommand):
     """
     Broadcast weather command to all Agents
@@ -39,7 +40,7 @@ async def set_global_weather(cmd: WeatherCommand):
 class RestartCommand(BaseModel):
     target: str = "all" # all or station_id
 
-@router.post("/global/panic")
+@router.post("/global/panic", dependencies=[Depends(require_admin)])
 async def global_panic():
     """
     Emergency Stop for all Simulators
@@ -54,7 +55,7 @@ async def global_panic():
 class KioskCommand(BaseModel):
     enabled: bool
 
-@router.post("/station/{station_id}/kiosk")
+@router.post("/station/{station_id}/kiosk", dependencies=[Depends(require_admin)])
 async def set_station_kiosk(station_id: int, cmd: KioskCommand, db: Session = Depends(get_db)):
     """
     Toggle Kiosk Mode on the Agent.
@@ -83,7 +84,7 @@ async def set_station_kiosk(station_id: int, cmd: KioskCommand, db: Session = De
         return {"status": "offline_updated", "message": "Station updated in DB but is offline."}
 
 
-@router.post("/station/{station_id}/config")
+@router.post("/station/{station_id}/config", dependencies=[Depends(require_admin)])
 async def update_station_config(station_id: int, data: dict, db: Session = Depends(get_db)):
     """Update station configuration (e.g. is_vr)"""
     station = db.query(StationModel).filter(StationModel.id == station_id).first()
@@ -109,7 +110,7 @@ class LaunchSessionCommand(BaseModel):
     weather: Optional[str] = "sun"
 
 
-@router.post("/station/{station_id}/launch")
+@router.post("/station/{station_id}/launch", dependencies=[Depends(require_admin_or_public_token)])
 async def launch_station_session(station_id: int, cmd: LaunchSessionCommand, db: Session = Depends(get_db)):
     """
     Send launch command to a specific station Agent.
@@ -155,7 +156,7 @@ async def launch_station_session(station_id: int, cmd: LaunchSessionCommand, db:
     else:
         raise HTTPException(status_code=404, detail="Station Agent not connected")
 
-@router.post("/station/{station_id}/install_mod/{mod_id}")
+@router.post("/station/{station_id}/install_mod/{mod_id}", dependencies=[Depends(require_admin)])
 async def install_mod(station_id: int, mod_id: int, db: Session = Depends(get_db)):
     """
     Command an Agent to download and install a specific Mod.
@@ -239,7 +240,7 @@ async def install_mod(station_id: int, mod_id: int, db: Session = Depends(get_db
         raise HTTPException(status_code=404, detail=f"Station {station_id} is not online")
 
 
-@router.get("/station/{station_id}/content")
+@router.get("/station/{station_id}/content", dependencies=[Depends(require_admin)])
 async def get_station_content(station_id: int, db: Session = Depends(get_db)):
     """
     Request the Agent to scan its local AC content folder.
@@ -271,7 +272,7 @@ async def get_station_content(station_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail=f"Station {station_id} is not online")
 
 
-@router.post("/station/{station_id}/stop")
+@router.post("/station/{station_id}/stop", dependencies=[Depends(require_admin)])
 async def stop_station_session(station_id: int):
     """
     Stop the current session on a station (kills the game).
@@ -292,14 +293,14 @@ async def stop_station_session(station_id: int):
 
 # --- WHEEL PROFILES ENDPOINTS ---
 
-@router.get("/profiles", response_model=list[dict])
+@router.get("/profiles", response_model=list[dict], dependencies=[Depends(require_admin)])
 async def list_wheel_profiles(db: Session = Depends(get_db)):
     """List all wheel profiles"""
     from ..models import WheelProfile
     profiles = db.query(WheelProfile).filter(WheelProfile.is_active == True).all()
     return [{"id": p.id, "name": p.name, "description": p.description, "model_type": p.model_type} for p in profiles]
 
-@router.post("/profiles")
+@router.post("/profiles", dependencies=[Depends(require_admin)])
 async def create_wheel_profile(data: dict, db: Session = Depends(get_db)):
     """Create a new wheel profile"""
     from ..models import WheelProfile
@@ -318,7 +319,7 @@ async def create_wheel_profile(data: dict, db: Session = Depends(get_db)):
     db.refresh(profile)
     return profile
 
-@router.post("/station/{station_id}/profile/{profile_id}")
+@router.post("/station/{station_id}/profile/{profile_id}", dependencies=[Depends(require_admin)])
 async def apply_wheel_profile(station_id: int, profile_id: int, db: Session = Depends(get_db)):
     """
     Send a set_controls command to the agent with the profile content.
@@ -348,4 +349,3 @@ async def apply_wheel_profile(station_id: int, profile_id: int, db: Session = De
     except Exception as e:
         logger.error(f"Failed to send profile: {e}")
         raise HTTPException(status_code=500, detail="Failed to send command to agent")
-

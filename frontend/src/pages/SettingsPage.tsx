@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
@@ -19,6 +19,7 @@ import AdsSettings from '../components/AdsSettings';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import ACSettingsEditor from '../components/ACSettingsEditor';
 import { Camera, Cloud, Bot } from 'lucide-react';
+import { calculatePrice, getPricingConfig, type PricingDiscount, type PricingRate } from '../utils/pricing';
 
 const AC_CATEGORIES = [
     { id: 'controls', name: 'Controles', icon: Gamepad2, color: 'text-blue-500' },
@@ -122,6 +123,18 @@ export default function SettingsPage() {
         },
         initialData: []
     });
+    const { data: secureSettings = [] } = useQuery({
+        queryKey: ['settings-secure'],
+        queryFn: async () => {
+            try {
+                const res = await axios.get(`${API_URL}/settings/secure`);
+                return Array.isArray(res.data) ? res.data : [];
+            } catch {
+                return [];
+            }
+        },
+        initialData: []
+    });
     const updateBranding = useMutation({
         mutationFn: async (data: { key: string, value: string }) => await axios.post(`${API_URL}/settings/`, data),
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['settings'] })
@@ -187,6 +200,92 @@ export default function SettingsPage() {
     const safeBranding = Array.isArray(branding) ? branding : [];
     const barName = safeBranding.find((s: { key: string; value: string }) => s.key === 'bar_name')?.value || 'VRacing Bar';
     const barLogo = safeBranding.find((s: { key: string; value: string }) => s.key === 'bar_logo')?.value || '/logo.png';
+    const pricingConfig = useMemo(() => getPricingConfig(safeBranding), [safeBranding]);
+    const [durationRates, setDurationRates] = useState<PricingRate[]>([]);
+    const [discountRules, setDiscountRules] = useState<PricingDiscount[]>([]);
+    const [basePerMin, setBasePerMin] = useState<number>(pricingConfig.basePerMin);
+    const [vrPerMin, setVrPerMin] = useState<number>(pricingConfig.vrSurchargePerMin);
+    const [allowManualOverride, setAllowManualOverride] = useState<boolean>(pricingConfig.allowManualOverride);
+    const [paymentCurrency, setPaymentCurrency] = useState('EUR');
+    const [paymentPublicKioskUrl, setPaymentPublicKioskUrl] = useState('http://localhost:5959/kiosk');
+    const [stripeSecretKey, setStripeSecretKey] = useState('');
+    const [stripeWebhookSecret, setStripeWebhookSecret] = useState('');
+    const [stripeSuccessUrl, setStripeSuccessUrl] = useState('');
+    const [stripeCancelUrl, setStripeCancelUrl] = useState('');
+    const [bizumReceiver, setBizumReceiver] = useState('');
+    const [savingPaymentConfig, setSavingPaymentConfig] = useState(false);
+
+    useEffect(() => {
+        setDurationRates(pricingConfig.rates);
+        setDiscountRules(pricingConfig.discounts);
+        setBasePerMin(pricingConfig.basePerMin);
+        setVrPerMin(pricingConfig.vrSurchargePerMin);
+        setAllowManualOverride(pricingConfig.allowManualOverride);
+    }, [pricingConfig]);
+
+    const getSecureValue = (key: string, fallback: string) => {
+        const setting = secureSettings.find((item: any) => item.key === key);
+        return setting?.value || fallback;
+    };
+
+    useEffect(() => {
+        setPaymentCurrency(getSecureValue('payment_currency', 'EUR'));
+        setPaymentPublicKioskUrl(getSecureValue('payment_public_kiosk_url', 'http://localhost:5959/kiosk'));
+        setStripeSecretKey(getSecureValue('stripe_secret_key', ''));
+        setStripeWebhookSecret(getSecureValue('stripe_webhook_secret', ''));
+        setStripeSuccessUrl(getSecureValue('stripe_success_url', ''));
+        setStripeCancelUrl(getSecureValue('stripe_cancel_url', ''));
+        setBizumReceiver(getSecureValue('bizum_receiver', ''));
+    }, [secureSettings]);
+
+    const savePaymentConfig = async () => {
+        setSavingPaymentConfig(true);
+        try {
+            await Promise.all([
+                axios.post(`${API_URL}/settings/`, { key: 'payment_currency', value: paymentCurrency }),
+                axios.post(`${API_URL}/settings/`, { key: 'payment_public_kiosk_url', value: paymentPublicKioskUrl }),
+                axios.post(`${API_URL}/settings/`, { key: 'stripe_secret_key', value: stripeSecretKey }),
+                axios.post(`${API_URL}/settings/`, { key: 'stripe_webhook_secret', value: stripeWebhookSecret }),
+                axios.post(`${API_URL}/settings/`, { key: 'stripe_success_url', value: stripeSuccessUrl }),
+                axios.post(`${API_URL}/settings/`, { key: 'stripe_cancel_url', value: stripeCancelUrl }),
+                axios.post(`${API_URL}/settings/`, { key: 'bizum_receiver', value: bizumReceiver })
+            ]);
+            queryClient.invalidateQueries({ queryKey: ['settings-secure'] });
+        } catch (error) {
+            console.error(error);
+            alert("Error al guardar configuración de pagos");
+        } finally {
+            setSavingPaymentConfig(false);
+        }
+    };
+
+    const previewConfig = {
+        basePerMin,
+        vrSurchargePerMin: vrPerMin,
+        rates: durationRates,
+        discounts: discountRules,
+        allowManualOverride
+    };
+
+    const saveDurationRates = () => {
+        const cleaned = durationRates
+            .filter((rate) => Number.isFinite(rate.minutes) && Number.isFinite(rate.price))
+            .map((rate) => ({ minutes: Number(rate.minutes), price: Number(rate.price) }))
+            .sort((a, b) => a.minutes - b.minutes);
+        updateBranding.mutate({ key: 'pricing_duration_rates', value: JSON.stringify(cleaned) });
+    };
+
+    const saveDiscountRules = () => {
+        const cleaned = discountRules
+            .filter((rule) => Number.isFinite(rule.minutes) && Number.isFinite(rule.value))
+            .map((rule) => ({
+                minutes: Number(rule.minutes),
+                type: rule.type === 'percent' ? 'percent' : 'flat',
+                value: Number(rule.value)
+            }))
+            .sort((a, b) => a.minutes - b.minutes);
+        updateBranding.mutate({ key: 'pricing_discounts', value: JSON.stringify(cleaned) });
+    };
 
     return (
         <div className="h-full flex flex-col bg-gray-950 text-white font-sans overflow-hidden">
@@ -341,37 +440,284 @@ export default function SettingsPage() {
                             <h2 className="text-xl font-black text-white uppercase mb-6 flex items-center">
                                 <BadgeDollarSign className="mr-2 text-green-400" /> Configuración de Precios
                             </h2>
-                            <p className="text-gray-400 mb-6 text-sm">Define las tarifas base por tiempo. El sistema calculará automáticamente el precio.</p>
+                            <p className="text-gray-400 mb-6 text-sm">Define precios por duración, recargos y descuentos. El kiosko calculará el precio automáticamente.</p>
 
                             <div className="space-y-6">
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Precio Base (15 Minutos)</label>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Precio Base por Minuto</label>
                                     <div className="relative">
                                         <span className="absolute left-4 top-3.5 text-gray-400">€</span>
                                         <input
                                             type="number"
-                                            step="0.5"
+                                            step="0.01"
                                             className="w-full p-3 pl-8 rounded-xl bg-gray-900 border border-gray-700 text-white font-bold outline-none focus:border-green-500 transition-all text-lg"
-                                            defaultValue={safeBranding.find((s: any) => s.key === 'pricing_base_15min')?.value || '5.0'}
-                                            onBlur={e => updateBranding.mutate({ key: 'pricing_base_15min', value: e.target.value })}
+                                            value={basePerMin}
+                                            onChange={e => setBasePerMin(Number(e.target.value))}
+                                            onBlur={e => updateBranding.mutate({ key: 'pricing_base_per_min', value: e.target.value })}
                                         />
                                     </div>
-                                    <p className="text-xs text-gray-500 mt-1">Tarifa estándar para simuladores de pantalla normal.</p>
+                                    <p className="text-xs text-gray-500 mt-1">Si no defines tarifas por duración, se usa este precio por minuto.</p>
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Recargo VR (por 15 Minutos)</label>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Recargo VR por Minuto</label>
                                     <div className="relative">
                                         <span className="absolute left-4 top-3.5 text-gray-400">+ €</span>
                                         <input
                                             type="number"
-                                            step="0.5"
+                                            step="0.01"
                                             className="w-full p-3 pl-10 rounded-xl bg-gray-900 border border-gray-700 text-white font-bold outline-none focus:border-purple-500 transition-all text-lg"
-                                            defaultValue={safeBranding.find((s: any) => s.key === 'pricing_vr_surcharge')?.value || '2.0'}
-                                            onBlur={e => updateBranding.mutate({ key: 'pricing_vr_surcharge', value: e.target.value })}
+                                            value={vrPerMin}
+                                            onChange={e => setVrPerMin(Number(e.target.value))}
+                                            onBlur={e => updateBranding.mutate({ key: 'pricing_vr_surcharge_per_min', value: e.target.value })}
                                         />
                                     </div>
-                                    <p className="text-xs text-gray-500 mt-1">Costo adicional que se suma al precio base si se usa VR.</p>
+                                    <p className="text-xs text-gray-500 mt-1">Se suma al precio base por cada minuto si se usa VR.</p>
+                                </div>
+
+                                <div className="flex items-center justify-between bg-gray-900/60 border border-gray-700 rounded-xl p-4">
+                                    <div>
+                                        <p className="text-sm font-bold text-gray-300">Permitir precio manual en admin</p>
+                                        <p className="text-xs text-gray-500">Si está desactivado, el precio siempre se calcula por duración.</p>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            const next = !allowManualOverride;
+                                            setAllowManualOverride(next);
+                                            updateBranding.mutate({ key: 'pricing_allow_manual_override', value: next ? 'true' : 'false' });
+                                        }}
+                                        className={cn(
+                                            "relative w-14 h-7 rounded-full transition-colors",
+                                            allowManualOverride ? "bg-green-500" : "bg-gray-600"
+                                        )}
+                                    >
+                                        <div className={cn(
+                                            "absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-transform",
+                                            allowManualOverride && "translate-x-7"
+                                        )} />
+                                    </button>
+                                </div>
+
+                                <div className="bg-gray-900/40 border border-gray-700 rounded-2xl p-5 space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-sm font-black uppercase tracking-wider text-gray-300">Tarifas por Duración</h3>
+                                        <button
+                                            onClick={() => setDurationRates([...durationRates, { minutes: 15, price: 0 }])}
+                                            className="text-xs font-bold bg-blue-600/20 text-blue-400 px-3 py-1.5 rounded-lg border border-blue-500/30 hover:bg-blue-600 hover:text-white transition-colors"
+                                        >
+                                            Añadir tarifa
+                                        </button>
+                                    </div>
+                                    {durationRates.length === 0 && (
+                                        <p className="text-xs text-gray-500">Sin tarifas definidas. Se usará el precio por minuto.</p>
+                                    )}
+                                    {durationRates.map((rate, idx) => (
+                                        <div key={`${rate.minutes}-${idx}`} className="flex items-center gap-3">
+                                            <input
+                                                type="number"
+                                                min={1}
+                                                className="w-24 bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white font-bold"
+                                                value={rate.minutes}
+                                                onChange={e => {
+                                                    const next = [...durationRates];
+                                                    next[idx] = { ...next[idx], minutes: Number(e.target.value) };
+                                                    setDurationRates(next);
+                                                }}
+                                            />
+                                            <span className="text-xs text-gray-500 uppercase font-bold">min</span>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                className="w-28 bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white font-bold"
+                                                value={rate.price}
+                                                onChange={e => {
+                                                    const next = [...durationRates];
+                                                    next[idx] = { ...next[idx], price: Number(e.target.value) };
+                                                    setDurationRates(next);
+                                                }}
+                                            />
+                                            <span className="text-xs text-gray-500 uppercase font-bold">€</span>
+                                            <button
+                                                onClick={() => setDurationRates(durationRates.filter((_, i) => i !== idx))}
+                                                className="ml-auto text-xs font-bold bg-red-500/10 text-red-400 px-3 py-1.5 rounded-lg border border-red-500/30 hover:bg-red-500 hover:text-white transition-colors"
+                                            >
+                                                Eliminar
+                                            </button>
+                                        </div>
+                                    ))}
+                                    <div className="flex justify-end">
+                                        <button
+                                            onClick={saveDurationRates}
+                                            className="text-xs font-bold bg-green-500/20 text-green-400 px-4 py-2 rounded-lg border border-green-500/30 hover:bg-green-500 hover:text-white transition-colors"
+                                        >
+                                            Guardar tarifas
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="bg-gray-900/40 border border-gray-700 rounded-2xl p-5 space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-sm font-black uppercase tracking-wider text-gray-300">Descuentos por Duración</h3>
+                                        <button
+                                            onClick={() => setDiscountRules([...discountRules, { minutes: 30, type: 'flat', value: 0 }])}
+                                            className="text-xs font-bold bg-blue-600/20 text-blue-400 px-3 py-1.5 rounded-lg border border-blue-500/30 hover:bg-blue-600 hover:text-white transition-colors"
+                                        >
+                                            Añadir descuento
+                                        </button>
+                                    </div>
+                                    {discountRules.length === 0 && (
+                                        <p className="text-xs text-gray-500">Sin descuentos definidos.</p>
+                                    )}
+                                    {discountRules.map((rule, idx) => (
+                                        <div key={`${rule.minutes}-${idx}`} className="flex items-center gap-3">
+                                            <input
+                                                type="number"
+                                                min={1}
+                                                className="w-24 bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white font-bold"
+                                                value={rule.minutes}
+                                                onChange={e => {
+                                                    const next = [...discountRules];
+                                                    next[idx] = { ...next[idx], minutes: Number(e.target.value) };
+                                                    setDiscountRules(next);
+                                                }}
+                                            />
+                                            <span className="text-xs text-gray-500 uppercase font-bold">min</span>
+                                            <select
+                                                className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white font-bold"
+                                                value={rule.type}
+                                                onChange={e => {
+                                                    const next = [...discountRules];
+                                                    next[idx] = { ...next[idx], type: e.target.value === 'percent' ? 'percent' : 'flat' };
+                                                    setDiscountRules(next);
+                                                }}
+                                            >
+                                                <option value="flat">€ fijo</option>
+                                                <option value="percent">%</option>
+                                            </select>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                className="w-24 bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white font-bold"
+                                                value={rule.value}
+                                                onChange={e => {
+                                                    const next = [...discountRules];
+                                                    next[idx] = { ...next[idx], value: Number(e.target.value) };
+                                                    setDiscountRules(next);
+                                                }}
+                                            />
+                                            <button
+                                                onClick={() => setDiscountRules(discountRules.filter((_, i) => i !== idx))}
+                                                className="ml-auto text-xs font-bold bg-red-500/10 text-red-400 px-3 py-1.5 rounded-lg border border-red-500/30 hover:bg-red-500 hover:text-white transition-colors"
+                                            >
+                                                Eliminar
+                                            </button>
+                                        </div>
+                                    ))}
+                                    <div className="flex justify-end">
+                                        <button
+                                            onClick={saveDiscountRules}
+                                            className="text-xs font-bold bg-green-500/20 text-green-400 px-4 py-2 rounded-lg border border-green-500/30 hover:bg-green-500 hover:text-white transition-colors"
+                                        >
+                                            Guardar descuentos
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="bg-gray-900/40 border border-gray-700 rounded-2xl p-5">
+                                    <h3 className="text-sm font-black uppercase tracking-wider text-gray-300 mb-3">Vista previa rápida</h3>
+                                    <div className="grid grid-cols-2 gap-3 text-sm text-gray-400">
+                                        {[10, 15, 30, 60].map((mins) => (
+                                            <div key={mins} className="flex justify-between bg-gray-800/40 px-3 py-2 rounded-lg border border-gray-700">
+                                                <span>{mins} min</span>
+                                                <span className="text-white font-bold">€{calculatePrice(mins, false, previewConfig)}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="bg-gray-900/40 border border-gray-700 rounded-2xl p-5 space-y-4">
+                                    <h3 className="text-sm font-black uppercase tracking-wider text-gray-300">Configuración de Pagos</h3>
+                                    <div className="grid grid-cols-1 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Moneda</label>
+                                            <input
+                                                type="text"
+                                                className="w-full p-3 rounded-xl bg-gray-900 border border-gray-700 text-white font-bold outline-none focus:border-blue-500 transition-all"
+                                                value={paymentCurrency}
+                                                onChange={e => setPaymentCurrency(e.target.value)}
+                                                placeholder="EUR"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">URL Kiosk Público</label>
+                                            <input
+                                                type="text"
+                                                className="w-full p-3 rounded-xl bg-gray-900 border border-gray-700 text-white font-bold outline-none focus:border-blue-500 transition-all"
+                                                value={paymentPublicKioskUrl}
+                                                onChange={e => setPaymentPublicKioskUrl(e.target.value)}
+                                                placeholder="http://localhost:5959/kiosk"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Stripe Secret Key</label>
+                                            <input
+                                                type="password"
+                                                className="w-full p-3 rounded-xl bg-gray-900 border border-gray-700 text-white font-bold outline-none focus:border-blue-500 transition-all"
+                                                value={stripeSecretKey}
+                                                onChange={e => setStripeSecretKey(e.target.value)}
+                                                placeholder="sk_live_..."
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Stripe Webhook Secret</label>
+                                            <input
+                                                type="password"
+                                                className="w-full p-3 rounded-xl bg-gray-900 border border-gray-700 text-white font-bold outline-none focus:border-blue-500 transition-all"
+                                                value={stripeWebhookSecret}
+                                                onChange={e => setStripeWebhookSecret(e.target.value)}
+                                                placeholder="whsec_..."
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Stripe Success URL</label>
+                                            <input
+                                                type="text"
+                                                className="w-full p-3 rounded-xl bg-gray-900 border border-gray-700 text-white font-bold outline-none focus:border-blue-500 transition-all"
+                                                value={stripeSuccessUrl}
+                                                onChange={e => setStripeSuccessUrl(e.target.value)}
+                                                placeholder="http://localhost:5959/kiosk?payment=success"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Stripe Cancel URL</label>
+                                            <input
+                                                type="text"
+                                                className="w-full p-3 rounded-xl bg-gray-900 border border-gray-700 text-white font-bold outline-none focus:border-blue-500 transition-all"
+                                                value={stripeCancelUrl}
+                                                onChange={e => setStripeCancelUrl(e.target.value)}
+                                                placeholder="http://localhost:5959/kiosk?payment=cancel"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Bizum Receptor</label>
+                                            <input
+                                                type="text"
+                                                className="w-full p-3 rounded-xl bg-gray-900 border border-gray-700 text-white font-bold outline-none focus:border-blue-500 transition-all"
+                                                value={bizumReceiver}
+                                                onChange={e => setBizumReceiver(e.target.value)}
+                                                placeholder="600000000"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-end">
+                                        <button
+                                            onClick={savePaymentConfig}
+                                            disabled={savingPaymentConfig}
+                                            className="text-xs font-bold bg-blue-600/20 text-blue-400 px-4 py-2 rounded-lg border border-blue-500/30 hover:bg-blue-600 hover:text-white transition-colors disabled:opacity-60"
+                                        >
+                                            {savingPaymentConfig ? 'Guardando...' : 'Guardar configuración'}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>

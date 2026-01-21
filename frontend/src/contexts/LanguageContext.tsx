@@ -19,13 +19,9 @@ import { availableLanguages } from './languageConstants';
 export function LanguageProvider({ children }: { children: ReactNode }) {
     const [language, setLanguageState] = useState<Language>(() => {
         const saved = localStorage.getItem('language');
-        if (saved && ['es', 'en', 'ca'].includes(saved)) {
+        if (saved && ['es', 'en'].includes(saved)) {
             return saved as Language;
         }
-        // Detect browser language
-        const browserLang = navigator.language.split('-')[0];
-        if (browserLang === 'ca') return 'ca';
-        if (browserLang === 'en') return 'en';
         return 'es'; // Default
     });
 

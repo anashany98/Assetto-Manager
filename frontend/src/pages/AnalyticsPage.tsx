@@ -190,7 +190,14 @@ export default function AnalyticsPage() {
                                     nameKey="method"
                                 >
                                     {(paymentMethodsData || []).map((entry: any, index: number) => {
-                                        const colors: any = { cash: '#10B981', card_nayax: '#8B5CF6', online: '#3B82F6', unknown: '#6B7280' };
+                                        const colors: any = {
+                                            cash: '#10B981',
+                                            card_nayax: '#8B5CF6',
+                                            online: '#3B82F6',
+                                            stripe_qr: '#0EA5E9',
+                                            bizum: '#F59E0B',
+                                            unknown: '#6B7280'
+                                        };
                                         return <Cell key={`cell-${index}`} fill={colors[entry.method] || colors.unknown} />;
                                     })}
                                 </Pie>
@@ -200,7 +207,14 @@ export default function AnalyticsPage() {
                                 />
                                 <Legend
                                     formatter={(value) => {
-                                        const labels: any = { cash: 'Efectivo', card_nayax: 'TPV / Tarjeta', online: 'Web / Online', unknown: 'Desconocido' };
+                                        const labels: any = {
+                                            cash: 'Efectivo',
+                                            card_nayax: 'TPV / Tarjeta',
+                                            online: 'Web / Online',
+                                            stripe_qr: 'Stripe QR',
+                                            bizum: 'Bizum',
+                                            unknown: 'Desconocido'
+                                        };
                                         return labels[value] || value;
                                     }}
                                 />

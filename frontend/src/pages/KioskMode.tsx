@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { useIdleTimer } from 'react-idle-timer';
@@ -41,15 +41,21 @@ import {
     Tooltip,
     ResponsiveContainer
 } from 'recharts';
-import { API_URL } from '../config';
+import { API_URL, PUBLIC_API_TOKEN } from '../config';
 import { getCars, getTracks } from '../api/content';
 import { getScenarios } from '../api/scenarios';
 import type { Scenario } from '../api/scenarios';
+import { createPaymentCheckout, getPaymentStatus, type PaymentProvider, type PaymentStatus } from '../api/payments';
+import { startSession } from '../api/sessions';
+import { calculatePrice, getPricingConfig } from '../utils/pricing';
+import { useLanguage } from '../contexts/useLanguage';
 
 // Driver creation is handled inline for now. Backend may provide endpoint.
+const clientTokenHeaders = PUBLIC_API_TOKEN ? { 'X-Client-Token': PUBLIC_API_TOKEN } : {};
 
 export default function KioskMode() {
     const [searchParams] = useSearchParams();
+    const [stationId, setStationId] = useState<number>(1);
     const [step, setStep] = useState<number>(1);
     const [driver, setDriver] = useState<{ id: number, name: string } | null>(null);
     const [selection, setSelection] = useState<{
@@ -71,10 +77,28 @@ export default function KioskMode() {
     const [selectedScenario, setSelectedScenario] = useState<Scenario | null>(null);
     const [isLaunched, setIsLaunched] = useState(false);
     const [remainingSeconds, setRemainingSeconds] = useState<number>(duration * 60);
+    const { language, setLanguage, t } = useLanguage();
+    const [paymentProvider, setPaymentProvider] = useState<PaymentProvider>('stripe_qr');
+    const [paymentInfo, setPaymentInfo] = useState<PaymentStatus | null>(null);
+    const [paymentError, setPaymentError] = useState<string | null>(null);
+    const paymentHandledRef = useRef(false);
 
     // Queries
     const { data: cars = [] } = useQuery({ queryKey: ['cars'], queryFn: () => getCars() });
     const { data: tracks = [] } = useQuery({ queryKey: ['tracks'], queryFn: () => getTracks() });
+    const { data: settings = [] } = useQuery({
+        queryKey: ['settings'],
+        queryFn: async () => {
+            const res = await axios.get(`${API_URL}/settings/`);
+            return Array.isArray(res.data) ? res.data : [];
+        },
+        initialData: []
+    });
+    const pricingConfig = useMemo(() => getPricingConfig(settings), [settings]);
+    const sessionPrice = useMemo(() => calculatePrice(duration, false, pricingConfig), [duration, pricingConfig]);
+    const paymentNote = t('kiosk.paymentNote')
+        .replace('{stationId}', String(stationId))
+        .replace('#{stationId}', String(stationId));
 
     // Active Scenarios (Hoisted for Attract Mode)
     const { data: scenarios = [] } = useQuery({
@@ -117,8 +141,6 @@ export default function KioskMode() {
     });
 
     // Station ID State
-    const [stationId, setStationId] = useState<number>(1);
-
     // Fetch Hardware Status (Agent, Wheel, Pedals)
     const { data: hardwareStatus } = useQuery({
         queryKey: ['hardware-status', stationId],
@@ -144,6 +166,27 @@ export default function KioskMode() {
         },
         refetchInterval: 2000,
         retry: false
+    });
+
+    const hardwareWarning = hardwareStatus && (hardwareStatus.is_online === false || !hardwareStatus.wheel_connected || !hardwareStatus.pedals_connected);
+
+    const launchSessionMutation = useMutation({
+        mutationFn: async (payload: any) => {
+            await axios.post(`${API_URL}/control/station/${stationId}/launch`, payload, { headers: clientTokenHeaders });
+        },
+        onSuccess: () => setIsLaunched(true)
+    });
+
+    const buildLaunchPayload = () => ({
+        driver_id: driver?.id,
+        driver_name: driver?.name,
+        car: selection?.car,
+        track: selection?.track,
+        difficulty,
+        transmission,
+        time_of_day: timeOfDay,
+        weather: weather,
+        duration_minutes: duration
     });
 
 
@@ -340,7 +383,7 @@ export default function KioskMode() {
         return (
             <div className="h-full flex flex-col animate-in zoom-in duration-300">
                 <h2 className="text-4xl font-black text-white italic tracking-tighter mb-8 text-center drop-shadow-lg">
-                    ELIGE TU COMPETICIÓN
+                    {t('kiosk.chooseCompetition')}
                 </h2>
 
                 <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-12">
@@ -349,7 +392,7 @@ export default function KioskMode() {
                     {lobbies.length > 0 && (
                         <div>
                             <h3 className="text-2xl font-black text-blue-400 mb-6 flex items-center gap-3 border-b border-blue-900/50 pb-2">
-                                <Activity className="animate-pulse" /> SALAS MULTIJUGADOR EN VIVO
+                                <Activity className="animate-pulse" /> {t('kiosk.liveLobbies')}
                             </h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 {lobbies.map((l: any) => (
@@ -408,7 +451,7 @@ export default function KioskMode() {
                     {/* SECTION 2: SPECIAL EVENTS */}
                     <div>
                         <h3 className="text-2xl font-black text-yellow-500 mb-6 flex items-center gap-3 border-b border-yellow-900/30 pb-2">
-                            <Trophy className="text-yellow-500" /> EVENTOS ESPECIALES
+                            <Trophy className="text-yellow-500" /> {t('kiosk.specialEvents')}
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {/* DAILY CHALLENGE */}
@@ -498,7 +541,7 @@ export default function KioskMode() {
                                         {/* Time Selection (Visible only when expanded) */}
                                         {expandedId === scenario.id ? (
                                             <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                                                <p className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-2">ELIGE DURACIÓN:</p>
+                                                <p className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-2">{t('kiosk.pickDuration')}</p>
                                                 <div className="grid grid-cols-2 gap-3">
                                                     {(scenario.allowed_durations?.length ? scenario.allowed_durations : [10, 15, 20]).map((mins: number) => (
                                                         <button
@@ -516,7 +559,7 @@ export default function KioskMode() {
                                             </div>
                                         ) : (
                                             <div className="mt-4 flex items-center gap-2 text-gray-500 font-bold group-hover:text-white transition-colors">
-                                                <span>SELECCIONAR</span> <ChevronRight />
+                                                <span>{t('kiosk.select')}</span> <ChevronRight />
                                             </div>
                                         )}
                                     </div>
@@ -584,12 +627,12 @@ export default function KioskMode() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 w-full max-w-5xl">
                     {/* LEFT: Registration Form */}
                     <div className="flex flex-col items-center justify-center">
-                        <h1 className="text-5xl font-black text-white italic mb-2 tracking-tighter">BIENVENIDO PILOTO</h1>
-                        <p className="text-xl text-gray-400 mb-8">Identifícate para guardar tus tiempos</p>
+                        <h1 className="text-5xl font-black text-white italic mb-2 tracking-tighter">{t('kiosk.welcomeDriver')}</h1>
+                        <p className="text-xl text-gray-400 mb-8">{t('kiosk.identifyToSave')}</p>
 
                         <form onSubmit={handleLogin} className="w-full max-w-lg space-y-6">
                             <div className="space-y-2">
-                                <label className="text-gray-400 font-bold ml-1">NOMBRE DE PILOTO</label>
+                                <label className="text-gray-400 font-bold ml-1">{t('kiosk.driverName')}</label>
                                 <input
                                     type="text"
                                     className="w-full bg-gray-800 border-2 border-gray-700 focus:border-blue-500 rounded-2xl px-6 py-4 text-2xl text-white font-bold outline-none transition-all focus:scale-[1.02] placeholder:text-gray-600"
@@ -600,7 +643,7 @@ export default function KioskMode() {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-gray-400 font-bold ml-1">EMAIL (Opcional)</label>
+                                <label className="text-gray-400 font-bold ml-1">{t('kiosk.emailOptional')}</label>
                                 <input
                                     type="email"
                                     className="w-full bg-gray-800 border-2 border-gray-700 focus:border-blue-500 rounded-2xl px-6 py-4 text-2xl text-white font-bold outline-none transition-all focus:scale-[1.02] placeholder:text-gray-600"
@@ -611,7 +654,7 @@ export default function KioskMode() {
                             </div>
 
                             <button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-black text-2xl py-6 rounded-2xl shadow-xl shadow-blue-600/20 active:scale-95 hover:scale-[1.02] transition-all flex items-center justify-center gap-3">
-                                COMENZAR <ChevronRight size={32} />
+                                {t('kiosk.start')} <ChevronRight size={32} />
                             </button>
                         </form>
                     </div>
@@ -619,7 +662,7 @@ export default function KioskMode() {
                     {/* RIGHT: Mini Leaderboard */}
                     <div className="bg-black/40 rounded-3xl border border-gray-800 p-6 backdrop-blur-sm animate-in slide-in-from-right-8 duration-700">
                         <h3 className="text-2xl font-black text-white mb-4 flex items-center gap-3">
-                            <Trophy className="text-yellow-400" /> MEJORES TIEMPOS
+                            <Trophy className="text-yellow-400" /> {t('kiosk.topTimes')}
                         </h3>
                         <div className="space-y-3">
                             {topTimes.map((entry, idx) => (
@@ -646,7 +689,7 @@ export default function KioskMode() {
                                 </div>
                             ))}
                         </div>
-                        <p className="text-center text-gray-600 text-sm mt-4">¿Podrás batir el récord?</p>
+                        <p className="text-center text-gray-600 text-sm mt-4">{t('kiosk.beatRecord')}</p>
                     </div>
                 </div>
             </div>
@@ -941,24 +984,6 @@ export default function KioskMode() {
 
     // --- STEP 4: DIFFICULTY ---
     const DifficultyStep = () => {
-        const LaunchSession = useMutation({
-            mutationFn: async () => {
-                // Use stationId from state (detected via URL or localStorage)
-                await axios.post(`${API_URL}/control/station/${stationId}/launch`, {
-                    driver_id: driver?.id,
-                    driver_name: driver?.name,
-                    car: selection?.car,
-                    track: selection?.track,
-                    difficulty,
-                    transmission, // Added transmission
-                    time_of_day: timeOfDay,
-                    weather: weather,
-                    duration_minutes: duration
-                });
-            },
-            onSuccess: () => setIsLaunched(true)
-        });
-
         return (
             <div className="h-full flex flex-col items-center justify-center animate-in zoom-in duration-300 max-w-4xl mx-auto w-full">
                 <h2 className="text-4xl font-black text-white mb-6">CONFIGURA TU SESIÓN</h2>
@@ -1134,19 +1159,176 @@ export default function KioskMode() {
 
                 <div className="w-full">
                     <button
-                        onClick={() => LaunchSession.mutate()}
-                        disabled={LaunchSession.isPending}
+                        onClick={() => {
+                            paymentHandledRef.current = false;
+                            setPaymentInfo(null);
+                            setPaymentError(null);
+                            setStep(5);
+                        }}
                         className="w-full bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-black text-3xl py-8 rounded-3xl shadow-2xl shadow-red-600/20 active:scale-95 transition-all flex items-center justify-center gap-4 disabled:opacity-50"
                     >
-                        {LaunchSession.isPending ? 'INICIANDO...' : 'LANZAR SESIÓN'} <Play fill="currentColor" size={32} />
+                        {t('kiosk.payAndLaunch')} <Play fill="currentColor" size={32} />
                     </button>
-                    <p className="text-center text-gray-500 mt-4 text-sm">Simulador #{stationId} • Al pulsar, el juego se iniciará automáticamente.</p>
+                    <p className="text-center text-gray-500 mt-4 text-sm">{paymentNote}</p>
                 </div>
             </div>
         );
     };
 
-    // --- STEP 5: WAITING ROOM ---
+    // --- STEP 5: PAYMENT ---
+    const PaymentStep = () => {
+        const createCheckout = useMutation({
+            mutationFn: async (provider: PaymentProvider) => {
+                return createPaymentCheckout({
+                    provider,
+                    station_id: stationId,
+                    duration_minutes: duration,
+                    driver_name: driver?.name,
+                    scenario_id: selection?.scenarioId,
+                    is_vr: false
+                }, clientTokenHeaders);
+            },
+            onSuccess: (data) => {
+                setPaymentInfo(data);
+                setPaymentError(null);
+            },
+            onError: () => setPaymentError('No se pudo iniciar el pago. Revisa la configuración.')
+        });
+
+        useEffect(() => {
+            createCheckout.mutate(paymentProvider);
+        }, [paymentProvider, stationId, duration, driver?.name, selection?.scenarioId]);
+
+        const { data: paymentStatus } = useQuery({
+            queryKey: ['payment-status', paymentInfo?.id],
+            queryFn: () => getPaymentStatus(paymentInfo!.id, clientTokenHeaders),
+            enabled: !!paymentInfo?.id,
+            refetchInterval: 2000
+        });
+
+        useEffect(() => {
+            if (paymentStatus) {
+                setPaymentInfo(paymentStatus);
+            }
+            if (paymentStatus?.status === 'paid' && !paymentHandledRef.current) {
+                paymentHandledRef.current = true;
+                (async () => {
+                    try {
+                        await startSession({
+                            station_id: stationId,
+                            driver_name: driver?.name || undefined,
+                            duration_minutes: duration,
+                            price: paymentStatus.amount,
+                            payment_method: paymentStatus.provider,
+                            is_vr: false
+                        });
+                    } catch (err) {
+                        console.error('Error creating session:', err);
+                    }
+
+                    if (selection?.isLobby) {
+                        setStep(6);
+                        return;
+                    }
+
+                    try {
+                        await launchSessionMutation.mutateAsync(buildLaunchPayload());
+                    } catch (err) {
+                        console.error('Error launching session:', err);
+                    }
+                })();
+            }
+        }, [paymentStatus]);
+
+        const displayAmount = paymentInfo?.amount ?? sessionPrice;
+        const currency = paymentInfo?.currency || 'EUR';
+
+        return (
+            <div className="h-full flex flex-col items-center justify-center animate-in zoom-in duration-300 max-w-4xl mx-auto w-full">
+                <h2 className="text-4xl font-black text-white mb-4">{t('kiosk.paymentTitle')}</h2>
+                <p className="text-gray-400 mb-6 text-center">{t('kiosk.paymentSubtitle')}</p>
+
+                <div className="bg-gray-900/60 border border-gray-700 rounded-2xl p-6 w-full mb-6">
+                    <div className="flex items-center justify-between text-sm text-gray-400 uppercase font-bold">
+                        <span>{t('kiosk.durationLabel')}</span>
+                        <span className="text-white">{duration} min</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm text-gray-400 uppercase font-bold mt-2">
+                        <span>{t('kiosk.totalLabel')}</span>
+                        <span className="text-white text-2xl">€{displayAmount} {currency}</span>
+                    </div>
+                </div>
+
+                <div className="flex gap-4 mb-6">
+                    <button
+                        onClick={() => {
+                            setPaymentProvider('stripe_qr');
+                            setPaymentInfo(null);
+                            setPaymentError(null);
+                        }}
+                        className={`px-6 py-3 rounded-xl font-black border-2 transition-all ${paymentProvider === 'stripe_qr' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'}`}
+                    >
+                        Stripe QR
+                    </button>
+                    <button
+                        onClick={() => {
+                            setPaymentProvider('bizum');
+                            setPaymentInfo(null);
+                            setPaymentError(null);
+                        }}
+                        className={`px-6 py-3 rounded-xl font-black border-2 transition-all ${paymentProvider === 'bizum' ? 'bg-green-600 border-green-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'}`}
+                    >
+                        Bizum
+                    </button>
+                </div>
+
+                <div className="bg-gray-900/40 border border-gray-700 rounded-2xl p-6 w-full flex flex-col items-center gap-4">
+                    {paymentError && (
+                        <div className="text-red-400 font-bold">{paymentError}</div>
+                    )}
+                    {!paymentError && paymentProvider === 'stripe_qr' && paymentInfo?.checkout_url && (
+                        <>
+                            <QRCodeCanvas value={paymentInfo.checkout_url} size={200} level="H" />
+                            <p className="text-xs text-gray-400">{t('kiosk.scanToPay')}</p>
+                        </>
+                    )}
+                    {!paymentError && paymentProvider === 'bizum' && (
+                        <div className="text-center text-gray-300 space-y-2">
+                            <p className="font-bold">{t('kiosk.payWithBizum')}</p>
+                            {paymentInfo?.instructions ? (
+                                <p className="text-sm text-gray-400">{paymentInfo.instructions}</p>
+                            ) : (
+                                <p className="text-sm text-gray-400">{t('kiosk.bizumPending')}</p>
+                            )}
+                            {paymentInfo?.reference && (
+                                <div className="text-lg font-black text-white">{paymentInfo.reference}</div>
+                            )}
+                        </div>
+                    )}
+                    {!paymentError && paymentInfo?.status === 'pending' && (
+                        <p className="text-xs text-gray-500">{t('kiosk.waitingPayment')}</p>
+                    )}
+                </div>
+
+                <div className="w-full mt-6 flex gap-4">
+                    <button
+                        onClick={() => setStep(4)}
+                        className="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-bold py-4 rounded-xl border border-gray-700 transition-all"
+                    >
+                        {t('common.back')}
+                    </button>
+                    <button
+                        onClick={() => createCheckout.mutate(paymentProvider)}
+                        className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all"
+                    >
+                        {t('kiosk.retryPayment')}
+                    </button>
+                </div>
+            </div>
+        );
+    };
+
+    // --- STEP 6: WAITING ROOM ---
     const WaitingRoom = () => {
         const { data: lobbyData, refetch } = useQuery({
             queryKey: ['lobby', selection?.lobbyId],
@@ -1312,7 +1494,7 @@ export default function KioskMode() {
                 if (prev <= 1) {
                     clearInterval(timer);
                     setIsLaunched(false);
-                    setStep(6); // Go to Results
+                    setStep(7); // Go to Results
                     return 0;
                 }
                 return prev - 1;
@@ -1410,7 +1592,7 @@ export default function KioskMode() {
                         onClick={async () => {
                             if (confirm('¿Seguro que quieres CANCELAR la sesión? El juego se cerrará.')) {
                                 try {
-                                    await axios.post(`${API_URL}/control/station/${stationId}/panic`);
+                                    await axios.post(`${API_URL}/control/station/${stationId}/panic`, null, { headers: clientTokenHeaders });
                                 } catch (e) {
                                     console.error('Error sending panic:', e);
                                 }
@@ -1685,8 +1867,9 @@ export default function KioskMode() {
             case 2: return <DriverStep />;
             case 3: return <ContentStep />;
             case 4: return <DifficultyStep />;
-            case 5: return <WaitingRoom />;
-            case 6: return <ResultsStep />; // New Step
+            case 5: return <PaymentStep />;
+            case 6: return <WaitingRoom />;
+            case 7: return <ResultsStep />; // New Step
             default: return <ScenarioStep />;
         }
     }
@@ -1727,6 +1910,22 @@ export default function KioskMode() {
                         </div>
 
                         <div className="flex items-center gap-4">
+                            {step === 1 && (
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => setLanguage('es')}
+                                        className={`px-3 py-2 rounded-lg text-xs font-black border ${language === 'es' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'}`}
+                                    >
+                                        ES
+                                    </button>
+                                    <button
+                                        onClick={() => setLanguage('en')}
+                                        className={`px-3 py-2 rounded-lg text-xs font-black border ${language === 'en' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'}`}
+                                    >
+                                        EN
+                                    </button>
+                                </div>
+                            )}
                             {/* CONNECTED INDICATORS */}
                             <div className="flex gap-2">
                                 {/* AGENT STATUS */}
@@ -1748,6 +1947,18 @@ export default function KioskMode() {
                             </div>
                         </div>
                     </div>
+
+                    {hardwareWarning && (
+                        <div className="mb-6 bg-red-500/10 border border-red-500/30 rounded-2xl p-4 text-red-200 font-bold text-sm flex items-center gap-3">
+                            <AlertCircle size={20} />
+                            <span>
+                                {!hardwareStatus?.is_online && 'Agente desconectado. '}
+                                {hardwareStatus?.is_online && (!hardwareStatus?.wheel_connected || !hardwareStatus?.pedals_connected) && 'Hardware no detectado: '}
+                                {hardwareStatus?.is_online && !hardwareStatus?.wheel_connected && 'volante '}
+                                {hardwareStatus?.is_online && !hardwareStatus?.pedals_connected && 'pedales'}
+                            </span>
+                        </div>
+                    )}
 
                     <div className="flex-1 flex flex-col justify-center max-w-7xl mx-auto w-full">
                         {renderStep()}

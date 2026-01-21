@@ -73,6 +73,7 @@ class Station(Base):
     is_kiosk_mode = Column(Boolean, default=False)
     is_locked = Column(Boolean, default=False) # Cyber-Lock status
     is_tv_mode = Column(Boolean, default=False)
+    is_vr = Column(Boolean, default=False)
     status = Column(String, default="offline")
     ac_path = Column(String, default="C:\\Program Files (x86)\\Steam\\steamapps\\common\\assettocorsa")
     content_cache = Column(JSON, nullable=True)  # Cached cars/tracks from scan
@@ -420,6 +421,31 @@ class Session(Base):
     
     notes = Column(String(255), nullable=True)
     
+    station = relationship("Station")
+
+
+class Payment(Base):
+    __tablename__ = "payments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    provider = Column(String(50), nullable=False)  # stripe_qr, bizum
+    status = Column(String(20), default="pending")  # pending, paid, failed, expired
+    amount = Column(Float, default=0.0)
+    currency = Column(String(10), default="EUR")
+
+    station_id = Column(Integer, ForeignKey("stations.id"), nullable=True)
+    duration_minutes = Column(Integer, default=0)
+    is_vr = Column(Boolean, default=False)
+    driver_name = Column(String(100), nullable=True)
+    scenario_id = Column(Integer, ForeignKey("scenarios.id"), nullable=True)
+
+    external_id = Column(String(255), nullable=True)
+    checkout_url = Column(String, nullable=True)
+    metadata_json = Column(JSON, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), onupdate=lambda: datetime.now(timezone.utc))
+
     station = relationship("Station")
 
 

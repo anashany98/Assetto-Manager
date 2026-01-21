@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from .. import models, database
 from ..paths import STORAGE_DIR
+from ..routers.auth import require_admin
 import shutil
 import os
 import uuid
@@ -30,7 +31,7 @@ class AdCampaignOut(BaseModel):
 
 # --- Routes ---
 
-@router.get("/", response_model=List[AdCampaignOut])
+@router.get("/", response_model=List[AdCampaignOut], dependencies=[Depends(require_admin)])
 def list_ads(db: Session = Depends(database.get_db)):
     return db.query(models.AdCampaign).all()
 
@@ -38,7 +39,7 @@ def list_ads(db: Session = Depends(database.get_db)):
 def list_active_ads(db: Session = Depends(database.get_db)):
     return db.query(models.AdCampaign).filter(models.AdCampaign.is_active == True).all()
 
-@router.post("/", response_model=AdCampaignOut)
+@router.post("/", response_model=AdCampaignOut, dependencies=[Depends(require_admin)])
 def create_ad(
     title: str = Form(...),
     display_duration: int = Form(15),
@@ -72,7 +73,7 @@ def create_ad(
     
     return new_ad
 
-@router.delete("/{ad_id}")
+@router.delete("/{ad_id}", dependencies=[Depends(require_admin)])
 def delete_ad(ad_id: int, db: Session = Depends(database.get_db)):
     ad = db.query(models.AdCampaign).filter(models.AdCampaign.id == ad_id).first()
     if not ad:
@@ -92,7 +93,7 @@ def delete_ad(ad_id: int, db: Session = Depends(database.get_db)):
     db.commit()
     return {"status": "deleted"}
 
-@router.put("/{ad_id}/toggle")
+@router.put("/{ad_id}/toggle", dependencies=[Depends(require_admin)])
 def toggle_ad(ad_id: int, db: Session = Depends(database.get_db)):
     ad = db.query(models.AdCampaign).filter(models.AdCampaign.id == ad_id).first()
     if not ad:

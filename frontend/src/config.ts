@@ -20,3 +20,4 @@ export const WS_BASE_URL = (() => {
 })();
 
 export const PUBLIC_WS_TOKEN = import.meta.env.VITE_PUBLIC_WS_TOKEN || '';
+export const PUBLIC_API_TOKEN = import.meta.env.VITE_PUBLIC_API_TOKEN || PUBLIC_WS_TOKEN;

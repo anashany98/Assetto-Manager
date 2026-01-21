@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from .database import engine, Base
-from .routers import stations, mods, telemetry, websockets, settings, profiles, events, config_manager, championships, integrations, tournament, logs, ads, auth, backup, exports, loyalty, bookings, analytics, push, elimination, elo, hardware, control, drivers
+from .database import engine, Base, ensure_station_schema
+from .routers import stations, mods, telemetry, websockets, settings, profiles, events, config_manager, championships, integrations, tournament, logs, ads, auth, backup, exports, loyalty, bookings, analytics, push, elimination, elo, hardware, control, drivers, payments
 
 # ...
 
@@ -12,6 +12,7 @@ from .services.scheduler import start_scheduler, stop_scheduler
 
 # Create Tables
 Base.metadata.create_all(bind=engine)
+ensure_station_schema(engine)
 
 from fastapi.staticfiles import StaticFiles
 import os
@@ -114,7 +115,7 @@ app.add_middleware(
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "X-Agent-Token", "X-Setup-Token"],
+    allow_headers=["Content-Type", "Authorization", "X-Agent-Token", "X-Setup-Token", "X-Client-Token"],
 )
 
 # Rate Limiting
@@ -151,6 +152,7 @@ app.include_router(elo.router)
 app.include_router(hardware.router)
 app.include_router(control.router)
 app.include_router(drivers.router)
+app.include_router(payments.router)
 from .routers import sessions
 app.include_router(sessions.router)
 
@@ -211,4 +213,3 @@ if frontend_dist.exists():
         return FileResponse(frontend_dist / "index.html")
 else:
     logger.warning(f"Frontend build not found at {frontend_dist}. Running in API-only mode.")
-

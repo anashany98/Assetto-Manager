@@ -78,7 +78,7 @@ export default function AnalyticsPanel() {
     const tierData = Object.entries(loyalty.tier_distribution || {}).map(([tier, count]) => ({
         name: tier.charAt(0).toUpperCase() + tier.slice(1),
         value: count,
-        color: TIER_COLORS[tier] || '#gray'
+        color: TIER_COLORS[tier] || '#9ca3af'
     }));
 
     return (

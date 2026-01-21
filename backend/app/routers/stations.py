@@ -158,9 +158,6 @@ def power_on_station(station_id: int, db: Session = Depends(database.get_db), cu
     if not success:
         raise HTTPException(status_code=500, detail="Failed to send Wake-on-LAN packet")
         
-    if not success:
-        raise HTTPException(status_code=500, detail="Failed to send Wake-on-LAN packet")
-        
     return {"status": "ok", "message": f"Wake-on-LAN packet sent to {station.mac_address}"}
 
 @router.post("/{station_id}/panic")

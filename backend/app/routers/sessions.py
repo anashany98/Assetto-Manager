@@ -7,6 +7,7 @@ from datetime import datetime, timezone, timedelta
 from ..database import get_db
 from ..models import Session, Station
 from .. import schemas
+from ..services.pricing import calculate_price
 
 router = APIRouter(
     prefix="/sessions",
@@ -35,6 +36,10 @@ def start_session(
     now = datetime.now(timezone.utc)
     end_time = now + timedelta(minutes=session_data.duration_minutes)
     
+    price = session_data.price
+    if price is None or price <= 0:
+        price = calculate_price(db, session_data.duration_minutes, session_data.is_vr)
+
     new_session = Session(
         station_id=session_data.station_id,
         driver_name=session_data.driver_name,
@@ -42,7 +47,7 @@ def start_session(
         start_time=now,
         end_time=end_time,
         status="active",
-        price=session_data.price,
+        price=price,
         payment_method=session_data.payment_method,
         is_vr=session_data.is_vr,
         is_paid=True, # Assuming started via this endpoint implies payment or intent
