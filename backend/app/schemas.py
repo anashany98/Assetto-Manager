@@ -1,4 +1,4 @@
-from pydantic import BaseModel, IPvAnyAddress, Field, field_validator
+from pydantic import BaseModel, IPvAnyAddress, Field, field_validator, ConfigDict
 
 from typing import Optional, Literal, List, Any
 from datetime import datetime
@@ -80,8 +80,7 @@ class SessionResponse(SessionStart):
     is_paid: bool
     notes: Optional[str] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class TagBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=30)
@@ -94,8 +93,7 @@ class Tag(TagBase):
     id: int
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ModBase(BaseModel):
     name: str
@@ -116,8 +114,7 @@ class Mod(ModBase):
     dependencies: List['Mod'] = []
     tags: List[Tag] = []
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ProfileBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
@@ -137,8 +134,7 @@ class Profile(ProfileBase):
     created_at: datetime
     updated_at: Optional[datetime]
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # --- Telemetry Schemas ---
 
@@ -155,8 +151,7 @@ class Driver(DriverBase):
     total_laps: int
     safety_rating: int
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class MatchBase(BaseModel):
     round_number: int
@@ -173,8 +168,7 @@ class Match(MatchBase):
     winner_name: Optional[str] = None
     next_match_id: Optional[int] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class LapTimeBase(BaseModel):
     driver_name: str
@@ -187,8 +181,7 @@ class LapTimeBase(BaseModel):
     is_valid: bool
     timestamp: datetime
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 class SessionResultCreate(BaseModel):
     station_id: Optional[int] = None
@@ -230,8 +223,7 @@ class SessionResult(BaseModel):
     track_config: Optional[str] = None
     event_id: Optional[int] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class LeaderboardEntry(BaseModel):
     rank: int
@@ -250,9 +242,8 @@ class GlobalSettingsBase(BaseModel):
 
 class GlobalSettings(GlobalSettingsBase):
     pass
-
-    class Config:
-        from_attributes = True
+    
+    model_config = ConfigDict(from_attributes=True)
 
 # --- Event Schemas ---
 
@@ -282,8 +273,7 @@ class Event(EventBase):
     updated_at: Optional[datetime]
     championship_id: Optional[int] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ChampionshipBase(BaseModel):
     name: str
@@ -299,8 +289,7 @@ class Championship(ChampionshipBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class LeaderboardStats(BaseModel):
     top_driver: Optional[str] = None
@@ -456,8 +445,7 @@ class Lobby(BaseModel):
     player_count: int = 0
     players: List[LobbyPlayer] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class LobbyJoin(BaseModel):
     station_id: int
@@ -471,6 +459,7 @@ class WheelProfileBase(BaseModel):
     config_json: Optional[Any] = None
     model_type: Optional[str] = "custom"
     is_active: bool = True
+    model_config = ConfigDict(protected_namespaces=())
 
 class WheelProfileCreate(WheelProfileBase):
     pass
@@ -481,13 +470,13 @@ class WheelProfileUpdate(BaseModel):
     config_ini: Optional[str] = None
     model_type: Optional[str] = None
     is_active: Optional[bool] = None
+    model_config = ConfigDict(protected_namespaces=())
 
 class WheelProfile(WheelProfileBase):
     id: int
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
 
 class MassLaunchRequest(BaseModel):
     station_ids: List[int]

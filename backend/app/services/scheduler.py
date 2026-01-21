@@ -3,6 +3,7 @@ Scheduler Service - Background tasks for automated reminders
 Uses APScheduler for periodic task execution
 """
 import asyncio
+import json
 from datetime import datetime, timedelta, date
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger

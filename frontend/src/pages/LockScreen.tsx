@@ -14,7 +14,7 @@ export default function LockScreen() {
     const { data: settings } = useQuery({
         queryKey: ['settings'],
         queryFn: async () => {
-            const res = await axios.get(`${API_URL}/settings`);
+            const res = await axios.get(`${API_URL}/settings/`);
             return Array.isArray(res.data) ? res.data : [];
         }
     });

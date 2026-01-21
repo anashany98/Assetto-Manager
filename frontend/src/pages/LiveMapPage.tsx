@@ -32,7 +32,7 @@ const LiveMapPage = () => {
         queryKey: ['stations'],
         queryFn: async () => {
             try {
-                const res = await axios.get(`${API_URL}/stations`);
+                const res = await axios.get(`${API_URL}/stations/`);
                 return Array.isArray(res.data) ? res.data : [];
             } catch { return []; }
         },

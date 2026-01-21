@@ -17,12 +17,31 @@ from fastapi.staticfiles import StaticFiles
 import os
 from .paths import STORAGE_DIR, REPO_ROOT
 
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+
+def _validate_runtime_config():
+    if ENVIRONMENT != "production":
+        return
+    missing = []
+    if not os.getenv("DATABASE_URL"):
+        missing.append("DATABASE_URL")
+    if not os.getenv("SECRET_KEY"):
+        missing.append("SECRET_KEY")
+    if not os.getenv("ALLOWED_ORIGINS"):
+        missing.append("ALLOWED_ORIGINS")
+    if missing:
+        raise RuntimeError(f"Missing required environment variables: {', '.join(missing)}")
 
 # Lifecycle events
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    start_scheduler()
+    _validate_runtime_config()
+    scheduler_enabled = os.getenv("ENABLE_SCHEDULER", "true").lower() in {"1", "true", "yes"}
+    if scheduler_enabled:
+        start_scheduler()
+    else:
+        logger.info("Scheduler disabled by ENABLE_SCHEDULER")
     yield
     # Shutdown
     stop_scheduler()
@@ -75,9 +94,12 @@ root_logger.addHandler(memory_handler)
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Global Exception: {exc}", exc_info=True)
+    detail = str(exc)
+    if ENVIRONMENT == "production":
+        detail = "Internal Server Error"
     return JSONResponse(
         status_code=500,
-        content={"message": "Internal Server Error. The system recovered automatically.", "detail": str(exc)},
+        content={"message": "Internal Server Error. The system recovered automatically.", "detail": detail},
     )
 
 # Ensure storage directory exists
@@ -85,14 +107,14 @@ STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(STORAGE_DIR)), name="static")
 
 # CORS Configuration
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:5175").split(",")
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5959,http://localhost:5174,http://localhost:5175").split(",")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "X-Admin-Token"],
+    allow_headers=["Content-Type", "Authorization", "X-Agent-Token", "X-Setup-Token"],
 )
 
 # Rate Limiting

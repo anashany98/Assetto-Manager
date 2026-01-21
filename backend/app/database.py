@@ -1,10 +1,11 @@
 import os
+from pathlib import Path
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
 
 load_dotenv()
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+load_dotenv(dotenv_path=Path(__file__).resolve().parents[1] / ".env")
+from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy import event
 
 # SQLite for development ease, PostgreSQL for production

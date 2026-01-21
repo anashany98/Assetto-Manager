@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Body, Header
+from fastapi import APIRouter, Depends, HTTPException, Body
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func, asc, desc
@@ -10,6 +10,7 @@ import os
 import json
 import math
 import logging
+from .auth import require_agent_token, require_admin
 
 # Magic Numbers / Constants
 DEFAULT_LAP_LENGTH_KM = 4.8
@@ -75,7 +76,7 @@ def calculate_consistency_score(times: List[int]) -> float:
     )
     return float(score)
 
-@router.post("/session", status_code=201)
+@router.post("/session", status_code=201, dependencies=[Depends(require_agent_token)])
 def upload_session_result(
     session_data: schemas.SessionResultCreate, 
     db: Session = Depends(database.get_db)
@@ -620,16 +621,11 @@ def get_pilot_profile(driver_name: str, db: Session = Depends(database.get_db)):
         driver_id=driver_obj.id
     )
 
-@router.post("/seed")
+@router.post("/seed", dependencies=[Depends(require_admin)])
 def seed_data(
     count: int = 50, 
-    db: Session = Depends(database.get_db),
-    admin_token: str = Header(None, alias="X-Admin-Token")
+    db: Session = Depends(database.get_db)
 ):
-    if admin_token != os.getenv("ADMIN_TOKEN", "default_insecure_dev_token"):
-        if os.getenv("ENVIRONMENT", "development") == "production":
-             raise HTTPException(status_code=403, detail="Unauthorized")
-
     import random
     from datetime import datetime, timedelta
 

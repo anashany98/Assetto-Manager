@@ -6,6 +6,14 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 logger = logging.getLogger("AC-Agent.Telemetry")
+AGENT_TOKEN = os.getenv("AGENT_TOKEN", "")
+
+def set_agent_token(token: str):
+    global AGENT_TOKEN
+    AGENT_TOKEN = token or ""
+
+def _agent_headers():
+    return {"X-Agent-Token": AGENT_TOKEN} if AGENT_TOKEN else {}
 
 # Almacén de telemetría en memoria: { lap_index (int): [puntos_telemetria] }
 # Se rellena desde main.py usando memoria compartida
@@ -104,7 +112,12 @@ def parse_and_send_telemetry(file_path, server_url, station_id):
             
         # 3. Enviar al Servidor
         logger.info(f"Subiendo sesión de {payload['driver_name']} en {payload['track_name']}...")
-        response = requests.post(f"{server_url}/telemetry/session", json=payload, timeout=10)
+        response = requests.post(
+            f"{server_url}/telemetry/session",
+            json=payload,
+            headers=_agent_headers(),
+            timeout=10
+        )
         response.raise_for_status()
         logger.info("¡Subida de telemetría exitosa!")
         

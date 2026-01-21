@@ -18,3 +18,5 @@ export const WS_BASE_URL = (() => {
     const wsProtocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
     return `${wsProtocol}//${url.host}`;
 })();
+
+export const PUBLIC_WS_TOKEN = import.meta.env.VITE_PUBLIC_WS_TOKEN || '';

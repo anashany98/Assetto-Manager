@@ -14,12 +14,12 @@ if (Get-NetFirewallRule -DisplayName $RuleName -ErrorAction SilentlyContinue) {
     Write-Host "Firewall rule '$RuleName' created successfully." -ForegroundColor Green
 }
 
-# 2. Open Port 5173 (Frontend - Optional if hosting production build via Nginx/etc, but for dev launch useful)
+# 2. Open Port 5959 (Frontend - Optional if hosting production build via Nginx/etc, but for dev launch useful)
 # Note: In production, Frontend should be built and served via Backend static files or Nginx.
 # For simplicity in this 'Arcade' setup with 'start_server.bat', we might serve frontend separately.
 # Let's assume we want to access the Web Panel from the Central PC main screen, but maybe from a tablet too?
-# Let's open 5173 just in case.
-New-NetFirewallRule -DisplayName "AC Manager Frontend" -Direction Inbound -LocalPort 5173 -Protocol TCP -Action Allow -ErrorAction SilentlyContinue
+# Let's open 5959 just in case.
+New-NetFirewallRule -DisplayName "AC Manager Frontend" -Direction Inbound -LocalPort 5959 -Protocol TCP -Action Allow -ErrorAction SilentlyContinue
 
 Write-Host "------------------------------------------------"
 Write-Host "Setup Complete."

@@ -201,7 +201,7 @@ export default function LeaderboardPage() {
         queryKey: ['settings'],
         queryFn: async () => {
             try {
-                const res = await axios.get(`${API_URL}/settings`);
+                const res = await axios.get(`${API_URL}/settings/`);
                 return Array.isArray(res.data) ? res.data : [];
             } catch { return []; }
         },
@@ -372,7 +372,7 @@ export default function LeaderboardPage() {
                                     <div className="absolute inset-0 bg-blue-600/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                                     <div className="bg-white p-3 rounded-2xl shadow-2xl relative z-10 lg:scale-125 transition-transform group-hover:scale-140">
                                         <QRCodeSVG
-                                            value={getSetting('bar_public_url', 'http://localhost:5173/mobile')}
+                                            value={getSetting('bar_public_url', 'http://localhost:5959/mobile')}
                                             size={160}
                                             level="H"
                                             includeMargin={false}

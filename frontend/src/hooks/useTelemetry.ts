@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { WS_BASE_URL } from '../config';
+import { PUBLIC_WS_TOKEN, WS_BASE_URL } from '../config';
 // import { getEvents, createEvent } from '../api/events';     
 // import type { Event } from '../types';
 
@@ -41,7 +41,9 @@ export const useTelemetry = () => {
     const reconnectTimeout = useRef<number | null>(null);
 
     useEffect(() => {
-        const wsUrl = `${WS_BASE_URL || `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`}/ws/telemetry/client`;
+        const token = localStorage.getItem('token') || PUBLIC_WS_TOKEN;
+        const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
+        const wsUrl = `${WS_BASE_URL || `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`}/ws/telemetry/client${tokenParam}`;
 
         const connect = () => {
             if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current);

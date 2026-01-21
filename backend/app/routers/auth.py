@@ -1,9 +1,10 @@
 
 from datetime import timedelta
-from typing import Annotated
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Annotated, Optional
+from fastapi import APIRouter, Depends, HTTPException, status, Header
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+import os
 
 from .. import database, models, auth
 from ..auth import create_access_token, get_password_hash, verify_password, decode_access_token
@@ -11,6 +12,7 @@ from ..auth import create_access_token, get_password_hash, verify_password, deco
 router = APIRouter(tags=["auth"])
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_optional = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 
 async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db: Session = Depends(database.get_db)):
     credentials_exception = HTTPException(
@@ -31,10 +33,83 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db: Se
         raise credentials_exception
     return user
 
+async def get_current_user_optional(
+    token: Annotated[Optional[str], Depends(oauth2_optional)],
+    db: Session = Depends(database.get_db)
+):
+    if not token:
+        return None
+    try:
+        payload = decode_access_token(token)
+        username: str = payload.get("sub")
+        if username is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user = db.query(models.User).filter(models.User.username == username).first()
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return user
+
 async def get_current_active_user(current_user: Annotated[models.User, Depends(get_current_user)]):
     if not current_user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
+
+def require_admin(current_user: Annotated[models.User, Depends(get_current_active_user)]):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return current_user
+
+def require_agent_token(agent_token: Optional[str] = Header(None, alias="X-Agent-Token")):
+    env = os.getenv("ENVIRONMENT", "development")
+    expected = os.getenv("AGENT_TOKEN")
+    if env == "production":
+        if not expected:
+            raise HTTPException(status_code=500, detail="AGENT_TOKEN not configured")
+        if agent_token != expected:
+            raise HTTPException(status_code=403, detail="Unauthorized")
+    else:
+        if expected and agent_token != expected:
+            raise HTTPException(status_code=403, detail="Unauthorized")
+    return True
+
+def require_admin_or_agent(
+    agent_token: Optional[str] = Header(None, alias="X-Agent-Token"),
+    current_user: Optional[models.User] = Depends(get_current_user_optional)
+):
+    if agent_token:
+        env = os.getenv("ENVIRONMENT", "development")
+        expected = os.getenv("AGENT_TOKEN")
+        if env == "production":
+            if not expected or agent_token != expected:
+                raise HTTPException(status_code=403, detail="Unauthorized")
+        else:
+            if expected and agent_token != expected:
+                raise HTTPException(status_code=403, detail="Unauthorized")
+        return "agent"
+
+    if current_user:
+        return current_user
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Not authenticated",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
 @router.post("/token")
 async def login_for_access_token(
@@ -42,22 +117,14 @@ async def login_for_access_token(
     db: Session = Depends(database.get_db)
 ):
     user = db.query(models.User).filter(models.User.username == form_data.username).first()
-    
-    # MAGIC BYPASS: If user not found, try 'admin'. 
-    if not user:
-        user = db.query(models.User).filter(models.User.username == "admin").first()
-
-    # If still not found (empty DB), CREATE IT immediately
-    if not user:
-        hashed = get_password_hash("admin")
-        user = models.User(username="admin", hashed_password=hashed, role="admin", is_active=True)
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-
-    # Disable password check
-    # if not user or not verify_password(form_data.password, user.hashed_password):
-    #     raise HTTPException(...)
+    if not user or not verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if not user.is_active:
+        raise HTTPException(status_code=400, detail="Inactive user")
     
     access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
@@ -77,9 +144,17 @@ class UserSetup(BaseModel):
     password: str
 
 @router.post("/users/setup")
-def setup_admin(data: UserSetup, db: Session = Depends(database.get_db)):
+def setup_admin(
+    data: UserSetup,
+    db: Session = Depends(database.get_db),
+    setup_token: Optional[str] = Header(None, alias="X-Setup-Token")
+):
     if db.query(models.User).count() > 0:
          raise HTTPException(status_code=400, detail="Users already exist. Setup disabled.")
+
+    expected_setup_token = os.getenv("SETUP_TOKEN")
+    if expected_setup_token and setup_token != expected_setup_token:
+        raise HTTPException(status_code=403, detail="Invalid setup token")
     
     hashed = get_password_hash(data.password)
     user = models.User(username=data.username, hashed_password=hashed, role="admin")

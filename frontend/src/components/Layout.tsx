@@ -83,7 +83,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         queryKey: ['settings'],
         queryFn: async () => {
             try {
-                const res = await axios.get(`${API_URL}/settings`);
+                const res = await axios.get(`${API_URL}/settings/`);
                 return Array.isArray(res.data) ? res.data : [];
             } catch { return []; }
         },

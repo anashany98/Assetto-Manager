@@ -13,7 +13,7 @@ echo Waiting for services to start...
 timeout /t 5
 
 echo Opening Web Interface...
-start http://localhost:5173
+start http://localhost:5959
 
 echo SERVER STARTED.
 pause

@@ -5,10 +5,11 @@ import { Swords, Trophy, Flame, Activity, QrCode, X, Users, Map as MapIcon, Car,
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
-import { API_URL, WS_BASE_URL } from '../config';
+import { API_URL, PUBLIC_WS_TOKEN, WS_BASE_URL } from '../config';
 
 // --- API ---
-const WS_URL = `${WS_BASE_URL}/ws/telemetry/client`;
+const wsToken = localStorage.getItem('token') || PUBLIC_WS_TOKEN;
+const WS_URL = `${WS_BASE_URL}/ws/telemetry/client${wsToken ? `?token=${encodeURIComponent(wsToken)}` : ''}`;
 
 // --- COMPONENTS ---
 

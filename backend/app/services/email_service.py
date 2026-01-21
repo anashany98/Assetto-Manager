@@ -9,6 +9,7 @@ import logging
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 
 # Email Configuration (from environment variables)
 SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
@@ -30,7 +31,8 @@ def send_email(to_email: str, subject: str, html_content: str, text_content: Opt
     Returns True if successful, False otherwise.
     """
     if not is_email_configured():
-        logger.warning("Email not configured. Skipping email send.")
+        if ENVIRONMENT != "test":
+            logger.warning("Email not configured. Skipping email send.")
         return False
     
     if not to_email:

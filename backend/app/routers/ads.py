@@ -6,7 +6,7 @@ from ..paths import STORAGE_DIR
 import shutil
 import os
 import uuid
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 router = APIRouter(
     prefix="/ads",
@@ -26,8 +26,7 @@ class AdCampaignOut(BaseModel):
     is_active: bool
     display_duration: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # --- Routes ---
 

@@ -43,11 +43,16 @@ export const getMe = async (token: string): Promise<User> => {
 };
 
 export const setupAdmin = async (username: string, password: string): Promise<{ username: string; role: string }> => {
+    const setupToken = import.meta.env.VITE_SETUP_TOKEN as string | undefined;
+    const headers: Record<string, string> = {
+        "Content-Type": "application/json"
+    };
+    if (setupToken) {
+        headers["X-Setup-Token"] = setupToken;
+    }
     const response = await fetch(`${API_BASE_URL}/users/setup`, {
         method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
+        headers,
         body: JSON.stringify({ username, password }),
     });
 

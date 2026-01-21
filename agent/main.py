@@ -54,7 +54,12 @@ class NetworkLogHandler(logging.Handler):
                 "details": f"{record.filename}:{record.lineno}"
             }
             # Use a short timeout and ignore errors to not block the agent
-            requests.post(f"{self.server_url}/system/logs/", json=log_data, timeout=1)
+            requests.post(
+                f"{self.server_url}/system/logs/",
+                json=log_data,
+                headers=get_agent_headers(),
+                timeout=1
+            )
         except Exception:
             pass # Fail silently if backend is down
 
@@ -79,6 +84,7 @@ CONFIG_FILE = "config.json"
 # Use environment variables for config over hardcoding
 SERVER_URL = os.getenv("SERVER_URL", "http://localhost:8000")
 AC_CONTENT_DIR = Path(os.getenv("AC_CONTENT_DIR", "ac_content_root"))
+AGENT_TOKEN = os.getenv("AGENT_TOKEN", "")
 
 
 if os.path.exists(CONFIG_FILE):
@@ -88,12 +94,21 @@ if os.path.exists(CONFIG_FILE):
             SERVER_URL = config.get("server_url", SERVER_URL)
             if config.get("ac_content_dir"):
                 AC_CONTENT_DIR = Path(config["ac_content_dir"])
+            if config.get("agent_token"):
+                AGENT_TOKEN = config.get("agent_token", AGENT_TOKEN)
             logger.info(f"Loaded config. Server URL: {SERVER_URL}")
     except Exception as e:
         logger.error(f"Failed to load config file: {e}")
 
+# Ensure token is available to child modules that read env vars
+if AGENT_TOKEN:
+    os.environ["AGENT_TOKEN"] = AGENT_TOKEN
+
 # Global Timeout for stability
 REQUEST_TIMEOUT = 10
+
+def get_agent_headers():
+    return {"X-Agent-Token": AGENT_TOKEN} if AGENT_TOKEN else {}
 
 def get_mac_address():
     mac = ':'.join(['{:02x}'.format((uuid.getnode() >> elements) & 0xff) 
@@ -396,7 +411,12 @@ def register_agent():
     info = get_system_info()
     try:
         logger.info(f"Attempting to register agent: {info}")
-        response = requests.post(f"{SERVER_URL}/stations/", json=info, timeout=REQUEST_TIMEOUT)
+        response = requests.post(
+            f"{SERVER_URL}/stations/",
+            json=info,
+            headers=get_agent_headers(),
+            timeout=REQUEST_TIMEOUT
+        )
         response.raise_for_status()
         station_data = response.json()
         logger.info(f"Registered successfully. Station ID: {station_data['id']}")
@@ -440,7 +460,11 @@ def synchronize_content(station_id):
     
     # 1. Get Target Manifest
     try:
-        resp = requests.get(f"{SERVER_URL}/stations/{station_id}/target-manifest", timeout=REQUEST_TIMEOUT)
+        resp = requests.get(
+            f"{SERVER_URL}/stations/{station_id}/target-manifest",
+            headers=get_agent_headers(),
+            timeout=REQUEST_TIMEOUT
+        )
         resp.raise_for_status()
         target_manifest = resp.json()
     except Exception as e:
@@ -479,7 +503,12 @@ def synchronize_content(station_id):
 
     # 4. Apply Changes
     # Update status to syncing
-    requests.put(f"{SERVER_URL}/stations/{station_id}", json={"status": "syncing"}, timeout=REQUEST_TIMEOUT)
+    requests.put(
+        f"{SERVER_URL}/stations/{station_id}",
+        json={"status": "syncing"},
+        headers=get_agent_headers(),
+        timeout=REQUEST_TIMEOUT
+    )
     
     # for file_path in files_to_delete:
     #     try:
@@ -520,13 +549,19 @@ def send_heartbeat(station_id, status="online"):
                 "disk_percent": disk.percent
             }
         }
-        requests.put(f"{SERVER_URL}/stations/{station_id}", json=data, timeout=REQUEST_TIMEOUT)
+        requests.put(
+            f"{SERVER_URL}/stations/{station_id}",
+            json=data,
+            headers=get_agent_headers(),
+            timeout=REQUEST_TIMEOUT
+        )
     except Exception as e:
         logger.error(f"Heartbeat failed: {e}")
 
 
 # import telemetry # Disabled in favor of Shared Memory Upload
 import telemetry # Habilitado para gestión de resultados y fusión de telemetría
+telemetry.set_agent_token(AGENT_TOKEN)
 
 def main():
     logger.info("Iniciando Agente AC Manager...")
@@ -615,7 +650,8 @@ class TelemetryThread(threading.Thread):
                     await websocket.send(json.dumps({
                         "type": "identify",
                         "station_id": self.station_id,
-                        "role": "agent"
+                        "role": "agent",
+                        "token": AGENT_TOKEN
                     }))
 
                     # Run send and receive loops concurrently

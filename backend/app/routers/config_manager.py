@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Dict, Optional
 from pydantic import BaseModel
 from .. import models, database
+from .auth import require_admin
 import logging
 import shutil
 from pathlib import Path
@@ -11,7 +12,8 @@ from ..paths import STORAGE_DIR
 
 router = APIRouter(
     prefix="/configs",
-    tags=["configs"]
+    tags=["configs"],
+    dependencies=[Depends(require_admin)]
 )
 
 logger = logging.getLogger("api.configs")

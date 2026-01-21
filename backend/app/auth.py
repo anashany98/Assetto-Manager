@@ -8,9 +8,16 @@ import os
 
 # Configuration
 # Prefer env vars, fallback to dev defaults
-SECRET_KEY = os.getenv("SECRET_KEY", "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7")
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    if ENVIRONMENT == "production":
+        raise RuntimeError("SECRET_KEY must be set in production")
+    SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
+
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 365  # 1 año - Sesión permanente para arcade
+DEFAULT_TOKEN_EXPIRE_MINUTES = 60 if ENVIRONMENT == "production" else 60 * 24 * 365
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", str(DEFAULT_TOKEN_EXPIRE_MINUTES)))
 
 # Create JWK key for joserfc
 key = OctKey.import_key(SECRET_KEY)
@@ -40,4 +47,11 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
 def decode_access_token(token: str):
     """Decode and validate a JWT token. Returns payload or raises exception."""
     decoded = jwt.decode(token, key)
-    return decoded.claims
+    claims = decoded.claims
+    exp = claims.get("exp")
+    if exp is None:
+        raise ValueError("Token missing exp")
+    now_ts = int(datetime.now(timezone.utc).timestamp())
+    if exp < now_ts:
+        raise ValueError("Token expired")
+    return claims

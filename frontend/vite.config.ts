@@ -8,6 +8,7 @@ export default defineConfig({
   server: {
     host: true, // Allow external access
     allowedHosts: true, // Allow tunneling
+    port: 5959,
   },
   resolve: {
     alias: {

@@ -10,6 +10,8 @@ import json
 import logging
 
 from .. import database, models
+import os
+from .auth import require_admin
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +19,11 @@ router = APIRouter(
     prefix="/push",
     tags=["push-notifications"]
 )
+
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY")
+VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY")
+VAPID_SUBJECT = os.getenv("VAPID_SUBJECT", "mailto:admin@example.com")
 
 # --- Pydantic Schemas ---
 
@@ -83,7 +90,7 @@ def unsubscribe(endpoint: str, db: Session = Depends(database.get_db)):
     
     return {"message": "Subscription not found"}
 
-@router.get("/subscriptions/count")
+@router.get("/subscriptions/count", dependencies=[Depends(require_admin)])
 def get_subscription_count(db: Session = Depends(database.get_db)):
     """Get count of active subscriptions"""
     count = db.query(models.PushSubscription).filter(
@@ -91,7 +98,7 @@ def get_subscription_count(db: Session = Depends(database.get_db)):
     ).count()
     return {"count": count}
 
-@router.post("/send")
+@router.post("/send", dependencies=[Depends(require_admin)])
 def send_notification(
     payload: NotificationPayload,
     db: Session = Depends(database.get_db)
@@ -108,12 +115,16 @@ def send_notification(
     if not subscriptions:
         return {"message": "No active subscriptions", "sent": 0}
     
-    # In a real implementation, you would:
-    # 1. pip install pywebpush
-    # 2. Generate VAPID keys (public/private)
-    # 3. Use webpush() to send to each subscription
-    
-    # For now, we just log the intent
+    if not VAPID_PUBLIC_KEY or not VAPID_PRIVATE_KEY:
+        if ENVIRONMENT == "production":
+            raise HTTPException(status_code=500, detail="VAPID keys not configured")
+        logger.warning("Push send requested but VAPID keys are not configured")
+        return {
+            "message": "VAPID keys not configured. Push not sent.",
+            "sent": 0
+        }
+
+    # TODO: Integrate pywebpush for actual delivery in production.
     logger.info(f"Would send notification '{payload.title}' to {len(subscriptions)} subscribers")
     
     return {
@@ -128,9 +139,11 @@ def get_vapid_public_key():
     Return the VAPID public key for client subscription.
     In production, generate keys with: npx web-push generate-vapid-keys
     """
-    # Placeholder - replace with actual VAPID public key
-    # Generate with: npx web-push generate-vapid-keys
-    return {
-        "publicKey": "VAPID_PUBLIC_KEY_PLACEHOLDER",
-        "info": "Generate real keys with: npx web-push generate-vapid-keys"
-    }
+    if not VAPID_PUBLIC_KEY:
+        if ENVIRONMENT == "production":
+            raise HTTPException(status_code=500, detail="VAPID_PUBLIC_KEY not configured")
+        return {
+            "publicKey": "VAPID_PUBLIC_KEY_PLACEHOLDER",
+            "info": "Generate real keys with: npx web-push generate-vapid-keys"
+        }
+    return {"publicKey": VAPID_PUBLIC_KEY}

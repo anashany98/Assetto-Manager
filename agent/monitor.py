@@ -3,6 +3,7 @@ import time
 import threading
 import requests
 import logging
+import os
 
 logger = logging.getLogger("AC-Agent-Monitor")
 
@@ -102,6 +103,8 @@ class HardwareMonitor(threading.Thread):
 
     def send_report(self, data):
         try:
-            requests.post(self.server_url, json=data, timeout=2)
+            agent_token = os.getenv("AGENT_TOKEN", "")
+            headers = {"X-Agent-Token": agent_token} if agent_token else {}
+            requests.post(self.server_url, json=data, headers=headers, timeout=2)
         except Exception:
             pass # Monitorización no debe bloquear ni spammear logs si falla la red

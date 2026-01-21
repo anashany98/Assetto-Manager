@@ -31,6 +31,6 @@ start "AC Backend" cmd /k "python -m uvicorn backend.app.main:app --host 0.0.0.0
 
 echo.
 echo SYSTEM RUNNING.
-echo Access web panel at: http://localhost:5173
+echo Access web panel at: http://localhost:5959
 echo.
 pause

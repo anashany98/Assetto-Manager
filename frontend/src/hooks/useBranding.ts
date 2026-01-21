@@ -8,7 +8,7 @@ export const useBranding = () => {
         queryKey: ['settings_branding'],
         queryFn: async () => {
             try {
-                const res = await axios.get(`${API_URL}/settings`);
+                const res = await axios.get(`${API_URL}/settings/`);
                 return Array.isArray(res.data) ? res.data : [];
             } catch { return []; }
         },

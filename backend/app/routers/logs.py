@@ -1,9 +1,10 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
 from pydantic import BaseModel
 from typing import List, Optional
 import time
 from collections import deque
 import logging
+from .auth import require_agent_token, require_admin
 
 # In-memory Circular Buffer (Max 1000 logs)
 MAX_LOGS = 1000
@@ -27,7 +28,7 @@ router = APIRouter(
     tags=["logs"]
 )
 
-@router.post("/", status_code=201)
+@router.post("/", status_code=201, dependencies=[Depends(require_agent_token)])
 async def submit_log(log: LogCreate):
     entry = LogEntry(
         timestamp=time.time(),
@@ -39,7 +40,7 @@ async def submit_log(log: LogCreate):
     log_buffer.append(entry)
     return {"status": "ok"}
 
-@router.get("/", response_model=List[LogEntry])
+@router.get("/", response_model=List[LogEntry], dependencies=[Depends(require_admin)])
 async def get_logs(limit: int = 100):
     # Return last N logs, reversed (newest first)
     # Convert deque to list, slice it, and return reverse

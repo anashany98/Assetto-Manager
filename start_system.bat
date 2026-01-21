@@ -17,8 +17,8 @@ start "🔵 FRONTEND WEB" cmd /k "title 🔵 FRONTEND WEB && color 09 && cd fron
 
 echo.
 echo   System is running!
-echo   > LOCAL ACCESS:   http://localhost:5173
-echo   > NETWORK ACCESS: http://YOUR_PC_IP:5173 (Look for "Network" in Frontend window)
+echo   > LOCAL ACCESS:   http://localhost:5959
+echo   > NETWORK ACCESS: http://YOUR_PC_IP:5959 (Look for "Network" in Frontend window)
 echo.
 echo   > Access TV Mode: /tv?screen=1
 echo   > Access Mobile:  /mobile

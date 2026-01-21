@@ -60,4 +60,4 @@ def create_fake_mod(mod_type="car", internal_name="test_vehicle_01", real_name="
 if __name__ == "__main__":
     create_fake_mod("car", "ks_ferrari_test", "Ferrari Test F40")
     create_fake_mod("track", "monza_test", "Monza Circuit Test")
-    print("\nAhora sube estos archivos en: http://localhost:5173/mods")
+    print("\nAhora sube estos archivos en: http://localhost:5959/mods")

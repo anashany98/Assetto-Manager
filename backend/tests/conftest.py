@@ -2,8 +2,14 @@
 Pytest configuration and fixtures
 """
 import os
-# Force SQLite file DB for tests
-os.environ["DATABASE_URL"] = "sqlite:///./test.db"
+import tempfile
+import uuid
+from pathlib import Path
+
+# Force a unique SQLite file DB per test session
+os.environ["ENVIRONMENT"] = "test"
+TEST_DB_PATH = Path(tempfile.gettempdir()) / f"ac_manager_test_{uuid.uuid4().hex}.db"
+os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DB_PATH}"
 
 import pytest
 from fastapi.testclient import TestClient
@@ -14,7 +20,7 @@ from app.database import Base, get_db
 from app import models
 
 # Use file-based SQLite for tests
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
+SQLALCHEMY_DATABASE_URL = f"sqlite:///{TEST_DB_PATH}"
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL, 
     connect_args={"check_same_thread": False}
@@ -34,13 +40,6 @@ def override_get_db():
 @pytest.fixture(scope="session", autouse=True)
 def setup_database():
     """Create tables before tests"""
-    # Clean previous run
-    if os.path.exists("./test.db"):
-        try:
-            os.remove("./test.db")
-        except PermissionError:
-            pass
-
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     
@@ -54,10 +53,14 @@ def setup_database():
     db.close()
 
     yield
-    # No drop at end to avoid locking issues on Windows
     db_session = TestingSessionLocal()
     db_session.close()
     engine.dispose()
+    try:
+        if TEST_DB_PATH.exists():
+            TEST_DB_PATH.unlink()
+    except PermissionError:
+        pass
 
 
 @pytest.fixture
