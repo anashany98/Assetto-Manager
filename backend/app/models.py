@@ -444,9 +444,58 @@ class Payment(Base):
     metadata_json = Column(JSON, nullable=True)
 
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime(timezone=True), onupdate=lambda: datetime.now(timezone.utc))
 
-    station = relationship("Station")
+
+class RestaurantTable(Base):
+    """Physical table in the lounge/bar area"""
+    __tablename__ = "tables"
+
+    id = Column(Integer, primary_key=True, index=True)
+    label = Column(String(20), nullable=False) # e.g. "T1", "VIP-1"
+    
+    # Position on the floor plan (percentage or pixels, 0-100 or absolute)
+    # We will use pixels relative to a standard canvas size (e.g. 800x600) or easier, percentage 0.0-1.0
+    x = Column(Float, default=0.0)
+    y = Column(Float, default=0.0)
+    
+    width = Column(Float, default=50.0)
+    height = Column(Float, default=50.0)
+    
+    shape = Column(String(20), default="rect") # rect, circle
+    seats = Column(Integer, default=4)
+    rotation = Column(Float, default=0.0) # Degrees
+    
+    # Enhancements
+    zone = Column(String(20), default="main") # main, vip, terrace
+    fixed_notes = Column(String(255), nullable=True) # e.g. "Window seat"
+    
+    is_active = Column(Boolean, default=True)
+
+class TableBooking(Base):
+    """Reservation for a table"""
+    __tablename__ = "table_bookings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # Identify the table(s). For simplicity now, Many-to-One. 
+    # If we need multi-table booking, we might adding a separate association table, 
+    # but let's stick to simple booking -> one table or just store list of IDs in JSON if needed quickly.
+    # Actually, a booking might block multiple tables (merging). 
+    # Let's use a JSON list of table_ids to be flexible.
+    table_ids = Column(JSON, default=list) 
+    
+    customer_name = Column(String(100), nullable=False)
+    customer_phone = Column(String(50), nullable=True)
+    customer_email = Column(String(100), nullable=True)
+    
+    start_time = Column(DateTime(timezone=True), nullable=False)
+    end_time = Column(DateTime(timezone=True), nullable=False)
+    
+    pax = Column(Integer, default=2)
+    status = Column(String(20), default="confirmed") # confirmed, seated, cancelled, completed
+    notes = Column(String(500), nullable=True)
+    
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
 class WheelProfile(Base):

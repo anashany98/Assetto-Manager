@@ -36,6 +36,39 @@ def migrate():
             "ALTER TABLE events ADD COLUMN IF NOT EXISTS bracket_data JSONB",
             "ALTER TABLE events ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT FALSE",
 
+            # Table Reservation Module
+            """
+            CREATE TABLE IF NOT EXISTS tables (
+                id SERIAL PRIMARY KEY,
+                label VARCHAR(20) NOT NULL,
+                x FLOAT DEFAULT 0.0,
+                y FLOAT DEFAULT 0.0,
+                width FLOAT DEFAULT 50.0,
+                height FLOAT DEFAULT 50.0,
+                shape VARCHAR(20) DEFAULT 'rect',
+                seats INTEGER DEFAULT 4,
+                rotation FLOAT DEFAULT 0.0,
+                is_active BOOLEAN DEFAULT TRUE
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS table_bookings (
+                id SERIAL PRIMARY KEY,
+                table_ids JSONB DEFAULT '[]'::jsonb,
+                customer_name VARCHAR(100) NOT NULL,
+                customer_phone VARCHAR(50),
+                customer_email VARCHAR(100),
+                start_time TIMESTAMP WITH TIME ZONE NOT NULL,
+                end_time TIMESTAMP WITH TIME ZONE NOT NULL,
+                pax INTEGER DEFAULT 2,
+                status VARCHAR(20) DEFAULT 'confirmed',
+                notes VARCHAR(500),
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            );
+            """,
+            "CREATE INDEX IF NOT EXISTS ix_tables_label ON tables (label)",
+            "CREATE INDEX IF NOT EXISTS ix_table_bookings_date ON table_bookings (start_time)",
+
             # Legacy table (kept for backward compatibility)
             """
             CREATE TABLE IF NOT EXISTS tournament_matches (

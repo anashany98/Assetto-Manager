@@ -27,6 +27,7 @@ const LiveMapPage = lazy(() => import('./pages/LiveMapPage'));
 const HistoryPage = lazy(() => import('./pages/HistoryPage'));
 const LapAnalysisPage = lazy(() => import('./pages/LapAnalysisPage'));
 const BookingsPage = lazy(() => import('./pages/BookingsPage'));
+const TableReservations = lazy(() => import('./pages/TableReservations'));
 const PublicBookingPage = lazy(() => import('./pages/PublicBookingPage'));
 const TVMode = lazy(() => import('./pages/TVMode').then(module => ({ default: module.TVMode })));
 const EliminationTV = lazy(() => import('./pages/EliminationTV'));
@@ -71,6 +72,7 @@ function App() {
               <Route path="/championships/:id" element={<PrivateRoute><ChampionshipDetails /></PrivateRoute>} />
               <Route path="/history" element={<PrivateRoute><HistoryPage /></PrivateRoute>} />
               <Route path="/bookings" element={<PrivateRoute><BookingsPage /></PrivateRoute>} />
+              <Route path="/reservations" element={<PrivateRoute><TableReservations /></PrivateRoute>} />
               <Route path="/mods" element={<PrivateRoute><ModsLibrary /></PrivateRoute>} />
 
               {/* System */}

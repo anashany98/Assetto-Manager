@@ -17,7 +17,8 @@ import {
     Sun,
     Moon,
     Gamepad2,
-    AlertTriangle
+    AlertTriangle,
+    LayoutGrid
 } from 'lucide-react';
 import { useTheme } from '../contexts/useTheme';
 import { useQuery } from '@tanstack/react-query';
@@ -179,6 +180,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     <NavItem to="/championships" icon={Trophy} collapsed={!isSidebarOpen}>Campeonatos</NavItem>
                     <NavItem to="/history" icon={HistoryIcon} collapsed={!isSidebarOpen}>Historial</NavItem>
                     <NavItem to="/bookings" icon={CalendarCheck} collapsed={!isSidebarOpen}>Reservas</NavItem>
+                    <NavItem to="/reservations" icon={LayoutGrid} collapsed={!isSidebarOpen}>Mesas</NavItem>
                     <NavItem to="/analytics" icon={LayoutDashboard} collapsed={!isSidebarOpen}>Ingresos</NavItem>
                     <NavItem to="/admin/scenarios" icon={Gamepad2} collapsed={!isSidebarOpen}>Sesiones Kiosk</NavItem>
                     <NavItem to="/mods" icon={Library} collapsed={!isSidebarOpen}>Librería</NavItem>

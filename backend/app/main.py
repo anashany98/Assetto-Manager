@@ -156,6 +156,9 @@ app.include_router(payments.router)
 from .routers import sessions
 app.include_router(sessions.router)
 
+from .routers import tables
+app.include_router(tables.router)
+
 # Lobby / Multiplayer
 from .routers import lobby
 app.include_router(lobby.router)
