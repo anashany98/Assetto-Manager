@@ -1,209 +1,412 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { useTelemetry } from '../hooks/useTelemetry';
-import { LiveMap } from '../components/LiveMap';
 import { API_URL } from '../config';
+import { cn } from '../lib/utils';
+import { Activity, AlertTriangle, Flag, Zap, Loader2 } from 'lucide-react';
 
-const formatTime = (ms: number) => {
-    if (!ms) return "0:00.000";
+// Format lap time from milliseconds
+const formatLapTime = (ms: number) => {
+    if (!ms || ms <= 0) return "--:--.---";
     const minutes = Math.floor(ms / 60000);
     const seconds = Math.floor((ms % 60000) / 1000);
-    const milliseconds = Math.round(ms % 1000);
-    return `${minutes}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
+    const millis = Math.round(ms % 1000);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}.${millis.toString().padStart(3, '0')}`;
 };
 
-const StatItem = ({ label, value, sub, alert = false }: { label: string, value: string | number, sub: string, alert?: boolean }) => (
-    <div className={`bg-white/5 rounded-xl p-2.5 text-center border border-white/5 transition-colors ${alert ? 'bg-red-500/10 border-red-500/20' : ''}`}>
-        <div className="text-[8px] text-gray-500 font-black uppercase mb-1 tracking-widest">{label}</div>
-        <div className={`text-sm font-black italic leading-none tabular-nums ${alert ? 'text-red-500' : 'text-white'}`}>
-            {value}
-            <span className="text-[7px] ml-0.5 not-italic text-gray-500">{sub}</span>
-        </div>
-    </div>
-);
+// Driver colors
+const DRIVER_COLORS = ['#ef4444', '#3b82f6', '#22c55e', '#eab308', '#a855f7', '#f97316', '#06b6d4', '#ec4899'];
+const getDriverColor = (stationId: string | number) => {
+    const idx = typeof stationId === 'string' ? parseInt(stationId, 10) : stationId;
+    return DRIVER_COLORS[(idx - 1) % DRIVER_COLORS.length];
+};
 
+// Fallback track paths for when AC files aren't available
+const FALLBACK_TRACKS: Record<string, { path: string; viewBox: string }> = {
+    default: {
+        viewBox: "0 0 1000 800",
+        path: "M 200,400 Q 150,200 300,100 L 700,100 Q 850,200 850,400 Q 850,600 700,700 L 300,700 Q 150,600 200,400 Z"
+    }
+};
+
+// Calculate position on SVG path
+const getPointOnPath = (pathElement: SVGPathElement | null, normalizedPos: number) => {
+    if (!pathElement) return { x: 500, y: 400 };
+    try {
+        const length = pathElement.getTotalLength();
+        const point = pathElement.getPointAtLength(normalizedPos * length);
+        return { x: point.x, y: point.y };
+    } catch {
+        return { x: 500, y: 400 };
+    }
+};
+
+// ============================================================================
+// MAIN COMPONENT - TV OPTIMIZED LIVE MAP
+// ============================================================================
 const LiveMapPage = () => {
-    const { liveCars } = useTelemetry();
-    const [selectedStation, setSelectedStation] = useState<number | 'all'>('all');
+    const { liveCars, isConnected } = useTelemetry();
+    const [selectedStation, setSelectedStation] = useState<string | null>(null);
+    const pathRef = useRef<SVGPathElement>(null);
+    const [driverPositions, setDriverPositions] = useState<Record<string, { x: number; y: number }>>({});
 
-    // Fetch stations for the selector
-    const { data: stations } = useQuery({
-        queryKey: ['stations'],
+    const allCars = useMemo(() => Object.values(liveCars), [liveCars]);
+
+    // Sort cars by track position (leader first)
+    const sortedCars = useMemo(() =>
+        [...allCars].sort((a, b) => (b.normalized_pos || 0) - (a.normalized_pos || 0)),
+        [allCars]
+    );
+
+    // Get current track name from telemetry
+    const currentTrackName = sortedCars[0]?.track || '';
+
+    // Fetch track outline from backend (parses fast_lane.ai)
+    const { data: trackData, isLoading: trackLoading, error: trackError } = useQuery({
+        queryKey: ['trackOutline', currentTrackName],
         queryFn: async () => {
+            if (!currentTrackName) return null;
             try {
-                const res = await axios.get(`${API_URL}/stations/`);
-                return Array.isArray(res.data) ? res.data : [];
-            } catch { return []; }
+                // Convert track name to ID format (e.g., "ks_monza" -> "ks_monza")
+                const trackId = currentTrackName.toLowerCase().replace(/\s+/g, '_');
+                const res = await axios.get(`${API_URL}/tracks/${trackId}/outline`);
+                return res.data;
+            } catch (err) {
+                console.warn('Track outline not available, using fallback:', err);
+                return null;
+            }
         },
-        initialData: []
+        enabled: !!currentTrackName,
+        staleTime: 60000, // Cache for 1 minute
+        retry: false
     });
 
-    const allCars = Object.values(liveCars);
-    const cars = selectedStation === 'all'
-        ? allCars
-        : allCars.filter((c) => c.station_id === String(selectedStation));
+    // Use fetched track data or fallback
+    const activeTrack = useMemo(() => {
+        if (trackData?.path) {
+            return {
+                path: trackData.path,
+                viewBox: trackData.viewBox || "0 0 1000 800",
+                name: trackData.trackName || currentTrackName
+            };
+        }
+        return {
+            ...FALLBACK_TRACKS.default,
+            name: currentTrackName || 'Esperando circuito...'
+        };
+    }, [trackData, currentTrackName]);
+
+    // Update driver positions on path
+    useEffect(() => {
+        if (!pathRef.current) return;
+
+        const newPositions: Record<string, { x: number; y: number }> = {};
+        sortedCars.forEach(car => {
+            const pos = getPointOnPath(pathRef.current, car.normalized_pos || 0);
+            newPositions[car.station_id] = pos;
+        });
+        setDriverPositions(newPositions);
+    }, [sortedCars, activeTrack]);
 
     return (
-        <div className="h-screen w-screen bg-black overflow-hidden p-6 flex flex-col font-sans selection:bg-yellow-500/30">
-            {/* Global Styles to hide scrollbars */}
-            <style>{`
-                .no-scrollbar::-webkit-scrollbar { display: none; }
-                .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-            `}</style>
-
-            {/* Ambient background glow */}
-            <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-500/10 blur-[120px] rounded-full pointer-events-none" />
-            <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-yellow-500/5 blur-[120px] rounded-full pointer-events-none" />
-
-            {/* Header Section */}
-            <div className="flex justify-between items-end mb-8 relative z-10">
-                <div className="flex flex-col">
-                    <div className="flex items-center space-x-3 mb-1">
-                        <div className="px-2 py-0.5 bg-yellow-500 text-black text-[10px] font-black uppercase italic skew-x-[-15deg]">
-                            <span className="skew-x-[15deg] inline-block">LIVE TRACKER</span>
+        <div className="h-screen w-screen bg-black overflow-hidden flex flex-col font-sans">
+            {/* ==================== HEADER BAR ==================== */}
+            <header className="h-20 bg-gradient-to-r from-gray-900 to-black border-b border-white/10 flex items-center justify-between px-8">
+                <div className="flex items-center gap-6">
+                    {/* Live Indicator */}
+                    <div className="flex items-center gap-3">
+                        <div className="relative">
+                            <div className="w-4 h-4 rounded-full bg-red-600 animate-pulse" />
+                            <div className="absolute inset-0 w-4 h-4 rounded-full bg-red-500 animate-ping opacity-50" />
                         </div>
-                        <div className="flex items-center space-x-1.5 overflow-hidden">
-                            <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
-                            <span className="text-[10px] font-bold text-white/40 tracking-[0.2em] uppercase">Telemetry Stream • 10Hz</span>
+                        <span className="text-2xl font-black text-white uppercase tracking-tight">EN VIVO</span>
+                    </div>
+                    {/* Divider */}
+                    <div className="w-px h-10 bg-white/20" />
+                    {/* Track Name */}
+                    <div>
+                        <div className="text-xs text-gray-500 uppercase tracking-wider font-bold">Circuito</div>
+                        <div className="text-xl font-bold text-white flex items-center gap-2">
+                            {activeTrack.name}
+                            {trackLoading && <Loader2 size={16} className="animate-spin text-blue-400" />}
                         </div>
                     </div>
-                    <h1 className="text-5xl font-black text-white italic tracking-tighter uppercase leading-none">
-                        Deepmind <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-white/40 font-black">Raceway</span>
-                    </h1>
                 </div>
 
-                <div className="flex space-x-8 items-center border-l border-white/10 pl-8">
-                    <div className="text-right">
-                        <div className="text-gray-500 font-bold text-[10px] uppercase tracking-widest mb-1">Sesión</div>
-                        <div className="text-white font-black uppercase text-xl italic leading-none">Practica Libre</div>
+                {/* Right side info */}
+                <div className="flex items-center gap-8">
+                    {/* Drivers Count */}
+                    <div className="flex items-center gap-3 px-5 py-2 bg-green-500/10 border border-green-500/30 rounded-xl">
+                        <Activity size={20} className="text-green-400" />
+                        <span className="text-2xl font-black text-green-400">{allCars.length}</span>
+                        <span className="text-green-400/80 uppercase text-sm font-bold">Pilotos</span>
                     </div>
-                    <div className="text-right">
-                        <div className="text-gray-500 font-bold text-[10px] uppercase tracking-widest mb-1">Circuito</div>
-                        <div className="text-white font-black uppercase text-xl italic leading-none">{cars[0]?.track || '---'}</div>
-                    </div>
-                    <div className="text-right">
-                        <div className="text-gray-500 font-bold text-[10px] uppercase tracking-widest mb-1">Estación</div>
-                        <select
-                            value={selectedStation}
-                            onChange={(e) => setSelectedStation(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-                            className="bg-gray-900 border border-white/10 rounded-lg px-3 py-1 text-white font-bold uppercase text-sm cursor-pointer focus:ring-2 focus:ring-yellow-500 outline-none"
-                        >
-                            <option value="all">Todas ({allCars.length})</option>
-                            {Array.isArray(stations) && stations.map((s: { id: number; name?: string }) => (
-                                <option key={s.id} value={s.id}>
-                                    {s.name || `Estación ${s.id}`}
-                                </option>
-                            ))}
-                        </select>
+                    {/* Connection Status */}
+                    <div className={cn(
+                        "flex items-center gap-2 px-4 py-2 rounded-lg border",
+                        isConnected ? "bg-green-500/10 border-green-500/30" : "bg-red-500/10 border-red-500/30"
+                    )}>
+                        <div className={cn("w-3 h-3 rounded-full", isConnected ? "bg-green-500" : "bg-red-500")} />
+                        <span className={cn("text-sm font-bold uppercase", isConnected ? "text-green-400" : "text-red-400")}>
+                            {isConnected ? "Conectado" : "Sin conexión"}
+                        </span>
                     </div>
                 </div>
-            </div>
+            </header>
 
-            {/* Main Content Grid */}
-            <div className="flex-1 grid grid-cols-12 gap-6 min-h-0 relative z-10">
-                {/* Left: Map Visualization */}
-                <div className="col-span-8 flex flex-col">
-                    <div className="flex-1 bg-gradient-to-br from-gray-900/50 to-black/50 rounded-[2rem] border border-white/5 overflow-hidden p-2 backdrop-blur-md relative group">
-                        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-[0.03] pointer-events-none" />
-                        <LiveMap
-                            drivers={Array.isArray(cars) ? cars.map((c) => ({
-                                id: Number(c.station_id),
-                                name: c.driver || '---',
-                                x: c.x || 0,
-                                z: c.z || 0,
-                                normPos: c.normalized_pos || 0,
-                                color: c.station_id === '1' ? '#ef4444' : c.station_id === '2' ? '#3b82f6' : c.station_id === '3' ? '#22c55e' : '#eab308',
-                                isOnline: true
-                            })) : []}
-                            trackName={Array.isArray(cars) && cars.length > 0 ? cars[0]?.track : 'Cargando...'}
+            {/* ==================== MAIN CONTENT ==================== */}
+            <div className="flex-1 flex min-h-0">
+                {/* ==================== TRACK VISUALIZATION ==================== */}
+                <div className="flex-1 p-6 flex flex-col">
+                    <div className="flex-1 relative rounded-3xl border-2 border-white/10 bg-gradient-to-br from-gray-900/50 to-black overflow-hidden">
+                        {/* Background Grid */}
+                        <div
+                            className="absolute inset-0 opacity-10"
+                            style={{
+                                backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)',
+                                backgroundSize: '40px 40px'
+                            }}
                         />
+
+                        {sortedCars.length > 0 ? (
+                            <svg
+                                viewBox={activeTrack.viewBox}
+                                className="w-full h-full"
+                                preserveAspectRatio="xMidYMid meet"
+                            >
+                                {/* Track Glow */}
+                                <path
+                                    d={activeTrack.path}
+                                    fill="none"
+                                    stroke="rgba(59, 130, 246, 0.15)"
+                                    strokeWidth="60"
+                                    strokeLinejoin="round"
+                                    strokeLinecap="round"
+                                />
+                                {/* Track Surface */}
+                                <path
+                                    d={activeTrack.path}
+                                    fill="none"
+                                    stroke="#1e293b"
+                                    strokeWidth="45"
+                                    strokeLinejoin="round"
+                                    strokeLinecap="round"
+                                />
+                                {/* Track Inner */}
+                                <path
+                                    d={activeTrack.path}
+                                    fill="none"
+                                    stroke="rgba(255,255,255,0.08)"
+                                    strokeWidth="40"
+                                    strokeLinejoin="round"
+                                    strokeLinecap="round"
+                                />
+                                {/* Center Line (reference path for positioning) */}
+                                <path
+                                    ref={pathRef}
+                                    d={activeTrack.path}
+                                    fill="none"
+                                    stroke="rgba(255,255,255,0.15)"
+                                    strokeWidth="2"
+                                    strokeDasharray="15 20"
+                                    strokeLinejoin="round"
+                                    strokeLinecap="round"
+                                />
+
+                                {/* Driver markers */}
+                                {sortedCars.map((car, idx) => {
+                                    const pos = driverPositions[car.station_id] || { x: 500, y: 400 };
+                                    const color = getDriverColor(car.station_id);
+                                    const isSelected = selectedStation === car.station_id;
+                                    const isLeader = idx === 0;
+
+                                    return (
+                                        <g key={car.station_id}>
+                                            {/* Outer glow for leader */}
+                                            {isLeader && (
+                                                <circle
+                                                    cx={pos.x} cy={pos.y} r={28}
+                                                    fill="rgba(234,179,8,0.3)"
+                                                    className="animate-pulse"
+                                                />
+                                            )}
+                                            {/* Driver glow */}
+                                            <circle
+                                                cx={pos.x} cy={pos.y}
+                                                r={isSelected ? 22 : 16}
+                                                fill={color}
+                                                opacity={0.4}
+                                            />
+                                            {/* Driver dot */}
+                                            <circle
+                                                cx={pos.x} cy={pos.y}
+                                                r={isSelected ? 14 : 10}
+                                                fill={color}
+                                                stroke="white"
+                                                strokeWidth={isSelected ? 3 : 2}
+                                                style={{
+                                                    filter: `drop-shadow(0 0 12px ${color})`,
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.3s ease'
+                                                }}
+                                                onClick={() => setSelectedStation(
+                                                    selectedStation === car.station_id ? null : car.station_id
+                                                )}
+                                            />
+                                            {/* Position number inside */}
+                                            <text
+                                                x={pos.x} y={pos.y + 4}
+                                                textAnchor="middle"
+                                                fill="white"
+                                                fontSize={isSelected ? "12" : "10"}
+                                                fontWeight="bold"
+                                            >
+                                                {idx + 1}
+                                            </text>
+                                            {/* Name tag */}
+                                            <g transform={`translate(${pos.x}, ${pos.y - 30})`}>
+                                                <rect
+                                                    x="-45" y="-12"
+                                                    width="90" height="22"
+                                                    rx="4"
+                                                    fill="rgba(0,0,0,0.85)"
+                                                />
+                                                <text
+                                                    x="0" y="4"
+                                                    textAnchor="middle"
+                                                    fill="white"
+                                                    fontSize="11"
+                                                    fontWeight="bold"
+                                                >
+                                                    {(car.driver || `P${car.station_id}`).slice(0, 12)}
+                                                </text>
+                                            </g>
+                                        </g>
+                                    );
+                                })}
+                            </svg>
+                        ) : (
+                            <div className="flex-1 h-full flex flex-col items-center justify-center text-gray-500">
+                                <Activity size={64} className="mb-6 opacity-30 animate-pulse" />
+                                <p className="text-2xl font-bold">Esperando telemetría...</p>
+                                <p className="text-gray-600 mt-2">Conecta un simulador para ver datos en tiempo real</p>
+                            </div>
+                        )}
+
+                        {/* Track Name Overlay */}
+                        <div className="absolute bottom-6 left-6 bg-black/60 backdrop-blur-sm px-4 py-2 rounded-xl border border-white/10">
+                            <div className="flex items-center gap-2">
+                                <Flag size={16} className="text-green-400" />
+                                <span className="text-sm font-bold text-white">{currentTrackName || 'Sin pista'}</span>
+                                {trackData?.pointCount && (
+                                    <span className="text-xs text-gray-500">({trackData.pointCount} puntos)</span>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                {/* Right: Driver Leaderboard/Telemetry Cards */}
-                <div className="col-span-4 flex flex-col space-y-4 overflow-y-auto pr-2 no-scrollbar">
-                    {/* Sort by track position (descending) */}
-                    {Array.isArray(cars) && cars.length > 0 ? (
-                        cars.slice(0, 4).sort((a, b) => (b.normalized_pos || 0) - (a.normalized_pos || 0)).map((car, idx) => (
-                            <div key={car.station_id} className="relative group/card">
-                                {/* Ranking Badge (Floating) */}
-                                <div className="absolute -left-2 -top-2 w-8 h-8 bg-yellow-500 text-black font-black italic flex items-center justify-center rounded-lg z-20 shadow-lg skew-x-[-10deg] group-hover/card:scale-110 transition-transform">
-                                    <span className="skew-x-[10deg]">{idx + 1}</span>
-                                </div>
+                {/* ==================== LEADERBOARD SIDEBAR ==================== */}
+                <div className="w-[420px] bg-gradient-to-b from-gray-900/80 to-black border-l border-white/10 p-5 overflow-y-auto">
+                    <div className="flex items-center justify-between mb-5">
+                        <h2 className="text-lg font-black text-white uppercase tracking-wider">Clasificación</h2>
+                        <div className="text-xs text-gray-500 uppercase">{sortedCars.length} en pista</div>
+                    </div>
 
-                                <div className="bg-gradient-to-r from-gray-900 via-gray-900/80 to-black border border-white/5 rounded-2xl p-5 transition-all duration-500 group-hover/card:border-yellow-500/40 group-hover/card:shadow-[0_0_30px_rgba(234,179,8,0.1)]">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className="pl-6">
-                                            <div className="text-white font-black uppercase text-xl italic leading-none tracking-tighter mb-1.5 group-hover/card:text-yellow-500 transition-colors">
-                                                {car.driver || '---'}
-                                            </div>
-                                            <div className="flex items-center space-x-2">
-                                                <div className="px-1.5 py-0.5 bg-white/5 rounded text-[9px] font-bold text-gray-400 uppercase tracking-widest border border-white/5">
-                                                    {car.car || 'FS-24'}
-                                                </div>
-                                                <div className="w-1 h-1 rounded-full bg-gray-700" />
-                                                <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">P{idx + 1}</span>
-                                            </div>
+                    <div className="space-y-3">
+                        {sortedCars.map((car, idx) => {
+                            const color = getDriverColor(car.station_id);
+                            const isSelected = selectedStation === car.station_id;
+                            const progress = (car.normalized_pos || 0) * 100;
+                            const hasAlert = (car.engine_temp || 0) > 105;
+
+                            return (
+                                <div
+                                    key={car.station_id}
+                                    onClick={() => setSelectedStation(isSelected ? null : car.station_id)}
+                                    className={cn(
+                                        "relative p-4 rounded-2xl border cursor-pointer transition-all duration-300",
+                                        isSelected
+                                            ? "bg-white/10 border-white/30 shadow-xl scale-[1.02]"
+                                            : "bg-white/5 border-white/5 hover:bg-white/8"
+                                    )}
+                                >
+                                    {/* Position Badge */}
+                                    <div
+                                        className="absolute -left-2 -top-2 w-10 h-10 rounded-xl flex items-center justify-center font-black text-lg shadow-lg"
+                                        style={{ backgroundColor: color }}
+                                    >
+                                        {idx + 1}
+                                    </div>
+
+                                    {/* Alert Indicator */}
+                                    {hasAlert && (
+                                        <div className="absolute top-2 right-2">
+                                            <AlertTriangle size={18} className="text-red-400 animate-pulse" />
+                                        </div>
+                                    )}
+
+                                    {/* Content */}
+                                    <div className="flex items-start justify-between pl-8">
+                                        <div>
+                                            <div className="text-white font-bold text-xl">{car.driver || 'Piloto'}</div>
+                                            <div className="text-xs text-gray-500 mt-0.5">{car.car || 'Vehículo'}</div>
                                         </div>
                                         <div className="text-right">
-                                            <div className="text-white font-black text-3xl italic leading-none flex items-baseline justify-end tabular-nums">
+                                            <div className="text-3xl font-black tabular-nums" style={{ color }}>
                                                 {Math.round(car.speed_kmh || 0)}
-                                                <span className="text-[10px] text-gray-500 ml-1 not-italic font-extrabold tracking-widest">KM/H</span>
+                                                <span className="text-sm text-gray-500 ml-1">km/h</span>
                                             </div>
-                                            <div className="text-[14px] font-mono font-black text-yellow-500/60 tracking-tighter mt-1 tabular-nums">
-                                                {formatTime(car.lap_time_ms || 0)}
+                                            <div className="text-sm text-yellow-400/80 font-mono tabular-nums mt-1">
+                                                {formatLapTime(car.lap_time_ms)}
                                             </div>
                                         </div>
                                     </div>
 
                                     {/* Progress Bar */}
-                                    <div className="w-full h-1.5 bg-white/5 rounded-full mb-5 overflow-hidden border border-white/5">
+                                    <div className="mt-3 h-2 bg-white/10 rounded-full overflow-hidden">
                                         <div
-                                            className="h-full bg-gradient-to-r from-yellow-600 to-yellow-400 shadow-[0_0_15px_rgba(234,179,8,0.4)] transition-all duration-300"
-                                            style={{ width: `${(car.normalized_pos || 0) * 100}%` }}
+                                            className="h-full rounded-full transition-all duration-500"
+                                            style={{ width: `${progress}%`, backgroundColor: color }}
                                         />
                                     </div>
 
-                                    {/* Stats Grid - 4 Columns */}
-                                    <div className="grid grid-cols-4 gap-3">
-                                        <StatItem label="RPM" value={Math.round(car.rpm || 0)} sub="MAX" />
-                                        <StatItem label="FUEL" value={Math.round(car.fuel || 0)} sub="LTR" />
-                                        <StatItem
-                                            label="TEMP"
-                                            value={Math.round(car.engine_temp || 0)}
-                                            sub="°C"
-                                            alert={(car.engine_temp || 0) > 105}
-                                        />
-                                        <StatItem
-                                            label="DMG"
-                                            value={Math.round((Array.isArray(car.damage) ? (car.damage as number[]).reduce((a, b) => a + b, 0) : 0) * 10) || 0}
-                                            sub="%"
-                                            alert={Array.isArray(car.damage) && (car.damage as number[]).some((d) => d > 0.2)}
-                                        />
+                                    {/* Stats Row */}
+                                    <div className="grid grid-cols-4 gap-2 mt-3">
+                                        <div className="text-center p-2 bg-white/5 rounded-lg">
+                                            <div className="text-[10px] text-gray-500">RPM</div>
+                                            <div className="text-sm font-bold tabular-nums">{Math.round(car.rpm || 0)}</div>
+                                        </div>
+                                        <div className="text-center p-2 bg-white/5 rounded-lg">
+                                            <div className="text-[10px] text-gray-500">FUEL</div>
+                                            <div className="text-sm font-bold tabular-nums">{Math.round(car.fuel || 0)}L</div>
+                                        </div>
+                                        <div className={cn(
+                                            "text-center p-2 rounded-lg",
+                                            hasAlert ? "bg-red-500/20" : "bg-white/5"
+                                        )}>
+                                            <div className="text-[10px] text-gray-500">TEMP</div>
+                                            <div className={cn("text-sm font-bold", hasAlert && "text-red-400")}>
+                                                {Math.round(car.engine_temp || 0)}°
+                                            </div>
+                                        </div>
+                                        <div className="text-center p-2 bg-white/5 rounded-lg">
+                                            <div className="text-[10px] text-gray-500">GEAR</div>
+                                            <div className="text-sm font-bold">{car.gear || 'N'}</div>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))
-                    ) : (
-                        <div className="flex-1 flex flex-col items-center justify-center text-gray-700 space-y-2 opacity-30">
-                            <div className="w-12 h-12 border-2 border-dashed border-gray-700 rounded-full animate-spin-slow" />
-                            <p className="text-[10px] font-black uppercase tracking-widest">Esperando Telemetría</p>
-                        </div>
-                    )}
-                </div>
-            </div>
+                            );
+                        })}
 
-            {/* Footer with ticker info or credits */}
-            <div className="h-10 border-t border-white/5 mt-6 flex items-center justify-between px-2 relative z-10">
-                <div className="flex space-x-6">
-                    <div className="flex items-center space-x-2">
-                        <span className="text-[10px] font-bold text-gray-600 uppercase">Status</span>
-                        <div className="w-2 h-2 rounded-full bg-green-500" />
+                        {sortedCars.length === 0 && (
+                            <div className="text-center py-16 text-gray-600">
+                                <Zap size={48} className="mx-auto mb-4 opacity-30" />
+                                <p className="text-lg font-medium">Sin pilotos activos</p>
+                            </div>
+                        )}
                     </div>
-                </div>
-                <div className="text-white/20 text-[10px] font-bold uppercase tracking-[0.3em]">
-                    Advanced Agentic Coding • Assetto Manager Pro
                 </div>
             </div>
         </div>

@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from .database import engine, Base, ensure_station_schema
-from .routers import stations, mods, telemetry, websockets, settings, profiles, events, config_manager, championships, integrations, tournament, logs, ads, auth, backup, exports, loyalty, bookings, analytics, push, elimination, elo, hardware, control, drivers, payments
+from .routers import stations, mods, telemetry, websockets, settings, profiles, events, config_manager, championships, integrations, tournament, logs, ads, auth, backup, exports, loyalty, bookings, analytics, push, elimination, elo, hardware, control, drivers, payments, tables, tracks
 
 # ...
 
@@ -162,6 +162,9 @@ app.include_router(tables.router)
 # Lobby / Multiplayer
 from .routers import lobby
 app.include_router(lobby.router)
+
+# Track Layout Parser
+app.include_router(tracks.router)
 
 # Scenarios
 # Scenarios
