@@ -37,6 +37,7 @@ const ScenariosManager = lazy(() => import('./pages/ScenariosManager'));
 const KioskMode = lazy(() => import('./pages/KioskMode'));
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
 const PilotPortal = lazy(() => import('./pages/PilotPortal'));
+const ManageBooking = lazy(() => import('./pages/ManageBooking'));
 const LockScreen = lazy(() => import('./pages/LockScreen'));
 
 import { useBranding } from './hooks/useBranding';
@@ -89,6 +90,7 @@ function App() {
               <Route path="/tv" element={<TVMode />} />
               <Route path="/telemetry/:id" element={<LapAnalysisPage />} />
               <Route path="/reservar" element={<PublicBookingPage />} />
+              <Route path="/reserva/:token" element={<ManageBooking />} />
               <Route path="/p/:driverName" element={<PilotPortal />} />
 
               {/* TV & Mobile (Handled by Layout to hide sidebar) */}

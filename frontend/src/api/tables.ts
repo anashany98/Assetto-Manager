@@ -14,6 +14,7 @@ export interface RestaurantTable {
     zone: string;
     fixed_notes?: string;
     is_active: boolean;
+    status: 'free' | 'occupied' | 'bill' | 'cleaning' | 'reserved';
 }
 
 export interface TableBooking {
@@ -48,5 +49,14 @@ export const getBookings = async (startDate: string, endDate?: string): Promise<
 
 export const createBooking = async (booking: Omit<TableBooking, 'id' | 'status'>): Promise<TableBooking> => {
     const res = await axios.post(`${API_URL}/tables/bookings`, booking);
+    return res.data;
+};
+
+export const updateTableStatus = async (tableId: number, status: string): Promise<void> => {
+    await axios.put(`${API_URL}/tables/${tableId}/status`, { status });
+};
+
+export const findBestFit = async (pax: number, date: string, time: string): Promise<{ strategy: string, table_ids: number[], reason: string }> => {
+    const res = await axios.post(`${API_URL}/tables/find-best-fit`, { pax, date, time });
     return res.data;
 };

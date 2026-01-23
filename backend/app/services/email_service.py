@@ -74,6 +74,7 @@ def send_booking_confirmation(
     num_players: int,
     duration_minutes: int,
     booking_id: int,
+    manage_token: Optional[str] = None,
     bar_name: str = "VRacing Bar"
 ) -> bool:
     """
@@ -81,24 +82,28 @@ def send_booking_confirmation(
     """
     subject = f"✅ Confirmación de Reserva - {bar_name}"
     
+    style_block = """
+        <style>
+            body { font-family: Arial, sans-serif; background-color: #1a1a2e; color: #ffffff; margin: 0; padding: 20px; }
+            .container { max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #16213e 0%, #1a1a2e 100%); border-radius: 16px; overflow: hidden; }
+            .header { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); padding: 30px; text-align: center; }
+            .header h1 { margin: 0; font-size: 28px; }
+            .content { padding: 30px; }
+            .booking-card { background: rgba(255,255,255,0.05); border-radius: 12px; padding: 20px; margin: 20px 0; }
+            .booking-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
+            .booking-row:last-child { border-bottom: none; }
+            .label { color: #9ca3af; font-size: 14px; }
+            .value { font-weight: bold; font-size: 16px; color: #60a5fa; }
+            .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 12px; }
+            .button { display: inline-block; background: #3b82f6; color: white; padding: 12px 30px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-top: 20px; }
+        </style>
+    """
+
     html_content = f"""
     <!DOCTYPE html>
     <html>
     <head>
-        <style>
-            body {{ font-family: Arial, sans-serif; background-color: #1a1a2e; color: #ffffff; margin: 0; padding: 20px; }}
-            .container {{ max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #16213e 0%, #1a1a2e 100%); border-radius: 16px; overflow: hidden; }}
-            .header {{ background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); padding: 30px; text-align: center; }}
-            .header h1 {{ margin: 0; font-size: 28px; }}
-            .content {{ padding: 30px; }}
-            .booking-card {{ background: rgba(255,255,255,0.05); border-radius: 12px; padding: 20px; margin: 20px 0; }}
-            .booking-row {{ display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }}
-            .booking-row:last-child {{ border-bottom: none; }}
-            .label {{ color: #9ca3af; font-size: 14px; }}
-            .value {{ font-weight: bold; font-size: 16px; color: #60a5fa; }}
-            .footer {{ text-align: center; padding: 20px; color: #6b7280; font-size: 12px; }}
-            .button {{ display: inline-block; background: #3b82f6; color: white; padding: 12px 30px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-top: 20px; }}
-        </style>
+        {style_block}
     </head>
     <body>
         <div class="container">
@@ -135,6 +140,8 @@ def send_booking_confirmation(
                 <p style="color: #fbbf24;">⚠️ Por favor, llega 10 minutos antes de tu hora reservada.</p>
                 
                 <p>Si necesitas modificar o cancelar tu reserva, contáctanos.</p>
+                
+                {f'<div style="text-align: center;"><a href="http://localhost:3010/reserva/{manage_token}" class="button">Gestionar Mi Reserva</a></div>' if manage_token else ''}
                 
                 <p>¡Te esperamos! 🏁</p>
             </div>
@@ -214,6 +221,92 @@ def send_booking_status_update(
             </div>
             <p>Hola {customer_name},</p>
             <p>{'Si tienes alguna duda, contáctanos.' if new_status != 'completed' else '¡Esperamos verte pronto de nuevo!'}</p>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return send_email(customer_email, subject, html_content)
+
+
+def send_table_confirmation(
+    customer_email: str,
+    customer_name: str,
+    date: str,
+    time: str,
+    pax: int,
+    table_labels: str,
+    booking_id: int,
+    manage_token: Optional[str] = None,
+    bar_name: str = "VRacing Bar"
+) -> bool:
+    """
+    Send table booking confirmation email.
+    """
+    subject = f"🍽️ Mesa Confirmada - {bar_name}"
+    
+    style_block = """
+        <style>
+            body { font-family: Arial, sans-serif; background-color: #1a1a2e; color: #ffffff; margin: 0; padding: 20px; }
+            .container { max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #1f2937 0%, #111827 100%); border-radius: 16px; overflow: hidden; }
+            .header { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 30px; text-align: center; }
+            .header h1 { margin: 0; font-size: 28px; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+            .content { padding: 30px; }
+            .booking-card { background: rgba(255,255,255,0.05); border-radius: 12px; padding: 20px; margin: 20px 0; border: 1px solid rgba(255,255,255,0.1); }
+            .booking-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
+            .booking-row:last-child { border-bottom: none; }
+            .label { color: #9ca3af; font-size: 14px; }
+            .value { font-weight: bold; font-size: 16px; color: #fbbf24; }
+            .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 12px; }
+            .button { display: inline-block; background: #3b82f6; color: white; padding: 12px 30px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-top: 20px; }
+        </style>
+    """
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        {style_block}
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>�️ Mesa Reservada</h1>
+            </div>
+            <div class="content">
+                <p>Hola <strong>{customer_name}</strong>,</p>
+                <p>Tu mesa ha sido confirmada:</p>
+                
+                <div class="booking-card">
+                    <div class="booking-row">
+                        <span class="label">📅 Fecha</span>
+                        <span class="value">{date}</span>
+                    </div>
+                    <div class="booking-row">
+                        <span class="label">⏰ Hora</span>
+                        <span class="value">{time}</span>
+                    </div>
+                    <div class="booking-row">
+                        <span class="label">👥 Pax</span>
+                        <span class="value">{pax} personas</span>
+                    </div>
+                    <div class="booking-row">
+                        <span class="label">🪑 Mesas</span>
+                        <span class="value">{table_labels}</span>
+                    </div>
+                    <div class="booking-row">
+                        <span class="label">🎫 Ref.</span>
+                        <span class="value">#{booking_id}</span>
+                    </div>
+                </div>
+
+                {f'<div style="text-align: center;"><a href="http://localhost:3010/reserva/{manage_token}" class="button">Gestionar Mi Reserva</a></div>' if manage_token else ''}
+                
+                <p>¡Disfruta de la experiencia! 🏁</p>
+            </div>
+            <div class="footer">
+                <p>{bar_name}</p>
+            </div>
         </div>
     </body>
     </html>

@@ -144,7 +144,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     }
 
     return (
-        <div className="flex h-screen text-gray-100 overflow-hidden">
+        <div className="flex h-screen text-gray-900 dark:text-gray-100 overflow-hidden">
             {/* Sidebar */}
             <div className={`${isSidebarOpen ? 'w-64' : 'w-20'} glass-sidebar text-white flex flex-col transition-all duration-300 relative`}>
                 {/* Toggle Button */}

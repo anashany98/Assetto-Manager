@@ -1,24 +1,22 @@
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { cn } from '../../lib/utils';
-import { getTables, getBookings } from '../../api/tables';
+import { getTables, getBookings, updateTableStatus, findBestFit } from '../../api/tables';
 import TableBookingModal from './TableBookingModal';
-import { Users, Clock, Map as MapIcon, BarChartHorizontal } from 'lucide-react';
+import { Users, Clock, Map as MapIcon, BarChartHorizontal, Utensils, Coffee, DollarSign, Sparkles, Wand2, ChevronLeft, ChevronRight, CalendarDays, Armchair } from 'lucide-react';
 
 export default function FloorPlanViewer() {
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [selectedTableIds, setSelectedTableIds] = useState<number[]>([]);
     const [showBookingModal, setShowBookingModal] = useState(false);
     const [viewMode, setViewMode] = useState<'map' | 'timeline'>('map');
+    const [appMode, setAppMode] = useState<'booking' | 'service'>('booking');
     const [previewTime, setPreviewTime] = useState("20:00");
+    const [suggestPax, setSuggestPax] = useState(4);
+    const queryClient = useQueryClient();
 
-    // Fetch tables
-    const { data: tables } = useQuery({
-        queryKey: ['tables'],
-        queryFn: getTables,
-    });
+    const { data: tables } = useQuery({ queryKey: ['tables'], queryFn: getTables });
 
-    // Fetch bookings for date
     const dateStr = selectedDate.toISOString().split('T')[0];
     const { data: bookings } = useQuery({
         queryKey: ['bookings', dateStr],
@@ -29,12 +27,9 @@ export default function FloorPlanViewer() {
         if (!bookings) return false;
         const timeToCheck = checkTime || previewTime;
         const checkDate = new Date(`${dateStr}T${timeToCheck}:00`);
-
         return bookings.some(b => {
-            // Handle table_ids being potentially just a single number if legacy, but our model is JSON list
             const tIds = Array.isArray(b.table_ids) ? b.table_ids : [b.table_ids];
             if (!tIds.includes(tableId)) return false;
-
             const start = new Date(b.start_time);
             const end = new Date(b.end_time);
             return checkDate >= start && checkDate < end;
@@ -43,22 +38,15 @@ export default function FloorPlanViewer() {
 
     const toggleTableSelection = (id: number) => {
         if (isTableBooked(id)) return;
-        setSelectedTableIds(prev =>
-            prev.includes(id) ? prev.filter(tid => tid !== id) : [...prev, id]
-        );
+        setSelectedTableIds(prev => prev.includes(id) ? prev.filter(tid => tid !== id) : [...prev, id]);
     };
 
-    // Timeline Helpers
-    const hours = useMemo(() => Array.from({ length: 13 }, (_, i) => i + 12), []); // 12:00 to 24:00
+    const hours = useMemo(() => Array.from({ length: 13 }, (_, i) => i + 12), []);
 
-
-    // Weekly Calendar Logic
     const weekStart = new Date(selectedDate);
-    // Adjust to Monday
     const day = weekStart.getDay();
     const diff = weekStart.getDate() - day + (day === 0 ? -6 : 1);
     weekStart.setDate(diff);
-
     const weekDates = Array.from({ length: 7 }, (_, i) => {
         const d = new Date(weekStart);
         d.setDate(weekStart.getDate() + i);
@@ -67,190 +55,305 @@ export default function FloorPlanViewer() {
 
     const weekStartStr = weekDates[0].toISOString().split('T')[0];
     const weekEndStr = weekDates[6].toISOString().split('T')[0];
-
     const { data: weeklyBookings } = useQuery({
         queryKey: ['bookings', 'weekly', weekStartStr],
         queryFn: () => getBookings(weekStartStr, weekEndStr),
         enabled: true
     });
 
-    return (
-        <div className="flex flex-col h-full">
-            <div className="flex flex-1 flex-col md:flex-row min-h-0">
-                {/* Sidebar Details */}
-                <div className="w-full md:w-80 bg-gray-900 border-r border-gray-800 p-4 md:p-6 flex flex-col gap-6 z-10 shadow-xl overflow-y-auto">
-                    <div>
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-xs font-bold text-gray-500 uppercase">Vista</h3>
-                            <div className="flex bg-gray-800 rounded p-1">
-                                <button
-                                    onClick={() => setViewMode('map')}
-                                    className={cn("p-1.5 rounded", viewMode === 'map' ? "bg-blue-600 text-white" : "text-gray-400 hover:text-white")}
-                                >
-                                    <MapIcon size={16} />
-                                </button>
-                                <button
-                                    onClick={() => setViewMode('timeline')}
-                                    className={cn("p-1.5 rounded", viewMode === 'timeline' ? "bg-amber-600 text-white" : "text-gray-400 hover:text-white")}
-                                >
-                                    <BarChartHorizontal size={16} />
-                                </button>
-                            </div>
-                        </div>
+    const totalSeats = selectedTableIds.reduce((acc, id) => {
+        const table = tables?.find(t => t.id === id);
+        return acc + (table?.seats || 0);
+    }, 0);
 
-                        <h3 className="text-xs font-bold text-gray-500 uppercase mb-3">Fecha y Hora</h3>
+    return (
+        <div className="flex flex-col h-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+            <div className="flex flex-1 min-h-0">
+
+                {/* === LEFT SIDEBAR === */}
+                <div className="w-80 bg-black/30 backdrop-blur-xl border-r border-white/10 p-5 flex flex-col gap-5 overflow-y-auto">
+
+                    {/* Header */}
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                            <Armchair size={20} className="text-white" />
+                        </div>
+                        <div>
+                            <h2 className="font-bold text-white text-lg">Plano de Mesas</h2>
+                            <p className="text-xs text-gray-400">Gestión de reservas</p>
+                        </div>
+                    </div>
+
+                    {/* View Toggle */}
+                    <div className="bg-white/5 rounded-xl p-1 flex">
+                        <button
+                            onClick={() => setViewMode('map')}
+                            className={cn("flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all",
+                                viewMode === 'map' ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg" : "text-gray-400 hover:text-white"
+                            )}
+                        >
+                            <MapIcon size={14} /> Mapa
+                        </button>
+                        <button
+                            onClick={() => setViewMode('timeline')}
+                            className={cn("flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all",
+                                viewMode === 'timeline' ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg" : "text-gray-400 hover:text-white"
+                            )}
+                        >
+                            <BarChartHorizontal size={14} /> Timeline
+                        </button>
+                    </div>
+
+                    {/* Mode Toggle */}
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Modo</label>
+                        <div className="bg-white/5 rounded-xl p-1 flex">
+                            <button
+                                onClick={() => setAppMode('booking')}
+                                className={cn("flex-1 py-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all",
+                                    appMode === 'booking' ? "bg-blue-600 text-white" : "text-gray-400 hover:text-white"
+                                )}
+                            >
+                                <Clock size={14} /> Reservas
+                            </button>
+                            <button
+                                onClick={() => setAppMode('service')}
+                                className={cn("flex-1 py-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all",
+                                    appMode === 'service' ? "bg-emerald-600 text-white" : "text-gray-400 hover:text-white"
+                                )}
+                            >
+                                <Utensils size={14} /> Servicio
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Date & Time */}
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                            <CalendarDays size={12} /> Fecha y Hora
+                        </label>
                         <input
                             type="date"
                             value={dateStr}
                             onChange={(e) => setSelectedDate(new Date(e.target.value))}
-                            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white mb-2"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white font-mono focus:border-blue-500 outline-none transition-colors"
                         />
                         {viewMode === 'map' && (
-                            <div className="flex items-center gap-2 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 animate-in fade-in slide-in-from-top-2">
+                            <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-3">
                                 <Clock size={16} className="text-blue-400" />
                                 <input
                                     type="time"
                                     value={previewTime}
                                     onChange={(e) => setPreviewTime(e.target.value)}
-                                    className="bg-transparent border-none text-white outline-none w-full font-bold"
+                                    className="bg-transparent text-white outline-none flex-1 font-mono font-bold"
                                 />
                             </div>
                         )}
                     </div>
 
-                    <div className="flex-1">
-                        <h3 className="text-xs font-bold text-gray-500 uppercase mb-3">Selección</h3>
-                        {selectedTableIds.length > 0 ? (
-                            <div className="space-y-4 animate-in fade-in zoom-in">
-                                <div className="p-4 bg-blue-900/20 border border-blue-500/30 rounded-xl">
-                                    <div className="text-2xl font-black text-white">{selectedTableIds.length}</div>
-                                    <div className="text-sm text-blue-200">Mesas seleccionadas</div>
-                                </div>
-
+                    {/* AI Assistant */}
+                    {appMode === 'booking' && (
+                        <div className="bg-gradient-to-br from-blue-500/10 to-indigo-500/10 border border-blue-500/20 rounded-xl p-4 space-y-3">
+                            <div className="flex items-center gap-2 text-blue-400">
+                                <Wand2 size={14} />
+                                <span className="text-xs font-bold uppercase">Asistente IA</span>
+                            </div>
+                            <div className="flex gap-2">
+                                <input
+                                    type="number"
+                                    min={1}
+                                    max={20}
+                                    value={suggestPax}
+                                    onChange={(e) => setSuggestPax(parseInt(e.target.value))}
+                                    className="w-16 bg-white/10 border border-white/10 rounded-lg px-3 py-2 text-center text-white font-bold"
+                                />
                                 <button
-                                    onClick={() => setShowBookingModal(true)}
-                                    className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg shadow-blue-900/20 flex items-center justify-center gap-2 transition-all hover:scale-[1.02]"
+                                    onClick={async () => {
+                                        try {
+                                            const result = await findBestFit(suggestPax, dateStr, previewTime);
+                                            setSelectedTableIds(result.table_ids);
+                                        } catch { alert("No se encontraron mesas disponibles"); }
+                                    }}
+                                    className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-xs py-2 transition-all hover:shadow-lg hover:shadow-blue-500/30"
                                 >
-                                    <Users size={20} />
-                                    Crear Reserva
+                                    Sugerir Mesa
                                 </button>
                             </div>
+                        </div>
+                    )}
+
+                    {/* Selection Panel */}
+                    <div className="flex-1">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Selección</label>
+                        {selectedTableIds.length > 0 ? (
+                            <div className="mt-3 space-y-4 animate-in fade-in">
+                                <div className="bg-gradient-to-br from-blue-500/20 to-indigo-500/20 border border-blue-500/30 rounded-xl p-4 text-center">
+                                    <div className="text-3xl font-black text-white">{selectedTableIds.length}</div>
+                                    <div className="text-xs text-blue-300">Mesa{selectedTableIds.length > 1 ? 's' : ''} · {totalSeats} personas</div>
+                                </div>
+
+                                {appMode === 'booking' ? (
+                                    <button
+                                        onClick={() => setShowBookingModal(true)}
+                                        className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2 transition-all hover:scale-[1.02]"
+                                    >
+                                        <Users size={20} /> Crear Reserva
+                                    </button>
+                                ) : (
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {[
+                                            { status: 'free', icon: Coffee, label: 'Libre', color: 'bg-green-600 hover:bg-green-500' },
+                                            { status: 'occupied', icon: Users, label: 'Ocupada', color: 'bg-red-600 hover:bg-red-500' },
+                                            { status: 'bill', icon: DollarSign, label: 'Cobrando', color: 'bg-orange-600 hover:bg-orange-500' },
+                                            { status: 'cleaning', icon: Sparkles, label: 'Limpieza', color: 'bg-yellow-600 hover:bg-yellow-500' },
+                                        ].map(({ status, icon: Icon, label, color }) => (
+                                            <button
+                                                key={status}
+                                                onClick={() => {
+                                                    selectedTableIds.forEach(id => updateTableStatus(id, status));
+                                                    queryClient.invalidateQueries({ queryKey: ['tables'] });
+                                                    setSelectedTableIds([]);
+                                                }}
+                                                className={cn("p-3 text-white rounded-xl font-bold text-xs flex flex-col items-center gap-1 transition-all", color)}
+                                            >
+                                                <Icon size={16} /> {label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         ) : (
-                            <div className="text-center py-10 text-gray-600 italic">
-                                Selecciona mesas disponibles para reservar
+                            <div className="mt-6 text-center py-8 text-gray-600 italic text-sm">
+                                Toca una mesa para {appMode === 'booking' ? 'reservar' : 'cambiar estado'}
                             </div>
                         )}
                     </div>
 
                     {/* Legend */}
-                    <div className="grid grid-cols-2 gap-2 text-xs text-gray-400">
-                        <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-green-500/20 border border-green-500" /> Disponible</div>
-                        <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-red-500/20 border border-red-500" /> Reservado</div>
-                        <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-amber-900/40 border border-amber-700" /> VIP</div>
-                        <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-emerald-900/40 border border-emerald-700" /> Terraza</div>
+                    <div className="grid grid-cols-2 gap-2 text-[10px] text-gray-400 pt-4 border-t border-white/10">
+                        <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-green-500 shadow-lg shadow-green-500/50" /> Libre</div>
+                        <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500 shadow-lg shadow-red-500/50" /> Reservada</div>
+                        <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-amber-500 shadow-lg shadow-amber-500/50" /> VIP</div>
+                        <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/50" /> Terraza</div>
                     </div>
                 </div>
 
-                {/* View Area */}
-                <div className="flex-1 bg-gray-950 flex items-center justify-center relative overflow-hidden">
+                {/* === MAIN VIEW === */}
+                <div className="flex-1 relative overflow-hidden">
                     {viewMode === 'map' ? (
                         <>
-                            <div className="absolute inset-0 opacity-20 pointer-events-none"
-                                style={{ backgroundImage: 'radial-gradient(circle, #374151 1px, transparent 1px)', backgroundSize: '30px 30px' }}
+                            {/* Background Pattern */}
+                            <div className="absolute inset-0 pointer-events-none opacity-30"
+                                style={{
+                                    backgroundImage: `
+                                        radial-gradient(circle at 20% 30%, rgba(59, 130, 246, 0.3) 0%, transparent 40%),
+                                        radial-gradient(circle at 80% 70%, rgba(139, 92, 246, 0.2) 0%, transparent 40%),
+                                        radial-gradient(circle, rgba(100,116,139,0.3) 1px, transparent 1px)
+                                    `,
+                                    backgroundSize: '100% 100%, 100% 100%, 25px 25px'
+                                }}
                             />
 
-                            <div
-                                className="relative bg-gray-900/50 shadow-2xl border-2 border-gray-800 rounded-xl overflow-hidden backdrop-blur-sm transition-all duration-500 origin-center"
-                                style={{
-                                    width: '800px', height: '600px',
-                                    transform: 'scale(0.85)', // Slight zoom out to fit better with footer
-                                }}
-                            >
-                                {tables?.map(table => {
-                                    const isBooked = isTableBooked(table.id);
-                                    const isSelected = selectedTableIds.includes(table.id);
+                            {/* Floor Plan Container */}
+                            <div className="absolute inset-0 flex items-center justify-center p-8">
+                                <div
+                                    className="relative bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+                                    style={{ width: '800px', height: '580px' }}
+                                >
+                                    {/* Floor texture */}
+                                    <div className="absolute inset-0 opacity-5"
+                                        style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'20\' height=\'20\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 0h10v10H0zM10 10h10v10H10z\' fill=\'%23fff\' fill-opacity=\'0.5\'/%3E%3C/svg%3E")' }}
+                                    />
 
-                                    // Zone Colors
-                                    const zoneColor =
-                                        table.zone === 'vip' ? 'bg-amber-900/40 border-amber-700' :
-                                            table.zone === 'terrace' ? 'bg-emerald-900/40 border-emerald-700' :
-                                                'bg-gray-800/80 border-gray-600';
+                                    {tables?.map(table => {
+                                        const isBooked = isTableBooked(table.id);
+                                        const isSelected = selectedTableIds.includes(table.id);
 
-                                    return (
-                                        <button
-                                            key={table.id}
-                                            onClick={() => toggleTableSelection(table.id)}
-                                            disabled={isBooked}
-                                            style={{
-                                                position: 'absolute',
-                                                left: table.x,
-                                                top: table.y,
-                                                width: table.width,
-                                                height: table.height,
-                                                transform: `rotate(${table.rotation}deg)`,
-                                                borderRadius: table.shape === 'circle' ? '50%' : '8px',
-                                            }}
-                                            className={cn(
-                                                "flex items-center justify-center border-2 transition-all duration-300 group",
-                                                isBooked
-                                                    ? "bg-red-500/10 border-red-500/50 text-red-500 cursor-not-allowed opacity-80"
-                                                    : isSelected
-                                                        ? "bg-blue-500/30 border-blue-400 text-blue-100 shadow-[0_0_20px_rgba(59,130,246,0.4)] scale-105 z-10"
-                                                        : `${zoneColor} text-gray-300 hover:brightness-125`
-                                            )}
-                                            title={`${table.label} (${table.seats} pax) - ${table.zone || 'main'}`}
-                                        >
-                                            <div className="flex flex-col items-center">
-                                                <span className="font-bold text-xs pointer-events-none">{table.label}</span>
-                                                {table.seats >= 4 && <span className="text-[10px] opacity-50">{table.seats}p</span>}
-                                            </div>
+                                        const getTableStyle = () => {
+                                            if (appMode === 'service') {
+                                                switch (table.status) {
+                                                    case 'occupied': return 'bg-red-500/30 border-red-500 shadow-red-500/30';
+                                                    case 'bill': return 'bg-orange-500/30 border-orange-500 shadow-orange-500/30';
+                                                    case 'cleaning': return 'bg-yellow-500/30 border-yellow-500 shadow-yellow-500/30';
+                                                    case 'reserved': return 'bg-purple-500/30 border-purple-500 shadow-purple-500/30';
+                                                    default: return 'bg-green-500/30 border-green-500 shadow-green-500/30';
+                                                }
+                                            }
+                                            if (isBooked) return 'bg-red-900/40 border-red-700/50 cursor-not-allowed opacity-60';
+                                            if (isSelected) return 'bg-blue-500/40 border-blue-400 shadow-[0_0_30px_rgba(59,130,246,0.5)]';
 
-                                            {/* Simplified Chairs Visual */}
-                                            <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-8 h-[2px] bg-white/20" />
-                                            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-8 h-[2px] bg-white/20" />
+                                            if (table.zone === 'vip') return 'bg-amber-500/20 border-amber-500/50 hover:bg-amber-500/30';
+                                            if (table.zone === 'terrace') return 'bg-emerald-500/20 border-emerald-500/50 hover:bg-emerald-500/30';
+                                            return 'bg-white/10 border-white/20 hover:bg-white/20';
+                                        };
 
-                                            {isBooked && (
-                                                <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[1px]">
-                                                    <Clock size={16} />
+                                        return (
+                                            <button
+                                                key={table.id}
+                                                onClick={() => toggleTableSelection(table.id)}
+                                                disabled={isBooked}
+                                                style={{
+                                                    position: 'absolute',
+                                                    left: table.x,
+                                                    top: table.y,
+                                                    width: table.width,
+                                                    height: table.height,
+                                                    transform: `rotate(${table.rotation}deg)`,
+                                                    borderRadius: table.shape === 'circle' ? '50%' : '12px',
+                                                }}
+                                                className={cn(
+                                                    "flex items-center justify-center border-2 transition-all duration-300 backdrop-blur-sm shadow-xl group",
+                                                    getTableStyle(),
+                                                    isSelected && "scale-110 z-20 animate-pulse"
+                                                )}
+                                            >
+                                                <div className="flex flex-col items-center text-white">
+                                                    <span className="font-black text-sm drop-shadow-lg">{table.label}</span>
+                                                    <span className="text-[10px] opacity-70">{table.seats}p</span>
                                                 </div>
-                                            )}
-                                        </button>
-                                    );
-                                })}
+
+                                                {isBooked && (
+                                                    <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm rounded-inherit">
+                                                        <Clock size={20} className="text-white/80" />
+                                                    </div>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         </>
                     ) : (
-                        <div className="w-full h-full overflow-auto p-4 bg-gray-950">
-                            {/* Timeline Header */}
-                            <div className="flex min-w-[800px] border-b border-gray-800 sticky top-0 bg-gray-950 z-20">
-                                <div className="w-24 p-3 text-xs font-bold text-gray-500 uppercase sticky left-0 bg-gray-950 border-r border-gray-800">Mesa</div>
-                                {hours.map(h => (
-                                    <div key={h} className="flex-1 p-3 text-xs font-bold text-gray-500 border-r border-gray-800/50 text-center min-w-[60px]">
-                                        {h}:00
-                                    </div>
-                                ))}
-                            </div>
+                        /* Timeline View */
+                        <div className="h-full overflow-auto p-6">
+                            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden">
+                                {/* Header */}
+                                <div className="flex border-b border-white/10 sticky top-0 bg-slate-900/90 backdrop-blur-md z-20">
+                                    <div className="w-28 p-4 text-xs font-bold text-gray-400 uppercase border-r border-white/10">Mesa</div>
+                                    {hours.map(h => (
+                                        <div key={h} className="flex-1 p-4 text-xs font-bold text-gray-400 border-r border-white/5 text-center min-w-[50px]">
+                                            {h}:00
+                                        </div>
+                                    ))}
+                                </div>
 
-                            {/* Timeline Rows */}
-                            <div className="min-w-[800px]">
+                                {/* Rows */}
                                 {tables?.map(table => (
-                                    <div key={table.id} className="flex border-b border-gray-800 hover:bg-gray-900/30 transition-colors">
-                                        <div className="w-24 p-3 text-sm font-bold text-gray-300 sticky left-0 bg-gray-950 border-r border-gray-800 flex items-center gap-2">
-                                            <div className={cn("w-2 h-2 rounded-full",
-                                                table.zone === 'vip' ? "bg-amber-500" :
-                                                    table.zone === 'terrace' ? "bg-emerald-500" : "bg-gray-500"
+                                    <div key={table.id} className="flex border-b border-white/5 hover:bg-white/5 transition-colors">
+                                        <div className="w-28 p-4 text-sm font-bold text-white border-r border-white/10 flex items-center gap-2 bg-white/5">
+                                            <div className={cn("w-2.5 h-2.5 rounded-full shadow-lg",
+                                                table.zone === 'vip' ? "bg-amber-500 shadow-amber-500/50" :
+                                                    table.zone === 'terrace' ? "bg-emerald-500 shadow-emerald-500/50" : "bg-gray-500"
                                             )} />
                                             {table.label}
                                         </div>
-                                        <div className="flex-1 relative h-12">
-                                            {/* Grid lines */}
+                                        <div className="flex-1 relative h-14">
                                             {hours.map(h => (
-                                                <div key={h} className="absolute top-0 bottom-0 border-r border-gray-800/30"
+                                                <div key={h} className="absolute top-0 bottom-0 border-r border-white/5"
                                                     style={{ left: `${((h - 12) / 12) * 100}%` }}
                                                 />
                                             ))}
 
-                                            {/* Bookings Bars */}
                                             {bookings?.filter(b => {
                                                 const tIds = Array.isArray(b.table_ids) ? b.table_ids : [b.table_ids];
                                                 return tIds.includes(table.id);
@@ -267,13 +370,13 @@ export default function FloorPlanViewer() {
                                                 return (
                                                     <div
                                                         key={booking.id}
-                                                        className="absolute top-2 bottom-2 bg-red-600/80 rounded border border-red-500 shadow-sm text-[10px] text-white overflow-hidden px-1 leading-tight flex flex-col justify-center"
+                                                        className="absolute top-2 bottom-2 bg-gradient-to-r from-red-600 to-red-500 rounded-lg shadow-lg shadow-red-500/30 text-[10px] text-white px-2 flex items-center overflow-hidden"
                                                         style={{ left: `${left}%`, width: `${width}%` }}
-                                                        title={`${booking.customer_name}`}
+                                                        title={`${booking.customer_name} - ${booking.pax} pax`}
                                                     >
                                                         <span className="font-bold truncate">{booking.customer_name}</span>
                                                     </div>
-                                                )
+                                                );
                                             })}
                                         </div>
                                     </div>
@@ -284,15 +387,24 @@ export default function FloorPlanViewer() {
                 </div>
             </div>
 
-            {/* Weekly Calendar Footer */}
-            <div className="h-16 bg-gray-900 border-t border-gray-800 flex items-center justify-between px-4 overflow-x-auto">
-                <div className="flex flex-1 justify-center gap-1 min-w-max">
+            {/* === BOTTOM CALENDAR === */}
+            <div className="h-20 bg-black/30 backdrop-blur-xl border-t border-white/10 flex items-center px-6 gap-4">
+                <button
+                    onClick={() => {
+                        const newDate = new Date(selectedDate);
+                        newDate.setDate(newDate.getDate() - 7);
+                        setSelectedDate(newDate);
+                    }}
+                    className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all"
+                >
+                    <ChevronLeft size={18} />
+                </button>
+
+                <div className="flex flex-1 justify-center gap-2">
                     {weekDates.map(date => {
                         const dStr = date.toISOString().split('T')[0];
                         const isSelected = dStr === dateStr;
                         const isToday = dStr === new Date().toISOString().split('T')[0];
-
-                        // Count bookings for this day
                         const daysBookings = weeklyBookings?.filter(b => b.start_time.startsWith(dStr)) || [];
                         const bookingCount = daysBookings.length;
 
@@ -301,32 +413,40 @@ export default function FloorPlanViewer() {
                                 key={dStr}
                                 onClick={() => setSelectedDate(date)}
                                 className={cn(
-                                    "flex flex-col items-center justify-center w-20 py-1 rounded-lg transition-all border",
+                                    "flex flex-col items-center justify-center w-16 py-2 rounded-xl transition-all border",
                                     isSelected
-                                        ? "bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-900/50 scale-105 z-10"
-                                        : "bg-gray-800 border-gray-700 text-gray-400 hover:bg-gray-750 hover:border-gray-600"
+                                        ? "bg-gradient-to-b from-blue-600 to-indigo-600 border-blue-400 text-white shadow-lg shadow-blue-500/40 scale-110 z-10"
+                                        : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white"
                                 )}
                             >
-                                <span className={cn("text-[10px] uppercase font-bold", isSelected ? "text-blue-200" : "text-gray-500")}>
+                                <span className="text-[10px] uppercase font-bold opacity-60">
                                     {date.toLocaleDateString('es-ES', { weekday: 'short' })}
                                 </span>
-                                <div className="flex items-center gap-2">
-                                    <span className={cn("text-sm font-bold", isToday && !isSelected && "text-blue-400")}>
-                                        {date.getDate()}
-                                    </span>
-                                    {bookingCount > 0 && (
-                                        <div className="flex gap-0.5">
-                                            {Array.from({ length: Math.min(3, bookingCount) }).map((_, i) => (
-                                                <div key={i} className="w-1 h-1 rounded-full bg-red-500" />
-                                            ))}
-                                            {bookingCount > 3 && <div className="w-1 h-1 rounded-full bg-gray-500" />}
-                                        </div>
-                                    )}
-                                </div>
+                                <span className={cn("text-lg font-black", isToday && !isSelected && "text-blue-400")}>
+                                    {date.getDate()}
+                                </span>
+                                {bookingCount > 0 && (
+                                    <div className="flex gap-0.5 mt-1">
+                                        {Array.from({ length: Math.min(3, bookingCount) }).map((_, i) => (
+                                            <div key={i} className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-sm shadow-red-500/50" />
+                                        ))}
+                                    </div>
+                                )}
                             </button>
                         );
                     })}
                 </div>
+
+                <button
+                    onClick={() => {
+                        const newDate = new Date(selectedDate);
+                        newDate.setDate(newDate.getDate() + 7);
+                        setSelectedDate(newDate);
+                    }}
+                    className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all"
+                >
+                    <ChevronRight size={18} />
+                </button>
             </div>
 
             {showBookingModal && (

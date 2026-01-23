@@ -470,6 +470,9 @@ class RestaurantTable(Base):
     fixed_notes = Column(String(255), nullable=True) # e.g. "Window seat"
     
     is_active = Column(Boolean, default=True)
+    
+    # Live Status
+    status = Column(String(20), default="free") # free, occupied, bill, cleaning, reserved
 
 class TableBooking(Base):
     """Reservation for a table"""
@@ -494,6 +497,14 @@ class TableBooking(Base):
     pax = Column(Integer, default=2)
     status = Column(String(20), default="confirmed") # confirmed, seated, cancelled, completed
     notes = Column(String(500), nullable=True)
+    allergies = Column(JSON, default=list) # List of allergy strings
+    
+    # Loyalty Link
+    driver_id = Column(Integer, ForeignKey("drivers.id"), nullable=True)
+    driver = relationship("Driver")
+    
+    # Magic Link for self-management
+    manage_token = Column(String(64), unique=True, nullable=True, index=True)
     
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 

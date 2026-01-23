@@ -1195,6 +1195,22 @@ export default function KioskMode() {
             onError: () => setPaymentError('No se pudo iniciar el pago. Revisa la configuración.')
         });
 
+        const joinLobbyMutation = useMutation({
+            mutationFn: async () => {
+                await axios.post(`${API_URL}/lobby/${selection?.lobbyId}/join`, {
+                    station_id: stationId
+                });
+            },
+            onSuccess: () => {
+                setStep(6);
+            },
+            onError: (err) => {
+                console.error("Failed to join lobby:", err);
+                alert("Error al unirse a la sala. Puede que esté llena o ya no exista.");
+                setStep(1); // Go back to start on failure to avoid stuck state
+            }
+        });
+
         useEffect(() => {
             createCheckout.mutate(paymentProvider);
         }, [paymentProvider, stationId, duration, driver?.name, selection?.scenarioId]);
@@ -1227,7 +1243,7 @@ export default function KioskMode() {
                     }
 
                     if (selection?.isLobby) {
-                        setStep(6);
+                        joinLobbyMutation.mutate();
                         return;
                     }
 

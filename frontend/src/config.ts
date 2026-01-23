@@ -6,7 +6,7 @@ const inferApiUrl = () => {
     if (envApiUrl) return envApiUrl;
     if (typeof window === 'undefined') return '';
     if (import.meta.env.PROD) return window.location.origin;
-    return `${window.location.protocol}//${window.location.hostname}:8000`;
+    return `${window.location.protocol}//${window.location.hostname}:8010`;
 };
 
 export const API_URL = inferApiUrl();
