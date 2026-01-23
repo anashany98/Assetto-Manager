@@ -1530,13 +1530,13 @@ export default function KioskMode() {
         return (
             <div className="h-full flex flex-col animate-in fade-in duration-500">
                 {/* COUNTDOWN TIMER - Prominent Display */}
-                <div className={`text-center py-4 rounded-2xl mb-6 transition-colors ${isLowTime ? 'bg-red-500/20 animate-pulse' : 'bg-blue-500/10'}`}>
-                    <div className={`text-6xl font-numeric font-black ${isLowTime ? 'text-red-400' : 'text-blue-400'}`}>
-                        <Clock className="inline-block mr-3 -mt-2" size={48} />
+                <div className={`text-center py-4 rounded-2xl mb-6 transition-all duration-500 ${isLowTime ? 'bg-red-600 shadow-[0_0_30px_rgba(220,38,38,0.4)] animate-[pulse_1s_cubic-bezier(0.4,0,0.6,1)_infinite]' : 'bg-blue-500/10'}`}>
+                    <div className={`text-7xl font-numeric font-black ${isLowTime ? 'text-white' : 'text-blue-400'}`}>
+                        <Clock className={cn("inline-block mr-3 -mt-2", isLowTime ? "text-white" : "text-blue-400")} size={56} />
                         {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
                     </div>
-                    <p className={`text-sm font-bold uppercase tracking-widest mt-1 ${isLowTime ? 'text-red-500' : 'text-gray-500'}`}>
-                        {isLowTime ? '¡TIEMPO CASI AGOTADO!' : 'TIEMPO RESTANTE'}
+                    <p className={`text-sm font-black uppercase tracking-[0.3em] mt-2 ${isLowTime ? 'text-white' : 'text-gray-500'}`}>
+                        {isLowTime ? '¡ÚLTIMO MINUTO - FINALIZANDO SESIÓN!' : 'TIEMPO RESTANTE'}
                     </p>
                 </div>
 

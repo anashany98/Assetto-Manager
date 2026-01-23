@@ -1,4 +1,4 @@
-import time
+﻿import time
 import sys
 import platform
 import socket
@@ -314,6 +314,9 @@ class ProcessWatchdog:
 # Global watchdog instance
 watchdog = ProcessWatchdog()
 
+# --- SESSION TIMER ---
+session_stop_event = threading.Event()
+
 
 # --- IMAGE PROXY SERVER ---
 class ImageProxyServer:
@@ -560,7 +563,7 @@ def send_heartbeat(station_id, status="online"):
 
 
 # import telemetry # Disabled in favor of Shared Memory Upload
-import telemetry # Habilitado para gestión de resultados y fusión de telemetría
+import telemetry # Habilitado para gestiÃ³n de resultados y fusiÃ³n de telemetrÃ­a
 telemetry.set_agent_token(AGENT_TOKEN)
 
 def main():
@@ -586,7 +589,7 @@ def main():
             time.sleep(5)
     
 
-    # Iniciar Streamer de Telemetría (Buffer + Envio WS tiempo real)
+    # Iniciar Streamer de TelemetrÃ­a (Buffer + Envio WS tiempo real)
     telemetry_thread = TelemetryThread(station_id, SERVER_URL)
     telemetry_thread.start()
 
@@ -596,7 +599,7 @@ def main():
         monitor_thread = HardwareMonitor(station_id, SERVER_URL)
         monitor_thread.start()
     except ImportError:
-        logger.error("No se pudo cargar monitor.py. Monitorización de HW desactivada.")
+        logger.error("No se pudo cargar monitor.py. MonitorizaciÃ³n de HW desactivada.")
     except Exception as e:
         logger.error(f"Error iniciando monitor de hardware: {e}")
 
@@ -604,11 +607,11 @@ def main():
     # Bucle Principal
     while True:
         try:
-            # Verificar Sincronización
+            # Verificar SincronizaciÃ³n
             status = synchronize_content(station_id)
             
             # Verificar Resultados de Carrera (Basado en Archivo)
-            # Esto fusionará la telemetría en buffer con los tiempos oficiales
+            # Esto fusionarÃ¡ la telemetrÃ­a en buffer con los tiempos oficiales
             telemetry.check_for_new_results(SERVER_URL, station_id)
             
             # Enviar Heartbeat
@@ -631,7 +634,7 @@ class TelemetryThread(threading.Thread):
         self.running = True
         self.daemon = True
         
-        # Buffer de Telemetría
+        # Buffer de TelemetrÃ­a
         self.current_lap_buffer = []
         self.last_lap_count = -1
         self.last_lap_timestamp = time.time()
@@ -640,13 +643,13 @@ class TelemetryThread(threading.Thread):
         asyncio.run(self.stream_telemetry())
 
     async def stream_telemetry(self):
-        logger.info(f"Conectando a WS de Telemetría: {self.server_url}")
+        logger.info(f"Conectando a WS de TelemetrÃ­a: {self.server_url}")
         while self.running:
             try:
-                # Bucle de reconexión
+                # Bucle de reconexiÃ³n
                 async with websockets.connect(self.server_url) as websocket:
-                    logger.info("WS Telemetría Conectado")
-                    # Handshake / Identificación
+                    logger.info("WS TelemetrÃ­a Conectado")
+                    # Handshake / IdentificaciÃ³n
                     await websocket.send(json.dumps({
                         "type": "identify",
                         "station_id": self.station_id,
@@ -667,8 +670,8 @@ class TelemetryThread(threading.Thread):
                             logger.error(f"[DEBUG] Loop {i} raised exception: {result}")
 
             except Exception as e:
-                logger.error(f"Error WS Telemetría: {e}")
-                await asyncio.sleep(5) # Delay reconexión
+                logger.error(f"Error WS TelemetrÃ­a: {e}")
+                await asyncio.sleep(5) # Delay reconexiÃ³n
 
     async def send_loop(self, websocket):
         logger.info("[DEBUG] send_loop started - streaming telemetry")
@@ -682,14 +685,14 @@ class TelemetryThread(threading.Thread):
                     data['station_id'] = self.station_id
                     await websocket.send(json.dumps(data))
                     
-                    # 2. Lógica de Buffer para Análisis/Comparador
+                    # 2. LÃ³gica de Buffer para AnÃ¡lisis/Comparador
                     current_laps = data.get('laps', 0)
                     
                     # Inicializar contador
                     if self.last_lap_count == -1:
                         self.last_lap_count = current_laps
                     
-                    # Añadir muestra al buffer
+                    # AÃ±adir muestra al buffer
                     self.current_lap_buffer.append({
                         "t": data.get('lap_time_ms', 0),
                         "s": data.get('speed_kmh', 0),
@@ -704,11 +707,11 @@ class TelemetryThread(threading.Thread):
                         "tt": data.get('tyre_temp', 0)
                     })
                     
-                    # 3. Detección de Cambio de Vuelta
+                    # 3. DetecciÃ³n de Cambio de Vuelta
                     if current_laps > self.last_lap_count:
-                        logger.info(f"¡Vuelta Terminada! {self.last_lap_count} -> {current_laps}")
+                        logger.info(f"Â¡Vuelta Terminada! {self.last_lap_count} -> {current_laps}")
                         
-                        # Guardar la vuelta completada en el módulo de telemetría
+                        # Guardar la vuelta completada en el mÃ³dulo de telemetrÃ­a
                         telemetry.save_lap_telemetry(self.last_lap_count, self.current_lap_buffer)
                         
                         # Resetear para nueva vuelta
@@ -837,9 +840,31 @@ class TelemetryThread(threading.Thread):
                     except Exception as e:
                         logger.error(f"Failed to update player.ini: {e}")
                     
+                    # 1.5 Fetch latest simulator settings from server
+                    sim_settings = {}
+                    try:
+                        resp = requests.get(f"{SERVER_URL}/settings/", headers=get_agent_headers(), timeout=5)
+                        if resp.status_code == 200:
+                            settings_list = resp.json()
+                            sim_settings = {s['key']: s['value'] for s in settings_list if s['key'].startswith('sim_')}
+                            logger.info(f"Fetched simulator settings: {sim_settings}")
+                    except Exception as e:
+                        logger.error(f"Failed to fetch simulator settings: {e}")
+
+                    # Helper to get setting with fallback
+                    def get_sim(key, default):
+                        val = sim_settings.get(f"sim_{key}")
+                        if val is None: return default
+                        if val.lower() == 'true': return 1
+                        if val.lower() == 'false': return 0
+                        return val
+
                     # 2. Write assist.ini based on difficulty settings
                     assist_ini_path = os.path.join(ac_docs_path, "assist.ini")
                     try:
+                        # Map difficulty to more detailed assists if needed, but for now we follow difficulty
+                        # and then override with global ones if we had them.
+                        # For now, we'll keep the difficulty-based logic but could add more global overrides.
                         assist_content = f"""[ASSISTS]
 ABS={assists.get('abs', 1)}
 AUTOCLUTCH=1
@@ -850,6 +875,10 @@ TRACTION_CONTROL={assists.get('tc', 1)}
                         with open(assist_ini_path, 'w') as f:
                             f.write(assist_content)
                         logger.info(f"Updated assist.ini with difficulty: {assists}")
+
+                        # Stop any existing session timer
+                        session_stop_event.set()
+                        session_stop_event = threading.Event()  # Reset for new session
                     except Exception as e:
                         logger.error(f"Failed to update assist.ini: {e}")
 
@@ -858,6 +887,16 @@ TRACTION_CONTROL={assists.get('tc', 1)}
                     # 3. Write race.ini with selected car and track
                     race_ini_path = os.path.join(ac_docs_path, "race.ini")
                     try:
+                        # Extract sim settings
+                        tyre_blankets = get_sim('tyre_blankets', '1')
+                        track_grip = get_sim('track_grip', 'OPTIMUM')
+                        damage_mult = get_sim('damage_mult', '100')
+                        fuel_rate = get_sim('fuel_rate', '1')
+                        tyre_wear = get_sim('tyre_wear', '1')
+                        penalties = get_sim('penalties', '1')
+                        jump_start = get_sim('jump_start', '1')
+                        compound = get_sim('tyre_compound', 'Semislicks')
+
                         race_content = f"""[RACE]
 MODEL={car}
 MODEL_CONFIG=
@@ -865,12 +904,14 @@ SKIN=
 TRACK={track}
 CONFIG_TRACK=
 AI_LEVEL=95
+JUMP_START_PENALTY={jump_start}
 
 [CAR_0]
 MODEL={car}
 SKIN=
 DRIVER_NAME={driver_name}
 NATION=
+COMPOUND={compound}
 
 [GROOVE]
 PRESET=0
@@ -878,7 +919,7 @@ PRESET=0
 [SESSION_0]
 NAME=Practice
 TIME={duration_minutes}
-SPAWN_SET=PIT
+SPAWN_SET=START
 
 [SESSION_1]
 NAME=Qualify
@@ -887,10 +928,22 @@ TIME=0
 [SESSION_2]
 NAME=Race
 LAPS=0
+
+[TYRE_BLANKETS]
+ENABLED={tyre_blankets}
+
+[DYNAMIC_TRACK]
+PRESET={track_grip}
+
+[REALISM]
+DAMAGE_MULTIPLIER={damage_mult}
+FUEL_CONSUMPTION_MULTIPLIER={fuel_rate}
+TYRE_CONSUMPTION_MULTIPLIER={tyre_wear}
+PENALTIES={penalties}
 """
                         with open(race_ini_path, 'w') as f:
                             f.write(race_content)
-                        logger.info(f"Wrote race.ini to {race_ini_path} (Car: {car}, Track: {track})")
+                        logger.info(f"Wrote race.ini to {race_ini_path} (Blankets: {tyre_blankets}, Grip: {track_grip}, Compound: {compound}, JumpStart: {jump_start}, Damage: {damage_mult}%)")
                     except Exception as e:
                         logger.error(f"Failed to write race.ini: {e}")
                     
@@ -916,9 +969,14 @@ LAPS=0
                                 watchdog.start(session_config)
                                 
                                 # 6. Session Timer - Kill game after duration_minutes
-                                def session_timer():
+                                def session_timer(stop_event, duration):
                                     logger.info(f"Session timer started: {duration_minutes} minutes")
-                                    time.sleep(duration_minutes * 60)
+                                    start_time = time.time()
+                                    while time.time() - start_time < (duration * 60):
+                                        if stop_event.is_set():
+                                            logger.info("Session timer cancelled for new session")
+                                            return
+                                        time.sleep(1)
                                     logger.info("Session time expired! Closing game...")
                                     watchdog.stop()  # Stop watchdog so it doesn't restart
                                     if platform.system() == "Windows":
@@ -926,7 +984,7 @@ LAPS=0
                                     else:
                                         os.system("pkill -9 acs 2>/dev/null")
                                 
-                                timer_thread = threading.Thread(target=session_timer, daemon=True)
+                                timer_thread = threading.Thread(target=session_timer, args=(session_stop_event, duration_minutes), daemon=True)
                                 timer_thread.start()
                                 
                             except Exception as e:
@@ -1135,7 +1193,6 @@ TIME=0
 IS_OPEN=1
 
 [RACE]
-NAME=Race
 LAPS={data.get('laps')}
 WAIT_TIME=60
 IS_OPEN=1
@@ -1222,7 +1279,12 @@ password=
         duration_minutes = data.get("duration_minutes", 60)
         def lobby_timer():
             logger.info(f"Lobby session timer started: {duration_minutes} minutes")
-            time.sleep(duration_minutes * 60)
+                                    start_time = time.time()
+                                    while time.time() - start_time < (duration * 60):
+                                        if stop_event.is_set():
+                                            logger.info("Session timer cancelled for new session")
+                                            return
+                                        time.sleep(1)
             if watchdog.watching:
                 logger.info("Lobby session time expired! Closing game...")
                 watchdog.stop()
@@ -1246,3 +1308,4 @@ def stop_lobby_server():
 
 if __name__ == "__main__":
     main()
+

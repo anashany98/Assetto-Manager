@@ -10,8 +10,8 @@ import { getStations, updateStation, type Station } from '../api/stations';
 import {
     Truck, Settings as SettingsIcon, Plus, FileText,
     Layout, Monitor, Wifi, WifiOff, Edit2, CheckCircle,
-    Activity, Upload, QrCode, Gamepad2, Volume2,
-    Trash2, MonitorPlay, Globe, Terminal, Megaphone, Database, Bell, BadgeDollarSign,
+    Activity, Upload, QrCode, Gamepad2, Volume2, Zap,
+    MonitorPlay, Globe, Terminal, Megaphone, Database, Bell, BadgeDollarSign,
     AlertTriangle, Power
 } from 'lucide-react';
 import { LogViewer } from '../components/LogViewer';
@@ -33,14 +33,14 @@ const AC_CATEGORIES = [
 
 export default function SettingsPage() {
     const queryClient = useQueryClient();
-    const [activeTab, setActiveTab] = useState<'branding' | 'stations' | 'game' | 'logs' | 'ads' | 'database' | 'pricing'>('branding');
+    const [activeTab, setActiveTab] = useState<'branding' | 'stations' | 'game' | 'sim' | 'logs' | 'ads' | 'database' | 'pricing'>('branding');
     const [searchParams, setSearchParams] = useSearchParams();
     const pushNotifications = usePushNotifications();
 
     // Sync tab with URL
     useEffect(() => {
         const tab = searchParams.get('tab');
-        if (tab && ['branding', 'stations', 'game', 'logs', 'ads', 'database', 'pricing'].includes(tab)) {
+        if (tab && ['branding', 'stations', 'game', 'sim', 'logs', 'ads', 'database', 'pricing'].includes(tab)) {
             setActiveTab(tab as any);
         }
     }, [searchParams]);
@@ -306,6 +306,7 @@ export default function SettingsPage() {
                         { id: 'ads', label: 'Promociones', icon: Megaphone },
                         { id: 'pricing', label: 'Precios', icon: BadgeDollarSign },
                         { id: 'game', label: 'Editor AC', icon: Gamepad2 },
+                        { id: 'sim', label: 'Simulador AC', icon: Zap },
                         { id: 'stations', label: 'Simuladores', icon: MonitorPlay },
                         { id: 'logs', label: 'Logs Sistema', icon: Terminal },
                         { id: 'database', label: 'Base de Datos', icon: Database }
@@ -717,6 +718,152 @@ export default function SettingsPage() {
                                         >
                                             {savingPaymentConfig ? 'Guardando...' : 'Guardar configuración'}
                                         </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* --- TAB: SIM CONFIG --- */}
+                {activeTab === 'sim' && (
+                    <div className="max-w-4xl space-y-8 animate-in fade-in duration-300">
+                        <div className="bg-gray-800 p-8 rounded-3xl border border-gray-700">
+                            <h2 className="text-xl font-black text-white uppercase mb-6 flex items-center">
+                                <Zap className="mr-2 text-yellow-400" /> Configuración Global de Carrera
+                            </h2>
+                            <p className="text-gray-400 mb-8 text-sm">Estos ajustes se aplicarán a todas las sesiones iniciadas desde el Kiosko o Dashboard.</p>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                {/* Gameplay Aids */}
+                                <div className="space-y-6">
+                                    <h3 className="text-xs font-black text-gray-500 uppercase tracking-[0.2em] border-b border-gray-700 pb-2">Ayudas y Gameplay</h3>
+
+                                    <div className="flex items-center justify-between bg-gray-900/40 p-4 rounded-2xl border border-gray-700/50">
+                                        <div>
+                                            <p className="font-bold text-white">Mantas Térmicas</p>
+                                            <p className="text-xs text-gray-500">Neumáticos calientes al salir a pista</p>
+                                        </div>
+                                        <button
+                                            onClick={() => updateBranding.mutate({ key: 'sim_tyre_blankets', value: safeBranding.find(s => s.key === 'sim_tyre_blankets')?.value === 'true' ? 'false' : 'true' })}
+                                            className={cn("w-14 h-7 rounded-full transition-all relative", safeBranding.find(s => s.key === 'sim_tyre_blankets')?.value === 'true' ? "bg-green-500" : "bg-gray-600")}
+                                        >
+                                            <div className={cn("absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-transform", safeBranding.find(s => s.key === 'sim_tyre_blankets')?.value === 'true' && "translate-x-7")} />
+                                        </button>
+                                    </div>
+
+                                    <div className="flex items-center justify-between bg-gray-900/40 p-4 rounded-2xl border border-gray-700/50">
+                                        <div>
+                                            <p className="font-bold text-white">Penalizaciones</p>
+                                            <p className="text-xs text-gray-500">Sanciones por cortar curvas</p>
+                                        </div>
+                                        <button
+                                            onClick={() => updateBranding.mutate({ key: 'sim_penalties', value: safeBranding.find(s => s.key === 'sim_penalties')?.value === 'true' ? 'false' : 'true' })}
+                                            className={cn("w-14 h-7 rounded-full transition-all relative", safeBranding.find(s => s.key === 'sim_penalties')?.value === 'true' ? "bg-green-500" : "bg-gray-600")}
+                                        >
+                                            <div className={cn("absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-transform", safeBranding.find(s => s.key === 'sim_penalties')?.value === 'true' && "translate-x-7")} />
+                                        </button>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-black text-gray-500 uppercase mb-3">Estado de la Pista (Grip)</label>
+                                        <select
+                                            className="w-full p-4 rounded-xl bg-gray-900 border border-gray-700 text-white font-bold outline-none focus:border-blue-500"
+                                            value={safeBranding.find(s => s.key === 'sim_track_grip')?.value || 'OPTIMUM'}
+                                            onChange={e => updateBranding.mutate({ key: 'sim_track_grip', value: e.target.value })}
+                                        >
+                                            <option value="OPTIMUM">Óptimo (100% Grip)</option>
+                                            <option value="FAST">Rápido (98% Grip)</option>
+                                            <option value="GREEN">Verde (95% Grip)</option>
+                                            <option value="DUSTY">Polvoriento (90% Grip)</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                {/* Realism & Damage */}
+                                <div className="space-y-6">
+                                    <h3 className="text-xs font-black text-gray-500 uppercase tracking-[0.2em] border-b border-gray-700 pb-2">Realismo y Daños</h3>
+
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center">
+                                            <label className="text-sm font-bold text-gray-300">Multiplicador de Daños ({safeBranding.find(s => s.key === 'sim_damage_mult')?.value || 100}%)</label>
+                                            <Zap size={14} className="text-red-500" />
+                                        </div>
+                                        <input
+                                            type="range" min="0" max="100" step="5"
+                                            className="w-full h-2 bg-gray-700 rounded-lg cursor-pointer accent-red-500"
+                                            value={safeBranding.find(s => s.key === 'sim_damage_mult')?.value || 100}
+                                            onChange={e => updateBranding.mutate({ key: 'sim_damage_mult', value: e.target.value })}
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center">
+                                            <label className="text-sm font-bold text-gray-300">Consumo de Combustible ({safeBranding.find(s => s.key === 'sim_fuel_rate')?.value || 1}x)</label>
+                                            <Activity size={14} className="text-orange-500" />
+                                        </div>
+                                        <input
+                                            type="range" min="0" max="5" step="1"
+                                            className="w-full h-2 bg-gray-700 rounded-lg cursor-pointer accent-orange-500"
+                                            value={safeBranding.find(s => s.key === 'sim_fuel_rate')?.value || 1}
+                                            onChange={e => updateBranding.mutate({ key: 'sim_fuel_rate', value: e.target.value })}
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center">
+                                            <label className="text-sm font-bold text-gray-300">Desgaste Neumáticos ({safeBranding.find(s => s.key === 'sim_tyre_wear')?.value || 1}x)</label>
+                                            <Truck size={14} className="text-blue-500" />
+                                        </div>
+                                        <input
+                                            type="range" min="0" max="5" step="1"
+                                            className="w-full h-2 bg-gray-700 rounded-lg cursor-pointer accent-blue-500"
+                                            value={safeBranding.find(s => s.key === 'sim_tyre_wear')?.value || 1}
+                                            onChange={e => updateBranding.mutate({ key: 'sim_tyre_wear', value: e.target.value })}
+                                        />
+                                    </div>
+
+                                    <div className="flex items-center justify-between bg-gray-900/40 p-4 rounded-2xl border border-gray-700/50">
+                                        <div>
+                                            <p className="font-bold text-white">Fallo Mecánico</p>
+                                            <p className="text-xs text-gray-500">Daño al motor por sobrerrégimen</p>
+                                        </div>
+                                        <button
+                                            onClick={() => updateBranding.mutate({ key: 'sim_mech_damage', value: safeBranding.find(s => s.key === 'sim_mech_damage')?.value === 'true' ? 'false' : 'true' })}
+                                            className={cn("w-14 h-7 rounded-full transition-all relative", safeBranding.find(s => s.key === 'sim_mech_damage')?.value === 'true' ? "bg-red-500" : "bg-gray-600")}
+                                        >
+                                            <div className={cn("absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-transform", safeBranding.find(s => s.key === 'sim_mech_damage')?.value === 'true' && "translate-x-7")} />
+                                        </button>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-black text-gray-500 uppercase mb-3">Sanción Salida en Falso</label>
+                                        <select
+                                            className="w-full p-4 rounded-xl bg-gray-900 border border-gray-700 text-white font-bold outline-none focus:border-red-500"
+                                            value={safeBranding.find(s => s.key === 'sim_jump_start')?.value || '1'}
+                                            onChange={e => updateBranding.mutate({ key: 'sim_jump_start', value: e.target.value })}
+                                        >
+                                            <option value="0">Ninguna (Teletransporte a Sit)</option>
+                                            <option value="1">Drive-through</option>
+                                            <option value="2">Stop & Go</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="mt-8 border-t border-gray-700 pt-8">
+                                <h3 className="text-xs font-black text-gray-500 uppercase tracking-[0.2em] mb-6">Configuración de Neumáticos</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div>
+                                        <label className="block text-xs font-black text-gray-500 uppercase mb-3">Compuesto por Defecto (Index o Nombre)</label>
+                                        <input
+                                            type="text"
+                                            className="w-full p-4 rounded-xl bg-gray-900 border border-gray-700 text-white font-bold outline-none focus:border-blue-500"
+                                            placeholder="Semislicks, slicks, 0, 1..."
+                                            defaultValue={safeBranding.find(s => s.key === 'sim_tyre_compound')?.value || 'Semislicks'}
+                                            onBlur={e => updateBranding.mutate({ key: 'sim_tyre_compound', value: e.target.value })}
+                                        />
+                                        <p className="text-xs text-gray-500 mt-2">Semislicks suele ser el neumático de calle con más agarre. '0' suele ser el primero de la lista.</p>
                                     </div>
                                 </div>
                             </div>

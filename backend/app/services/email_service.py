@@ -99,7 +99,9 @@ def send_booking_confirmation(
         </style>
     """
 
-    html_content = f"""
+    manage_link = f'<div style="text-align: center;"><a href="http://localhost:3010/reserva/{manage_token}" class="button">Gestionar Mi Reserva</a></div>' if manage_token else ''
+
+    html_content = """
     <!DOCTYPE html>
     <html>
     <head>
@@ -141,7 +143,7 @@ def send_booking_confirmation(
                 
                 <p>Si necesitas modificar o cancelar tu reserva, contáctanos.</p>
                 
-                {f'<div style="text-align: center;"><a href="http://localhost:3010/reserva/{manage_token}" class="button">Gestionar Mi Reserva</a></div>' if manage_token else ''}
+                {manage_link}
                 
                 <p>¡Te esperamos! 🏁</p>
             </div>
@@ -152,7 +154,17 @@ def send_booking_confirmation(
         </div>
     </body>
     </html>
-    """
+    """.format(
+        style_block=style_block,
+        customer_name=customer_name,
+        date=date,
+        time_slot=time_slot,
+        num_players=num_players,
+        duration_minutes=duration_minutes,
+        booking_id=booking_id,
+        manage_link=manage_link,
+        bar_name=bar_name
+    )
     
     text_content = f"""
     ¡Reserva Confirmada!
@@ -197,19 +209,23 @@ def send_booking_status_update(
     if new_status not in status_messages:
         return False
     
-    subject, message, color = status_messages[new_status]
-    subject = f"{subject} - {bar_name}"
+    subject_text, message_text, color_code = status_messages[new_status]
+    subject = f"{subject_text} - {bar_name}"
     
-    html_content = f"""
+    style = """
+        <style>
+            body { font-family: Arial, sans-serif; background-color: #1a1a2e; color: #ffffff; padding: 20px; }
+            .container { max-width: 500px; margin: 0 auto; background: #16213e; border-radius: 16px; padding: 30px; text-align: center; }
+            .status { font-size: 24px; font-weight: bold; color: {color}; margin: 20px 0; }
+            .details { background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin: 20px 0; }
+        </style>
+    """.replace("{color}", color_code)
+    
+    html_content = """
     <!DOCTYPE html>
     <html>
     <head>
-        <style>
-            body {{ font-family: Arial, sans-serif; background-color: #1a1a2e; color: #ffffff; padding: 20px; }}
-            .container {{ max-width: 500px; margin: 0 auto; background: #16213e; border-radius: 16px; padding: 30px; text-align: center; }}
-            .status {{ font-size: 24px; font-weight: bold; color: {color}; margin: 20px 0; }}
-            .details {{ background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin: 20px 0; }}
-        </style>
+        {style}
     </head>
     <body>
         <div class="container">
@@ -220,11 +236,20 @@ def send_booking_status_update(
                 <p>🎫 Reserva #{booking_id}</p>
             </div>
             <p>Hola {customer_name},</p>
-            <p>{'Si tienes alguna duda, contáctanos.' if new_status != 'completed' else '¡Esperamos verte pronto de nuevo!'}</p>
+            <p>{info_message}</p>
         </div>
     </body>
     </html>
-    """
+    """.format(
+        style=style,
+        bar_name=bar_name,
+        message=message_text,
+        date=date,
+        time_slot=time_slot,
+        booking_id=booking_id,
+        customer_name=customer_name,
+        info_message=('Si tienes alguna duda, contáctanos.' if new_status != 'completed' else '¡Esperamos verte pronto de nuevo!')
+    )
     
     return send_email(customer_email, subject, html_content)
 
@@ -262,7 +287,9 @@ def send_table_confirmation(
         </style>
     """
 
-    html_content = f"""
+    manage_link = f'<div style="text-align: center;"><a href="http://localhost:3010/reserva/{manage_token}" class="button">Gestionar Mi Reserva</a></div>' if manage_token else ''
+
+    html_content = """
     <!DOCTYPE html>
     <html>
     <head>
@@ -271,7 +298,7 @@ def send_table_confirmation(
     <body>
         <div class="container">
             <div class="header">
-                <h1>�️ Mesa Reservada</h1>
+                <h1>🍽️ Mesa Reservada</h1>
             </div>
             <div class="content">
                 <p>Hola <strong>{customer_name}</strong>,</p>
@@ -300,7 +327,7 @@ def send_table_confirmation(
                     </div>
                 </div>
 
-                {f'<div style="text-align: center;"><a href="http://localhost:3010/reserva/{manage_token}" class="button">Gestionar Mi Reserva</a></div>' if manage_token else ''}
+                {manage_link}
                 
                 <p>¡Disfruta de la experiencia! 🏁</p>
             </div>
@@ -310,6 +337,16 @@ def send_table_confirmation(
         </div>
     </body>
     </html>
-    """
+    """.format(
+        style_block=style_block,
+        customer_name=customer_name,
+        date=date,
+        time=time,
+        pax=pax,
+        table_labels=table_labels,
+        booking_id=booking_id,
+        manage_link=manage_link,
+        bar_name=bar_name
+    )
     
     return send_email(customer_email, subject, html_content)
