@@ -4,9 +4,9 @@ Loyalty Points Router - Manage driver points and rewards
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional, List
-from datetime import datetime
 
-from .. import database, models
+from .. import models
+from ..database import get_db
 from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/loyalty", tags=["loyalty"])
@@ -65,77 +65,68 @@ def get_tier(total_points: int) -> str:
 
 
 @router.get("/points/{driver_name}")
-async def get_driver_points(driver_name: str):
+async def get_driver_points(driver_name: str, db: Session = Depends(get_db)):
     """Get points balance and tier for a driver"""
-    db: Session = database.SessionLocal()
-    try:
-        driver = db.query(models.Driver).filter(models.Driver.name == driver_name).first()
-        
-        if not driver:
-            # Return defaults for unknown drivers (they might just be lap times)
-            return {
-                "driver_name": driver_name,
-                "points": 0,
-                "total_earned": 0,
-                "tier": "bronze",
-                "next_tier": "silver",
-                "points_to_next_tier": TIER_THRESHOLDS["silver"]
-            }
-        
-        current_tier = driver.membership_tier or get_tier(driver.total_points_earned or 0)
-        
-        # Calculate next tier
-        next_tier = None
-        points_to_next = 0
-        for tier_name, threshold in sorted(TIER_THRESHOLDS.items(), key=lambda x: x[1]):
-            if threshold > (driver.total_points_earned or 0):
-                next_tier = tier_name
-                points_to_next = threshold - (driver.total_points_earned or 0)
-                break
-        
+    driver = db.query(models.Driver).filter(models.Driver.name == driver_name).first()
+    
+    if not driver:
+        # Return defaults for unknown drivers (they might just be lap times)
         return {
             "driver_name": driver_name,
-            "points": driver.loyalty_points or 0,
-            "total_earned": driver.total_points_earned or 0,
-            "tier": current_tier,
-            "next_tier": next_tier,
-            "points_to_next_tier": points_to_next
+            "points": 0,
+            "total_earned": 0,
+            "tier": "bronze",
+            "next_tier": "silver",
+            "points_to_next_tier": TIER_THRESHOLDS["silver"]
         }
-    finally:
-        db.close()
+    
+    current_tier = driver.membership_tier or get_tier(driver.total_points_earned or 0)
+    
+    # Calculate next tier
+    next_tier = None
+    points_to_next = 0
+    for tier_name, threshold in sorted(TIER_THRESHOLDS.items(), key=lambda x: x[1]):
+        if threshold > (driver.total_points_earned or 0):
+            next_tier = tier_name
+            points_to_next = threshold - (driver.total_points_earned or 0)
+            break
+    
+    return {
+        "driver_name": driver_name,
+        "points": driver.loyalty_points or 0,
+        "total_earned": driver.total_points_earned or 0,
+        "tier": current_tier,
+        "next_tier": next_tier,
+        "points_to_next_tier": points_to_next
+    }
 
 
 @router.get("/history/{driver_name}")
-async def get_points_history(driver_name: str, limit: int = 50):
+async def get_points_history(driver_name: str, limit: int = 50, db: Session = Depends(get_db)):
     """Get recent points transactions for a driver"""
-    db: Session = database.SessionLocal()
-    try:
-        driver = db.query(models.Driver).filter(models.Driver.name == driver_name).first()
-        if not driver:
-            return []
-        
-        transactions = db.query(models.PointsTransaction).filter(
-            models.PointsTransaction.driver_id == driver.id
-        ).order_by(models.PointsTransaction.created_at.desc()).limit(limit).all()
-        
-        return [
-            {
-                "id": t.id,
-                "points": t.points,
-                "reason": t.reason,
-                "description": t.description,
-                "created_at": t.created_at.isoformat() if t.created_at else None
-            }
-            for t in transactions
-        ]
-    finally:
-        db.close()
+    driver = db.query(models.Driver).filter(models.Driver.name == driver_name).first()
+    if not driver:
+        return []
+    
+    transactions = db.query(models.PointsTransaction).filter(
+        models.PointsTransaction.driver_id == driver.id
+    ).order_by(models.PointsTransaction.created_at.desc()).limit(limit).all()
+    
+    return [
+        {
+            "id": t.id,
+            "points": t.points,
+            "reason": t.reason,
+            "description": t.description,
+            "created_at": t.created_at.isoformat() if t.created_at else None
+        }
+        for t in transactions
+    ]
 
 
 @router.post("/earn")
-async def award_points(data: PointsAward):
+async def award_points(data: PointsAward, db: Session = Depends(get_db)):
     """Award points to a driver"""
-    db: Session = database.SessionLocal()
     try:
         # Find or create driver
         driver = db.query(models.Driver).filter(models.Driver.name == data.driver_name).first()
@@ -170,41 +161,34 @@ async def award_points(data: PointsAward):
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        db.close()
 
 
 @router.get("/rewards")
-async def get_rewards(active_only: bool = True):
+async def get_rewards(active_only: bool = True, db: Session = Depends(get_db)):
     """Get available rewards catalog"""
-    db: Session = database.SessionLocal()
-    try:
-        query = db.query(models.Reward)
-        if active_only:
-            query = query.filter(models.Reward.is_active == True)
-        
-        rewards = query.order_by(models.Reward.points_cost.asc()).all()
-        
-        return [
-            {
-                "id": r.id,
-                "name": r.name,
-                "description": r.description,
-                "points_cost": r.points_cost,
-                "stock": r.stock,
-                "is_active": r.is_active,
-                "image_path": r.image_path
-            }
-            for r in rewards
-        ]
-    finally:
-        db.close()
+    query = db.query(models.Reward)
+    if active_only:
+        query = query.filter(models.Reward.is_active == True)
+    
+    rewards = query.order_by(models.Reward.points_cost.asc()).all()
+    
+    return [
+        {
+            "id": r.id,
+            "name": r.name,
+            "description": r.description,
+            "points_cost": r.points_cost,
+            "stock": r.stock,
+            "is_active": r.is_active,
+            "image_path": r.image_path
+        }
+        for r in rewards
+    ]
 
 
 @router.post("/rewards")
-async def create_reward(data: RewardCreate):
+async def create_reward(data: RewardCreate, db: Session = Depends(get_db)):
     """Create a new reward (admin)"""
-    db: Session = database.SessionLocal()
     try:
         reward = models.Reward(
             name=data.name,
@@ -221,14 +205,11 @@ async def create_reward(data: RewardCreate):
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        db.close()
 
 
 @router.post("/redeem")
-async def redeem_reward(data: RedeemRequest):
+async def redeem_reward(data: RedeemRequest, db: Session = Depends(get_db)):
     """Redeem a reward using points"""
-    db: Session = database.SessionLocal()
     try:
         driver = db.query(models.Driver).filter(models.Driver.name == data.driver_name).first()
         if not driver:
@@ -284,31 +265,25 @@ async def redeem_reward(data: RedeemRequest):
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        db.close()
 
 
 @router.get("/leaderboard")
-async def get_points_leaderboard(limit: int = 20):
+async def get_points_leaderboard(limit: int = 20, db: Session = Depends(get_db)):
     """Get top drivers by total points earned"""
-    db: Session = database.SessionLocal()
-    try:
-        drivers = db.query(models.Driver).filter(
-            models.Driver.total_points_earned > 0
-        ).order_by(models.Driver.total_points_earned.desc()).limit(limit).all()
-        
-        return [
-            {
-                "rank": idx + 1,
-                "driver_name": d.name,
-                "total_points": d.total_points_earned,
-                "current_points": d.loyalty_points,
-                "tier": d.membership_tier
-            }
-            for idx, d in enumerate(drivers)
-        ]
-    finally:
-        db.close()
+    drivers = db.query(models.Driver).filter(
+        models.Driver.total_points_earned > 0
+    ).order_by(models.Driver.total_points_earned.desc()).limit(limit).all()
+    
+    return [
+        {
+            "rank": idx + 1,
+            "driver_name": d.name,
+            "total_points": d.total_points_earned,
+            "current_points": d.loyalty_points,
+            "tier": d.membership_tier
+        }
+        for idx, d in enumerate(drivers)
+    ]
 
 
 @router.get("/rules")

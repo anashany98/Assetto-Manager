@@ -36,7 +36,7 @@ const NavItem = ({ to, icon: Icon, children, collapsed }: { to: string, icon: Re
             to={to}
             className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-4 py-3 rounded-xl transition-all duration-200 group ${isActive
                 ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25'
-                : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-blue-600 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white'
                 }`}
             title={collapsed ? children as string : ''}
         >
@@ -56,13 +56,13 @@ const ThemeToggle = ({ collapsed }: { collapsed: boolean }) => {
     return (
         <button
             onClick={toggleTheme}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all hover:scale-105"
+            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 transition-all hover:scale-105"
             title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
         >
             {theme === 'dark' ? (
                 <Sun size={collapsed ? 16 : 18} className="text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.5)]" />
             ) : (
-                <Moon size={collapsed ? 16 : 18} className="text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.5)]" />
+                <Moon size={collapsed ? 16 : 18} className="text-blue-600 dark:text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.5)]" />
             )}
         </button>
     );
@@ -135,7 +135,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
     if (isPublicView) {
         return (
-            <div className="flex h-screen bg-transparent text-white overflow-hidden">
+            <div className="public-shell flex h-screen bg-transparent text-white overflow-hidden">
                 <div className="flex-1 overflow-auto">
                     {children}
                 </div>
@@ -144,34 +144,34 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     }
 
     return (
-        <div className="flex h-screen text-gray-900 dark:text-gray-100 overflow-hidden">
+        <div className="app-shell flex h-screen text-slate-900 dark:text-gray-100 overflow-hidden bg-slate-50 dark:bg-slate-900">
             {/* Sidebar */}
-            <div className={`${isSidebarOpen ? 'w-64' : 'w-20'} glass-sidebar text-white flex flex-col transition-all duration-300 relative`}>
+            <div className={`${isSidebarOpen ? 'w-64' : 'w-20'} bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 text-slate-900 dark:text-white flex flex-col transition-all duration-300 relative`}>
                 {/* Toggle Button */}
                 <button
                     onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                    className="absolute -right-3 top-7 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full p-1.5 shadow-lg shadow-blue-500/30 z-50 hover:scale-110 transition-all border border-white/20"
+                    className="absolute -right-3 top-7 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full p-1.5 shadow-md hover:scale-110 transition-all z-50 text-blue-600 dark:text-gray-400"
                 >
-                    {isSidebarOpen ? <ChevronLeft size={14} className="text-white" /> : <ChevronRight size={14} className="text-white" />}
+                    {isSidebarOpen ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
                 </button>
 
                 {/* Logo Section */}
-                <div className="p-6 flex flex-col items-center overflow-hidden">
+                <div className="p-6 flex flex-col items-center overflow-hidden border-b border-gray-100 dark:border-gray-800/50">
                     <img
                         src={barLogo}
                         alt="VRacing Bar"
-                        className={`h-20 w-auto object-contain drop-shadow-[0_0_15px_rgba(59,130,246,0.5)] mb-2 transition-all duration-300 ${isSidebarOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-50 h-0 my-0'}`}
+                        className={`h-20 w-auto object-contain mb-2 transition-all duration-300 ${isSidebarOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-50 h-0 my-0'}`}
                     />
-                    <h2 className={`text-xs font-black uppercase tracking-[0.3em] text-blue-500 opacity-80 whitespace-nowrap transition-all duration-300 ${!isSidebarOpen && 'hidden'}`}>
+                    <h2 className={`text-xs font-black uppercase tracking-[0.3em] text-blue-600 dark:text-blue-500 opacity-80 whitespace-nowrap transition-all duration-300 ${!isSidebarOpen && 'hidden'}`}>
                         {barName}
                     </h2>
-                    {!isSidebarOpen && <img src={barLogo} className="h-10 w-10 object-contain drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]" />}
+                    {!isSidebarOpen && <img src={barLogo} className="h-10 w-10 object-contain" />}
                 </div>
 
                 {/* Navigation */}
-                <nav className="flex-1 px-4 space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800">
+                <nav className="flex-1 px-4 space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-800 py-4">
                     {/* GESTIÓN */}
-                    <div className={`text-[10px] text-gray-500 font-bold uppercase mt-4 mb-2 px-2 tracking-wider ${!isSidebarOpen && 'hidden'}`}>
+                    <div className={`text-[10px] text-gray-500 dark:text-gray-500 font-bold uppercase mt-4 mb-2 px-2 tracking-wider ${!isSidebarOpen && 'hidden'}`}>
                         Gestión
                     </div>
                     <NavItem to="/admin" icon={LayoutDashboard} collapsed={!isSidebarOpen}>Panel Control</NavItem>
@@ -186,7 +186,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     <NavItem to="/mods" icon={Library} collapsed={!isSidebarOpen}>Librería</NavItem>
 
                     {/* CONFIGURACIÓN */}
-                    <div className={`text-[10px] text-gray-500 font-bold uppercase mt-6 mb-2 px-2 tracking-wider ${!isSidebarOpen && 'hidden'}`}>
+                    <div className={`text-[10px] text-gray-500 dark:text-gray-500 font-bold uppercase mt-6 mb-2 px-2 tracking-wider ${!isSidebarOpen && 'hidden'}`}>
                         Sistema
                     </div>
                     <NavItem to="/settings" icon={Settings} collapsed={!isSidebarOpen}>Configuración</NavItem>
@@ -194,7 +194,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     <NavItem to="/profiles" icon={Users} collapsed={!isSidebarOpen}>Perfiles</NavItem>
 
                     {/* VISTA PÚBLICA */}
-                    <div className={`text-[10px] text-gray-500 font-bold uppercase mt-6 mb-2 px-2 tracking-wider ${!isSidebarOpen && 'hidden'}`}>
+                    <div className={`text-[10px] text-gray-500 dark:text-gray-500 font-bold uppercase mt-6 mb-2 px-2 tracking-wider ${!isSidebarOpen && 'hidden'}`}>
                         Sala & TV
                     </div>
                     <NavItem to="/remote" icon={MonitorPlay} collapsed={!isSidebarOpen}>Mando TV</NavItem>
@@ -204,14 +204,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 </nav>
 
                 {/* User Profile / Status */}
-                <div className="p-4 border-t border-white/5 bg-black/20">
+                <div className="p-4 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-black/20">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-bold flex-shrink-0 shadow-lg shadow-blue-500/30 text-sm">A</div>
+                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-bold flex-shrink-0 shadow-lg shadow-blue-500/30 text-white text-sm">A</div>
                             <div className={`transition-all overflow-hidden ${!isSidebarOpen ? 'w-0 opacity-0' : 'w-auto opacity-100'}`}>
-                                <p className="text-sm font-semibold whitespace-nowrap">Operador</p>
-                                <p className="text-xs text-emerald-400 flex items-center gap-1.5">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-lg shadow-emerald-500/50"></span>
+                                <p className="text-sm font-semibold whitespace-nowrap text-gray-900 dark:text-gray-200">Operador</p>
+                                <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                                     Conectado
                                 </p>
                             </div>
@@ -225,7 +225,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <div className="flex-1 overflow-auto relative">
                 <div className="min-h-full">
                     {hardwareWarning && (
-                        <div className="mx-8 mt-6 mb-2 bg-red-500/10 border border-red-500/30 rounded-2xl p-4 text-red-200 font-bold text-sm flex items-center gap-3">
+                        <div className="mx-8 mt-6 mb-2 bg-red-500/10 border border-red-500/30 rounded-2xl p-4 text-red-600 dark:text-red-200 font-bold text-sm flex items-center gap-3">
                             <AlertTriangle size={18} />
                             <span>
                                 {!lockStatus?.is_online && 'Agente desconectado. '}

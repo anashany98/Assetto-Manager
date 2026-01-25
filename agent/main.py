@@ -8,6 +8,7 @@ import uuid
 import datetime
 import json
 from datetime import datetime, timezone
+import subprocess
 
 import asyncio
 import threading
@@ -79,26 +80,59 @@ except ImportError:
     logger.warning("Shared hashing module not found. Sync might fail.")
 
 # Config Loading
-# Config Loading
-CONFIG_FILE = "config.json"
-# Use environment variables for config over hardcoding
 SERVER_URL = os.getenv("SERVER_URL", "http://localhost:8000")
 AC_CONTENT_DIR = Path(os.getenv("AC_CONTENT_DIR", "ac_content_root"))
+AC_PATH = os.getenv("AC_PATH", "")
+STATION_NAME = os.getenv("STATION_NAME", "")
 AGENT_TOKEN = os.getenv("AGENT_TOKEN", "")
+STEAM_EXE = os.getenv("STEAM_EXE", "")
+STEAM_APP_ID = os.getenv("STEAM_APP_ID", "244210")
+LAUNCH_VIA_STEAM = os.getenv("AC_LAUNCH_VIA_STEAM", "false").lower() in {"1", "true", "yes"}
 
+def _is_truthy(value):
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    if isinstance(value, (int, float)):
+        return value != 0
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
-if os.path.exists(CONFIG_FILE):
+config_paths = []
+env_config_path = os.getenv("AGENT_CONFIG_PATH")
+if env_config_path:
+    config_paths.append(Path(env_config_path))
+config_paths.extend([
+    Path(__file__).resolve().parent / "config.json",
+    Path.cwd() / "config.json",
+])
+
+for config_path in config_paths:
+    if not config_path.exists():
+        continue
     try:
-        with open(CONFIG_FILE, 'r') as f:
+        with open(config_path, 'r') as f:
             config = json.load(f)
             SERVER_URL = config.get("server_url", SERVER_URL)
             if config.get("ac_content_dir"):
                 AC_CONTENT_DIR = Path(config["ac_content_dir"])
+            if config.get("ac_path"):
+                AC_PATH = config.get("ac_path", AC_PATH)
+            if config.get("station_name"):
+                STATION_NAME = config.get("station_name", STATION_NAME)
             if config.get("agent_token"):
                 AGENT_TOKEN = config.get("agent_token", AGENT_TOKEN)
-            logger.info(f"Loaded config. Server URL: {SERVER_URL}")
+            if config.get("steam_exe"):
+                STEAM_EXE = config.get("steam_exe", STEAM_EXE)
+            if config.get("steam_app_id"):
+                STEAM_APP_ID = str(config.get("steam_app_id"))
+            if "launch_via_steam" in config:
+                LAUNCH_VIA_STEAM = _is_truthy(config.get("launch_via_steam"))
+            logger.info(f"Loaded config from {config_path}. Server URL: {SERVER_URL}")
+        break
     except Exception as e:
-        logger.error(f"Failed to load config file: {e}")
+        logger.error(f"Failed to load config file {config_path}: {e}")
+        break
 
 # Ensure token is available to child modules that read env vars
 if AGENT_TOKEN:
@@ -109,6 +143,71 @@ REQUEST_TIMEOUT = 10
 
 def get_agent_headers():
     return {"X-Agent-Token": AGENT_TOKEN} if AGENT_TOKEN else {}
+
+def _is_process_running(process_name: str) -> bool:
+    try:
+        if platform.system() == "Windows":
+            result = subprocess.run(
+                ["tasklist", "/FI", f"IMAGENAME eq {process_name}"],
+                capture_output=True, text=True
+            )
+            return process_name.lower() in result.stdout.lower()
+        result = subprocess.run(["pgrep", "-x", process_name], capture_output=True)
+        return result.returncode == 0
+    except Exception:
+        return False
+
+def _ensure_steam_running() -> bool:
+    if platform.system() != "Windows":
+        return True
+    if _is_process_running("steam.exe"):
+        return True
+    try:
+        if STEAM_EXE and os.path.exists(STEAM_EXE):
+            subprocess.Popen([STEAM_EXE], cwd=os.path.dirname(STEAM_EXE) or None)
+        else:
+            os.startfile("steam://open/main")
+    except Exception as e:
+        logger.warning(f"Could not start Steam: {e}")
+        return False
+
+    for _ in range(20):
+        time.sleep(1)
+        if _is_process_running("steam.exe"):
+            return True
+    return False
+
+def _launch_ac(ac_path: str) -> bool:
+    if not ac_path:
+        logger.warning("No ac_path configured for this station. Cannot launch.")
+        return False
+
+    if platform.system() == "Windows":
+        if not _ensure_steam_running():
+            logger.warning("Steam is not running. Launch may fail.")
+        if LAUNCH_VIA_STEAM:
+            try:
+                if STEAM_EXE and os.path.exists(STEAM_EXE):
+                    subprocess.Popen(
+                        [STEAM_EXE, "-applaunch", STEAM_APP_ID],
+                        cwd=os.path.dirname(STEAM_EXE) or None
+                    )
+                else:
+                    os.startfile(f"steam://rungameid/{STEAM_APP_ID}")
+                return True
+            except Exception as e:
+                logger.error(f"Failed to launch via Steam: {e}")
+
+    acs_exe = os.path.join(ac_path, "acs.exe")
+    if os.path.exists(acs_exe):
+        try:
+            subprocess.Popen([acs_exe], cwd=ac_path)
+            return True
+        except Exception as e:
+            logger.error(f"Failed to launch AC: {e}")
+            return False
+    logger.error(f"acs.exe not found at: {acs_exe}")
+    return False
 
 def get_mac_address():
     mac = ':'.join(['{:02x}'.format((uuid.getnode() >> elements) & 0xff) 
@@ -126,11 +225,19 @@ def get_ip_address():
         return "127.0.0.1"
 
 def get_system_info():
+    ac_path = AC_PATH
+    if not ac_path and AC_CONTENT_DIR:
+        try:
+            if AC_CONTENT_DIR.name.lower() == "content":
+                ac_path = str(AC_CONTENT_DIR.parent)
+        except Exception:
+            ac_path = AC_PATH
     return {
-        "name": socket.gethostname(),
+        "name": STATION_NAME or socket.gethostname(),
         "hostname": socket.gethostname(),
         "mac_address": get_mac_address(),
         "ip_address": get_ip_address(),
+        "ac_path": ac_path or None,
     }
 
 
@@ -148,8 +255,9 @@ def scan_ac_content(ac_path: str, station_ip: str = None) -> dict:
     
     content_path = os.path.join(ac_path, "content")
     
-    # Use station IP for image proxy URL, fallback to localhost
-    proxy_base = f"http://{station_ip or 'localhost'}:8081"
+    # Use station IP for image proxy URL, fallback to detected IP
+    proxy_host = station_ip or get_ip_address() or "localhost"
+    proxy_base = f"http://{proxy_host}:8081"
     
     # Helper to find first existing image and return proxy URL
     def find_image_url(base_path, content_path_root, *filenames):
@@ -184,10 +292,26 @@ def scan_ac_content(ac_path: str, station_ip: str = None) -> dict:
                         pass
                 
                 # Find preview image and generate proxy URL
-                image_url = (
-                    find_image_url(ui_dir, content_path, "badge.png", "preview.png") or
-                    find_image_url(car_dir, content_path, "logo.png")
-                )
+                image_url = None
+                
+                # Check for skin preview first (Requested behavior)
+                skins_path = os.path.join(car_dir, "skins")
+                if os.path.exists(skins_path):
+                    try:
+                        # Get first alphabetical skin folder
+                        skins = sorted([d for d in os.listdir(skins_path) if os.path.isdir(os.path.join(skins_path, d))])
+                        if skins:
+                            first_skin_dir = os.path.join(skins_path, skins[0])
+                            image_url = find_image_url(first_skin_dir, content_path, "preview.jpg", "preview.png")
+                    except Exception:
+                        pass
+                
+                if not image_url:
+                    image_url = (
+                        find_image_url(ui_dir, content_path, "preview.png", "preview.jpg") or
+                        find_image_url(car_dir, content_path, "logo.png") or
+                        find_image_url(ui_dir, content_path, "badge.png")
+                    )
                 
                 result["cars"].append({
                     "id": car_folder,
@@ -286,28 +410,36 @@ class ProcessWatchdog:
             logger.error("Watchdog: No ac_path in session config, cannot restart")
             return
         
-        acs_exe = os.path.join(ac_path, "acs.exe")
-        if os.path.exists(acs_exe):
-            logger.info("Watchdog: Restarting crashed game...")
-            try:
-                import subprocess
-                subprocess.Popen([acs_exe], cwd=ac_path)
-                logger.info("Watchdog: Game restarted successfully")
-            except Exception as e:
-                logger.error(f"Watchdog: Failed to restart game: {e}")
+        logger.info("Watchdog: Restarting crashed game...")
+        if _launch_ac(ac_path):
+            logger.info("Watchdog: Game restarted successfully")
         else:
-            logger.error(f"Watchdog: acs.exe not found at {acs_exe}")
+            logger.error("Watchdog: Failed to restart game")
     
     def _watch_loop(self):
         """Main watchdog loop"""
         # Wait a bit for game to start
         time.sleep(10)
         
+        restarts = 0
+        MAX_RESTARTS = 3
+        
         while self.watching:
             if not self._is_game_running():
-                logger.warning("Watchdog: Game not running, attempting restart...")
+                if restarts >= MAX_RESTARTS:
+                    logger.error("Watchdog: Max restarts exceeded. Stopping watchdog.")
+                    self.watching = False
+                    break
+                
+                logger.warning(f"Watchdog: Game not running. Attempting restart ({restarts + 1}/{MAX_RESTARTS})...")
                 self._restart_game()
-                time.sleep(15)  # Wait for game to start before checking again
+                restarts += 1
+                time.sleep(20)  # Wait longer for game to start
+            else:
+                 # If running fine, maybe decrement restarts slowly or just keep check?
+                 # For simplicity, we just check.
+                 pass
+                 
             time.sleep(5)  # Check every 5 seconds
 
 
@@ -335,6 +467,9 @@ class ImageProxyServer:
         self.ac_path = ac_path
         if not ac_path:
             logger.warning("ImageProxy: No ac_path provided, not starting")
+            return
+        if self._thread and self._thread.is_alive():
+            logger.info("ImageProxy already running")
             return
         
         self._thread = threading.Thread(target=self._run_server, daemon=True)
@@ -433,6 +568,17 @@ def register_agent():
 
 def ensure_directories():
     AC_CONTENT_DIR.mkdir(parents=True, exist_ok=True)
+
+def restart_agent_process():
+    try:
+        logger.info("Restarting agent process")
+        python = sys.executable
+        args = [python] + sys.argv
+        subprocess.Popen(args, cwd=os.getcwd())
+    except Exception as e:
+        logger.error(f"Failed to restart agent: {e}")
+    finally:
+        os._exit(0)
 
 def download_file(url, local_path):
     try:
@@ -579,14 +725,23 @@ def main():
     ensure_directories()
     
     station_id = None
+    station_data = None
     
     # Bucle de Registro...
     while station_id is None:
         station_data = register_agent()
         if station_data:
-            station_id = station_data['id']
+            station_id = station_data["id"]
         else:
             time.sleep(5)
+
+    station_ac_path = None
+    if isinstance(station_data, dict):
+        station_ac_path = station_data.get("ac_path")
+    if not station_ac_path:
+        station_ac_path = get_system_info().get("ac_path")
+    if station_ac_path:
+        image_proxy.start(station_ac_path)
     
 
     # Iniciar Streamer de TelemetrÃ­a (Buffer + Envio WS tiempo real)
@@ -796,7 +951,10 @@ class TelemetryThread(threading.Thread):
                     driver_name = data.get("driver_name", "Guest")
                     ac_path = data.get("ac_path")  # Path to AC installation
                     duration_minutes = data.get("duration_minutes", 15)
-                    logger.info(f"Received LAUNCH_SESSION command: {driver_name} -> {car} @ {track} ({duration_minutes}min)")
+                    session_type = data.get("session_type", "practice")
+                    ai_count = data.get("ai_count", 0)
+                    tyre_compound = data.get("tyre_compound")
+                    logger.info(f"Received LAUNCH_SESSION command: {driver_name} ({tyre_compound}) -> {car} @ {track} ({duration_minutes}min) [{session_type}] AI:{ai_count}")
                     
                     # 1. Kill any running game instance first
                     if platform.system() == "Windows":
@@ -895,7 +1053,35 @@ TRACTION_CONTROL={assists.get('tc', 1)}
                         tyre_wear = get_sim('tyre_wear', '1')
                         penalties = get_sim('penalties', '1')
                         jump_start = get_sim('jump_start', '1')
-                        compound = get_sim('tyre_compound', 'Semislicks')
+                        # Use Kiosk compound or fallback to global
+                        compound = tyre_compound if tyre_compound else get_sim('tyre_compound', 'Semislicks')
+                        
+                        # AI & Race Configuration
+                        ai_level = get_sim('ai_level', '90')
+                        ai_aggression = get_sim('ai_aggression', '50')
+                        
+                        # Determine session parameters
+                        session_name = "Practice"
+                        is_race = False
+                        is_drift = False
+                        
+                        if session_type == "race": 
+                            session_name = "Race"
+                            is_race = True
+                        elif session_type == "drift": 
+                            session_name = "Drift"
+                            is_drift = True
+                        elif session_type == "trackday":
+                            session_name = "Track Day"
+                        elif session_type == "traffic":
+                            session_name = "Traffic"
+                        elif session_type == "overtake":
+                            session_name = "Overtake Challenge"
+                        
+                        # Drift specific: Force session type if drift mode is globally enabled
+                        if get_sim('drift_mode', 'false') == 1:
+                            is_drift = True
+                            session_name = "Drift"
 
                         race_content = f"""[RACE]
 MODEL={car}
@@ -903,9 +1089,24 @@ MODEL_CONFIG=
 SKIN=
 TRACK={track}
 CONFIG_TRACK=
-AI_LEVEL=95
+CARS={1 + ai_count}
+AI_LEVEL={ai_level}
 JUMP_START_PENALTY={jump_start}
+"""
+                        # Add Opponents if it's a Race or we requested AI
+                        if ai_count > 0:
+                            for i in range(1, ai_count + 1):
+                                race_content += f"""
+[CAR_{i}]
+MODEL={car}
+SKIN=
+DRIVER_NAME=AI_Opponent_{i}
+NATION=
+AI_LEVEL={ai_level}
+AI_AGGRESSION={ai_aggression}
+"""
 
+                        race_content += f"""
 [CAR_0]
 MODEL={car}
 SKIN=
@@ -917,18 +1118,14 @@ COMPOUND={compound}
 PRESET=0
 
 [SESSION_0]
-NAME=Practice
-TIME={duration_minutes}
+NAME={session_name}
+TIME={duration_minutes if not is_drift else 0}
+LAPS={5 if is_race else 0}
 SPAWN_SET=START
+TYPE={'DRIFT' if is_drift else 'RACE' if is_race else 'PRACTICE'}
+"""
 
-[SESSION_1]
-NAME=Qualify
-TIME=0
-
-[SESSION_2]
-NAME=Race
-LAPS=0
-
+                        race_content += f"""
 [TYRE_BLANKETS]
 ENABLED={tyre_blankets}
 
@@ -940,6 +1137,15 @@ DAMAGE_MULTIPLIER={damage_mult}
 FUEL_CONSUMPTION_MULTIPLIER={fuel_rate}
 TYRE_CONSUMPTION_MULTIPLIER={tyre_wear}
 PENALTIES={penalties}
+
+[REPLAY]
+FILENAME=replay
+ACTIVE=1
+
+[LIGHTING]
+SUN_ANGLE=16.0
+TIME_MULT=1.0
+CLOUD_SPEED=0.2
 """
                         with open(race_ini_path, 'w') as f:
                             f.write(race_content)
@@ -949,48 +1155,42 @@ PENALTIES={penalties}
                     
                     # 4. Launch Assetto Corsa
                     if ac_path:
-                        acs_exe = os.path.join(ac_path, "acs.exe")
-                        if os.path.exists(acs_exe):
-                            logger.info(f"Launching AC from: {acs_exe}")
-                            try:
-                                import subprocess
+                        logger.info(f"Launching AC from: {ac_path}")
+                        if _launch_ac(ac_path):
+                            logger.info(f"AC launched successfully: {car} @ {track}")
+                            
+                            # 5. Start Watchdog to monitor for crashes
+                            session_config = {
+                                "car": car,
+                                "track": track,
+                                "ac_path": ac_path,
+                                "driver_name": driver_name
+                            }
+                            watchdog.start(session_config)
+                            
+                            # 6. Session Timer - Kill game after duration_minutes
+                            def session_timer(stop_event, duration):
+                                buffer_seconds = 30
+                                logger.info(f"Session timer started: {duration_minutes} minutes + {buffer_seconds}s margin")
+                                start_time = time.time()
+                                total_duration_sec = (duration * 60) + buffer_seconds
                                 
-                                # Launch AC
-                                subprocess.Popen([acs_exe], cwd=ac_path)
-                                logger.info(f"AC launched successfully: {car} @ {track}")
-                                
-                                # 5. Start Watchdog to monitor for crashes
-                                session_config = {
-                                    "car": car,
-                                    "track": track,
-                                    "ac_path": ac_path,
-                                    "driver_name": driver_name
-                                }
-                                watchdog.start(session_config)
-                                
-                                # 6. Session Timer - Kill game after duration_minutes
-                                def session_timer(stop_event, duration):
-                                    logger.info(f"Session timer started: {duration_minutes} minutes")
-                                    start_time = time.time()
-                                    while time.time() - start_time < (duration * 60):
-                                        if stop_event.is_set():
-                                            logger.info("Session timer cancelled for new session")
-                                            return
-                                        time.sleep(1)
-                                    logger.info("Session time expired! Closing game...")
-                                    watchdog.stop()  # Stop watchdog so it doesn't restart
-                                    if platform.system() == "Windows":
-                                        os.system("taskkill /F /IM acs.exe 2>nul")
-                                    else:
-                                        os.system("pkill -9 acs 2>/dev/null")
-                                
-                                timer_thread = threading.Thread(target=session_timer, args=(session_stop_event, duration_minutes), daemon=True)
-                                timer_thread.start()
-                                
-                            except Exception as e:
-                                logger.error(f"Failed to launch AC: {e}")
+                                while time.time() - start_time < total_duration_sec:
+                                    if stop_event.is_set():
+                                        logger.info("Session timer cancelled for new session")
+                                        return
+                                    time.sleep(1)
+                                logger.info("Session time expired! Closing game...")
+                                watchdog.stop()  # Stop watchdog so it doesn't restart
+                                if platform.system() == "Windows":
+                                    os.system("taskkill /F /IM acs.exe 2>nul")
+                                else:
+                                    os.system("pkill -9 acs 2>/dev/null")
+                            
+                            timer_thread = threading.Thread(target=session_timer, args=(session_stop_event, duration_minutes), daemon=True)
+                            timer_thread.start()
                         else:
-                            logger.error(f"acs.exe not found at: {acs_exe}")
+                            logger.error("Failed to launch AC")
                     else:
                         logger.warning("No ac_path configured for this station. Cannot launch.")
 
@@ -1037,15 +1237,24 @@ PENALTIES={penalties}
                          continue
 
                     # Scan the AC content folder and return via WebSocket
-                    ac_path = data.get("ac_path")
+                    ac_path = data.get("ac_path") or get_system_info().get("ac_path")
+                    station_ip = data.get("station_ip") or data.get("ip_address")
                     logger.info(f"Received SCAN_CONTENT command for: {ac_path}")
-                    content = scan_ac_content(ac_path)
+                    content = scan_ac_content(ac_path, station_ip=station_ip)
                     # Send response back
                     await websocket.send(json.dumps({
                         "type": "content_scan_result",
                         "data": content
                     }))
                     logger.info(f"Sent content scan result: {len(content.get('cars', []))} cars, {len(content.get('tracks', []))} tracks")
+
+                elif command == "sync_content":
+                    logger.info("Received SYNC_CONTENT command")
+                    threading.Thread(target=synchronize_content, args=(self.station_id,)).start()
+
+                elif command == "restart_agent":
+                    logger.info("Received RESTART_AGENT command")
+                    threading.Thread(target=restart_agent_process).start()
 
                 elif command == "create_lobby":
                     logger.info("Received CREATE_LOBBY command")
@@ -1230,7 +1439,6 @@ def join_lobby_client(data):
     """
     try:
         ac_path = watchdog.active_session.get("ac_path") if watchdog.active_session else os.environ.get("AC_PATH", "C:\\Program Files (x86)\\Steam\\steamapps\\common\\assettocorsa")
-        acs_exe = os.path.join(ac_path, "acs.exe")
         
         # We need to construct a race.ini that points to the remote server
         # Standard AC launcher creates 'race.ini' with [REMOTE] section configuration
@@ -1270,7 +1478,9 @@ password=
         subprocess.run(["taskkill", "/F", "/IM", "acs.exe"], capture_output=True)
         
         # Launch
-        subprocess.Popen([acs_exe], cwd=ac_path)
+        if not _launch_ac(ac_path):
+            logger.error("Failed to launch AC for lobby join")
+            return
         
         # Update watchdog
         watchdog.start({"ac_path": ac_path})
@@ -1279,12 +1489,12 @@ password=
         duration_minutes = data.get("duration_minutes", 60)
         def lobby_timer():
             logger.info(f"Lobby session timer started: {duration_minutes} minutes")
-                                    start_time = time.time()
-                                    while time.time() - start_time < (duration * 60):
-                                        if stop_event.is_set():
-                                            logger.info("Session timer cancelled for new session")
-                                            return
-                                        time.sleep(1)
+            start_time = time.time()
+            while time.time() - start_time < (duration_minutes * 60):
+                if session_stop_event.is_set():
+                    logger.info("Session timer cancelled for new session")
+                    return
+                time.sleep(1)
             if watchdog.watching:
                 logger.info("Lobby session time expired! Closing game...")
                 watchdog.stop()
@@ -1308,4 +1518,3 @@ def stop_lobby_server():
 
 if __name__ == "__main__":
     main()
-

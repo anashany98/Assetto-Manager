@@ -5,6 +5,7 @@ export interface Scenario {
     id?: number;
     name: string;
     description?: string;
+    session_type?: string;
     allowed_cars: string[]; // List of car IDs/names
     allowed_tracks: string[]; // List of track IDs/names
     allowed_durations: number[];

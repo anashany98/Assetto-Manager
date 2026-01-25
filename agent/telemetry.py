@@ -72,9 +72,13 @@ def parse_and_send_telemetry(file_path, server_url, station_id):
             "P": "practice",
             "Q": "qualify",
             "R": "race",
-            "H": "hotlap"
+            "H": "hotlap",
+            "D": "drift"
         }
         session_type = session_type_map.get(str(session_type_raw).upper(), str(session_type_raw).lower())
+
+        # Logic for Drift Score
+        best_drift_score = 0
 
         payload = {
             "station_id": station_id,
@@ -85,31 +89,36 @@ def parse_and_send_telemetry(file_path, server_url, station_id):
             "session_type": session_type,
             "date": datetime.now(timezone.utc).isoformat(),
             "best_lap": player.get("bestLap", 0),
+            "total_score": 0,
             "laps": []
         }
         
         for idx, lap in enumerate(player_laps):
             # Intentar buscar telemetría en el buffer
-            # El índice en race_out debería coincidir con el contador de vueltas secuencial
-            # Pero race_out a veces limpia vueltas inválidas? Depende de la config.
-            # Asumiremos coincidencia por índice 0-based.
-            
             tele_data = _telemetry_buffer.get(idx, [])
             
-            # Si no hay datos por indice, quizás por coincidencia de tiempo? (Más complejo, v2)
-            # Para esta versión, confiamos en el orden secuencial.
+            # Drift Points extraction
+            lap_score = lap.get("driftPoints", 0) or lap.get("score", 0)
             
+            if session_type == "drift":
+                if lap_score > best_drift_score:
+                    best_drift_score = lap_score
+
             payload["laps"].append({
                 "driver_name": payload["driver_name"],
                 "car_model": payload["car_model"],
                 "track_name": payload["track_name"],
                 "lap_time": lap.get("time", 0),
-                "sectors": lap.get("sectors", []), # Array de tiempos de sector
+                "sectors": lap.get("sectors", []), 
                 "is_valid": lap.get("isValid", True),
-                "timestamp": datetime.now(timezone.utc).isoformat(), # Aproximado
+                "score": lap_score,
+                "timestamp": datetime.now(timezone.utc).isoformat(), 
                 "telemetry_data": tele_data if tele_data else None
             })
             
+        if session_type == "drift":
+            payload["total_score"] = best_drift_score
+
         # 3. Enviar al Servidor
         logger.info(f"Subiendo sesión de {payload['driver_name']} en {payload['track_name']}...")
         response = requests.post(
@@ -152,4 +161,3 @@ def check_for_new_results(server_url, station_id):
                 
     except Exception as e:
         logger.error(f"Error verificando archivo de resultados: {e}")
-

@@ -9,14 +9,18 @@ import JSZip from 'jszip';
 import { API_URL } from '../config';
 
 export default function ModsLibrary() {
-    const queryClient = useQueryClient();
-    const { data: mods, isLoading, error } = useQuery({ queryKey: ['mods'], queryFn: () => getMods() });
-    const { data: diskUsage } = useQuery({ queryKey: ['diskUsage'], queryFn: getDiskUsage });
-    const { data: tags, refetch: refetchTags } = useQuery({ queryKey: ['tags'], queryFn: getTags });
-
     // Filtering state
     const [filterType, setFilterType] = useState<'all' | 'car' | 'track'>('all');
     const [searchQuery, setSearchQuery] = useState('');
+    const [onlyUniversal, setOnlyUniversal] = useState(false);
+
+    const queryClient = useQueryClient();
+    const { data: mods, isLoading, error } = useQuery({
+        queryKey: ['mods', filterType, onlyUniversal],
+        queryFn: () => getMods({ type: filterType, only_universal: onlyUniversal })
+    });
+    const { data: diskUsage } = useQuery({ queryKey: ['diskUsage'], queryFn: getDiskUsage });
+    const { data: tags, refetch: refetchTags } = useQuery({ queryKey: ['tags'], queryFn: getTags });
 
     // Bulk Selection State
     const [selectedMods, setSelectedMods] = useState<number[]>([]);
@@ -373,6 +377,20 @@ export default function ModsLibrary() {
                     >
                         <Flag size={16} className="mr-2" />
                         Circuitos
+                    </button>
+
+                    <button
+                        onClick={() => setOnlyUniversal(!onlyUniversal)}
+                        className={cn(
+                            "px-4 py-2 rounded-lg text-sm font-bold uppercase tracking-wider transition-colors flex items-center gap-2 border",
+                            onlyUniversal
+                                ? "bg-blue-600 text-white border-blue-500 shadow-sm"
+                                : "bg-gray-800 text-gray-500 hover:text-gray-300 border-gray-700 hover:bg-gray-700"
+                        )}
+                        title="Mostrar solo contenido presente en TODOS los simuladores"
+                    >
+                        <CheckSquare size={16} />
+                        Solo Universal
                     </button>
                 </div>
 

@@ -10,6 +10,7 @@ echo.
 
 :: Guardar directorio raiz
 set "ROOT_DIR=%~dp0"
+set "VENV_DIR=%ROOT_DIR%.venv"
 cd /d "%ROOT_DIR%"
 
 :: =========================================
@@ -53,9 +54,9 @@ echo [3/4] Preparando Backend...
 cd /d "%ROOT_DIR%backend"
 
 :: Crear venv si no existe
-if not exist "venv\Scripts\python.exe" (
+if not exist "%VENV_DIR%\Scripts\python.exe" (
     echo       - Creando entorno virtual...
-    python -m venv venv
+    python -m venv "%VENV_DIR%"
     if %errorlevel% neq 0 (
         echo [ERROR] No se pudo crear el entorno virtual.
         pause
@@ -65,7 +66,7 @@ if not exist "venv\Scripts\python.exe" (
 
 :: Instalar dependencias usando el python del venv
 echo       - Verificando librerias...
-"venv\Scripts\pip.exe" install -r requirements.txt --quiet --disable-pip-version-check
+"%VENV_DIR%\Scripts\pip.exe" install -r requirements.txt --quiet --disable-pip-version-check
 if %errorlevel% neq 0 (
     echo [AVISO] Hubo un problema instalando algunas librerias.
     echo         Intentando continuar...
@@ -118,8 +119,8 @@ echo.
 start /b cmd /c "timeout /t 3 >nul & start http://localhost:8000"
 
 :: Ejecutar servidor usando el python del venv
-cd /d "%ROOT_DIR%backend"
-"venv\Scripts\python.exe" -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+cd /d "%ROOT_DIR%"
+"%VENV_DIR%\Scripts\python.exe" -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
 
 :: Si el servidor termina
 echo.

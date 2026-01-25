@@ -4,6 +4,7 @@ import { Terminal, RefreshCw, AlertTriangle, Info, AlertCircle } from 'lucide-re
 import { useState } from 'react';
 import { cn } from '../lib/utils';
 import { API_URL } from '../config';
+import { useSearchParams } from 'react-router-dom';
 
 // Log Types
 interface LogEntry {
@@ -17,6 +18,8 @@ interface LogEntry {
 export function LogViewer() {
     const [filterLevel, setFilterLevel] = useState<string>('ALL');
     const [autoRefresh, setAutoRefresh] = useState(true);
+    const [searchParams, setSearchParams] = useSearchParams();
+    const sourceFilter = searchParams.get('source') || '';
 
     const { data: logs, isRefetching } = useQuery({
         queryKey: ['system_logs'],
@@ -32,6 +35,9 @@ export function LogViewer() {
         if (filterLevel === 'ERROR') return log.level === 'ERROR' || log.level === 'CRITICAL';
         if (filterLevel === 'WARNING') return log.level === 'WARNING';
         return true;
+    }).filter(log => {
+        if (!sourceFilter) return true;
+        return log.source.toLowerCase().includes(sourceFilter.toLowerCase());
     }) || [];
 
     const getLevelIcon = (level: string) => {
@@ -84,6 +90,20 @@ export function LogViewer() {
                             </button>
                         ))}
                     </div>
+
+                    {sourceFilter && (
+                        <button
+                            onClick={() => {
+                                const next = new URLSearchParams(searchParams);
+                                next.delete('source');
+                                setSearchParams(next);
+                            }}
+                            className="px-2 py-1 rounded-lg border border-blue-500/40 text-blue-300 text-[10px] font-bold uppercase tracking-widest hover:bg-blue-500/10"
+                            title="Limpiar filtro de origen"
+                        >
+                            Source: {sourceFilter}
+                        </button>
+                    )}
 
                     {/* Auto Refresh Toggle */}
                     <button

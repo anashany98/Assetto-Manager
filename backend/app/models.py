@@ -71,6 +71,7 @@ class Station(Base):
     is_active = Column(Boolean, default=True)
     is_online = Column(Boolean, default=False)
     is_kiosk_mode = Column(Boolean, default=False)
+    kiosk_code = Column(String, unique=True, index=True, nullable=True)
     is_locked = Column(Boolean, default=False) # Cyber-Lock status
     is_tv_mode = Column(Boolean, default=False)
     is_vr = Column(Boolean, default=False)
@@ -81,6 +82,8 @@ class Station(Base):
     diagnostics = Column(JSON, nullable=True)  # CPU/RAM/Disk metrics from agent
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), onupdate=lambda: datetime.now(timezone.utc))
+    last_seen = Column(DateTime(timezone=True), nullable=True)
+    archived_at = Column(DateTime(timezone=True), nullable=True)
     
     active_profile_id = Column(Integer, ForeignKey("profiles.id"), nullable=True)
     active_profile = relationship("Profile")
@@ -170,6 +173,7 @@ class SessionResult(Base):
     
     session_type = Column(String, default="practice")
     track_config = Column(String, nullable=True)
+    total_score = Column(Integer, default=0) # For Drift Mode
     
     event_id = Column(Integer, ForeignKey("events.id"), nullable=True)
     event = relationship("Event", backref="session_results")
@@ -206,6 +210,7 @@ class LapTime(Base):
     lap_number = Column(Integer)
     time = Column(Integer)
     splits = Column(JSON, nullable=True)
+    score = Column(Integer, default=0) # Drift points for this lap
     telemetry_data = Column(JSON, nullable=True)
     valid = Column(Boolean, default=True, index=True)
     
@@ -280,6 +285,7 @@ class Scenario(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), unique=True, index=True)
     description = Column(String(255), nullable=True)
+    session_type = Column(String(50), default="practice")
     
     # JSON lists of IDs or names
     allowed_cars = Column(JSON, default=list) 
@@ -473,6 +479,21 @@ class RestaurantTable(Base):
     
     # Live Status
     status = Column(String(20), default="free") # free, occupied, bill, cleaning, reserved
+    booking_links = relationship("TableBookingTable", back_populates="table", cascade="all, delete-orphan")
+
+
+class TableBookingTable(Base):
+    """Association table for bookings and tables with time range."""
+    __tablename__ = "table_booking_tables"
+
+    booking_id = Column(Integer, ForeignKey("table_bookings.id", ondelete="CASCADE"), primary_key=True)
+    table_id = Column(Integer, ForeignKey("tables.id", ondelete="CASCADE"), primary_key=True)
+    start_time = Column(DateTime(timezone=True), nullable=False)
+    end_time = Column(DateTime(timezone=True), nullable=False)
+    status = Column(String(20), default="confirmed", nullable=False)
+
+    booking = relationship("TableBooking", back_populates="table_links")
+    table = relationship("RestaurantTable", back_populates="booking_links")
 
 class TableBooking(Base):
     """Reservation for a table"""
@@ -483,9 +504,9 @@ class TableBooking(Base):
     # Identify the table(s). For simplicity now, Many-to-One. 
     # If we need multi-table booking, we might adding a separate association table, 
     # but let's stick to simple booking -> one table or just store list of IDs in JSON if needed quickly.
-    # Actually, a booking might block multiple tables (merging). 
-    # Let's use a JSON list of table_ids to be flexible.
-    table_ids = Column(JSON, default=list) 
+    # Legacy JSON list (kept for backward compatibility).
+    table_ids = Column(JSON, default=list)
+    table_links = relationship("TableBookingTable", back_populates="booking", cascade="all, delete-orphan")
     
     customer_name = Column(String(100), nullable=False)
     customer_phone = Column(String(50), nullable=True)

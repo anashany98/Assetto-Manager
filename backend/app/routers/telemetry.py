@@ -11,6 +11,7 @@ import json
 import math
 import logging
 from .auth import require_agent_token, require_admin
+from . import tournament
 
 # Magic Numbers / Constants
 DEFAULT_LAP_LENGTH_KM = 4.8
@@ -134,7 +135,6 @@ def upload_session_result(
             db.add(new_lap)
         
         db.commit()
-        return {"status": "ok", "session_id": new_session.id}
 
         # 3. Tournament Auto-Advance Logic
         if new_session.session_type == 'race' and new_session.event_id:
@@ -182,6 +182,8 @@ def upload_session_result(
 
             except Exception as e:
                 logger.error(f"Tournament auto-advance failed: {e}")
+
+        return {"status": "ok", "session_id": new_session.id}
 
     except Exception as e:
         db.rollback()
@@ -626,6 +628,9 @@ def seed_data(
     count: int = 50, 
     db: Session = Depends(database.get_db)
 ):
+    import os
+    if os.getenv("ENVIRONMENT", "development") != "development":
+        raise HTTPException(status_code=404, detail="Not found")
     import random
     from datetime import datetime, timedelta
 

@@ -1,12 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from ..database import get_db
 from .. import models, schemas
 from ..services.email_service import send_table_confirmation, send_booking_status_update
 from pydantic import BaseModel
 import uuid
+from sqlalchemy.exc import IntegrityError
+import os
 
 router = APIRouter(
     prefix="/tables",
@@ -14,10 +16,58 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
-# --- Schemas ---
-class TableStatusUpdate(BaseModel):
-    status: str # free, occupied, bill, cleaning, reserved
-class TableCreate(BaseModel):
+BLOCKING_STATUSES = {"confirmed", "seated", "reserved"}
+
+def _ensure_aware(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value
+
+def _normalize_table_ids(value: List[int]) -> List[int]:
+    return sorted({int(v) for v in value if v is not None})
+
+def _get_table_ids(booking: models.TableBooking) -> List[int]:
+    if isinstance(booking.table_ids, list) and booking.table_ids:
+        return booking.table_ids
+    return [link.table_id for link in booking.table_links]
+
+def _booking_payload(booking: models.TableBooking) -> dict:
+    table_ids = _get_table_ids(booking)
+    return {
+        "id": booking.id,
+        "table_ids": table_ids,
+        "customer_name": booking.customer_name,
+        "customer_phone": booking.customer_phone,
+        "customer_email": booking.customer_email,
+        "start_time": booking.start_time,
+        "end_time": booking.end_time,
+        "pax": booking.pax,
+        "status": booking.status,
+        "notes": booking.notes,
+    }
+
+def _strip_kiosk_suffix(value: str) -> str:
+    base = value.rstrip("/")
+    if base.endswith("/kiosk"):
+        base = base[:-6]
+    return base
+
+def _resolve_public_base_url(db: Session) -> Optional[str]:
+    env_value = os.getenv("PUBLIC_APP_URL") or os.getenv("PUBLIC_BASE_URL")
+    if env_value:
+        return _strip_kiosk_suffix(env_value)
+
+    settings = db.query(models.GlobalSettings).filter(
+        models.GlobalSettings.key.in_(["public_app_url", "payment_public_kiosk_url"])
+    ).all()
+    setting_map = {s.key: s.value for s in settings if s.value}
+    value = setting_map.get("public_app_url") or setting_map.get("payment_public_kiosk_url")
+    if value:
+        return _strip_kiosk_suffix(value)
+    return None
+
+class TableSync(BaseModel):
+    id: Optional[int] = None
     label: str
     x: float
     y: float
@@ -28,6 +78,59 @@ class TableCreate(BaseModel):
     rotation: float = 0.0
     zone: str = "main"
     fixed_notes: Optional[str] = None
+    is_active: bool = True
+
+@router.post("/layout")
+def update_layout(tables: List[TableSync], db: Session = Depends(get_db)):
+    """
+    Sync layout: Update existing, Create new, Deactivate missing.
+    """
+    # 1. Get all active tables to track what needs deactivation
+    existing_tables = db.query(models.RestaurantTable).filter(models.RestaurantTable.is_active == True).all()
+    existing_map = {t.id: t for t in existing_tables}
+    
+    processed_ids = set()
+    result = []
+
+    for t_data in tables:
+        # Check if it's an existing table (and not a temp frontend ID)
+        # We assume real IDs are small integers, temp IDs are timestamps (large)
+        # Or simply check existence in map
+        
+        db_table = None
+        if t_data.id and t_data.id in existing_map:
+            db_table = existing_map[t_data.id]
+            # Update fields
+            for key, value in t_data.dict(exclude={'id'}).items():
+                setattr(db_table, key, value)
+            processed_ids.add(t_data.id)
+        else:
+            # Create new
+            # Exclude ID so DB generates it
+            table_dict = t_data.dict(exclude={'id'})
+            db_table = models.RestaurantTable(**table_dict)
+            db.add(db_table)
+        
+        result.append(db_table)
+
+    # 2. Soft delete tables not in request
+    # Only if we received a non-empty list (to avoid accidental wipe)
+    if tables:
+        for t_id, t in existing_map.items():
+            if t_id not in processed_ids:
+                t.is_active = False
+    
+    db.commit()
+    
+    # Refresh all to get IDs
+    for r in result:
+        db.refresh(r)
+        
+    return result
+
+@router.get("/")
+def get_tables(db: Session = Depends(get_db)):
+    return db.query(models.RestaurantTable).filter(models.RestaurantTable.is_active == True).all()
 
 class TableUpdate(BaseModel):
     label: Optional[str] = None
@@ -41,45 +144,6 @@ class TableUpdate(BaseModel):
     zone: Optional[str] = None
     fixed_notes: Optional[str] = None
     is_active: Optional[bool] = None
-
-class BookingCreate(BaseModel):
-    table_ids: List[int]
-    customer_name: str
-    customer_phone: Optional[str] = None
-    customer_email: Optional[str] = None
-    start_time: datetime
-    end_time: datetime
-    pax: int = 2
-    notes: Optional[str] = None
-
-# --- Endpoints ---
-
-@router.get("/")
-def get_tables(db: Session = Depends(get_db)):
-    """Get all tables layout"""
-    return db.query(models.RestaurantTable).filter(models.RestaurantTable.is_active == True).all()
-
-@router.post("/layout")
-def update_layout(tables: List[TableCreate], db: Session = Depends(get_db)):
-    """
-    Batch update layout (full replace/sync for simplicity in editor).
-    In a real scenario we might want to patch individual IDs, but for a layout editor, 
-    often it's easier to just sync the 'floor plan'.
-    
-    HOWEVER, we must be careful not to destroy existing IDs if they have bookings.
-    So this logic needs to be: Update existing by ID if passed, create new if not.
-    """
-    # For now, let's implement a simple create/append for testing
-    # A real 'sync' is more complex. Let's just allow creating one by one or bulk create for initial setup.
-    created = []
-    for t in tables:
-        db_table = models.RestaurantTable(**t.dict())
-        db.add(db_table)
-        created.append(db_table)
-    db.commit()
-    for c in created:
-        db.refresh(c)
-    return created
 
 @router.put("/{table_id}")
 def update_table(table_id: int, table: TableUpdate, db: Session = Depends(get_db)):
@@ -111,44 +175,73 @@ def get_bookings(
     db: Session = Depends(get_db)
 ):
     """Get bookings in a range"""
+    start_date = _ensure_aware(start_date)
     if not end_date:
         end_date = start_date + timedelta(days=1)
+    end_date = _ensure_aware(end_date)
         
     bookings = db.query(models.TableBooking).filter(
-        models.TableBooking.start_time >= start_date,
         models.TableBooking.start_time < end_date,
+        models.TableBooking.end_time > start_date,
         models.TableBooking.status != "cancelled"
     ).all()
-    return bookings
+    return [_booking_payload(b) for b in bookings]
+
+class BookingCreate(BaseModel):
+    customer_name: str
+    customer_email: Optional[str] = None
+    customer_phone: Optional[str] = None
+    start_time: datetime
+    end_time: datetime
+    pax: int
+    table_ids: List[int]
+    notes: Optional[str] = None
+    status: str = "confirmed"
 
 @router.post("/bookings")
 def create_booking(booking: BookingCreate, db: Session = Depends(get_db)):
-    # 1. Validation: Check for overlaps (Conflict Check)
-    # Logic: New Booking (S1, E1) overlaps with Existing (S2, E2) if: S1 < E2 AND E1 > S2
-    # And if they share any table_ids.
-    
-    # Get all active bookings that might overlap in time
-    potential_conflicts = db.query(models.TableBooking).filter(
-        models.TableBooking.status.notin_(["cancelled", "no-show", "completed"]),
-        models.TableBooking.end_time > booking.start_time,
-        models.TableBooking.start_time < booking.end_time
+    start_time = _ensure_aware(booking.start_time)
+    end_time = _ensure_aware(booking.end_time)
+    if end_time <= start_time:
+        raise HTTPException(status_code=400, detail="End time must be after start time.")
+
+    table_ids = _normalize_table_ids(booking.table_ids)
+    if not table_ids:
+        raise HTTPException(status_code=400, detail="No tables selected.")
+
+    tables = db.query(models.RestaurantTable).filter(
+        models.RestaurantTable.id.in_(table_ids),
+        models.RestaurantTable.is_active == True
     ).all()
-    
-    # Check for table intersection
-    requested_tables = set(booking.table_ids)
-    for existing in potential_conflicts:
-        # existing.table_ids is likely a list (JSON)
-        existing_tables = set(existing.table_ids) if isinstance(existing.table_ids, list) else set()
-        
-        if not requested_tables.isdisjoint(existing_tables):
-            # Intersection found
-            raise HTTPException(
-                status_code=409, 
-                detail=f"Conflict: Table(s) {list(requested_tables.intersection(existing_tables))} already booked during this time."
-            )
+    if len(tables) != len(table_ids):
+        raise HTTPException(status_code=400, detail="One or more tables do not exist.")
+
+    conflicts = db.query(models.TableBookingTable).filter(
+        models.TableBookingTable.table_id.in_(table_ids),
+        models.TableBookingTable.status.in_(BLOCKING_STATUSES),
+        models.TableBookingTable.end_time > start_time,
+        models.TableBookingTable.start_time < end_time
+    ).all()
+    if conflicts:
+        conflict_tables = sorted({c.table_id for c in conflicts})
+        raise HTTPException(
+            status_code=409,
+            detail=f"Conflict: Table(s) {conflict_tables} already booked during this time."
+        )
 
     db_booking = models.TableBooking(**booking.dict())
+    db_booking.start_time = start_time
+    db_booking.end_time = end_time
+    db_booking.table_ids = table_ids
     db_booking.manage_token = str(uuid.uuid4())
+
+    for table_id in table_ids:
+        db_booking.table_links.append(models.TableBookingTable(
+            table_id=table_id,
+            start_time=start_time,
+            end_time=end_time,
+            status=db_booking.status
+        ))
     
     # Try to link to a driver via email
     if booking.customer_email:
@@ -157,15 +250,21 @@ def create_booking(booking: BookingCreate, db: Session = Depends(get_db)):
             db_booking.driver_id = driver.id
 
     db.add(db_booking)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Conflict: Table already booked during this time.")
+
     db.refresh(db_booking)
     
     # Send Email
     if booking.customer_email:
         # Get table labels for email
-        tables = db.query(models.RestaurantTable).filter(models.RestaurantTable.id.in_(booking.table_ids)).all()
+        tables = db.query(models.RestaurantTable).filter(models.RestaurantTable.id.in_(table_ids)).all()
         table_labels = ", ".join([t.label for t in tables])
         
+        public_base_url = _resolve_public_base_url(db)
         send_table_confirmation(
             customer_email=booking.customer_email,
             customer_name=booking.customer_name,
@@ -174,7 +273,8 @@ def create_booking(booking: BookingCreate, db: Session = Depends(get_db)):
             pax=booking.pax,
             table_labels=table_labels,
             booking_id=db_booking.id,
-            manage_token=db_booking.manage_token
+            manage_token=db_booking.manage_token,
+            public_base_url=public_base_url
         )
         
     return db_booking
@@ -187,8 +287,9 @@ def get_booking_by_token(token: str, db: Session = Depends(get_db)):
     
     # Get table info
     table_labels = []
-    if booking.table_ids:
-        tables = db.query(models.RestaurantTable).filter(models.RestaurantTable.id.in_(booking.table_ids)).all()
+    table_ids = _get_table_ids(booking)
+    if table_ids:
+        tables = db.query(models.RestaurantTable).filter(models.RestaurantTable.id.in_(table_ids)).all()
         table_labels = [t.label for t in tables]
             
     return {
@@ -201,6 +302,7 @@ def get_booking_by_token(token: str, db: Session = Depends(get_db)):
         "pax": booking.pax,
         "status": booking.status,
         "notes": booking.notes,
+        "allergies": booking.allergies or [],
         "table_labels": table_labels
     }
 
@@ -219,6 +321,8 @@ def update_booking_by_token(token: str, update: BookingUpdate, db: Session = Dep
     
     if update.status:
         booking.status = update.status
+        for link in booking.table_links:
+            link.status = booking.status
     if update.notes is not None:
         booking.notes = update.notes
     if update.allergies is not None:
@@ -239,6 +343,9 @@ def update_booking_by_token(token: str, update: BookingUpdate, db: Session = Dep
         )
         
     return booking
+
+class TableStatusUpdate(BaseModel):
+    status: str
 
 @router.put("/{table_id}/status")
 def set_table_status(table_id: int, status_update: TableStatusUpdate, db: Session = Depends(get_db)):
@@ -264,23 +371,20 @@ class SmartAssignRequest(BaseModel):
 def find_best_fit(request: SmartAssignRequest, db: Session = Depends(get_db)):
     """Suggest best tables for a group"""
     # 1. Parse date/time
-    start_dt = datetime.strptime(f"{request.date} {request.time}", "%Y-%m-%d %H:%M")
+    start_dt = _ensure_aware(datetime.strptime(f"{request.date} {request.time}", "%Y-%m-%d %H:%M"))
     end_dt = start_dt + timedelta(minutes=90) # Assume 1.5h default
     
     # 2. Get all tables
     all_tables = db.query(models.RestaurantTable).filter(models.RestaurantTable.is_active == True).all()
     
     # 3. Get conflicting bookings
-    conflicts = db.query(models.TableBooking).filter(
-        models.TableBooking.status.notin_(["cancelled", "completed"]),
-        models.TableBooking.end_time > start_dt,
-        models.TableBooking.start_time < end_dt
+    conflicts = db.query(models.TableBookingTable).filter(
+        models.TableBookingTable.status.in_(BLOCKING_STATUSES),
+        models.TableBookingTable.end_time > start_dt,
+        models.TableBookingTable.start_time < end_dt
     ).all()
     
-    busy_table_ids = set()
-    for b in conflicts:
-        if isinstance(b.table_ids, list):
-            busy_table_ids.update(b.table_ids)
+    busy_table_ids = {c.table_id for c in conflicts}
             
     available_tables = [t for t in all_tables if t.id not in busy_table_ids]
     
@@ -318,7 +422,7 @@ def find_best_fit(request: SmartAssignRequest, db: Session = Depends(get_db)):
                      return {
                         "strategy": "combination",
                         "table_ids": [t1.id, t2.id],
-                        "reason": f"Combinación en {zone}: {t1.label} + {t2.label}"
+                        "reason": f"Combinacion en {zone}: {t1.label} + {t2.label}"
                     }
     
     raise HTTPException(status_code=404, detail="No hay mesas disponibles para este grupo")

@@ -3,16 +3,12 @@ Test suite for bookings API endpoints
 """
 import pytest
 from datetime import datetime, timedelta
-from fastapi.testclient import TestClient
-from app.main import app
-
-client = TestClient(app)
 
 
 class TestBookingsAPI:
     """Tests for /bookings endpoints"""
 
-    def test_list_bookings_empty(self):
+    def test_list_bookings_empty(self, client):
         """Test listing bookings when none exist"""
         response = client.get("/bookings/")
         assert response.status_code == 200
@@ -20,7 +16,7 @@ class TestBookingsAPI:
         assert isinstance(data, list)
         # Note: If executed after other tests without cleanup, it might not be empty, so checking type is safer or ensure clean DB
 
-    def test_get_available_slots(self):
+    def test_get_available_slots(self, client):
         """Test getting available time slots for a date"""
         tomorrow = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
         response = client.get(f"/bookings/available?target_date={tomorrow}")
@@ -29,7 +25,7 @@ class TestBookingsAPI:
         assert "slots" in data
         assert isinstance(data["slots"], list)
 
-    def test_create_booking(self):
+    def test_create_booking(self, client):
         """Test creating a new booking"""
         # Ensure unique time slot or clearing DB to avoid 409
         target_date = (datetime.now() + timedelta(days=2)).strftime('%Y-%m-%d')
@@ -50,7 +46,7 @@ class TestBookingsAPI:
         assert data["status"] == "pending"
         assert "message" in data
 
-    def test_get_booking_by_id(self):
+    def test_get_booking_by_id(self, client):
         """Test retrieving a specific booking"""
         # First create a booking
         target_date = (datetime.now() + timedelta(days=3)).strftime('%Y-%m-%d')
@@ -70,7 +66,7 @@ class TestBookingsAPI:
         assert data["id"] == booking_id
         assert data["customer_name"] == "Get Test"
 
-    def test_update_booking_status(self):
+    def test_update_booking_status(self, client):
         """Test updating a booking's status"""
         # First create a booking
         target_date = (datetime.now() + timedelta(days=4)).strftime('%Y-%m-%d')
@@ -88,7 +84,7 @@ class TestBookingsAPI:
         assert response.status_code == 200
         assert response.json()["status"] == "confirmed"
 
-    def test_calendar_week_view(self):
+    def test_calendar_week_view(self, client):
         """Test getting weekly calendar view"""
         today = datetime.now().strftime('%Y-%m-%d')
         response = client.get(f"/bookings/calendar/week?start_date={today}")
@@ -103,7 +99,7 @@ class TestBookingsAPI:
 class TestAnalyticsAPI:
     """Tests for /analytics endpoints"""
 
-    def test_get_analytics_overview(self):
+    def test_get_analytics_overview(self, client):
         """Test getting analytics overview"""
         response = client.get("/analytics/overview")
         assert response.status_code == 200
@@ -117,7 +113,7 @@ class TestAnalyticsAPI:
 class TestLoyaltyAPI:
     """Tests for /loyalty endpoints"""
 
-    def test_get_points_by_driver(self):
+    def test_get_points_by_driver(self, client):
         """Test getting loyalty points for a driver"""
         # Assuming database is empty or has mock data, this might return 404 or empty
         # But let's check basic response structure validity
@@ -129,7 +125,7 @@ class TestLoyaltyAPI:
              assert "points" in data
              assert "tier" in data
 
-    def test_list_rewards(self):
+    def test_list_rewards(self, client):
         """Test listing available rewards"""
         response = client.get("/loyalty/rewards")
         assert response.status_code == 200

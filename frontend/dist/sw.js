@@ -38,8 +38,10 @@ self.addEventListener('activate', (event) => {
 // Fetch event - network first, fallback to cache
 self.addEventListener('fetch', (event) => {
     // Skip API requests (don't cache dynamic data)
+    const accept = event.request.headers.get('accept') || '';
     if (event.request.url.includes('/api/') ||
         event.request.url.includes(':8000/') ||
+        accept.includes('application/json') ||
         event.request.method !== 'GET') {
         return;
     }

@@ -117,6 +117,7 @@ export default function FloorPlanEditor() {
             seats: 4,
             rotation: 0,
             zone: 'main',
+            status: 'free',
             is_active: true
         };
         setTables([...tables, newTable]);
@@ -242,9 +243,8 @@ export default function FloorPlanEditor() {
                                             onChange={(e) => updateSelectedTable({ zone: e.target.value })}
                                             className="w-full bg-gray-800 border-gray-700 rounded px-2 py-1 text-sm text-white focus:border-amber-500 outline-none appearance-none"
                                         >
-                                            <option value="main">Principal</option>
-                                            <option value="vip">VIP</option>
-                                            <option value="terrace">Terraza</option>
+                                            <option value="main">Interior</option>
+                                            <option value="terrace">Exterior</option>
                                         </select>
                                     </div>
                                 </div>

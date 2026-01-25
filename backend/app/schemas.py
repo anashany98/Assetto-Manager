@@ -23,6 +23,10 @@ class SessionType(str, Enum):
     qualify = "qualify"
     race = "race"
     hotlap = "hotlap"
+    drift = "drift"
+    trackday = "trackday"
+    traffic = "traffic"
+    overtake = "overtake"
 
 class StationBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=50)
@@ -45,6 +49,7 @@ class StationUpdate(BaseModel):
     active_profile_id: Optional[int] = None
     ac_path: Optional[str] = None
     diagnostics: Optional[dict] = None
+    kiosk_code: Optional[str] = None
 
 # ...
 
@@ -53,6 +58,7 @@ class Station(StationBase):
     is_active: bool
     is_online: bool
     is_kiosk_mode: bool
+    kiosk_code: Optional[str] = None
     is_locked: bool = False
     is_tv_mode: bool = False
     is_vr: bool = False
@@ -61,6 +67,8 @@ class Station(StationBase):
     diagnostics: Optional[dict] = None
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
+    last_seen: Optional[datetime] = None
+    archived_at: Optional[datetime] = None
 # ...
 
 class SessionStart(BaseModel):
@@ -69,7 +77,6 @@ class SessionStart(BaseModel):
     duration_minutes: int = 15
     price: float = 0.0
     is_vr: bool = False
-    payment_method: str = "cash" # cash, card_nayax, online
     payment_method: str = "cash" # cash, card_nayax, online
 
 class SessionResponse(SessionStart):
@@ -124,6 +131,11 @@ class ModBase(BaseModel):
 
 class ModCreate(ModBase):
     dependency_ids: List[int] = []
+
+class ModBulkToggle(BaseModel):
+    mod_ids: List[int]
+    target_state: bool
+    version: Optional[str] = None
 
 class Mod(ModBase):
     id: int
@@ -201,6 +213,7 @@ class LapTimeBase(BaseModel):
     sectors: List[int]
     telemetry_data: Optional[Any] = None
     is_valid: bool
+    score: Optional[int] = 0
     timestamp: datetime
 
     model_config = ConfigDict(populate_by_name=True)
@@ -215,6 +228,7 @@ class SessionResultCreate(BaseModel):
     session_type: SessionType
     date: datetime
     best_lap: int
+    total_score: Optional[int] = 0
     laps: List[LapTimeBase] = []
 
     @field_validator("session_type", mode="before")
@@ -227,6 +241,9 @@ class SessionResultCreate(BaseModel):
                 "q": "qualify",
                 "r": "race",
                 "h": "hotlap",
+                "d": "drift",
+                "t": "trackday",
+                "o": "overtake",
             }
             return mapping.get(normalized, normalized)
         return value
@@ -244,6 +261,7 @@ class SessionResult(BaseModel):
     session_type: SessionType
     track_config: Optional[str] = None
     event_id: Optional[int] = None
+    total_score: int = 0
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -364,7 +382,6 @@ class PilotProfile(BaseModel):
     records: List[TrackRecord]
     recent_sessions: List[SessionSummary]
     total_wins: int = 0
-    total_podiums: int = 0
     total_podiums: int = 0
     elo_rating: float = 1200.0
     photo_url: Optional[str] = None

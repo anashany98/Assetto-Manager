@@ -26,11 +26,12 @@ export interface ModMetadata {
     length?: string;
 }
 
-export const getMods = async (filters?: { search?: string; type?: string; tag?: string }): Promise<Mod[]> => {
+export const getMods = async (filters?: { search?: string; type?: string; tag?: string; only_universal?: boolean }): Promise<Mod[]> => {
     const params = new URLSearchParams();
     if (filters?.search) params.append('search', filters.search);
     if (filters?.type && filters.type !== 'all') params.append('type', filters.type);
     if (filters?.tag) params.append('tag', filters.tag);
+    if (filters?.only_universal) params.append('only_universal', 'true');
 
     const response = await axios.get(`${API_URL}/mods?${params.toString()}`);
     return response.data;

@@ -61,16 +61,27 @@ from starlette.middleware.base import BaseHTTPMiddleware
 class CSPMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         response = await call_next(request)
-        # Permissive CSP for SPA - explicit script and worker sources
-        csp_policy = (
-            "default-src * data: blob: 'unsafe-inline' 'unsafe-eval'; "
-            "script-src * data: blob: 'unsafe-inline' 'unsafe-eval'; "
-            "worker-src * data: blob: 'unsafe-inline' 'unsafe-eval'; "
-            "style-src * data: blob: 'unsafe-inline'; "
-            "img-src * data: blob:; "
-            "font-src * data:; "
-            "connect-src * data: blob: wss: ws:;"
-        )
+        # Permissive CSP for dev tools; tighter defaults in production.
+        if ENVIRONMENT == "production":
+            csp_policy = (
+                "default-src 'self'; "
+                "script-src 'self'; "
+                "worker-src 'self' blob:; "
+                "style-src 'self' 'unsafe-inline'; "
+                "img-src 'self' data: blob:; "
+                "font-src 'self' data:; "
+                "connect-src 'self' https: http: wss: ws:;"
+            )
+        else:
+            csp_policy = (
+                "default-src * data: blob: 'unsafe-inline' 'unsafe-eval'; "
+                "script-src * data: blob: 'unsafe-inline' 'unsafe-eval'; "
+                "worker-src * data: blob: 'unsafe-inline' 'unsafe-eval'; "
+                "style-src * data: blob: 'unsafe-inline'; "
+                "img-src * data: blob:; "
+                "font-src * data:; "
+                "connect-src * data: blob: wss: ws:;"
+            )
         response.headers["Content-Security-Policy"] = csp_policy
         return response
 
@@ -108,7 +119,7 @@ STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(STORAGE_DIR)), name="static")
 
 # CORS Configuration
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5959,http://localhost:5174,http://localhost:5175,http://localhost:3010").split(",")
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5174,http://localhost:5175,http://localhost:3010").split(",")
 
 app.add_middleware(
     CORSMiddleware,

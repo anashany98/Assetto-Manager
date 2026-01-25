@@ -55,7 +55,7 @@ def create_checkout(payload: schemas.PaymentCreate, db: Session = Depends(get_db
             raise HTTPException(status_code=500, detail="STRIPE_SECRET_KEY not configured")
 
         success_url = _get_config_value(db, "STRIPE_SUCCESS_URL", "stripe_success_url") or _get_config_value(
-            db, "PUBLIC_KIOSK_URL", "payment_public_kiosk_url", "http://localhost:5959/kiosk"
+            db, "PUBLIC_KIOSK_URL", "payment_public_kiosk_url", "http://localhost:3010/kiosk"
         )
         cancel_url = _get_config_value(db, "STRIPE_CANCEL_URL", "stripe_cancel_url", success_url)
         description = f"Sesion {payload.duration_minutes} min"

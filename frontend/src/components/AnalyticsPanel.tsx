@@ -85,11 +85,11 @@ export default function AnalyticsPanel() {
         <div className="space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
-                <h2 className="text-xl font-black text-white uppercase tracking-tight flex items-center gap-2">
+                <h2 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tight flex items-center gap-2">
                     <TrendingUp className="text-green-500" size={24} />
                     Analytics Dashboard
                 </h2>
-                <span className="text-xs text-gray-500">Actualizado cada 30s</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">Actualizado cada 30s</span>
             </div>
 
             {/* Quick Stats */}
@@ -121,8 +121,8 @@ export default function AnalyticsPanel() {
             </div>
 
             {/* Sessions Chart */}
-            <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6">
-                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">
+            <div className="bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 shadow-sm dark:shadow-none">
+                <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">
                     Sesiones últimos 14 días
                 </h3>
                 <div className="h-48">
@@ -131,7 +131,7 @@ export default function AnalyticsPanel() {
                             <XAxis dataKey="day" tick={{ fill: '#6b7280', fontSize: 10 }} axisLine={false} tickLine={false} />
                             <YAxis tick={{ fill: '#6b7280', fontSize: 10 }} axisLine={false} tickLine={false} />
                             <Tooltip
-                                contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }}
+                                contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px', color: '#fff' }}
                                 labelStyle={{ color: '#fff' }}
                             />
                             <Bar dataKey="sessions" fill="#3b82f6" radius={[4, 4, 0, 0]} />
@@ -143,39 +143,39 @@ export default function AnalyticsPanel() {
             {/* Two Column Layout */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Top Drivers */}
-                <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6">
-                    <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <div className="bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 shadow-sm dark:shadow-none">
+                    <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
                         <Award className="text-yellow-500" size={16} />
                         Top Pilotos (Este Mes)
                     </h3>
                     <div className="space-y-3">
                         {topDrivers.length > 0 ? (
                             topDrivers.map((driver, i) => (
-                                <div key={driver.name} className="flex items-center justify-between bg-gray-900/50 p-3 rounded-xl">
+                                <div key={driver.name} className="flex items-center justify-between bg-gray-50 dark:bg-gray-900/50 p-3 rounded-xl">
                                     <div className="flex items-center gap-3">
                                         <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-sm ${i === 0 ? 'bg-yellow-500 text-black' :
                                             i === 1 ? 'bg-gray-400 text-black' :
                                                 i === 2 ? 'bg-amber-700 text-white' :
-                                                    'bg-gray-700 text-gray-400'
+                                                    'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
                                             }`}>
                                             {i + 1}
                                         </div>
-                                        <span className="font-bold text-white">{driver.name}</span>
+                                        <span className="font-bold text-gray-900 dark:text-white">{driver.name}</span>
                                     </div>
                                     <div className="text-right">
-                                        <div className="text-blue-400 font-bold">{driver.sessions} sesiones</div>
+                                        <div className="text-blue-600 dark:text-blue-400 font-bold">{driver.sessions} sesiones</div>
                                     </div>
                                 </div>
                             ))
                         ) : (
-                            <p className="text-gray-600 text-sm text-center py-4">Sin datos todavía</p>
+                            <p className="text-gray-500 dark:text-gray-600 text-sm text-center py-4">Sin datos todavía</p>
                         )}
                     </div>
                 </div>
 
                 {/* Popular Tracks */}
-                <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6">
-                    <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <div className="bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 shadow-sm dark:shadow-none">
+                    <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
                         <MapPin className="text-green-500" size={16} />
                         Circuitos Populares
                     </h3>
@@ -185,19 +185,19 @@ export default function AnalyticsPanel() {
                                 <BarChart data={popularTracks} layout="vertical">
                                     <XAxis type="number" tick={{ fill: '#6b7280', fontSize: 10 }} axisLine={false} tickLine={false} />
                                     <YAxis type="category" dataKey="name" tick={{ fill: '#9ca3af', fontSize: 11 }} width={120} axisLine={false} tickLine={false} />
-                                    <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }} />
+                                    <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px', color: '#fff' }} />
                                     <Bar dataKey="sessions" fill="#22c55e" radius={[0, 4, 4, 0]} />
                                 </BarChart>
                             </ResponsiveContainer>
                         ) : (
-                            <p className="text-gray-600 text-sm text-center py-8">Sin datos todavía</p>
+                            <p className="text-gray-500 dark:text-gray-600 text-sm text-center py-8">Sin datos todavía</p>
                         )}
                     </div>
                 </div>
 
                 {/* Popular Cars */}
-                <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6">
-                    <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <div className="bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 shadow-sm dark:shadow-none">
+                    <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
                         <Car className="text-red-500" size={16} />
                         Coches Populares
                     </h3>
@@ -207,19 +207,19 @@ export default function AnalyticsPanel() {
                                 <BarChart data={popularCars} layout="vertical">
                                     <XAxis type="number" tick={{ fill: '#6b7280', fontSize: 10 }} axisLine={false} tickLine={false} />
                                     <YAxis type="category" dataKey="name" tick={{ fill: '#9ca3af', fontSize: 11 }} width={120} axisLine={false} tickLine={false} />
-                                    <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }} />
+                                    <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px', color: '#fff' }} />
                                     <Bar dataKey="sessions" fill="#ef4444" radius={[0, 4, 4, 0]} />
                                 </BarChart>
                             </ResponsiveContainer>
                         ) : (
-                            <p className="text-gray-600 text-sm text-center py-8">Sin datos todavía</p>
+                            <p className="text-gray-500 dark:text-gray-600 text-sm text-center py-8">Sin datos todavía</p>
                         )}
                     </div>
                 </div>
 
                 {/* Loyalty Tier Distribution */}
-                <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6">
-                    <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <div className="bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 shadow-sm dark:shadow-none">
+                    <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
                         <Star className="text-amber-500" size={16} />
                         Distribución de Niveles
                     </h3>
@@ -240,46 +240,46 @@ export default function AnalyticsPanel() {
                                             <Cell key={`cell-${index}`} fill={entry.color} />
                                         ))}
                                     </Pie>
-                                    <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }} />
-                                    <Legend formatter={(value) => <span style={{ color: '#9ca3af' }}>{value}</span>} />
+                                    <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px', color: '#fff' }} />
+                                    <Legend formatter={(value) => <span className="text-gray-500 dark:text-gray-400">{value}</span>} />
                                 </PieChart>
                             </ResponsiveContainer>
                         ) : (
-                            <p className="text-gray-600 text-sm text-center">Sin distribución todavía</p>
+                            <p className="text-gray-500 dark:text-gray-600 text-sm text-center">Sin distribución todavía</p>
                         )}
                     </div>
                     <div className="mt-4 flex justify-around text-center">
                         <div>
-                            <div className="text-2xl font-black text-green-400">{loyalty.total_points_issued.toLocaleString()}</div>
-                            <div className="text-[10px] text-gray-500 uppercase">Puntos Emitidos</div>
+                            <div className="text-2xl font-black text-green-500 dark:text-green-400">{loyalty.total_points_issued.toLocaleString()}</div>
+                            <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase">Puntos Emitidos</div>
                         </div>
                         <div>
-                            <div className="text-2xl font-black text-red-400">{loyalty.total_points_redeemed.toLocaleString()}</div>
-                            <div className="text-[10px] text-gray-500 uppercase">Puntos Canjeados</div>
+                            <div className="text-2xl font-black text-red-500 dark:text-red-400">{loyalty.total_points_redeemed.toLocaleString()}</div>
+                            <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase">Puntos Canjeados</div>
                         </div>
                     </div>
                 </div>
             </div>
 
             {/* Bookings Summary */}
-            <div className="bg-gradient-to-r from-blue-900/30 to-purple-900/30 border border-blue-500/20 rounded-2xl p-6">
-                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Resumen Reservas</h3>
+            <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 border border-blue-200 dark:border-blue-500/20 rounded-2xl p-6 shadow-sm dark:shadow-none">
+                <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">Resumen Reservas</h3>
                 <div className="grid grid-cols-4 gap-4 text-center">
                     <div>
-                        <div className="text-3xl font-black text-white">{bookings.total}</div>
-                        <div className="text-xs text-gray-500">Total</div>
+                        <div className="text-3xl font-black text-gray-900 dark:text-white">{bookings.total}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">Total</div>
                     </div>
                     <div>
-                        <div className="text-3xl font-black text-yellow-400">{bookings.pending}</div>
-                        <div className="text-xs text-gray-500">Pendientes</div>
+                        <div className="text-3xl font-black text-yellow-500 dark:text-yellow-400">{bookings.pending}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">Pendientes</div>
                     </div>
                     <div>
-                        <div className="text-3xl font-black text-green-400">{bookings.confirmed}</div>
-                        <div className="text-xs text-gray-500">Confirmadas</div>
+                        <div className="text-3xl font-black text-green-500 dark:text-green-400">{bookings.confirmed}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">Confirmadas</div>
                     </div>
                     <div>
-                        <div className="text-3xl font-black text-blue-400">{bookings.today}</div>
-                        <div className="text-xs text-gray-500">Hoy</div>
+                        <div className="text-3xl font-black text-blue-500 dark:text-blue-400">{bookings.today}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">Hoy</div>
                     </div>
                 </div>
             </div>
@@ -290,19 +290,19 @@ export default function AnalyticsPanel() {
 // Quick Stat Component
 function QuickStat({ label, value, icon: Icon, color }: { label: string; value: number; icon: React.ComponentType<{ size?: number }>; color: string }) {
     const colors: Record<string, string> = {
-        blue: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-        green: 'bg-green-500/10 text-green-400 border-green-500/20',
-        purple: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
-        amber: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+        blue: 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-500/20',
+        green: 'bg-green-50 dark:bg-green-500/10 text-green-600 dark:text-green-400 border-green-200 dark:border-green-500/20',
+        purple: 'bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-500/20',
+        amber: 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-500/20',
     };
 
     return (
-        <div className={`p-4 rounded-xl border ${colors[color]}`}>
+        <div className={`p-4 rounded-xl border ${colors[color]} shadow-sm dark:shadow-none bg-white dark:bg-transparent`}>
             <div className="flex items-center gap-2 mb-2">
                 <Icon size={16} />
                 <span className="text-xs font-bold uppercase tracking-wider opacity-80">{label}</span>
             </div>
-            <div className="text-3xl font-black">{value}</div>
+            <div className="text-3xl font-black text-gray-900 dark:text-gray-100">{value}</div>
         </div>
     );
 }

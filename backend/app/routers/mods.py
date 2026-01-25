@@ -188,7 +188,7 @@ def _handle_smart_detection(root, extract_dir, type_str, files, current_name, cu
             if "version" in data and not user_version_override: 
                 detected_version = data["version"]
     except Exception as e:
-        print(f"Error reading {json_filename}: {e}")
+        logger.error(f"Error reading {json_filename}: {e}")
     
     # RESTRUCTURING
     ui_dir = Path(root)
@@ -205,7 +205,7 @@ def _handle_smart_detection(root, extract_dir, type_str, files, current_name, cu
                 shutil.move(str(content_dir), str(target_path))
                 logger.info(f"Restructured {type_str} to: {target_path}")
             except Exception as e:
-                    print(f"Failed to move {type_str}: {e}")
+                    logger.error(f"Failed to move {type_str}: {e}")
                     
     return detected_name, detected_type, detected_version
 
@@ -323,12 +323,59 @@ def list_mods(
     search: str = None,
     type: str = None,
     tag: str = None, # Tag Name
+    only_universal: bool = False,
     skip: int = 0, 
     limit: int = 100, 
     db: Session = Depends(database.get_db)
 ):
     query = db.query(models.Mod)
     
+    if only_universal:
+        # Get all active and online stations
+        active_stations = db.query(models.Station).filter(
+            models.Station.is_active == True,
+            models.Station.is_online == True,
+            models.Station.status != "archived"
+        ).all()
+        
+        if active_stations:
+            common_cars = None
+            common_tracks = None
+            
+            for s in active_stations:
+                if not s.content_cache:
+                    # If any active station has no content, the intersection is technically empty 
+                    # for safety, or we just skip it if it's never been scanned.
+                    # Let's be strict: if it's active but not scanned, we can't guarantee content.
+                    continue
+                
+                s_cars = {c.get("id") or c.get("name") for c in s.content_cache.get("cars", []) if c.get("id") or c.get("name")}
+                s_tracks = {t.get("id") or t.get("name") for t in s.content_cache.get("tracks", []) if t.get("id") or t.get("name")}
+                
+                if common_cars is None:
+                    common_cars = s_cars
+                    common_tracks = s_tracks
+                else:
+                    common_cars &= s_cars
+                    common_tracks &= s_tracks
+            
+            if common_cars is not None:
+                # Filter mods by the intersection of names/ids found on stations
+                # We check both name and source_path (which contains the folder name)
+                from sqlalchemy import or_
+                allowed_items = list(common_cars) + list(common_tracks)
+                
+                # We need to be careful: the Mod table stores name as the primary identifier.
+                # The agent scan returns folder names as 'id' and pretty names as 'name'.
+                # Our ensure_mod_exists uses 'name' as display name.
+                
+                # Filter: Mod name or ID from auto_scan must be in allowed_items
+                query = query.filter(or_(
+                    models.Mod.name.in_(allowed_items),
+                    # Check auto_scan::id format
+                    or_(*[models.Mod.source_path.like(f"%::{item}") for item in allowed_items[:100]]) if allowed_items else False
+                ))
+
     if search:
         search_filter = f"%{search}%"
         query = query.filter(models.Mod.name.ilike(search_filter))
@@ -420,34 +467,71 @@ def get_mod_metadata(mod_id: int, db: Session = Depends(database.get_db)):
     
     storage_root = STORAGE_DIR.resolve()
     try:
-        rel_path = ui_path.resolve().relative_to(storage_root)
-        base_url = f"/static/{str(rel_path).replace(os.sep, '/')}"
+        # Try to calculate relative path. If ui_path is outside storage (dev mode?), this might fail.
+        # But mod.source_path is usually inside storage/mods/...
         
-        metadata["image_url"] = None
+        # --- NEW LOGIC: SKIN PREVIEW PRIORITY ---
+        # User requested: cars/{car_name}/skins/{first_skin}/preview.jpg
+        # ui_path is usually .../content/cars/{car_name}/ui
+        # So car_root is ui_path.parent
         
-        # Image Fallbacks
-        if (ui_path / "preview.png").exists():
-             metadata["image_url"] = f"{base_url}/preview.png"
-        elif (ui_path / "preview.jpg").exists():
-             metadata["image_url"] = f"{base_url}/preview.jpg"
-        else:
-            # Check for logo.png in parent directory (car root)
-            parent_dir = ui_path.parent
-            if (parent_dir / "logo.png").exists():
-                try:
-                    parent_rel_path = parent_dir.resolve().relative_to(storage_root)
-                    parent_base_url = f"/static/{str(parent_rel_path).replace(os.sep, '/')}"
-                    metadata["image_url"] = f"{parent_base_url}/logo.png"
-                except:
-                    pass
-            # Final fallback: badge
-            if not metadata["image_url"] and (ui_path / "badge.png").exists():
-                  metadata["image_url"] = f"{base_url}/badge.png"
+        image_url = None
+        car_root = ui_path.parent
+        
+        # Check if it's a car by looking for 'skins' folder
+        skins_dir = car_root / "skins"
+        if skins_dir.exists() and skins_dir.is_dir():
+            # Get first skin folder
+            skins = [d for d in skins_dir.iterdir() if d.is_dir()]
+            if skins:
+                # Sort to ensure deterministic result (e.g. alphabetical)
+                skins.sort(key=lambda x: x.name)
+                first_skin = skins[0]
+                skin_preview = first_skin / "preview.jpg"
+                
+                if skin_preview.exists():
+                     try:
+                        skin_rel_path = skin_preview.resolve().relative_to(storage_root)
+                        image_url = f"/static/{str(skin_rel_path).replace(os.sep, '/')}"
+                     except Exception as e:
+                         # Fallback if path resolution fails
+                         logger.warning(f"Failed to resolve skin path for {mod.name}: {e}")
 
-        metadata["map_url"] = f"{base_url}/map.png" if (ui_path / "map.png").exists() else None
-        metadata["outline_url"] = f"{base_url}/outline.png" if (ui_path / "outline.png").exists() else None
+        # If no skin preview found, fall back to standard UI logic
+        if not image_url:
+            rel_path = ui_path.resolve().relative_to(storage_root)
+            base_url = f"/static/{str(rel_path).replace(os.sep, '/')}"
+            
+            # Image Fallbacks
+            if (ui_path / "preview.png").exists():
+                 image_url = f"{base_url}/preview.png"
+            elif (ui_path / "preview.jpg").exists():
+                 image_url = f"{base_url}/preview.jpg"
+            else:
+                # Check for logo.png in parent directory (car root)
+                parent_dir = ui_path.parent
+                if (parent_dir / "logo.png").exists():
+                    try:
+                        parent_rel_path = parent_dir.resolve().relative_to(storage_root)
+                        parent_base_url = f"/static/{str(parent_rel_path).replace(os.sep, '/')}"
+                        image_url = f"{parent_base_url}/logo.png"
+                    except:
+                        pass
+                # Final fallback: badge
+                if not image_url and (ui_path / "badge.png").exists():
+                      image_url = f"{base_url}/badge.png"
+
+        metadata["image_url"] = image_url
         
-    except ValueError:
+        # Map/Outline logic remains similar, rooted at UI path usually
+        rel_path_ui = ui_path.resolve().relative_to(storage_root)
+        base_url_ui = f"/static/{str(rel_path_ui).replace(os.sep, '/')}"
+        
+        metadata["map_url"] = f"{base_url_ui}/map.png" if (ui_path / "map.png").exists() else None
+        metadata["outline_url"] = f"{base_url_ui}/outline.png" if (ui_path / "outline.png").exists() else None
+        
+    except ValueError as e:
+        logger.error(f"Path resolution error for mod {mod_id}: {e}")
         pass # Path issue
 
     return metadata
@@ -541,14 +625,12 @@ def bulk_delete_mods(mod_ids: List[int], db: Session = Depends(database.get_db),
 
 @router.post("/bulk/toggle")
 def bulk_toggle_mods(
-    mod_ids: List[int],
-    target_state: bool,
-    version: str = Form(None), 
+    data: schemas.ModBulkToggle,
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(get_current_active_user)
 ):
-    mods = db.query(models.Mod).filter(models.Mod.id.in_(mod_ids)).all()
+    mods = db.query(models.Mod).filter(models.Mod.id.in_(data.mod_ids)).all()
     for mod in mods:
-        mod.is_active = target_state
+        mod.is_active = data.target_state
     db.commit()
-    return {"updated": [m.id for m in mods], "target_state": target_state}
+    return {"updated": [m.id for m in mods], "target_state": data.target_state}

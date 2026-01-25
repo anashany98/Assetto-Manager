@@ -1,4 +1,5 @@
 
+import os
 import pytest
 from sqlalchemy.orm import Session
 from app.database import SessionLocal, engine, Base
@@ -15,6 +16,13 @@ def db():
     finally:
         session.close()
 
+RUN_INTEGRATION_TESTS = os.getenv("RUN_INTEGRATION_TESTS") == "1"
+
+
+@pytest.mark.skipif(
+    not RUN_INTEGRATION_TESTS,
+    reason="Set RUN_INTEGRATION_TESTS=1 to run against the Supabase database."
+)
 def test_create_and_delete_session_integration(db: Session):
     """
     Integration test that connects to the REAL database (Supabase),

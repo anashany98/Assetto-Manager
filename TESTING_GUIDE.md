@@ -29,7 +29,7 @@ Para cada simulador que quieras conectar:
     ```cmd
     cd C:\AC-Agent
     python -m venv venv
-    venv\Scripts\activate
+    .venv\Scripts\activate
     pip install requests websockets psutil
     ```
     *(Nota: Revisa `requirements.txt` si hay dependencias adicionales específicas del agente)*
@@ -59,12 +59,12 @@ Una vez el Agente esté corriendo en el Simulador:
 1.  En el **Simulador**, abre un navegador (Chrome/Edge/Firefox).
 2.  Entra en la URL del Kiosk apuntando al Servidor Central:
     ```
-    http://192.168.1.108:5959/kiosk
+    http://192.168.1.108:3010/kiosk
     ```
 3.  Deberías ver la pantalla "BIENVENIDO PILOTO".
 4.  Si te identificas y pulsas "COMENZAR", el sistema enviará la orden al Agente local para configurar y lanzar Assetto Corsa.
 
 ## Solución de Problemas
 
--   **Firewall**: Si no conecta, asegúrate de permitir el tráfico en los puertos `8000` (Backend) y `5959` (Frontend) en el firewall de Windows del Servidor Central.
+-   **Firewall**: Si no conecta, asegúrate de permitir el tráfico en los puertos `8000` (Backend) y `3010` (Frontend) en el firewall de Windows del Servidor Central.
 -   **CORS/Red**: Si el navegador muestra errores de conexión, verifica que ambos PCs estén en la misma red y se vean (haz `ping` entre ellos).

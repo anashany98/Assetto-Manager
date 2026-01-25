@@ -9,8 +9,14 @@ load_dotenv(dotenv_path=Path(__file__).resolve().parents[1] / ".env")
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy import event, inspect, text
 
-# SQLite for development ease, PostgreSQL for production
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./ac_manager.db")
+# Supabase (PostgreSQL) by default; tests may override with SQLite.
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
+if not SQLALCHEMY_DATABASE_URL:
+    if ENVIRONMENT == "test":
+        SQLALCHEMY_DATABASE_URL = "sqlite:///./ac_manager.db"
+    else:
+        raise RuntimeError("DATABASE_URL must be set (Supabase/PostgreSQL)")
 
 connect_args = {}
 if "sqlite" in SQLALCHEMY_DATABASE_URL:
@@ -57,6 +63,8 @@ def ensure_station_schema(db_engine):
         "is_locked": ("BOOLEAN", "FALSE", "0"),
         "is_tv_mode": ("BOOLEAN", "FALSE", "0"),
         "is_vr": ("BOOLEAN", "FALSE", "0"),
+        "last_seen": ("TIMESTAMP", "NULL", "NULL"),
+        "archived_at": ("TIMESTAMP", "NULL", "NULL"),
     }
 
     is_postgres = db_engine.dialect.name == "postgresql"

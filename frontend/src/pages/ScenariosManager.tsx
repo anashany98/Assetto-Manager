@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { getScenarios, createScenario, updateScenario, deleteScenario } from '../api/scenarios';
 import type { Scenario } from '../api/scenarios';
-import { getCars, getTracks } from '../api/content';
+import { getAllGlobalCars, getAllGlobalTracks } from '../api/content';
 
 export default function ScenariosManager() {
     const queryClient = useQueryClient();
@@ -24,6 +24,7 @@ export default function ScenariosManager() {
     const [formData, setFormData] = useState<Partial<Scenario>>({
         name: '',
         description: '',
+        session_type: 'practice',
         allowed_cars: [],
         allowed_tracks: [],
         allowed_durations: [10, 15, 20],
@@ -36,10 +37,9 @@ export default function ScenariosManager() {
         queryFn: getScenarios
     });
 
-    // Fetch ALL content for selection (using station 1 as default/master or "0" if API supports global)
-    // Assuming 1 for now as it's the main station
-    const { data: allCars = [] } = useQuery({ queryKey: ['cars', 1], queryFn: () => getCars(1) });
-    const { data: allTracks = [] } = useQuery({ queryKey: ['tracks', 1], queryFn: () => getTracks(1) });
+    // Fetch ALL content for selection (GLOBAL LIBRARY)
+    const { data: allCars = [] } = useQuery({ queryKey: ['cars', 'global'], queryFn: getAllGlobalCars });
+    const { data: allTracks = [] } = useQuery({ queryKey: ['tracks', 'global'], queryFn: getAllGlobalTracks });
 
     // Mutations
     const createMutation = useMutation({
@@ -68,7 +68,7 @@ export default function ScenariosManager() {
             // Return a context object with the snapshotted value
             return { previousScenarios };
         },
-        onError: (err, newTodo, context) => {
+        onError: (_err, _newTodo, context) => {
             queryClient.setQueryData(['scenarios'], context?.previousScenarios);
         },
         onSettled: () => {
@@ -191,6 +191,31 @@ export default function ScenariosManager() {
                                     ))}
                                 </div>
                             </div>
+
+                            <div>
+                                <label className="block text-gray-400 text-sm font-bold mb-1">MODO DE JUEGO</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {[
+                                        { id: 'practice', label: 'PRÁCTICA', color: 'bg-emerald-600' },
+                                        { id: 'race', label: 'CARRERA', color: 'bg-blue-600' },
+                                        { id: 'drift', label: 'DRIFT', color: 'bg-orange-600' },
+                                        { id: 'trackday', label: 'TANDAS', color: 'bg-green-600' },
+                                        { id: 'traffic', label: 'TRÁFICO', color: 'bg-yellow-600' },
+                                        { id: 'overtake', label: 'OVERTAKE', color: 'bg-red-600' }
+                                    ].map(mode => (
+                                        <button
+                                            key={mode.id}
+                                            onClick={() => setFormData({ ...formData, session_type: mode.id })}
+                                            className={`p-3 rounded-lg text-sm font-black border transition-all flex items-center justify-center gap-2 ${formData.session_type === mode.id
+                                                ? `${mode.color} border-white text-white shadow-lg scale-[1.02]`
+                                                : 'bg-gray-900 border-gray-700 text-gray-500 hover:border-gray-500'
+                                                }`}
+                                        >
+                                            {mode.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
                             <div>
                                 <label className="flex items-center gap-3 p-3 bg-gray-900 border border-gray-700 rounded-lg cursor-pointer hover:border-blue-500 transition-colors">
                                     <div className={`w-10 h-6 rounded-full p-1 transition-colors ${formData.is_active ? 'bg-green-500' : 'bg-gray-700'}`}>
@@ -214,18 +239,26 @@ export default function ScenariosManager() {
                                 {allCars.map((c: any) => (
                                     <div
                                         key={c.id}
-                                        onClick={() => setFormData({ ...formData, allowed_cars: toggleSelection(formData.allowed_cars || [], c.id) })}
-                                        className={`p-3 rounded-lg cursor-pointer text-sm flex items-center gap-3 transition-colors ${formData.allowed_cars?.includes(c.id) ? 'bg-blue-600/20 text-blue-400 border border-blue-600/30' : 'text-gray-400 hover:bg-gray-800 border border-transparent'}`}
+                                        onClick={() => setFormData({ ...formData, allowed_cars: toggleSelection(formData.allowed_cars || [], String(c.id)) })}
+                                        className={`p-3 rounded-lg cursor-pointer text-sm flex items-center gap-3 transition-colors ${formData.allowed_cars?.includes(String(c.id)) ? 'bg-blue-600/20 text-blue-400 border border-blue-600/30' : 'text-gray-400 hover:bg-gray-800 border border-transparent'}`}
                                     >
-                                        <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${formData.allowed_cars?.includes(c.id) ? 'bg-blue-600 border-blue-600' : 'border-gray-600'}`}>
-                                            {formData.allowed_cars?.includes(c.id) && <Check size={14} className="text-white" />}
+                                        <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${formData.allowed_cars?.includes(String(c.id)) ? 'bg-blue-600 border-blue-600' : 'border-gray-600'}`}>
+                                            {formData.allowed_cars?.includes(String(c.id)) && <Check size={14} className="text-white" />}
                                         </div>
                                         <span className="truncate font-medium">{c.name}</span>
                                     </div>
                                 ))}
                             </div>
-                            <div className="mt-3 pt-3 border-t border-gray-700 text-xs text-center text-gray-500 font-bold uppercase">
-                                {formData.allowed_cars?.length || 0} coches seleccionados (0 = Todos)
+                            <div className="mt-3 pt-3 border-t border-gray-700 flex justify-between items-center">
+                                <span className="text-xs text-center text-gray-500 font-bold uppercase">
+                                    {formData.allowed_cars?.length || 0} coches seleccionados (0 = Todos)
+                                </span>
+                                <button
+                                    onClick={() => setFormData({ ...formData, allowed_cars: allCars.map((c: any) => String(c.id)) })}
+                                    className="text-xs bg-gray-800 hover:bg-gray-700 text-blue-400 font-bold px-2 py-1 rounded transition-colors"
+                                >
+                                    SELECCIONAR TODOS
+                                </button>
                             </div>
                         </div>
 
@@ -236,18 +269,26 @@ export default function ScenariosManager() {
                                 {allTracks.map((t: any) => (
                                     <div
                                         key={t.id}
-                                        onClick={() => setFormData({ ...formData, allowed_tracks: toggleSelection(formData.allowed_tracks || [], t.id) })}
-                                        className={`p-3 rounded-lg cursor-pointer text-sm flex items-center gap-3 transition-colors ${formData.allowed_tracks?.includes(t.id) ? 'bg-green-600/20 text-green-400 border border-green-600/30' : 'text-gray-400 hover:bg-gray-800 border border-transparent'}`}
+                                        onClick={() => setFormData({ ...formData, allowed_tracks: toggleSelection(formData.allowed_tracks || [], String(t.id)) })}
+                                        className={`p-3 rounded-lg cursor-pointer text-sm flex items-center gap-3 transition-colors ${formData.allowed_tracks?.includes(String(t.id)) ? 'bg-green-600/20 text-green-400 border border-green-600/30' : 'text-gray-400 hover:bg-gray-800 border border-transparent'}`}
                                     >
-                                        <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${formData.allowed_tracks?.includes(t.id) ? 'bg-green-600 border-green-600' : 'border-gray-600'}`}>
-                                            {formData.allowed_tracks?.includes(t.id) && <Check size={14} className="text-white" />}
+                                        <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${formData.allowed_tracks?.includes(String(t.id)) ? 'bg-green-600 border-green-600' : 'border-gray-600'}`}>
+                                            {formData.allowed_tracks?.includes(String(t.id)) && <Check size={14} className="text-white" />}
                                         </div>
                                         <span className="truncate font-medium">{t.name}</span>
                                     </div>
                                 ))}
                             </div>
-                            <div className="mt-3 pt-3 border-t border-gray-700 text-xs text-center text-gray-500 font-bold uppercase">
-                                {formData.allowed_tracks?.length || 0} circuitos seleccionados (0 = Todos)
+                            <div className="mt-3 pt-3 border-t border-gray-700 flex justify-between items-center">
+                                <span className="text-xs text-center text-gray-500 font-bold uppercase">
+                                    {formData.allowed_tracks?.length || 0} circuitos seleccionados (0 = Todos)
+                                </span>
+                                <button
+                                    onClick={() => setFormData({ ...formData, allowed_tracks: allTracks.map((t: any) => String(t.id)) })}
+                                    className="text-xs bg-gray-800 hover:bg-gray-700 text-green-400 font-bold px-2 py-1 rounded transition-colors"
+                                >
+                                    SELECCIONAR TODOS
+                                </button>
                             </div>
                         </div>
                     </div>

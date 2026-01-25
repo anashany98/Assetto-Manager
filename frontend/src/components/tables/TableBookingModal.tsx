@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { X, Check, Loader2, User, Phone, Users, Clock } from 'lucide-react';
 import { createBooking } from '../../api/tables';
+import { API_URL } from '../../config';
 
 interface TableBookingModalProps {
     tableIds: number[];
@@ -87,7 +88,7 @@ export default function TableBookingModal({ tableIds, selectedDate, onClose }: T
                                         setFormData({ ...formData, customer_name: val });
                                         if (val.length > 2) {
                                             try {
-                                                const res = await fetch(`${import.meta.env.VITE_API_URL}/tables/customers/search?q=${val}`);
+                                            const res = await fetch(`${API_URL}/tables/customers/search?q=${encodeURIComponent(val)}`);
                                                 if (res.ok) {
                                                     const names = await res.json();
                                                     setSuggestions(names);

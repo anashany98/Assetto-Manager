@@ -108,7 +108,28 @@ class LaunchSessionCommand(BaseModel):
     transmission: Optional[str] = "automatic"
     time_of_day: Optional[str] = "noon"
     weather: Optional[str] = "sun"
+    session_type: Optional[str] = "practice"
+    ai_count: Optional[int] = 0
+    tyre_compound: Optional[str] = "semislicks"
 
+
+def resolve_asset_name(db: Session, asset_id_or_name: str, asset_type: str) -> str:
+    """
+    Assetto Corsa needs folder names (ks_ferrari_458), but Kiosk UI might send 
+    internal Database IDs (e.g. "184"). This resolves IDs to folder names.
+    """
+    if asset_id_or_name and str(asset_id_or_name).isdigit():
+        from ..models import Mod
+        mod = db.query(Mod).filter(Mod.id == int(asset_id_or_name)).first()
+        if mod:
+             # Folder name is stored in source_path: "auto_scan::folder_name" 
+             # or for uploaded mods it's the folder name itself.
+             if mod.source_path:
+                 if "auto_scan::" in mod.source_path:
+                     return mod.source_path.split("::")[-1]
+                 from pathlib import Path
+                 return Path(mod.source_path).name
+    return asset_id_or_name
 
 @router.post("/station/{station_id}/launch", dependencies=[Depends(require_admin_or_public_token)])
 async def launch_station_session(station_id: int, cmd: LaunchSessionCommand, db: Session = Depends(get_db)):
@@ -116,7 +137,11 @@ async def launch_station_session(station_id: int, cmd: LaunchSessionCommand, db:
     Send launch command to a specific station Agent.
     The Agent will configure assists based on difficulty and start the game.
     """
-    logger.info(f"Launching session on Station {station_id}: {cmd.car} @ {cmd.track} ({cmd.difficulty})")
+    # Resolve IDs to folder names
+    car_model = resolve_asset_name(db, cmd.car, "car")
+    track_name = resolve_asset_name(db, cmd.track, "track")
+
+    logger.info(f"Launching session on Station {station_id}: {car_model} @ {track_name} ({cmd.difficulty}) [Original IDs: {cmd.car}, {cmd.track}]")
 
     # Fetch station from DB to get ac_path
     station = db.query(StationModel).filter(StationModel.id == station_id).first()
@@ -131,15 +156,20 @@ async def launch_station_session(station_id: int, cmd: LaunchSessionCommand, db:
 
     payload = {
         "command": "launch_session",
-        "car": cmd.car,
-        "track": cmd.track,
+        "car": car_model,
+        "track": track_name,
         "assists": assists.get(cmd.difficulty, assists["amateur"]),
         "duration_minutes": cmd.duration_minutes,
         "driver_name": cmd.driver_name or f"Driver_{cmd.driver_id or 'Guest'}",
         "ac_path": ac_path,
         "transmission": cmd.transmission,
         "time_of_day": cmd.time_of_day,
-        "weather": cmd.weather
+        "transmission": cmd.transmission,
+        "time_of_day": cmd.time_of_day,
+        "weather": cmd.weather,
+        "session_type": cmd.session_type,
+        "ai_count": cmd.ai_count,
+        "tyre_compound": cmd.tyre_compound
     }
 
     # Send to specific station
@@ -257,7 +287,8 @@ async def get_station_content(station_id: int, db: Session = Depends(get_db)):
         try:
             await agent_ws.send_text(json.dumps({
                 "command": "scan_content",
-                "ac_path": station.ac_path
+                "ac_path": station.ac_path,
+                "station_ip": station.ip_address
             }))
             # For now, return a pending status. Real implementation would wait for response.
             return {
@@ -272,7 +303,40 @@ async def get_station_content(station_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail=f"Station {station_id} is not online")
 
 
-@router.post("/station/{station_id}/stop", dependencies=[Depends(require_admin)])
+@router.post("/station/{station_id}/sync", dependencies=[Depends(require_admin)])
+async def sync_station_content(station_id: int):
+    """
+    Force a content sync on a specific station agent.
+    """
+    agent_ws = manager.active_agents.get(station_id)
+    if agent_ws:
+        try:
+            await agent_ws.send_text(json.dumps({"command": "sync_content"}))
+            return {"status": "sync_requested", "station_id": station_id}
+        except Exception as e:
+            logger.error(f"Failed to send sync command: {e}")
+            raise HTTPException(status_code=500, detail="Failed to communicate with Agent")
+    raise HTTPException(status_code=404, detail=f"Station {station_id} is not online")
+
+
+@router.post("/station/{station_id}/restart-agent", dependencies=[Depends(require_admin)])
+async def restart_station_agent(station_id: int):
+    """
+    Restart the agent process on a station.
+    """
+    agent_ws = manager.active_agents.get(station_id)
+    if agent_ws:
+        try:
+            await agent_ws.send_text(json.dumps({"command": "restart_agent"}))
+            return {"status": "restart_requested", "station_id": station_id}
+        except Exception as e:
+            logger.error(f"Failed to send restart_agent command: {e}")
+            raise HTTPException(status_code=500, detail="Failed to communicate with Agent")
+    raise HTTPException(status_code=404, detail=f"Station {station_id} is not online")
+
+
+@router.post("/station/{station_id}/stop", dependencies=[Depends(require_admin_or_public_token)])
+@router.post("/station/{station_id}/panic", dependencies=[Depends(require_admin_or_public_token)])
 async def stop_station_session(station_id: int):
     """
     Stop the current session on a station (kills the game).

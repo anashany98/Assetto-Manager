@@ -26,8 +26,8 @@ echo Iniciando servidor en http://localhost:8000 ...
 echo (Usa Ctrl+C para detener)
 echo.
 
-cd backend
-call .venv\Scripts\activate
+cd /d "%~dp0.."
+call .venv\Scripts\activate.bat
 
 :: Abrir navegador tras 3 segundos (en paralelo)
 start "" cmd /c "timeout /t 3 >nul & start http://localhost:8000"
@@ -36,6 +36,6 @@ start "" cmd /c "timeout /t 3 >nul & start http://localhost:8000"
 :: - Workers: 4 (para manejar mas peticiones simultaneas)
 :: - Host: 0.0.0.0 (para aceptar conexiones externas)
 :: - Port: 8000 (puerto estandar de esta app)
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --workers 4
 
 pause

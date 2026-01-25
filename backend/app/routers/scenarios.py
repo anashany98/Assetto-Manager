@@ -16,6 +16,7 @@ router = APIRouter(
 class ScenarioBase(BaseModel):
     name: str
     description: Optional[str] = None
+    session_type: str = "practice"
     allowed_cars: List[str] = [] # List of car IDs/names
     allowed_tracks: List[str] = [] # List of track IDs/names
     allowed_durations: List[int] = [10, 15, 20]
@@ -27,6 +28,7 @@ class ScenarioCreate(ScenarioBase):
 class ScenarioUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
+    session_type: Optional[str] = None
     allowed_cars: Optional[List[str]] = None
     allowed_tracks: Optional[List[str]] = None
     allowed_durations: Optional[List[int]] = None
@@ -62,6 +64,7 @@ def create_scenario(scenario: ScenarioCreate, db: Session = Depends(get_db)):
     db_scenario = models.Scenario(
         name=scenario.name,
         description=scenario.description,
+        session_type=scenario.session_type,
         allowed_cars=scenario.allowed_cars,
         allowed_tracks=scenario.allowed_tracks,
         allowed_durations=scenario.allowed_durations,

@@ -20,10 +20,14 @@ export interface Station {
     is_active: boolean;
     is_online: boolean;
     is_kiosk_mode?: boolean;
+    is_locked?: boolean;
     is_tv_mode?: boolean;
     is_vr?: boolean;
     status: string;
     ac_path?: string;
+    kiosk_code?: string;
+    last_seen?: string | null;
+    archived_at?: string | null;
     diagnostics?: StationDiagnostics;
 }
 

@@ -35,12 +35,34 @@
     --card-bg: rgba(255, 255, 255, 0.8);
     --sidebar-bg: rgba(255, 255, 255, 0.95);
     --navbar-bg: rgba(255, 255, 255, 0.9);
+
+    /* Component Colors - Light Mode Defaults */
+    --input-bg: rgba(255, 255, 255, 0.8);
+    --input-border: rgba(226, 232, 240, 0.6);
+    --input-text: #0f172a;
+
+    --table-header-color: #64748b;
+    --table-row-bg: rgba(255, 255, 255, 0.6);
+    --table-row-hover: rgba(255, 255, 255, 0.9);
+    --table-text: #0f172a;
+    --table-border: rgba(226, 232, 240, 0.6);
   }
 
   .dark {
     /* Core Colors - Dark Mode */
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
+
+    /* Component Colors - Dark Mode */
+    --input-bg: rgba(30, 41, 59, 0.5);
+    --input-border: rgba(148, 163, 184, 0.2);
+    --input-text: white;
+
+    --table-header-color: #94a3b8;
+    --table-row-bg: rgba(30, 41, 59, 0.5);
+    --table-row-hover: rgba(51, 65, 85, 0.7);
+    --table-text: white;
+    --table-border: rgba(148, 163, 184, 0.1);
 
     /* Glassmorphism - Dark Mode */
     --glass-bg: rgba(15, 23, 42, 0.8);
@@ -347,6 +369,308 @@
 }
 
 /* ============================================
+   LIGHT MODE OVERRIDES (ADMIN + PUBLIC)
+   ============================================ */
+
+.light :is(.app-shell, .public-shell) {
+  color: #0f172a;
+}
+
+.light :is(.app-shell, .public-shell) .bg-gray-950 {
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+.light :is(.app-shell, .public-shell) .bg-gray-950\/50 {
+  background-color: rgba(248, 250, 252, 0.9);
+}
+
+.light :is(.app-shell, .public-shell) .bg-gray-900 {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
+.light :is(.app-shell, .public-shell) .bg-gray-900\/95 {
+  background-color: rgba(255, 255, 255, 0.95);
+}
+
+.light :is(.app-shell, .public-shell) .bg-gray-900\/90 {
+  background-color: rgba(255, 255, 255, 0.92);
+}
+
+.light :is(.app-shell, .public-shell) .bg-gray-900\/80 {
+  background-color: rgba(255, 255, 255, 0.85);
+}
+
+.light :is(.app-shell, .public-shell) .bg-gray-900\/60 {
+  background-color: rgba(255, 255, 255, 0.8);
+}
+
+.light :is(.app-shell, .public-shell) .bg-gray-900\/50 {
+  background-color: rgba(255, 255, 255, 0.75);
+}
+
+.light :is(.app-shell, .public-shell) .bg-gray-900\/40 {
+  background-color: rgba(255, 255, 255, 0.7);
+}
+
+.light :is(.app-shell, .public-shell) .bg-gray-900\/30 {
+  background-color: rgba(255, 255, 255, 0.6);
+}
+
+.light :is(.app-shell, .public-shell) .bg-gray-800 {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+
+.light :is(.app-shell, .public-shell) .bg-gray-800\/50 {
+  background-color: rgba(241, 245, 249, 0.8);
+}
+
+.light :is(.app-shell, .public-shell) .bg-gray-800\/80 {
+  background-color: rgba(241, 245, 249, 0.9);
+}
+
+.light :is(.app-shell, .public-shell) .bg-gray-800\/60 {
+  background-color: rgba(241, 245, 249, 0.75);
+}
+
+.light :is(.app-shell, .public-shell) .bg-gray-800\/40 {
+  background-color: rgba(241, 245, 249, 0.7);
+}
+
+.light :is(.app-shell, .public-shell) .bg-gray-800\/30 {
+  background-color: rgba(241, 245, 249, 0.6);
+}
+
+.light :is(.app-shell, .public-shell) .bg-gray-800\/20 {
+  background-color: rgba(241, 245, 249, 0.5);
+}
+
+.light :is(.app-shell, .public-shell) .bg-gray-700 {
+  background-color: #e2e8f0;
+}
+
+.light :is(.app-shell, .public-shell) .bg-gray-700\/80 {
+  background-color: rgba(226, 232, 240, 0.85);
+}
+
+.light :is(.app-shell, .public-shell) .bg-gray-700\/60 {
+  background-color: rgba(226, 232, 240, 0.7);
+}
+
+.light :is(.app-shell, .public-shell) .bg-gray-700\/50 {
+  background-color: rgba(226, 232, 240, 0.6);
+}
+
+.light :is(.app-shell, .public-shell) .bg-gray-600 {
+  background-color: #cbd5e1;
+}
+
+.light :is(.app-shell, .public-shell) .bg-black {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
+.light :is(.app-shell, .public-shell) .bg-black\/95 {
+  background-color: rgba(255, 255, 255, 0.95);
+}
+
+.light :is(.app-shell, .public-shell) .bg-black\/90 {
+  background-color: rgba(255, 255, 255, 0.92);
+}
+
+.light :is(.app-shell, .public-shell) .bg-black\/80 {
+  background-color: rgba(255, 255, 255, 0.85);
+}
+
+.light :is(.app-shell, .public-shell) .bg-black\/60 {
+  background-color: rgba(255, 255, 255, 0.75);
+}
+
+.light :is(.app-shell, .public-shell) .bg-black\/50 {
+  background-color: rgba(255, 255, 255, 0.7);
+}
+
+.light :is(.app-shell, .public-shell) .bg-black\/40 {
+  background-color: rgba(255, 255, 255, 0.6);
+}
+
+.light :is(.app-shell, .public-shell) .bg-black\/30 {
+  background-color: rgba(255, 255, 255, 0.5);
+}
+
+.light :is(.app-shell, .public-shell) .bg-black\/20 {
+  background-color: rgba(255, 255, 255, 0.4);
+}
+
+.light :is(.app-shell, .public-shell) .bg-black\/10 {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.light :is(.app-shell, .public-shell) .bg-slate-950 {
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+.light :is(.app-shell, .public-shell) .bg-slate-900 {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
+.light :is(.app-shell, .public-shell) .bg-slate-800 {
+  background-color: #f1f5f9;
+}
+
+.light :is(.app-shell, .public-shell) .bg-slate-700 {
+  background-color: #e2e8f0;
+}
+
+.light :is(.app-shell, .public-shell) .text-gray-100 {
+  color: #0f172a;
+}
+
+.light :is(.app-shell, .public-shell) .text-gray-200 {
+  color: #1f2937;
+}
+
+.light :is(.app-shell, .public-shell) .text-slate-300 {
+  color: #475569;
+}
+
+.light :is(.app-shell, .public-shell) .text-slate-400 {
+  color: #64748b;
+}
+
+.light :is(.app-shell, .public-shell) .border-slate-800 {
+  border-color: #e2e8f0;
+}
+
+.light :is(.app-shell, .public-shell) .border-slate-700 {
+  border-color: #cbd5e1;
+}
+
+.light :is(.app-shell, .public-shell) .border-slate-500 {
+  border-color: #94a3b8;
+}
+
+.light :is(.app-shell, .public-shell) .text-white {
+  color: #0f172a;
+}
+
+.light :is(.app-shell, .public-shell) .text-gray-300 {
+  color: #475569;
+}
+
+.light :is(.app-shell, .public-shell) .text-gray-400 {
+  color: #64748b;
+}
+
+.light :is(.app-shell, .public-shell) .text-gray-500 {
+  color: #64748b;
+}
+
+.light :is(.app-shell, .public-shell) .text-gray-600 {
+  color: #475569;
+}
+
+.light :is(.app-shell, .public-shell) .text-gray-700 {
+  color: #334155;
+}
+
+.light :is(.app-shell, .public-shell) .border-gray-800 {
+  border-color: #e2e8f0;
+}
+
+.light :is(.app-shell, .public-shell) .border-gray-800\/50 {
+  border-color: rgba(226, 232, 240, 0.6);
+}
+
+.light :is(.app-shell, .public-shell) .border-gray-700 {
+  border-color: #cbd5e1;
+}
+
+.light :is(.app-shell, .public-shell) .border-gray-700\/50 {
+  border-color: rgba(203, 213, 225, 0.6);
+}
+
+.light :is(.app-shell, .public-shell) .border-gray-700\/60 {
+  border-color: rgba(203, 213, 225, 0.7);
+}
+
+.light :is(.app-shell, .public-shell) .border-gray-500\/50 {
+  border-color: rgba(148, 163, 184, 0.6);
+}
+
+.light :is(.app-shell, .public-shell) .hover\:bg-gray-900:hover {
+  background-color: #f8fafc;
+}
+
+.light :is(.app-shell, .public-shell) .hover\:bg-gray-800:hover {
+  background-color: #e2e8f0;
+}
+
+.light :is(.app-shell, .public-shell) .hover\:bg-gray-700:hover {
+  background-color: #e2e8f0;
+}
+
+.light :is(.app-shell, .public-shell) .hover\:bg-gray-600:hover {
+  background-color: #cbd5e1;
+}
+
+.light :is(.app-shell, .public-shell) .hover\:text-white:hover {
+  color: #0f172a;
+}
+
+.light :is(.app-shell, .public-shell) .hover\:border-gray-500:hover {
+  border-color: #94a3b8;
+}
+
+.light :is(.app-shell, .public-shell) .bg-blue-700.text-white,
+.light :is(.app-shell, .public-shell) .bg-blue-600.text-white,
+.light :is(.app-shell, .public-shell) .bg-blue-500.text-white,
+.light :is(.app-shell, .public-shell) .bg-indigo-600.text-white,
+.light :is(.app-shell, .public-shell) .bg-indigo-500.text-white,
+.light :is(.app-shell, .public-shell) .bg-purple-600.text-white,
+.light :is(.app-shell, .public-shell) .bg-purple-500.text-white,
+.light :is(.app-shell, .public-shell) .bg-green-600.text-white,
+.light :is(.app-shell, .public-shell) .bg-green-500.text-white,
+.light :is(.app-shell, .public-shell) .bg-red-600.text-white,
+.light :is(.app-shell, .public-shell) .bg-red-500.text-white,
+.light :is(.app-shell, .public-shell) .bg-orange-500.text-white,
+.light :is(.app-shell, .public-shell) .bg-yellow-500.text-white,
+.light :is(.app-shell, .public-shell) .bg-gradient-to-r.text-white,
+.light :is(.app-shell, .public-shell) .bg-gradient-to-br.text-white,
+.light :is(.app-shell, .public-shell) .bg-gradient-to-l.text-white,
+.light :is(.app-shell, .public-shell) .bg-gradient-to-b.text-white,
+.light :is(.app-shell, .public-shell) .bg-gradient-to-tr.text-white,
+.light :is(.app-shell, .public-shell) .bg-gradient-to-tl.text-white {
+  color: #ffffff;
+}
+
+.light :is(.app-shell, .public-shell) .bg-blue-700 .text-white,
+.light :is(.app-shell, .public-shell) .bg-blue-600 .text-white,
+.light :is(.app-shell, .public-shell) .bg-blue-500 .text-white,
+.light :is(.app-shell, .public-shell) .bg-indigo-600 .text-white,
+.light :is(.app-shell, .public-shell) .bg-indigo-500 .text-white,
+.light :is(.app-shell, .public-shell) .bg-purple-600 .text-white,
+.light :is(.app-shell, .public-shell) .bg-purple-500 .text-white,
+.light :is(.app-shell, .public-shell) .bg-green-600 .text-white,
+.light :is(.app-shell, .public-shell) .bg-green-500 .text-white,
+.light :is(.app-shell, .public-shell) .bg-red-600 .text-white,
+.light :is(.app-shell, .public-shell) .bg-red-500 .text-white,
+.light :is(.app-shell, .public-shell) .bg-orange-500 .text-white,
+.light :is(.app-shell, .public-shell) .bg-yellow-500 .text-white,
+.light :is(.app-shell, .public-shell) .bg-gradient-to-r .text-white,
+.light :is(.app-shell, .public-shell) .bg-gradient-to-br .text-white,
+.light :is(.app-shell, .public-shell) .bg-gradient-to-l .text-white,
+.light :is(.app-shell, .public-shell) .bg-gradient-to-b .text-white,
+.light :is(.app-shell, .public-shell) .bg-gradient-to-tr .text-white,
+.light :is(.app-shell, .public-shell) .bg-gradient-to-tl .text-white {
+  color: #ffffff;
+}
+
+/* ============================================
    TV MODE STYLES
    ============================================ */
 
@@ -388,12 +712,13 @@
   width: 100%;
   border-collapse: separate;
   border-spacing: 0 8px;
+  color: var(--table-text);
 }
 
 .leaderboard-table th {
   padding: 1rem;
   text-align: left;
-  color: #94a3b8;
+  color: var(--table-header-color);
   font-weight: 500;
   font-size: 0.875rem;
   text-transform: uppercase;
@@ -401,28 +726,29 @@
 }
 
 .leaderboard-table tr {
-  background: rgba(30, 41, 59, 0.5);
+  background: var(--table-row-bg);
   transition: all 0.2s ease;
 }
 
 .leaderboard-table tr:hover {
-  background: rgba(51, 65, 85, 0.7);
+  background: var(--table-row-hover);
   transform: scale(1.01);
 }
 
 .leaderboard-table td {
   padding: 1rem;
-  border-top: 1px solid rgba(148, 163, 184, 0.1);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  border-top: 1px solid var(--table-border);
+  border-bottom: 1px solid var(--table-border);
+  color: var(--table-text);
 }
 
 .leaderboard-table tr td:first-child {
-  border-left: 1px solid rgba(148, 163, 184, 0.1);
+  border-left: 1px solid var(--table-border);
   border-radius: 12px 0 0 12px;
 }
 
 .leaderboard-table tr td:last-child {
-  border-right: 1px solid rgba(148, 163, 184, 0.1);
+  border-right: 1px solid var(--table-border);
   border-radius: 0 12px 12px 0;
 }
 
@@ -616,12 +942,18 @@
    INPUTS
    ============================================ */
 
+
+
+/* ============================================
+   INPUTS
+   ============================================ */
+
 .input-racing {
-  background: rgba(30, 41, 59, 0.5);
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
   border-radius: 10px;
   padding: 0.75rem 1rem;
-  color: white;
+  color: var(--input-text);
   transition: all 0.2s ease;
 }
 
@@ -632,7 +964,7 @@
 }
 
 .input-racing::placeholder {
-  color: #64748b;
+  color: var(--table-header-color);
 }
 
 /* ============================================

@@ -41,7 +41,10 @@ class StationHealthStatus(BaseModel):
     """Stored health status for a station."""
     station_id: int
     station_name: str
+    is_active: bool = True
+    status: str = "offline"
     is_online: bool
+    is_kiosk_mode: bool = False
     last_seen: Optional[datetime] = None
     cpu_percent: float = 0
     ram_percent: float = 0
@@ -63,6 +66,14 @@ class StationHealthStatus(BaseModel):
 _health_cache: dict[int, dict] = {}
 
 
+def _ensure_aware(value: Optional[datetime]) -> Optional[datetime]:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value
+
+
 @router.post("/report")
 async def report_health(report: StationHealthReport, db: Session = Depends(get_db)):
     """
@@ -74,14 +85,18 @@ async def report_health(report: StationHealthReport, db: Session = Depends(get_d
     if not station:
         raise HTTPException(status_code=404, detail="Station not found")
     
+    now = datetime.now(timezone.utc)
+    station.is_active = True
     station.is_online = True
     station.status = "online"
+    station.last_seen = now
+    station.archived_at = None
     db.commit()
     
     # Store in cache
     _health_cache[report.station_id] = {
         **report.dict(),
-        "last_seen": datetime.now(timezone.utc),
+        "last_seen": now,
         "station_name": station.name,
     }
     
@@ -95,16 +110,16 @@ async def get_all_health(db: Session = Depends(get_db)):
     
     result = []
     now = datetime.now(timezone.utc)
+    dirty = False
     
     for station in stations:
         cached = _health_cache.get(station.id, {})
-        last_seen = cached.get("last_seen")
+        last_seen = _ensure_aware(cached.get("last_seen") or station.last_seen)
         
         # Check if station is stale (no report in 60 seconds)
         is_online = False
-        if last_seen:
-            if isinstance(last_seen, datetime):
-                is_online = (now - last_seen).total_seconds() < 60
+        if last_seen and isinstance(last_seen, datetime):
+            is_online = (now - last_seen).total_seconds() < 60
         
         # Generate alerts
         alerts = []
@@ -135,14 +150,25 @@ async def get_all_health(db: Session = Depends(get_db)):
             alerts.append("Volante desconectado")
         if not cached.get("pedals_connected", False) and is_online:
             alerts.append("Pedales desconectados")
+        if is_online and "ac_running" in cached and not cached.get("ac_running", False):
+            alerts.append("AC cerrado")
         
         if not is_online and station.is_online:
             alerts.append("Sin respuesta")
+
+        if station.is_online != is_online:
+            station.is_online = is_online
+            if station.status != "archived":
+                station.status = "online" if is_online else "offline"
+            dirty = True
         
         result.append(StationHealthStatus(
             station_id=station.id,
             station_name=station.name,
+            is_active=station.is_active,
+            status=station.status,
             is_online=is_online,
+            is_kiosk_mode=station.is_kiosk_mode,
             last_seen=last_seen,
             cpu_percent=cpu,
             ram_percent=ram,
@@ -157,7 +183,11 @@ async def get_all_health(db: Session = Depends(get_db)):
             current_track=cached.get("current_track"),
             current_car=cached.get("current_car"),
             alerts=alerts,
+            is_locked=station.is_locked
         ))
+    
+    if dirty:
+        db.commit()
     
     return result
 
@@ -171,7 +201,7 @@ async def get_station_health(station_id: int, db: Session = Depends(get_db)):
     
     cached = _health_cache.get(station_id, {})
     now = datetime.now(timezone.utc)
-    last_seen = cached.get("last_seen")
+    last_seen = _ensure_aware(cached.get("last_seen") or station.last_seen)
     
     is_online = False
     if last_seen and isinstance(last_seen, datetime):
@@ -180,7 +210,10 @@ async def get_station_health(station_id: int, db: Session = Depends(get_db)):
     return StationHealthStatus(
         station_id=station.id,
         station_name=station.name,
+        is_active=station.is_active,
+        status=station.status,
         is_online=is_online,
+        is_kiosk_mode=station.is_kiosk_mode,
         last_seen=last_seen,
         cpu_percent=cached.get("cpu_percent") or 0,
         ram_percent=cached.get("ram_percent") or 0,
@@ -213,7 +246,7 @@ async def get_health_summary(db: Session = Depends(get_db)):
     
     for station in stations:
         cached = _health_cache.get(station.id, {})
-        last_seen = cached.get("last_seen")
+        last_seen = _ensure_aware(cached.get("last_seen") or station.last_seen)
         
         if last_seen and isinstance(last_seen, datetime):
             if (now - last_seen).total_seconds() < 60:

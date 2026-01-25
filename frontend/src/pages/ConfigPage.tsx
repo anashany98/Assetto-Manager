@@ -124,20 +124,20 @@ export default function ConfigPage() {
     };
 
     return (
-        <div className="p-8 h-full flex flex-col font-sans text-gray-100">
+        <div className="p-8 h-full flex flex-col font-sans text-gray-900 dark:text-gray-100">
             <div className="flex justify-between items-center mb-8">
                 <div>
-                    <h1 className="text-3xl font-black text-white flex items-center uppercase tracking-tight">
+                    <h1 className="text-3xl font-black text-gray-900 dark:text-white flex items-center uppercase tracking-tight">
                         <SettingsIcon className="mr-3 text-blue-500" size={32} />
                         Configuración de Sala
                     </h1>
-                    <p className="text-gray-400 mt-1 font-medium">Selecciona los perfiles y despliega a todos los simuladores.</p>
+                    <p className="text-gray-500 dark:text-gray-400 mt-1 font-medium">Selecciona los perfiles y despliega a todos los simuladores.</p>
                 </div>
 
                 <div className="flex items-center space-x-4">
                     <button
                         onClick={() => setIsAdminMode(!isAdminMode)}
-                        className={cn("p-3 rounded-xl transition-colors", isAdminMode ? "bg-red-500/20 text-red-400" : "bg-gray-800 text-gray-500")}
+                        className={cn("p-3 rounded-xl transition-colors", isAdminMode ? "bg-red-500/20 text-red-500 dark:text-red-400" : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-500")}
                         title={isAdminMode ? "Desactivar Edición" : "Activar Edición"}
                     >
                         {isAdminMode ? <Unlock size={20} /> : <Lock size={20} />}
@@ -149,7 +149,7 @@ export default function ConfigPage() {
                             "flex items-center space-x-3 px-8 py-4 rounded-xl shadow-lg transition-all font-black text-lg tracking-wide uppercase",
                             Object.keys(selectedProfiles).length > 0
                                 ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:scale-105 hover:shadow-blue-500/30"
-                                : "bg-gray-800 text-gray-600 cursor-not-allowed"
+                                : "bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed"
                         )}
                         disabled={Object.keys(selectedProfiles).length === 0 || deployMutation.isPending}
                     >
@@ -160,21 +160,21 @@ export default function ConfigPage() {
             </div>
 
             {/* Staging Bar */}
-            <div className="bg-gray-800 border border-gray-700 p-4 rounded-2xl mb-6 flex items-center shadow-sm min-h-[80px]">
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4 rounded-2xl mb-6 flex items-center shadow-sm min-h-[80px]">
                 <span className="font-black text-gray-500 uppercase text-xs tracking-widest mr-6">Resumen de Cambios:</span>
                 {Object.keys(selectedProfiles).length === 0 ? (
-                    <span className="text-gray-600 italic text-sm">Ningun perfil seleccionado...</span>
+                    <span className="text-gray-400 dark:text-gray-600 italic text-sm">Ningun perfil seleccionado...</span>
                 ) : (
                     <div className="flex gap-3 overflow-x-auto py-2">
                         {Object.entries(selectedProfiles).map(([cat, file]) => {
                             const catInfo = CATEGORIES.find(c => c.id === cat);
                             return (
-                                <div key={cat} className="bg-gray-700 pl-2 pr-4 py-2 rounded-xl text-sm font-bold text-gray-200 shadow-sm border border-gray-600 flex items-center whitespace-nowrap">
-                                    <div className={cn("p-1.5 rounded-lg mr-3 text-white", catInfo?.color.replace('text-', 'bg-').replace('bg-', ''))}>
+                                <div key={cat} className="bg-gray-100 dark:bg-gray-700 pl-2 pr-4 py-2 rounded-xl text-sm font-bold text-gray-800 dark:text-gray-200 shadow-sm border border-gray-200 dark:border-gray-600 flex items-center whitespace-nowrap">
+                                    <div className={cn("p-1.5 rounded-lg mr-3 text-white shadow-sm", catInfo?.color.replace('text-', 'bg-').replace('bg-', ''))}>
                                         {catInfo && <catInfo.icon size={12} />}
                                     </div>
                                     <div className="flex flex-col leading-none">
-                                        <span className="text-[10px] uppercase text-gray-400 mb-0.5">{catInfo?.name}</span>
+                                        <span className="text-[10px] uppercase text-gray-500 dark:text-gray-400 mb-0.5">{catInfo?.name}</span>
                                         <span>{file.replace('.ini', '')}</span>
                                     </div>
                                     <button
@@ -183,7 +183,7 @@ export default function ConfigPage() {
                                             delete newSel[cat];
                                             setSelectedProfiles(newSel);
                                         }}
-                                        className="ml-3 text-gray-400 hover:text-red-400 transition-colors"
+                                        className="ml-3 text-gray-400 hover:text-red-500 transition-colors"
                                     >
                                         &times;
                                     </button>
@@ -204,8 +204,8 @@ export default function ConfigPage() {
                             className={cn(
                                 "flex items-center space-x-4 px-5 py-4 rounded-2xl transition-all text-left font-bold group",
                                 selectedCategory === cat.id
-                                    ? "bg-gray-800 shadow-lg text-white border-2 border-blue-500 scale-[1.02]"
-                                    : "bg-transparent text-gray-500 hover:bg-gray-800/50 hover:text-gray-300 border-2 border-transparent"
+                                    ? "bg-white dark:bg-gray-800 shadow-lg text-blue-600 dark:text-white border-2 border-blue-500 scale-[1.02]"
+                                    : "bg-transparent text-gray-500 hover:bg-white dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-gray-300 border-2 border-transparent"
                             )}
                         >
                             <div className={cn("p-2.5 rounded-xl transition-colors", cat.color)}>
@@ -217,10 +217,10 @@ export default function ConfigPage() {
                 </div>
 
                 {/* Profiles Grid */}
-                <div className="flex-1 bg-gray-900/50 rounded-3xl p-8 border border-gray-800 shadow-inner overflow-y-auto">
+                <div className="flex-1 bg-white dark:bg-gray-900/50 rounded-3xl p-8 border border-gray-200 dark:border-gray-800 shadow-sm dark:shadow-inner overflow-y-auto">
                     <div className="flex justify-between items-center mb-8">
                         <div>
-                            <h2 className="text-xl font-black text-white uppercase tracking-tight">
+                            <h2 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tight">
                                 {CATEGORIES.find(c => c.id === selectedCategory)?.name}
                             </h2>
                             <p className="text-sm text-gray-500 font-medium">Selecciona una opción para aplicar</p>
@@ -228,7 +228,7 @@ export default function ConfigPage() {
                         {isAdminMode && (
                             <button
                                 onClick={handleCreate}
-                                className="flex items-center space-x-2 text-xs font-black text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 px-4 py-3 rounded-xl transition-colors uppercase tracking-wider"
+                                className="flex items-center space-x-2 text-xs font-black text-blue-600 dark:text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 px-4 py-3 rounded-xl transition-colors uppercase tracking-wider"
                             >
                                 <Plus size={16} />
                                 <span>Crear Nuevo</span>
@@ -238,7 +238,7 @@ export default function ConfigPage() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                         {categoryProfiles.length === 0 ? (
-                            <div className="col-span-full flex flex-col items-center justify-center py-20 text-gray-600">
+                            <div className="col-span-full flex flex-col items-center justify-center py-20 text-gray-400 dark:text-gray-600">
                                 <FileText size={64} className="mb-4 opacity-20" />
                                 <p className="font-medium">No hay perfiles disponibles.</p>
                                 {isAdminMode && (
@@ -257,14 +257,14 @@ export default function ConfigPage() {
                                         className={cn(
                                             "relative group cursor-pointer transition-all duration-200 p-6 rounded-3xl border-2 flex flex-col items-start justify-between min-h-[160px]",
                                             isSelected
-                                                ? "bg-blue-600 border-blue-500 text-white shadow-xl shadow-blue-900/50 transform scale-[1.02]"
-                                                : "bg-gray-800 border-transparent hover:bg-gray-750 hover:border-gray-700 hover:shadow-md text-gray-300"
+                                                ? "bg-blue-600 border-blue-500 text-white shadow-xl shadow-blue-500/20 dark:shadow-blue-900/50 transform scale-[1.02]"
+                                                : "bg-gray-50 dark:bg-gray-800 border-transparent hover:bg-gray-100 dark:hover:bg-gray-750 hover:border-gray-300 dark:hover:border-gray-700 hover:shadow-md text-gray-700 dark:text-gray-300"
                                         )}
                                     >
                                         <div className="flex w-full justify-between items-start mb-4">
                                             <div className={cn(
                                                 "p-3 rounded-2xl",
-                                                isSelected ? "bg-white/20 text-white" : "bg-gray-700 text-gray-500 shadow-sm"
+                                                isSelected ? "bg-white/20 text-white" : "bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-500 shadow-sm"
                                             )}>
                                                 <FileText size={24} />
                                             </div>
@@ -276,7 +276,7 @@ export default function ConfigPage() {
                                         </div>
 
                                         <div>
-                                            <h3 className={cn("font-black text-lg leading-tight mb-1", isSelected ? "text-white" : "text-white")}>
+                                            <h3 className={cn("font-black text-lg leading-tight mb-1", isSelected ? "text-white" : "text-gray-900 dark:text-white")}>
                                                 {filename.replace('.ini', '')}
                                             </h3>
                                             <p className={cn("text-xs font-mono truncate opacity-60", isSelected ? "text-blue-100" : "text-gray-500")}>
@@ -288,13 +288,13 @@ export default function ConfigPage() {
                                             <div className="absolute top-4 right-4 flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); handleEdit(filename); }}
-                                                    className="p-2 bg-gray-700 hover:bg-white hover:text-gray-800 text-gray-400 rounded-xl shadow-sm transition-colors"
+                                                    className="p-2 bg-gray-200 dark:bg-gray-700 hover:bg-white hover:text-gray-800 text-gray-500 dark:text-gray-400 rounded-xl shadow-sm transition-colors"
                                                 >
                                                     <Edit2 size={14} />
                                                 </button>
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(filename); }}
-                                                    className="p-2 bg-gray-700 hover:bg-red-500 hover:text-white text-red-400 rounded-xl shadow-sm transition-colors"
+                                                    className="p-2 bg-gray-200 dark:bg-gray-700 hover:bg-red-500 hover:text-white text-red-500 dark:text-red-400 rounded-xl shadow-sm transition-colors"
                                                 >
                                                     <Trash2 size={14} />
                                                 </button>
@@ -311,10 +311,10 @@ export default function ConfigPage() {
             {/* EDITOR MODAL */}
             {isEditorOpen && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-                    <div className="bg-gray-900 rounded-3xl shadow-2xl w-full max-w-4xl flex flex-col max-h-[85vh] border border-gray-800 overflow-hidden">
-                        <div className="p-6 border-b border-gray-800 flex justify-between items-center bg-gray-900">
+                    <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-4xl flex flex-col max-h-[85vh] border border-gray-200 dark:border-gray-800 overflow-hidden">
+                        <div className="p-6 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center bg-gray-50 dark:bg-gray-900">
                             <div>
-                                <h2 className="text-xl font-black text-white tracking-tight">
+                                <h2 className="text-xl font-black text-gray-900 dark:text-white tracking-tight">
                                     {editingProfile ? 'Editar Perfil' : 'Nuevo Perfil'}
                                 </h2>
                                 <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mt-1">
@@ -324,21 +324,21 @@ export default function ConfigPage() {
                             <div className="flex items-center space-x-2">
                                 <button
                                     onClick={() => setIsVisualMode(!isVisualMode)}
-                                    className="p-2 text-xs font-bold uppercase tracking-wider bg-gray-800 border border-gray-700 rounded-lg text-gray-400 hover:text-blue-400 hover:border-blue-500/50 transition-all"
+                                    className="p-2 text-xs font-bold uppercase tracking-wider bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-500/50 transition-all"
                                 >
                                     {isVisualMode ? 'Ver Código' : 'Ver Visual'}
                                 </button>
-                                <button onClick={() => setIsEditorOpen(false)} className="text-gray-500 hover:text-white p-2 hover:bg-gray-800 rounded-full transition-colors">
+                                <button onClick={() => setIsEditorOpen(false)} className="text-gray-400 hover:text-gray-900 dark:hover:text-white p-2 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-full transition-colors">
                                     <Plus size={24} className="rotate-45" />
                                 </button>
                             </div>
                         </div>
 
-                        <div className="p-8 flex-1 overflow-auto bg-gray-950">
+                        <div className="p-8 flex-1 overflow-auto bg-white dark:bg-gray-950">
                             <div className="mb-8">
                                 <label className="block text-xs font-black text-gray-500 uppercase tracking-widest mb-3">Nombre del Perfil</label>
                                 <input
-                                    className="w-full text-xl font-bold border-2 border-gray-800 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 outline-none transition-all bg-gray-900 text-white"
+                                    className="w-full text-xl font-bold border-2 border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 outline-none transition-all input-racing"
                                     placeholder="Ej: Logitech G29 Pro"
                                     value={newProfileName}
                                     onChange={(e) => setNewProfileName(e.target.value)}
@@ -354,17 +354,17 @@ export default function ConfigPage() {
                                 />
                             ) : (
                                 <textarea
-                                    className="w-full h-96 font-mono text-sm bg-gray-900 text-green-400 p-6 rounded-2xl outline-none border border-gray-800 focus:border-green-500/50"
+                                    className="w-full h-96 font-mono text-sm bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-green-400 p-6 rounded-2xl outline-none border border-gray-200 dark:border-gray-800 focus:border-green-500/50"
                                     value={Object.entries(parsedContent).map(([section, keys]) => `[${section}]\n` + Object.entries(keys).map(([k, v]) => `${k}=${v}`).join('\n')).join('\n\n')}
                                     readOnly
                                 />
                             )}
                         </div>
 
-                        <div className="p-6 border-t border-gray-800 flex justify-end space-x-3 bg-gray-900">
+                        <div className="p-6 border-t border-gray-200 dark:border-gray-800 flex justify-end space-x-3 bg-gray-50 dark:bg-gray-900">
                             <button
                                 onClick={() => setIsEditorOpen(false)}
-                                className="px-6 py-3 text-gray-500 font-bold hover:bg-gray-800 rounded-xl transition-colors text-sm uppercase tracking-wide"
+                                className="px-6 py-3 text-gray-500 font-bold hover:bg-gray-200 dark:hover:bg-gray-800 rounded-xl transition-colors text-sm uppercase tracking-wide"
                             >
                                 Cancelar
                             </button>

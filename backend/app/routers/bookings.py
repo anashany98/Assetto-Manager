@@ -1,12 +1,13 @@
 """
 Bookings Router - Manage simulator time slot reservations
 """
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime, date, timedelta
 
-from .. import database, models
+from .. import models
+from ..database import get_db
 from ..services.email_service import send_booking_confirmation, send_booking_status_update
 from sqlalchemy.orm import Session
 
@@ -53,97 +54,90 @@ async def list_bookings(
     status: Optional[str] = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
-    limit: int = 100
+    limit: int = 100,
+    db: Session = Depends(get_db)
 ):
     """List all bookings with optional filters"""
-    db: Session = database.SessionLocal()
-    try:
-        query = db.query(models.Booking).order_by(models.Booking.date.desc(), models.Booking.time_slot)
-        
-        if status:
-            query = query.filter(models.Booking.status == status)
-        if date_from:
-            query = query.filter(models.Booking.date >= datetime.combine(date_from, datetime.min.time()))
-        if date_to:
-            query = query.filter(models.Booking.date <= datetime.combine(date_to, datetime.max.time()))
-        
-        bookings = query.limit(limit).all()
-        
-        return [
-            {
-                "id": b.id,
-                "station_id": b.station_id,
-                "customer_name": b.customer_name,
-                "customer_email": b.customer_email,
-                "customer_phone": b.customer_phone,
-                "num_players": b.num_players or 1,
-                "date": b.date.date().isoformat() if b.date else None,
-                "time_slot": b.time_slot,
-                "duration_minutes": b.duration_minutes,
-                "status": b.status,
-                "notes": b.notes,
-                "created_at": b.created_at.isoformat() if b.created_at else None
-            }
-            for b in bookings
-        ]
-    finally:
-        db.close()
+    query = db.query(models.Booking).order_by(models.Booking.date.desc(), models.Booking.time_slot)
+    
+    if status:
+        query = query.filter(models.Booking.status == status)
+    if date_from:
+        query = query.filter(models.Booking.date >= datetime.combine(date_from, datetime.min.time()))
+    if date_to:
+        query = query.filter(models.Booking.date <= datetime.combine(date_to, datetime.max.time()))
+    
+    bookings = query.limit(limit).all()
+    
+    return [
+        {
+            "id": b.id,
+            "station_id": b.station_id,
+            "customer_name": b.customer_name,
+            "customer_email": b.customer_email,
+            "customer_phone": b.customer_phone,
+            "num_players": b.num_players or 1,
+            "date": b.date.date().isoformat() if b.date else None,
+            "time_slot": b.time_slot,
+            "duration_minutes": b.duration_minutes,
+            "status": b.status,
+            "notes": b.notes,
+            "created_at": b.created_at.isoformat() if b.created_at else None
+        }
+        for b in bookings
+    ]
 
 
 @router.get("/available")
 async def get_available_slots(
     target_date: date = Query(..., description="Date to check availability"),
-    station_id: Optional[int] = None
+    station_id: Optional[int] = None,
+    db: Session = Depends(get_db)
 ):
     """Get available time slots for a specific date"""
-    db: Session = database.SessionLocal()
-    try:
-        # Get existing bookings for this date
-        start_of_day = datetime.combine(target_date, datetime.min.time())
-        end_of_day = datetime.combine(target_date, datetime.max.time())
+    # Get existing bookings for this date
+    start_of_day = datetime.combine(target_date, datetime.min.time())
+    end_of_day = datetime.combine(target_date, datetime.max.time())
+    
+    query = db.query(models.Booking).filter(
+        models.Booking.date >= start_of_day,
+        models.Booking.date <= end_of_day,
+        models.Booking.status.in_(["pending", "confirmed"])
+    )
+    
+    if station_id:
+        query = query.filter(models.Booking.station_id == station_id)
+    
+    existing_bookings = query.all()
+    booked_slots = {b.time_slot for b in existing_bookings}
+    
+    # Get all stations
+    stations = db.query(models.Station).filter(models.Station.is_active == True).all()
+    station_count = len(stations) if stations else 1
+    
+    # Determine which slots are fully booked
+    availability = []
+    for slot in TIME_SLOTS:
+        slot_bookings = [b for b in existing_bookings if b.time_slot == slot]
+        remaining = station_count - len(slot_bookings)
         
-        query = db.query(models.Booking).filter(
-            models.Booking.date >= start_of_day,
-            models.Booking.date <= end_of_day,
-            models.Booking.status.in_(["pending", "confirmed"])
-        )
-        
-        if station_id:
-            query = query.filter(models.Booking.station_id == station_id)
-        
-        existing_bookings = query.all()
-        booked_slots = {b.time_slot for b in existing_bookings}
-        
-        # Get all stations
-        stations = db.query(models.Station).filter(models.Station.is_active == True).all()
-        station_count = len(stations) if stations else 1
-        
-        # Determine which slots are fully booked
-        availability = []
-        for slot in TIME_SLOTS:
-            slot_bookings = [b for b in existing_bookings if b.time_slot == slot]
-            remaining = station_count - len(slot_bookings)
-            
-            availability.append({
-                "time_slot": slot,
-                "available": remaining > 0,
-                "remaining_slots": remaining,
-                "booked_count": len(slot_bookings)
-            })
-        
-        return {
-            "date": target_date.isoformat(),
-            "total_stations": station_count,
-            "slots": availability
-        }
-    finally:
-        db.close()
+        availability.append({
+            "time_slot": slot,
+            "available": remaining > 0,
+            "remaining_slots": remaining,
+            "booked_count": len(slot_bookings)
+        })
+    
+    return {
+        "date": target_date.isoformat(),
+        "total_stations": station_count,
+        "slots": availability
+    }
 
 
 @router.post("/")
-async def create_booking(data: BookingCreate):
+async def create_booking(data: BookingCreate, db: Session = Depends(get_db)):
     """Create a new booking"""
-    db: Session = database.SessionLocal()
     try:
         # Validate time slot
         if data.time_slot not in TIME_SLOTS:
@@ -217,40 +211,37 @@ async def create_booking(data: BookingCreate):
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        db.close()
 
 
 @router.get("/{booking_id}")
-async def get_booking(booking_id: int):
+async def get_booking(booking_id: int, db: Session = Depends(get_db)):
     """Get a specific booking by ID"""
-    db: Session = database.SessionLocal()
-    try:
-        booking = db.query(models.Booking).filter(models.Booking.id == booking_id).first()
-        if not booking:
-            raise HTTPException(status_code=404, detail="Booking not found")
-        
-        return {
-            "id": booking.id,
-            "station_id": booking.station_id,
-            "customer_name": booking.customer_name,
-            "customer_email": booking.customer_email,
-            "customer_phone": booking.customer_phone,
-            "date": booking.date.date().isoformat() if booking.date else None,
-            "time_slot": booking.time_slot,
-            "duration_minutes": booking.duration_minutes,
-            "status": booking.status,
-            "notes": booking.notes,
-            "created_at": booking.created_at.isoformat() if booking.created_at else None
-        }
-    finally:
-        db.close()
+    booking = db.query(models.Booking).filter(models.Booking.id == booking_id).first()
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    return {
+        "id": booking.id,
+        "station_id": booking.station_id,
+        "customer_name": booking.customer_name,
+        "customer_email": booking.customer_email,
+        "customer_phone": booking.customer_phone,
+        "date": booking.date.date().isoformat() if booking.date else None,
+        "time_slot": booking.time_slot,
+        "duration_minutes": booking.duration_minutes,
+        "status": booking.status,
+        "notes": booking.notes,
+        "created_at": booking.created_at.isoformat() if booking.created_at else None
+    }
 
 
 @router.put("/{booking_id}/status")
-async def update_booking_status(booking_id: int, data: BookingUpdate):
+async def update_booking_status(
+    booking_id: int,
+    data: BookingUpdate,
+    db: Session = Depends(get_db)
+):
     """Update a booking's status"""
-    db: Session = database.SessionLocal()
     try:
         booking = db.query(models.Booking).filter(models.Booking.id == booking_id).first()
         if not booking:
@@ -287,14 +278,11 @@ async def update_booking_status(booking_id: int, data: BookingUpdate):
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        db.close()
 
 
 @router.delete("/{booking_id}")
-async def cancel_booking(booking_id: int):
+async def cancel_booking(booking_id: int, db: Session = Depends(get_db)):
     """Cancel a booking"""
-    db: Session = database.SessionLocal()
     try:
         booking = db.query(models.Booking).filter(models.Booking.id == booking_id).first()
         if not booking:
@@ -307,57 +295,51 @@ async def cancel_booking(booking_id: int):
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        db.close()
 
 
 @router.get("/calendar/week")
-async def get_week_calendar(start_date: Optional[date] = None):
+async def get_week_calendar(start_date: Optional[date] = None, db: Session = Depends(get_db)):
     """Get bookings for a week (for calendar view)"""
-    db: Session = database.SessionLocal()
-    try:
-        if not start_date:
-            # Start from Monday of current week
-            today = date.today()
-            start_date = today - timedelta(days=today.weekday())
-        
-        end_date = start_date + timedelta(days=6)
-        
-        bookings = db.query(models.Booking).filter(
-            models.Booking.date >= datetime.combine(start_date, datetime.min.time()),
-            models.Booking.date <= datetime.combine(end_date, datetime.max.time())
-        ).order_by(models.Booking.date, models.Booking.time_slot).all()
-        
-        # Group by date
-        calendar = {}
-        current = start_date
-        while current <= end_date:
-            date_str = current.isoformat()
-            calendar[date_str] = {
-                "date": date_str,
-                "day_name": current.strftime("%A"),
-                "bookings": []
-            }
-            current += timedelta(days=1)
-        
-        for b in bookings:
-            date_str = b.date.date().isoformat()
-            if date_str in calendar:
-                calendar[date_str]["bookings"].append({
-                    "id": b.id,
-                    "time_slot": b.time_slot,
-                    "customer_name": b.customer_name,
-                    "status": b.status,
-                    "station_id": b.station_id
-                })
-        
-        return {
-            "start_date": start_date.isoformat(),
-            "end_date": end_date.isoformat(),
-            "days": list(calendar.values())
+    if not start_date:
+        # Start from Monday of current week
+        today = date.today()
+        start_date = today - timedelta(days=today.weekday())
+    
+    end_date = start_date + timedelta(days=6)
+    
+    bookings = db.query(models.Booking).filter(
+        models.Booking.date >= datetime.combine(start_date, datetime.min.time()),
+        models.Booking.date <= datetime.combine(end_date, datetime.max.time())
+    ).order_by(models.Booking.date, models.Booking.time_slot).all()
+    
+    # Group by date
+    calendar = {}
+    current = start_date
+    while current <= end_date:
+        date_str = current.isoformat()
+        calendar[date_str] = {
+            "date": date_str,
+            "day_name": current.strftime("%A"),
+            "bookings": []
         }
-    finally:
-        db.close()
+        current += timedelta(days=1)
+    
+    for b in bookings:
+        date_str = b.date.date().isoformat()
+        if date_str in calendar:
+            calendar[date_str]["bookings"].append({
+                "id": b.id,
+                "time_slot": b.time_slot,
+                "customer_name": b.customer_name,
+                "status": b.status,
+                "station_id": b.station_id
+            })
+    
+    return {
+        "start_date": start_date.isoformat(),
+        "end_date": end_date.isoformat(),
+        "days": list(calendar.values())
+    }
 
 
 @router.get("/config/time-slots")

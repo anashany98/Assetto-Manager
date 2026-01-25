@@ -58,8 +58,8 @@ export default function DriversPage() {
         <div className="p-8">
             <div className="flex justify-between items-center mb-8">
                 <div>
-                    <h1 className="text-3xl font-black text-white italic uppercase tracking-tight">Pilotos y Licencias</h1>
-                    <p className="text-gray-400 mt-1 font-bold">Base de datos de corredores registrados</p>
+                    <h1 className="text-3xl font-black text-gray-900 dark:text-white italic uppercase tracking-tight">Pilotos y Licencias</h1>
+                    <p className="text-gray-500 dark:text-gray-400 mt-1 font-bold">Base de datos de corredores registrados</p>
                 </div>
 
                 <div className="flex gap-4">
@@ -75,7 +75,7 @@ export default function DriversPage() {
                         <input
                             type="text"
                             placeholder="Buscar piloto..."
-                            className="w-full pl-10 pr-4 py-2 bg-gray-900 border border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-white placeholder-gray-500 font-medium"
+                            className="w-full pl-10 pr-4 py-2 input-racing font-medium"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
@@ -89,15 +89,15 @@ export default function DriversPage() {
                         <Link
                             to={`/drivers/${driver.driver_name}`}
                             key={driver.driver_name}
-                            className="bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-700 hover:shadow-xl hover:border-gray-500 transition-all group relative overflow-hidden"
+                            className="glass-card p-6 border-transparent hover:border-blue-500/30 transition-all group relative overflow-hidden"
                         >
                             <div className="flex justify-between items-start mb-4 relative z-10">
                                 <div className="flex items-center space-x-3">
-                                    <div className="w-12 h-12 bg-gradient-to-br from-gray-700 to-gray-900 rounded-xl flex items-center justify-center text-white font-black text-lg shadow-lg border border-gray-600">
+                                    <div className="w-12 h-12 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-900 rounded-xl flex items-center justify-center text-gray-900 dark:text-white font-black text-lg shadow-sm dark:shadow-lg border border-gray-200 dark:border-gray-600">
                                         {driver.driver_name?.charAt(0).toUpperCase() || '?'}
                                     </div>
                                     <div>
-                                        <h3 className="font-black text-lg text-white group-hover:text-blue-400 transition-colors uppercase tracking-tight">
+                                        <h3 className="font-black text-lg text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors uppercase tracking-tight">
                                             {driver.driver_name}
                                         </h3>
                                         <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full border ${getRankColor(driver.rank_tier)}`}>
@@ -114,35 +114,35 @@ export default function DriversPage() {
                             </div>
 
                             <div className="grid grid-cols-2 gap-4 text-sm mb-4">
-                                <div className="bg-gray-900/50 p-2 rounded-lg border border-gray-700">
-                                    <div className="text-gray-400 text-xs flex items-center gap-1 mb-1 font-bold uppercase">
+                                <div className="bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg border border-gray-200 dark:border-gray-700">
+                                    <div className="text-gray-500 dark:text-gray-400 text-xs flex items-center gap-1 mb-1 font-bold uppercase">
                                         <Trophy size={10} /> Vueltas
                                     </div>
-                                    <div className="font-black text-white">{driver.total_laps}</div>
+                                    <div className="font-black text-gray-900 dark:text-white">{driver.total_laps}</div>
                                 </div>
-                                <div className="bg-gray-900/50 p-2 rounded-lg border border-gray-700">
-                                    <div className="text-gray-400 text-xs flex items-center gap-1 mb-1 font-bold uppercase">
+                                <div className="bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg border border-gray-200 dark:border-gray-700">
+                                    <div className="text-gray-500 dark:text-gray-400 text-xs flex items-center gap-1 mb-1 font-bold uppercase">
                                         <Car size={10} /> Favorito
                                     </div>
-                                    <div className="font-black text-white truncate" title={driver.favorite_car}>
+                                    <div className="font-black text-gray-900 dark:text-white truncate" title={driver.favorite_car}>
                                         {driver.favorite_car}
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="flex items-center justify-between pt-4 border-t border-gray-700">
-                                <div className="text-xs text-gray-400 flex items-center gap-1">
+                            <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700/50">
+                                <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
                                     <Clock size={12} />
                                     {formatDistanceToNow(new Date(driver.last_seen), { addSuffix: true, locale: es })}
                                 </div>
-                                <div className="text-blue-500 text-xs font-bold flex items-center group-hover:translate-x-1 transition-transform">
+                                <div className="text-blue-600 dark:text-blue-500 text-xs font-bold flex items-center group-hover:translate-x-1 transition-transform">
                                     Ver Pasaporte <ChevronRight size={14} />
                                 </div>
                             </div>
                         </Link>
                     ))
                 ) : (
-                    <div className="col-span-full py-20 text-center bg-gray-900/30 rounded-3xl border-2 border-dashed border-gray-800 text-gray-500">
+                    <div className="col-span-full py-20 text-center bg-gray-50 dark:bg-gray-900/30 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-800 text-gray-500">
                         <User size={48} className="mx-auto mb-4 opacity-10" />
                         <p className="font-bold uppercase tracking-widest text-xs">No hay pilotos registrados</p>
                     </div>

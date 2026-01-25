@@ -4,7 +4,8 @@ Uses APScheduler for periodic task execution
 """
 import asyncio
 import json
-from datetime import datetime, timedelta, date
+import os
+from datetime import datetime, timedelta, date, timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 import logging
@@ -18,6 +19,37 @@ logger = logging.getLogger(__name__)
 # Scheduler instance
 scheduler = AsyncIOScheduler()
 
+def _get_setting_value(db: Session, key: str, default: str) -> str:
+    setting = db.query(models.GlobalSettings).filter(models.GlobalSettings.key == key).first()
+    if setting and setting.value is not None:
+        return setting.value
+    return default
+
+def _load_ghost_archive_config() -> dict:
+    """Load ghost archive config from settings table or env defaults."""
+    defaults = {
+        "hours": os.getenv("GHOST_ARCHIVE_HOURS", "24"),
+        "include_never_seen": os.getenv("GHOST_ARCHIVE_INCLUDE_NEVER_SEEN", "true"),
+        "hour": os.getenv("GHOST_ARCHIVE_HOUR", "3"),
+        "minute": os.getenv("GHOST_ARCHIVE_MINUTE", "0"),
+    }
+    db: Session = database.SessionLocal()
+    try:
+        hours = _get_setting_value(db, "ghost_archive_hours", defaults["hours"])
+        include_never_seen = _get_setting_value(db, "ghost_archive_include_never_seen", defaults["include_never_seen"])
+        hour = _get_setting_value(db, "ghost_archive_hour", defaults["hour"])
+        minute = _get_setting_value(db, "ghost_archive_minute", defaults["minute"])
+        return {
+            "hours": hours,
+            "include_never_seen": include_never_seen,
+            "hour": hour,
+            "minute": minute,
+        }
+    except Exception as e:
+        logger.error(f"Failed to load ghost archive config from settings: {e}")
+        return defaults
+    finally:
+        db.close()
 
 def send_booking_reminder(
     customer_email: str,
@@ -151,6 +183,7 @@ async def sync_station_content():
     try:
         active_count = 0
         for station_id, ws in ws_manager.active_agents.items():
+            db = None
             try:
                 # We need to get the AC path for this station to send it back?
                 # The agent knows its path, but the command expects it?
@@ -164,13 +197,51 @@ async def sync_station_content():
                         "ac_path": station.ac_path
                     }))
                     active_count += 1
-                db.close()
             except Exception as ex:
                 logger.error(f"Failed to sync station {station_id}: {ex}")
+            finally:
+                if db:
+                    db.close()
         
         logger.info(f"Content sync triggered for {active_count} stations")
     except Exception as e:
         logger.error(f"Error in global content sync: {e}")
+
+def archive_ghost_stations():
+    """Archive inactive/ghost stations that have not been seen recently."""
+    config = _load_ghost_archive_config()
+    ghost_hours = int(config.get("hours", "24"))
+    include_never_seen = str(config.get("include_never_seen", "true")).lower() in {"1", "true", "yes"}
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=ghost_hours)
+
+    db: Session = database.SessionLocal()
+    archived = 0
+    try:
+        stations = db.query(models.Station).filter(models.Station.is_active == True).all()
+        for station in stations:
+            if station.is_online:
+                continue
+            last_seen = station.last_seen
+            if last_seen is None:
+                if not include_never_seen:
+                    continue
+                is_ghost = True
+            else:
+                is_ghost = last_seen < cutoff
+            if not is_ghost:
+                continue
+            station.is_active = False
+            station.is_online = False
+            station.status = "archived"
+            station.archived_at = datetime.now(timezone.utc)
+            archived += 1
+        if archived:
+            db.commit()
+        logger.info(f"Archived {archived} ghost stations (cutoff {cutoff.isoformat()})")
+    except Exception as e:
+        logger.error(f"Error archiving ghost stations: {e}")
+    finally:
+        db.close()
 
 def start_scheduler():
     """Initialize and start the scheduler"""
@@ -190,9 +261,19 @@ def start_scheduler():
         id="content_sync",
         replace_existing=True
     )
+
+    ghost_config = _load_ghost_archive_config()
+    ghost_hour = int(ghost_config.get("hour", "3"))
+    ghost_minute = int(ghost_config.get("minute", "0"))
+    scheduler.add_job(
+        archive_ghost_stations,
+        CronTrigger(hour=ghost_hour, minute=ghost_minute),
+        id="archive_ghost_stations",
+        replace_existing=True
+    )
     
     scheduler.start()
-    logger.info("Scheduler started - Booking reminders (18:00) & Content Sync (Hourly)")
+    logger.info("Scheduler started - Booking reminders (18:00), Content Sync (Hourly), Ghost Archive (Configured)")
 
 
 def stop_scheduler():

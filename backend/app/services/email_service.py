@@ -19,6 +19,25 @@ SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 SMTP_FROM_NAME = os.getenv("SMTP_FROM_NAME", "VRacing Bar")
 SMTP_FROM_EMAIL = os.getenv("SMTP_FROM_EMAIL", "")
 
+def _normalize_base_url(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    return value.rstrip("/")
+
+def _default_public_base_url() -> str:
+    value = (
+        os.getenv("PUBLIC_APP_URL")
+        or os.getenv("PUBLIC_BASE_URL")
+        or os.getenv("PUBLIC_KIOSK_URL")
+        or os.getenv("PAYMENT_PUBLIC_KIOSK_URL")
+    )
+    if not value:
+        return "http://localhost:3010"
+    base = value.rstrip("/")
+    if base.endswith("/kiosk"):
+        base = base[:-6]
+    return base or value.rstrip("/")
+
 
 def is_email_configured() -> bool:
     """Check if email is properly configured"""
@@ -75,7 +94,8 @@ def send_booking_confirmation(
     duration_minutes: int,
     booking_id: int,
     manage_token: Optional[str] = None,
-    bar_name: str = "VRacing Bar"
+    bar_name: str = "VRacing Bar",
+    public_base_url: Optional[str] = None
 ) -> bool:
     """
     Send booking confirmation email to customer.
@@ -99,7 +119,13 @@ def send_booking_confirmation(
         </style>
     """
 
-    manage_link = f'<div style="text-align: center;"><a href="http://localhost:3010/reserva/{manage_token}" class="button">Gestionar Mi Reserva</a></div>' if manage_token else ''
+    base_url = _normalize_base_url(public_base_url) or _default_public_base_url()
+    manage_link = (
+        f'<div style="text-align: center;"><a href="{base_url}/reserva/{manage_token}" '
+        f'class="button">Gestionar Mi Reserva</a></div>'
+        if manage_token
+        else ""
+    )
 
     html_content = """
     <!DOCTYPE html>
@@ -263,7 +289,8 @@ def send_table_confirmation(
     table_labels: str,
     booking_id: int,
     manage_token: Optional[str] = None,
-    bar_name: str = "VRacing Bar"
+    bar_name: str = "VRacing Bar",
+    public_base_url: Optional[str] = None
 ) -> bool:
     """
     Send table booking confirmation email.
@@ -287,7 +314,13 @@ def send_table_confirmation(
         </style>
     """
 
-    manage_link = f'<div style="text-align: center;"><a href="http://localhost:3010/reserva/{manage_token}" class="button">Gestionar Mi Reserva</a></div>' if manage_token else ''
+    base_url = _normalize_base_url(public_base_url) or _default_public_base_url()
+    manage_link = (
+        f'<div style="text-align: center;"><a href="{base_url}/reserva/{manage_token}" '
+        f'class="button">Gestionar Mi Reserva</a></div>'
+        if manage_token
+        else ""
+    )
 
     html_content = """
     <!DOCTYPE html>

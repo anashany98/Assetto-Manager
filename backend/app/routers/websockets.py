@@ -2,14 +2,41 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 from typing import List, Dict, Any
 import json
 import logging
+import os
 from sqlalchemy.orm import Session
 from ..database import SessionLocal
 from .. import models
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+def _is_public_ws_allowed(token: str | None) -> bool:
+    env = os.getenv("ENVIRONMENT", "development")
+    expected = os.getenv("PUBLIC_WS_TOKEN") or os.getenv("PUBLIC_API_TOKEN")
+    if env == "production":
+        if not expected:
+            logger.error("PUBLIC_WS_TOKEN not configured for production WebSocket access")
+            return False
+        return token == expected
+    if expected and token != expected:
+        return False
+    return True
+
+
+def _is_agent_ws_allowed(token: str | None) -> bool:
+    env = os.getenv("ENVIRONMENT", "development")
+    expected = os.getenv("AGENT_TOKEN")
+    if env == "production":
+        if not expected:
+            logger.error("AGENT_TOKEN not configured for production agent WebSocket access")
+            return False
+        return token == expected
+    if expected and token != expected:
+        return False
+    return True
 
 class ConnectionManager:
     def __init__(self):
@@ -47,6 +74,18 @@ class ConnectionManager:
             if websocket in self.agent_states:
                 del self.agent_states[websocket]
             logger.info(f"Agent Disconnected: Station {station_id}")
+            db = SessionLocal()
+            try:
+                station = db.query(models.Station).filter(models.Station.id == station_id).first()
+                if station:
+                    station.is_online = False
+                    if station.status != "archived":
+                        station.status = "offline"
+                    db.commit()
+            except Exception as e:
+                logger.error(f"Failed to update station {station_id} offline state: {e}")
+            finally:
+                db.close()
 
     async def broadcast(self, message: str):
         # Broadcast message from Agent to all Clients
@@ -91,6 +130,10 @@ manager = ConnectionManager()
 @router.websocket("/ws/telemetry/client")
 async def websocket_client_endpoint(websocket: WebSocket):
     logger.info("Attempting to connect a new client...")
+    token = websocket.query_params.get("token")
+    if not _is_public_ws_allowed(token):
+        await websocket.close(code=1008)
+        return
     await manager.connect_client(websocket)
     try:
         while True:
@@ -120,6 +163,10 @@ async def websocket_agent_endpoint(websocket: WebSocket):
                 
                 # Handle Identification
                 if data.get("type") == "identify":
+                    token = data.get("token")
+                    if not _is_agent_ws_allowed(token):
+                        await websocket.close(code=1008)
+                        return
                     station_id = data.get("station_id")
                     if station_id:
                         await manager.register_agent(websocket, station_id)
@@ -128,6 +175,13 @@ async def websocket_agent_endpoint(websocket: WebSocket):
                         db = SessionLocal()
                         try:
                             station = db.query(models.Station).filter(models.Station.id == station_id).first()
+                            if station:
+                                station.is_active = True
+                                station.is_online = True
+                                station.status = "online"
+                                station.last_seen = datetime.now(timezone.utc)
+                                station.archived_at = None
+                                db.commit()
                             if station and station.is_tv_mode:
                                 # Look for running lobbies
                                 active_lobby = db.query(models.Lobby).filter(models.Lobby.status == "running").first()
@@ -148,7 +202,8 @@ async def websocket_agent_endpoint(websocket: WebSocket):
                                 logger.info(f"Auto-triggering content scan for Station {station_id}")
                                 await websocket.send_text(json.dumps({
                                     "command": "scan_content",
-                                    "ac_path": station.ac_path
+                                    "ac_path": station.ac_path,
+                                    "station_ip": station.ip_address
                                 }))
                         finally:
                             db.close()
@@ -164,9 +219,42 @@ async def websocket_agent_endpoint(websocket: WebSocket):
                             station = db.query(models.Station).filter(models.Station.id == station_id).first()
                             if station:
                                 station.content_cache = content_data
-                                station.content_cache_updated = datetime.now()
+                                station.content_cache_updated = datetime.now(timezone.utc)
                                 db.commit()
                                 logger.info(f"Cached content for Station {station_id}: {len(content_data.get('cars',[]))} cars, {len(content_data.get('tracks',[]))} tracks")
+
+                                # --- AUTO-POPULATE GLOBAL LIBRARY ---
+                                def ensure_mod_exists(item, mod_type):
+                                    mod_name = item.get("name") or item.get("id")
+                                    mod_id = item.get("id")
+                                    if not mod_name: return
+                                    
+                                    # Create "Auto Detected" mod if not exists
+                                    existing = db.query(models.Mod).filter(models.Mod.name == mod_name).first()
+                                    if not existing:
+                                        new_mod = models.Mod(
+                                            name=mod_name,
+                                            type=mod_type,
+                                            version="1.0",
+                                            source_path=f"auto_scan::{mod_id}", 
+                                            is_active=True,
+                                            status="detected"
+                                        )
+                                        db.add(new_mod)
+                                        db.commit()
+                                        db.refresh(new_mod)
+                                        
+                                        # Auto-tag
+                                        from .mods import _apply_auto_tags
+                                        _apply_auto_tags(db, new_mod, mod_type, mod_name)
+                                        logger.info(f"Auto-added to Library: {mod_name} ({mod_type})")
+                                
+                                for car in content_data.get("cars", []):
+                                    ensure_mod_exists(car, "car")
+                                    
+                                for track in content_data.get("tracks", []):
+                                    ensure_mod_exists(track, "track")
+
                         finally:
                             db.close()
                     continue
@@ -195,7 +283,7 @@ async def websocket_agent_endpoint(websocket: WebSocket):
                                 car_model=car_model,
                                 track_name=track_name,
                                 best_lap=lap_time,
-                                date=datetime.now(datetime.timezone.utc),
+                                date=datetime.now(timezone.utc),
                                 session_type="practice",
                                 track_config=None
                             )
@@ -210,7 +298,8 @@ async def websocket_agent_endpoint(websocket: WebSocket):
             except json.JSONDecodeError:
                 pass # Ignore invalid JSON
             except Exception as e:
-                logger.error(f"Error processing stats: {e}")
+                # logger.error(f"Error processing stats: {e}")
+                pass
                 
     except WebSocketDisconnect:
         manager.disconnect_agent(websocket)

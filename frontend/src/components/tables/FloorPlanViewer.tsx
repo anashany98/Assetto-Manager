@@ -13,9 +13,19 @@ export default function FloorPlanViewer() {
     const [appMode, setAppMode] = useState<'booking' | 'service'>('booking');
     const [previewTime, setPreviewTime] = useState("20:00");
     const [suggestPax, setSuggestPax] = useState(4);
+    const [selectedZone, setSelectedZone] = useState<'all' | 'main' | 'vip' | 'terrace'>('all'); // [NEW] Zone State
+
     const queryClient = useQueryClient();
 
     const { data: tables } = useQuery({ queryKey: ['tables'], queryFn: getTables });
+
+    // [NEW] Filter tables by zone
+    const visibleTables = useMemo(() => {
+        if (!tables) return [];
+        if (selectedZone === 'all') return tables;
+        // Handle 'main' as default if zone is undefined/null
+        return tables.filter(t => (t.zone || 'main') === selectedZone);
+    }, [tables, selectedZone]);
 
     const dateStr = selectedDate.toISOString().split('T')[0];
     const { data: bookings } = useQuery({
@@ -102,6 +112,37 @@ export default function FloorPlanViewer() {
                         >
                             <BarChartHorizontal size={14} /> Timeline
                         </button>
+                    </div>
+
+                    {/* Zone Selector */}
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Zona</label>
+                        <div className="bg-white/5 rounded-xl p-1 grid grid-cols-3 gap-1">
+                            <button
+                                onClick={() => setSelectedZone('all')}
+                                className={cn("py-1.5 rounded-lg text-[10px] font-bold transition-all",
+                                    selectedZone === 'all' ? "bg-white/20 text-white" : "text-gray-400 hover:text-white"
+                                )}
+                            >
+                                Todo
+                            </button>
+                            <button
+                                onClick={() => setSelectedZone('main')}
+                                className={cn("py-1.5 rounded-lg text-[10px] font-bold transition-all",
+                                    selectedZone === 'main' ? "bg-blue-600/50 text-white border border-blue-500/50" : "text-gray-400 hover:text-white"
+                                )}
+                            >
+                                Interior
+                            </button>
+                            <button
+                                onClick={() => setSelectedZone('terrace')}
+                                className={cn("py-1.5 rounded-lg text-[10px] font-bold transition-all",
+                                    selectedZone === 'terrace' ? "bg-emerald-600/50 text-white border border-emerald-500/50" : "text-gray-400 hover:text-white"
+                                )}
+                            >
+                                Exterior
+                            </button>
+                        </div>
                     </div>
 
                     {/* Mode Toggle */}
@@ -231,10 +272,10 @@ export default function FloorPlanViewer() {
 
                     {/* Legend */}
                     <div className="grid grid-cols-2 gap-2 text-[10px] text-gray-400 pt-4 border-t border-white/10">
-                        <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-green-500 shadow-lg shadow-green-500/50" /> Libre</div>
+                        <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-green-500 shadow-lg shadow-green-500/50" /> Disponible</div>
                         <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500 shadow-lg shadow-red-500/50" /> Reservada</div>
-                        <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-amber-500 shadow-lg shadow-amber-500/50" /> VIP</div>
-                        <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/50" /> Terraza</div>
+                        <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-500 shadow-lg shadow-blue-500/50" /> Salón Interior</div>
+                        <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/50" /> Terraza Exterior</div>
                     </div>
                 </div>
 
@@ -265,7 +306,7 @@ export default function FloorPlanViewer() {
                                         style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'20\' height=\'20\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 0h10v10H0zM10 10h10v10H10z\' fill=\'%23fff\' fill-opacity=\'0.5\'/%3E%3C/svg%3E")' }}
                                     />
 
-                                    {tables?.map(table => {
+                                    {visibleTables.map(table => {
                                         const isBooked = isTableBooked(table.id);
                                         const isSelected = selectedTableIds.includes(table.id);
 
@@ -307,13 +348,41 @@ export default function FloorPlanViewer() {
                                                     isSelected && "scale-110 z-20 animate-pulse"
                                                 )}
                                             >
-                                                <div className="flex flex-col items-center text-white">
+                                                {/* Render Chairs */}
+                                                {Array.from({ length: table.seats }).map((_, i) => {
+                                                    const angle = (i * (360 / table.seats)) * (Math.PI / 180);
+                                                    // Elliptical distribution
+                                                    const radiusX = (table.width / 2) + 8; // push out by 8px
+                                                    const radiusY = (table.height / 2) + 8;
+
+                                                    const x = (table.width / 2) + radiusX * Math.cos(angle);
+                                                    const y = (table.height / 2) + radiusY * Math.sin(angle);
+
+                                                    const rotation = (angle * 180 / Math.PI) + 90;
+
+                                                    return (
+                                                        <div
+                                                            key={i}
+                                                            className={cn(
+                                                                "absolute w-4 h-4 rounded-md shadow-sm border border-white/10",
+                                                                isBooked ? "bg-red-900/50" : "bg-gray-700/80"
+                                                            )}
+                                                            style={{
+                                                                left: x,
+                                                                top: y,
+                                                                transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
+                                                            }}
+                                                        />
+                                                    );
+                                                })}
+
+                                                <div className="flex flex-col items-center text-white relative z-10">
                                                     <span className="font-black text-sm drop-shadow-lg">{table.label}</span>
                                                     <span className="text-[10px] opacity-70">{table.seats}p</span>
                                                 </div>
 
                                                 {isBooked && (
-                                                    <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm rounded-inherit">
+                                                    <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm rounded-inherit z-20">
                                                         <Clock size={20} className="text-white/80" />
                                                     </div>
                                                 )}
@@ -338,7 +407,7 @@ export default function FloorPlanViewer() {
                                 </div>
 
                                 {/* Rows */}
-                                {tables?.map(table => (
+                                {visibleTables.map(table => (
                                     <div key={table.id} className="flex border-b border-white/5 hover:bg-white/5 transition-colors">
                                         <div className="w-28 p-4 text-sm font-bold text-white border-r border-white/10 flex items-center gap-2 bg-white/5">
                                             <div className={cn("w-2.5 h-2.5 rounded-full shadow-lg",

@@ -31,7 +31,11 @@ def start_session(
     ).first()
     
     if active_session:
-        raise HTTPException(status_code=400, detail="Station already has an active session")
+        # Auto-close existing session to prevent "stuck" stations
+        active_session.status = "completed"
+        active_session.end_time = datetime.now(timezone.utc)
+        db.add(active_session)
+        db.commit()
     
     now = datetime.now(timezone.utc)
     end_time = now + timedelta(minutes=session_data.duration_minutes)

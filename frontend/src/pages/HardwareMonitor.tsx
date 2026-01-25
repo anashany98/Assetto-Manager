@@ -75,6 +75,18 @@ function StationHealthCard({ station }: { station: StationHealth }) {
         }
     };
 
+    const handleQuickAction = async (action: 'restart-agent' | 'stop') => {
+        setIsPending(true);
+        try {
+            await axios.post(`${API_URL}/control/station/${station.station_id}/${action}`);
+        } catch (err) {
+            console.error("Quick action failed", err);
+            alert("Error al ejecutar acciÃ³n rÃ¡pida");
+        } finally {
+            setIsPending(false);
+        }
+    };
+
     const hasAlerts = station.alerts.length > 0;
     const statusColor = !station.is_online ? 'border-red-500' :
         hasAlerts ? 'border-yellow-500' : 'border-green-500';
@@ -130,6 +142,29 @@ function StationHealthCard({ station }: { station: StationHealth }) {
                     </>
                 )}
             </div>
+
+            {station.is_online && (
+                <div className="flex gap-2 mb-4">
+                    <button
+                        disabled={isPending}
+                        onClick={() => handleQuickAction('restart-agent')}
+                        className="flex-1 bg-purple-600/10 hover:bg-purple-600 text-purple-400 hover:text-white py-2 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all border border-purple-500/30"
+                        title="Reiniciar agente"
+                    >
+                        <RefreshCw size={12} className={isPending ? "animate-spin" : ""} /> Reiniciar agente
+                    </button>
+                    {station.ac_running && (
+                        <button
+                            disabled={isPending}
+                            onClick={() => handleQuickAction('stop')}
+                            className="flex-1 bg-yellow-500/10 hover:bg-yellow-500 text-yellow-400 hover:text-black py-2 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all border border-yellow-500/30"
+                            title="Detener sesiÃ³n"
+                        >
+                            <AlertTriangle size={12} /> Detener AC
+                        </button>
+                    )}
+                </div>
+            )}
 
             {/* Current Activity */}
             {station.is_online && station.ac_running && (
