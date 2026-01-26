@@ -1,8 +1,9 @@
 
-from starlette.testclient import TestClient
+import httpx
 from app.main import app
 
-client = TestClient(app)
+transport = httpx.ASGITransport(app=app)
+client = httpx.Client(transport=transport, base_url="http://test")
 
 def test_health_check():
     response = client.get("/health")

@@ -390,16 +390,27 @@ def find_best_fit(request: SmartAssignRequest, db: Session = Depends(get_db)):
     
     # 4. Strategy: Best Single Fit
     # Sort by seats asc
+    import random
     available_tables.sort(key=lambda t: t.seats)
     
     # Find smallest table that fits all
+    candidates = []
     for t in available_tables:
         if t.seats >= request.pax:
-            return {
-                "strategy": "single",
-                "table_ids": [t.id],
-                "reason": f"Mesa {t.label} ({t.seats} pax) es perfecta."
-            }
+            candidates.append(t)
+            
+    if candidates:
+        # If we have multiple candidates of the same size (best fit), pick one randomly 
+        # to reduce race condition probability for concurrent users
+        best_size = candidates[0].seats
+        best_candidates = [c for c in candidates if c.seats == best_size]
+        chosen = random.choice(best_candidates)
+        
+        return {
+            "strategy": "single",
+            "table_ids": [chosen.id],
+            "reason": f"Mesa {chosen.label} ({chosen.seats} pax) es perfecta."
+        }
             
     # 5. Strategy: Combinations (Naive - Same Zone)
     # Group by zone

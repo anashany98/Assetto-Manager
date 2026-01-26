@@ -36,7 +36,18 @@ export default function FloorPlanEditor() {
 
     const saveMutation = useMutation({
         mutationFn: updateLayout,
-        onSuccess: () => {
+        onSuccess: (savedTables) => {
+            // [FIX] Update local state with server response to get real IDs immediately
+            if (savedTables && Array.isArray(savedTables)) {
+                setTables(savedTables);
+                // Try to keep selection if possible (ID might have changed if it was temp)
+                if (selectedTableId) {
+                    // This is tricky if ID changed. For now we deselect to be safe, 
+                    // or we could try to map it back if we tracked temp IDs.
+                    // A simple re-select logic if needed:
+                    setSelectedTableId(null);
+                }
+            }
             queryClient.invalidateQueries({ queryKey: ['tables'] });
         }
     });
@@ -139,10 +150,14 @@ export default function FloorPlanEditor() {
 
     const duplicateSelectedTable = () => {
         if (selectedTableId === null || !selectedTable) return;
+
+        // [FIX] Clean suffix to avoid infinite recursion (-cp-cp-cp)
+        const baseLabel = selectedTable.label.replace(/-cp(\d*)$/, '');
+
         const newTable: RestaurantTable = {
             ...selectedTable,
             id: Date.now(),
-            label: `${selectedTable.label}-cp`,
+            label: `${baseLabel}-cp`,
             x: selectedTable.x + 20,
             y: selectedTable.y + 20,
         };

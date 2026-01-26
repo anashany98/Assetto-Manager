@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assetto Manager - Domina tu Centro de Simulación</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Outfit', 'sans-serif'] },
+                    animation: {
+                        'blob': 'blob 7s infinite',
+                        'float': 'float 6s ease-in-out infinite',
+                        'fade-in-up': 'fadeInUp 0.8s ease-out forwards'
+                    },
+                    keyframes: {
+                        blob: {
+                            '0%': { transform: 'translate(0px, 0px) scale(1)' },
+                            '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
+                            '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
+                            '100%': { transform: 'translate(0px, 0px) scale(1)' }
+                        },
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-20px)' }
+                        },
+                        fadeInUp: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #020617;
+            color: white;
+            overflow-x: hidden;
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .glass:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(255, 255, 255, 0.1);
+            transform: translateY(-5px);
+            transition: all 0.3s ease;
+        }
+
+        .glass-strong {
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .neon-glow {
+            box-shadow: 0 0 50px -10px rgba(59, 130, 246, 0.3);
+        }
+
+        .text-glow {
+            text-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+        }
+
+        .grid-pattern {
+            background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            margin-top: -8px;
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #1e293b;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+
+<body class="antialiased">
+
+    <!-- Background Elements -->
+    <div class="fixed inset-0 grid-pattern z-0 pointer-events-none"></div>
+    <div
+        class="fixed top-0 left-0 w-full h-[500px] bg-gradient-to-b from-blue-900/20 to-transparent z-0 pointer-events-none">
+    </div>
+
+    <!-- Navbar -->
+    <nav class="fixed w-full z-50 transition-all duration-300 backdrop-blur-md border-b border-white/5 bg-black/50">
+        <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div
+                    class="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center font-bold shadow-lg shadow-blue-500/20">
+                    <i data-lucide="zap" class="text-white w-6 h-6"></i>
+                </div>
+                <span class="font-bold text-2xl tracking-tighter">Assetto<span
+                        class="text-blue-500">Manager</span></span>
+            </div>
+
+            <div class="hidden md:flex items-center gap-8 text-sm font-medium text-gray-400">
+                <a href="#howitworks" class="hover:text-white transition-colors">Cómo Funciona</a>
+                <a href="roi.html" class="hover:text-white transition-colors">Calculadora Ingresos</a>
+                <a href="wiki.html" class="hover:text-white transition-colors">Wiki</a>
+                <a href="login.html" class="hover:text-white transition-colors">Login</a>
+                <a href="#pricing" class="hover:text-white transition-colors">Precios</a>
+            </div>
+
+            <a href="#pricing"
+                class="group relative px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full font-bold text-sm text-white shadow-lg overflow-hidden transition-all hover:scale-105 hover:shadow-blue-500/50">
+                <div
+                    class="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]">
+                </div>
+                <span class="relative flex items-center gap-2">Comprar Ahora <i data-lucide="arrow-right"
+                        class="w-4 h-4"></i></span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="relative min-h-screen flex items-center justify-center pt-32 pb-20 z-10">
+        <!-- Animated Blobs -->
+        <div
+            class="absolute top-20 left-20 w-96 h-96 bg-purple-500/20 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob">
+        </div>
+        <div
+            class="absolute top-20 right-20 w-96 h-96 bg-blue-500/20 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000">
+        </div>
+        <div
+            class="absolute -bottom-32 left-1/3 w-96 h-96 bg-indigo-500/20 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-4000">
+        </div>
+
+        <div class="container mx-auto px-6 text-center relative">
+            <div
+                class="inline-flex items-center gap-2 px-4 py-2 rounded-full glass border border-blue-500/30 text-xs font-bold text-blue-400 mb-8 animate-[fadeInUp_1s_ease-out]">
+                <span class="flex h-2 w-2 relative">
+                    <span
+                        class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                </span>
+                LA REVOLUCIÓN DEL SIM RACING
+            </div>
+
+            <h1
+                class="text-5xl md:text-8xl font-black mb-8 leading-tight tracking-tight animate-[fadeInUp_1s_ease-out_0.2s_both]">
+                Gestiona tu Centro <br>
+                <span
+                    class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-500 text-glow">Sin
+                    Límites</span>
+            </h1>
+
+            <p
+                class="text-xl text-gray-400 mb-12 max-w-2xl mx-auto leading-relaxed animate-[fadeInUp_1s_ease-out_0.4s_both]">
+                Automatiza reservas, sincroniza mods y controla tu flota de simuladores desde un único panel.
+                <span class="text-white font-medium">Ahorra tiempo, elimina errores y factura más.</span>
+            </p>
+
+            <div
+                class="flex flex-col sm:flex-row gap-4 justify-center items-center animate-[fadeInUp_1s_ease-out_0.6s_both]">
+                <a href="#pricing"
+                    class="w-full sm:w-auto px-8 py-4 bg-white text-black font-bold rounded-xl hover:scale-105 transition-transform flex items-center justify-center gap-2 shadow-xl shadow-white/10">
+                    <i data-lucide="credit-card" class="w-5 h-5"></i> Obtener Licencia
+                </a>
+                <a href="#howitworks"
+                    class="w-full sm:w-auto px-8 py-4 glass text-white font-bold rounded-xl hover:bg-white/10 transition-colors flex items-center justify-center gap-2">
+                    <i data-lucide="search" class="w-5 h-5"></i> Cómo Funciona
+                </a>
+            </div>
+
+            <!-- Dashboard Preview -->
+            <div class="mt-20 relative max-w-5xl mx-auto animate-[fadeInUp_1s_ease-out_0.8s_both]">
+                <div class="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl blur opacity-20">
+                </div>
+                <div
+                    class="relative rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-gray-900/80 backdrop-blur-sm aspect-[16/9] flex items-center justify-center group">
+                    <div class="text-center transition-transform duration-500 group-hover:scale-105">
+                        <i data-lucide="monitor-stop" class="w-20 h-20 text-gray-700 mx-auto mb-4"></i>
+                        <p class="text-gray-500 font-mono text-sm">DASHBOARD INTERFACE PREVIEW</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Workflow Section (New) -->
+    <section id="howitworks" class="py-32 relative z-10">
+        <div class="container mx-auto px-6">
+            <div class="text-center mb-24">
+                <span class="text-blue-500 font-bold tracking-wider text-sm uppercase">Flujo de Trabajo</span>
+                <h2 class="text-4xl md:text-5xl font-black mt-2 mb-6">Un día en tu negocio</h2>
+                <p class="text-gray-400 text-lg">Así de fácil es gestionar 50 simuladores con Assetto Manager.</p>
+            </div>
+
+            <div class="relative max-w-5xl mx-auto">
+                <!-- Connecting Line -->
+                <div
+                    class="absolute left-1/2 top-0 bottom-0 w-1 bg-gradient-to-b from-blue-500 to-purple-500 opacity-20 hidden md:block">
+                </div>
+
+                <div class="space-y-24">
+                    <!-- Step 1 -->
+                    <div class="relative flex flex-col md:flex-row items-center justify-between gap-12 group">
+                        <div class="flex-1 md:text-right">
+                            <h3 class="text-2xl font-bold text-white mb-2">09:00 - Apertura</h3>
+                            <p class="text-gray-400">Pulsas un botón en tu móvil y los 20 PCs se encienden con
+                                Wake-on-LAN. El Kiosco bloquea Windows automáticamente.</p>
+                        </div>
+                        <div
+                            class="relative z-10 w-16 h-16 rounded-full glass-strong border-2 border-blue-500 flex items-center justify-center shadow-[0_0_30px_rgba(59,130,246,0.5)]">
+                            <i data-lucide="sun" class="w-8 h-8 text-blue-400"></i>
+                        </div>
+                        <div class="flex-1"></div>
+                    </div>
+
+                    <!-- Step 2 -->
+                    <div class="relative flex flex-col md:flex-row items-center justify-between gap-12 group">
+                        <div class="flex-1"></div>
+                        <div
+                            class="relative z-10 w-16 h-16 rounded-full glass-strong border-2 border-purple-500 flex items-center justify-center shadow-[0_0_30px_rgba(168,85,247,0.5)]">
+                            <i data-lucide="users" class="w-8 h-8 text-purple-400"></i>
+                        </div>
+                        <div class="flex-1 text-left">
+                            <h3 class="text-2xl font-bold text-white mb-2">11:30 - Grupo de Clientes</h3>
+                            <p class="text-gray-400">Llega un grupo de 6. Arrastras su reserva en el plano. El sistema
+                                les asigna mesas contiguas y carga "Spa Francorchamps" en todos a la vez.</p>
+                        </div>
+                    </div>
+
+                    <!-- Step 3 -->
+                    <div class="relative flex flex-col md:flex-row items-center justify-between gap-12 group">
+                        <div class="flex-1 md:text-right">
+                            <h3 class="text-2xl font-bold text-white mb-2">18:00 - Torneo Nocturno</h3>
+                            <p class="text-gray-400">El sistema registra las vueltas rápidas. En las TVs del bar, los
+                                clientes ven el Leaderboard en tiempo real mientras consumen.</p>
+                        </div>
+                        <div
+                            class="relative z-10 w-16 h-16 rounded-full glass-strong border-2 border-pink-500 flex items-center justify-center shadow-[0_0_30px_rgba(236,72,153,0.5)]">
+                            <i data-lucide="trophy" class="w-8 h-8 text-pink-400"></i>
+                        </div>
+                        <div class="flex-1"></div>
+                    </div>
+
+                    <!-- Step 4 -->
+                    <div class="relative flex flex-col md:flex-row items-center justify-between gap-12 group">
+                        <div class="flex-1"></div>
+                        <div
+                            class="relative z-10 w-16 h-16 rounded-full glass-strong border-2 border-green-500 flex items-center justify-center shadow-[0_0_30px_rgba(34,197,94,0.5)]">
+                            <i data-lucide="moon" class="w-8 h-8 text-green-400"></i>
+                        </div>
+                        <div class="flex-1 text-left">
+                            <h3 class="text-2xl font-bold text-white mb-2">22:00 - Cierre Total</h3>
+                            <p class="text-gray-400">Un clic en "Shutdown All". Todos los PCs se apagan de forma segura.
+                                El sistema envía el reporte de caja a tu email.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ROI Calculator -->
+    <section id="roi" class="py-32 bg-slate-950/50 border-t border-white/5">
+        <div class="container mx-auto px-6">
+            <div class="flex flex-col lg:flex-row gap-16 items-center max-w-6xl mx-auto">
+                <div class="flex-1 space-y-6">
+                    <h2 class="text-4xl font-bold">Calcula tu Ahorro</h2>
+                    <p class="text-gray-400 text-lg">
+                        ¿Cuánto tiempo pierdes configurando carreras manualmente? Assetto Manager se paga solo en la
+                        primera semana.
+                    </p>
+
+                    <div class="space-y-8 mt-8 glass p-8 rounded-3xl">
+                        <div>
+                            <div class="flex justify-between mb-2">
+                                <label class="text-sm font-bold text-gray-300">Número de Simuladores</label>
+                                <span class="text-blue-400 font-bold" id="sims-val">10</span>
+                            </div>
+                            <input type="range" id="sims" min="2" max="50" value="10" step="1">
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-2">
+                                <label class="text-sm font-bold text-gray-300">Minutos perdidos/día</label>
+                                <span class="text-blue-400 font-bold" id="mins-val">30 min</span>
+                            </div>
+                            <input type="range" id="mins" min="10" max="120" value="30" step="5">
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-2">
+                                <label class="text-sm font-bold text-gray-300">Coste hora empleado</label>
+                                <span class="text-blue-400 font-bold" id="rate-val">15 €/h</span>
+                            </div>
+                            <input type="range" id="rate" min="10" max="50" value="15" step="1">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex-1 text-center">
+                    <div
+                        class="glass-strong p-10 rounded-full w-80 h-80 flex flex-col items-center justify-center mx-auto border-4 border-blue-500/20 relative shadow-[0_0_100px_rgba(37,99,235,0.15)]">
+                        <div class="text-sm text-gray-500 uppercase tracking-widest mb-2">Ahorro Mensual</div>
+                        <div class="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-500"
+                            id="savings">225€</div>
+                        <p class="text-xs text-gray-400 mt-4 max-w-[200px]">Dinero en nóminas ahorrado cada mes.</p>
+                    </div>
+                    <p class="mt-8 text-blue-400 font-bold text-lg animate-pulse">¡ROI Positivo en < 30 días!</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Modules Grid (Short) -->
+    <section id="features" class="py-32 bg-black/40 relative z-10">
+        <div class="container mx-auto px-6">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl font-black mb-6">Módulos Principales</h2>
+                <div class="h-1 w-24 bg-gradient-to-r from-blue-500 to-indigo-500 mx-auto rounded-full"></div>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-6">
+                <div class="glass p-8 rounded-3xl group relative overflow-hidden text-center">
+                    <i data-lucide="cloud-lightning" class="w-10 h-10 text-blue-400 mb-6 mx-auto"></i>
+                    <h3 class="text-xl font-bold mb-3">Sync de Contenido</h3>
+                    <p class="text-sm text-gray-400">Distribución P2P de mods con Hash-check.</p>
+                </div>
+                <div class="glass p-8 rounded-3xl group relative overflow-hidden text-center">
+                    <i data-lucide="lock" class="w-10 h-10 text-red-400 mb-6 mx-auto"></i>
+                    <h3 class="text-xl font-bold mb-3">Modo Kiosco</h3>
+                    <p class="text-sm text-gray-400">Bloqueo total de Windows anti-robo.</p>
+                </div>
+                <div class="glass p-8 rounded-3xl group relative overflow-hidden text-center">
+                    <i data-lucide="trophy" class="w-10 h-10 text-green-400 mb-6 mx-auto"></i>
+                    <h3 class="text-xl font-bold mb-3">Competición</h3>
+                    <p class="text-sm text-gray-400">Leaderboards en TVs y torneos.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing (Sticky CTA) -->
+    <section id="pricing" class="py-32 relative z-10 text-center">
+        <div class="container mx-auto px-6 max-w-4xl">
+            <h2 class="text-4xl font-bold mb-10">Elige tu Plan</h2>
+
+            <div class="grid md:grid-cols-2 gap-8 text-left">
+                <!-- Basic -->
+                <div
+                    class="glass p-8 rounded-3xl border border-white/5 opacity-80 hover:opacity-100 transition-opacity">
+                    <h3 class="text-xl font-bold">Personal</h3>
+                    <div class="my-4">
+                        <span class="text-gray-500 line-through text-lg mr-2">69€</span>
+                        <span class="text-4xl font-bold">49€</span>
+                    </div>
+                    <p class="text-sm text-gray-400 mb-6">Para uso doméstico avanzado.</p>
+                    <ul class="space-y-2 mb-8 text-sm text-gray-300">
+                        <li>• 2 Simuladores</li>
+                        <li>• Sync de Mods</li>
+                        <li>• Telemetría Básica</li>
+                    </ul>
+                    <button class="w-full py-3 border border-white/20 rounded-xl font-bold hover:bg-white/10">Comprar
+                        Personal</button>
+                </div>
+
+                <!-- PRO -->
+                <div
+                    class="glass-strong p-8 rounded-3xl border-2 border-blue-500 relative transform scale-105 shadow-2xl">
+                    <div class="absolute top-0 right-0 bg-blue-600 text-xs font-bold px-3 py-1 rounded-bl-xl uppercase">
+                        Oferta -50%</div>
+                    <h3 class="text-xl font-bold text-blue-400">Business PRO</h3>
+                    <div class="my-4">
+                        <span class="text-gray-500 line-through text-xl mr-2">399€</span>
+                        <span class="text-5xl font-bold text-white">199€</span>
+                    </div>
+                    <p class="text-sm text-gray-400 mb-6">Suite completa para Centros.</p>
+                    <ul class="space-y-2 mb-8 text-sm text-gray-300">
+                        <li class="flex gap-2"><i data-lucide="check" class="w-4 h-4 text-green-400"></i> <strong>PCs
+                                Ilimitados</strong></li>
+                        <li class="flex gap-2"><i data-lucide="check" class="w-4 h-4 text-green-400"></i> Reservas +
+                            Ticketera</li>
+                        <li class="flex gap-2"><i data-lucide="check" class="w-4 h-4 text-green-400"></i> Modo Kiosco
+                            Seguro</li>
+                        <li class="flex gap-2"><i data-lucide="check" class="w-4 h-4 text-green-400"></i> Soporte
+                            Prioritario</li>
+                    </ul>
+                    <button
+                        class="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg hover:shadow-blue-500/50 transition-all flex justify-center gap-2">
+                        Comprar Licencia Vitalicia <i data-lucide="arrow-right" class="w-5 h-5"></i>
+                    </button>
+                    <p class="text-[10px] text-center mt-3 text-gray-500">Oferta válida por tiempo limitado.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="py-12 border-t border-white/5 bg-black/40 text-center text-sm text-gray-500 relative z-10">
+        <p>&copy; 2024 Assetto Manager Systems. Construido para la velocidad.</p>
+    </footer>
+
+    <script>
+        lucide.createIcons();
+
+        // ROI Calculator
+        const simsEl = document.getElementById('sims');
+        const minsEl = document.getElementById('mins');
+        const rateEl = document.getElementById('rate');
+        const savingsEl = document.getElementById('savings');
+
+        function calculate() {
+            const sims = parseInt(simsEl.value);
+            const mins = parseInt(minsEl.value);
+            const rate = parseInt(rateEl.value);
+
+            document.getElementById('sims-val').textContent = sims;
+            document.getElementById('mins-val').textContent = mins + ' min';
+            document.getElementById('rate-val').textContent = rate + ' €/h';
+
+            const monthlySavings = (mins / 60) * rate * 30; // Daily savings * 30 days
+            savingsEl.textContent = Math.round(monthlySavings) + '€';
+        }
+
+        [simsEl, minsEl, rateEl].forEach(el => el.addEventListener('input', calculate));
+        calculate();
+    </script>
+</body>
+
+</html>
