@@ -22,6 +22,8 @@ import { startSession } from '../api/sessions';
 import { calculatePrice, getPricingConfig } from '../utils/pricing';
 import { useLanguage } from '../contexts/useLanguage';
 import { cn, resolveAssetUrl } from '../lib/utils';
+import { LiveSessionMonitor } from '../components/LiveSessionMonitor';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
     AttractMode, ScenarioStep, DriverStep, DifficultyStep,
     PaymentStep, NoPaymentStep, WaitingRoom, RaceMode, ResultsStep
@@ -138,11 +140,31 @@ export default function KioskMode() {
 
     const { data: hardwareStatus, isLoading: hardwareFetching, refetch: refetchHardware, isError: isHardwareError } = useQuery({
         queryKey: ['hardware', stationId],
-        queryFn: () => axios.get(`${API_URL}/control/station/${stationId}/hardware`).then(r => r.data),
+        queryFn: () => axios.get(`${API_URL}/hardware/status/${stationId}`).then(r => r.data),
         enabled: !!stationId,
         refetchInterval: 5000,
         retry: false
     });
+
+    useEffect(() => {
+        const stored = localStorage.getItem('kiosk_station_id');
+        const storedCode = localStorage.getItem('kiosk_code');
+        if (stored && !isNaN(Number(stored)) && stationId === 0) {
+            setStationId(Number(stored));
+        }
+        if (storedCode && !pairingCode) {
+            setPairingCode(storedCode);
+        }
+    }, []);
+
+    const handleUnpair = () => {
+        if (confirm("¿Desvincular Kiosko de esta estación?")) {
+            setStationId(0);
+            localStorage.removeItem('kiosk_station_id');
+            localStorage.removeItem('kiosk_code');
+            setPairingCode('');
+        }
+    };
 
     const isServerUnavailable = isHardwareError;
     const isStationInactive = false; // TODO: Check via settings or status
@@ -182,13 +204,48 @@ export default function KioskMode() {
 
     const launchSessionMutation = useMutation({
         mutationFn: async (payload: any) => {
-            await axios.post(`${API_URL}/control/launch`, payload, { headers: clientTokenHeaders });
+            await axios.post(`${API_URL}/control/station/${payload.station_id}/launch`, payload, { headers: clientTokenHeaders });
         },
         onSuccess: () => setIsLaunched(true)
     });
 
-    const launchWithoutPayment = () => {
+    const launchWithoutPayment = async () => {
+        console.log("Launching Session. Selection:", selection);
         setLaunchingNoPayment(true);
+
+        // HANDLE LOBBY FLOW (Torneo or Joined Lobby)
+        if (selection?.isLobby) {
+            try {
+                if (selection.isHost) {
+                    // Create Lobby
+                    const res = await axios.post(`${API_URL}/lobby/create`, {
+                        station_id: stationId,
+                        name: `GRUPO DE ${driver?.name?.toUpperCase() || 'INVITADO'}`,
+                        track: selection.track,
+                        car: selection.car,
+                        duration: duration,
+                        max_players: 10
+                    });
+                    setSelection(prev => prev ? ({ ...prev, lobbyId: res.data.id }) : null);
+                    setStep(6); // Go to Waiting Room
+                } else {
+                    // Join Lobby
+                    if (!selection.lobbyId) throw new Error("Missing Lobby ID");
+                    await axios.post(`${API_URL}/lobby/${selection.lobbyId}/join`, {
+                        station_id: stationId
+                    });
+                    setStep(6); // Go to Waiting Room
+                }
+            } catch (e) {
+                console.error("Lobby Error:", e);
+                alert("Error al acceder a la sala. Inténtalo de nuevo.");
+            } finally {
+                setLaunchingNoPayment(false);
+            }
+            return;
+        }
+
+        // STANDARD LAUNCH
         launchSessionMutation.mutateAsync(buildLaunchPayload())
             .catch(e => console.error(e))
             .finally(() => setLaunchingNoPayment(false));
@@ -203,89 +260,146 @@ export default function KioskMode() {
     });
 
     const renderStep = () => {
-        switch (step) {
-            case 4:
-                return (
-                    <DifficultyStep
-                        t={t}
-                        selection={selection}
-                        selectedCarObj={selectedCarObj}
-                        selectedTrackObj={selectedTrackObj}
-                        leaderboard={leaderboard}
-                        timeOfDay={timeOfDay}
-                        setTimeOfDay={setTimeOfDay}
-                        weather={weather}
-                        setWeather={setWeather}
-                        transmission={transmission}
-                        setTransmission={setTransmission}
-                        difficulty={difficulty}
-                        setDifficulty={setDifficulty}
-                        setSelection={setSelection}
-                        duration={duration}
-                        paymentEnabled={paymentEnabled}
-                        rainEnabled={rainEnabled}
-                        setStep={setStep}
-                        setPaymentInfo={setPaymentInfo}
-                        setPaymentError={setPaymentError}
-                        launchWithoutPayment={launchWithoutPayment}
-                        launchingNoPayment={launchingNoPayment}
-                        paymentNote={paymentNote}
-                        paymentHandledRef={paymentHandledRef}
-                        noPaymentHandledRef={noPaymentHandledRef}
-                        resolveAssetUrl={resolveAssetUrl}
-                    />
-                );
-            case 5:
-                return paymentEnabled ? (
-                    <PaymentStep
-                        t={t}
-                        stationId={stationId}
-                        duration={duration}
-                        driver={driver}
-                        selection={selection}
-                        paymentProvider={paymentProvider}
-                        setPaymentProvider={setPaymentProvider}
-                        paymentInfo={paymentInfo}
-                        setPaymentInfo={setPaymentInfo}
-                        paymentError={paymentError}
-                        setPaymentError={setPaymentError}
-                        clientTokenHeaders={clientTokenHeaders}
-                        sessionPrice={sessionPrice}
-                        paymentHandledRef={paymentHandledRef}
-                        setStep={setStep}
-                        launchSessionMutation={launchSessionMutation}
-                        buildLaunchPayload={buildLaunchPayload}
-                    />
-                ) : (
-                    <NoPaymentStep
-                        paymentEnabled={paymentEnabled}
-                        launchWithoutPayment={launchWithoutPayment}
-                        selection={selection}
-                        stationId={stationId}
-                    />
-                );
-            case 6:
-                return (
-                    <WaitingRoom
-                        selection={selection}
-                        stationId={stationId}
-                        setIsLaunched={setIsLaunched}
-                    />
-                );
-            case 7:
-                return <ResultsStep driver={driver} selection={selection} t={t} />;
-            default:
-                return (
-                    <ScenarioStep
-                        t={t}
-                        scenarios={scenarios}
-                        setSelection={setSelection}
-                        setStep={setStep}
-                        setSelectedScenario={setSelectedScenario}
-                        setDuration={setDuration}
-                    />
-                );
-        }
+        const content = (() => {
+            switch (step) {
+                case 1:
+                    return (
+                        <ScenarioStep
+                            t={t}
+                            scenarios={scenarios}
+                            setSelection={setSelection}
+                            setStep={setStep}
+                            setSelectedScenario={setSelectedScenario}
+                            setDuration={setDuration}
+                        />
+                    );
+                case 2:
+                    return (
+                        <ContentStep
+                            stationId={stationId}
+                            selectedScenario={selectedScenario}
+                            currentSelection={{ car: selection?.car || '', track: selection?.track || '' }}
+                            onSelectionChange={(c, t) => setSelection(prev => prev ? { ...prev, car: c || '', track: t || '' } : null)}
+                            onNext={() => setStep(3)}
+                            prefetchedCars={cars}
+                            prefetchedTracks={tracks}
+                        />
+                    );
+                case 3:
+                    return (
+                        <DriverStep
+                            t={t}
+                            driverName={driverName}
+                            setDriverName={setDriverName}
+                            driverEmail={driverEmail}
+                            setDriverEmail={setDriverEmail}
+                            onLogin={(d) => {
+                                setDriver(d);
+                                setStep(4);
+                            }}
+                            selection={selection}
+                            leaderboardData={leaderboard}
+                        />
+                    );
+                case 4:
+                    return (
+                        <DifficultyStep
+                            t={t}
+                            selection={selection}
+                            selectedCarObj={selectedCarObj}
+                            selectedTrackObj={selectedTrackObj}
+                            leaderboard={leaderboard}
+                            timeOfDay={timeOfDay}
+                            setTimeOfDay={setTimeOfDay}
+                            weather={weather}
+                            setWeather={setWeather}
+                            transmission={transmission}
+                            setTransmission={setTransmission}
+                            difficulty={difficulty}
+                            setDifficulty={setDifficulty}
+                            setSelection={setSelection}
+                            duration={duration}
+                            paymentEnabled={paymentEnabled}
+                            rainEnabled={rainEnabled}
+                            setStep={setStep}
+                            setPaymentInfo={setPaymentInfo}
+                            setPaymentError={setPaymentError}
+                            launchWithoutPayment={launchWithoutPayment}
+                            launchingNoPayment={launchingNoPayment}
+                            paymentNote={paymentNote}
+                            paymentHandledRef={paymentHandledRef}
+                            noPaymentHandledRef={noPaymentHandledRef}
+                            resolveAssetUrl={resolveAssetUrl}
+                        />
+                    );
+                case 5:
+                    return paymentEnabled ? (
+                        <PaymentStep
+                            t={t}
+                            stationId={stationId}
+                            duration={duration}
+                            driver={driver}
+                            selection={selection}
+                            setSelection={setSelection}
+                            paymentProvider={paymentProvider}
+                            setPaymentProvider={setPaymentProvider}
+                            paymentInfo={paymentInfo}
+                            setPaymentInfo={setPaymentInfo}
+                            paymentError={paymentError}
+                            setPaymentError={setPaymentError}
+                            clientTokenHeaders={clientTokenHeaders}
+                            sessionPrice={sessionPrice}
+                            paymentHandledRef={paymentHandledRef}
+                            setStep={setStep}
+                            launchSessionMutation={launchSessionMutation}
+                            buildLaunchPayload={buildLaunchPayload}
+                        />
+                    ) : (
+                        <NoPaymentStep
+                            paymentEnabled={paymentEnabled}
+                            launchWithoutPayment={launchWithoutPayment}
+                            selection={selection}
+                            stationId={stationId}
+                        />
+                    );
+                case 6:
+                    return (
+                        <WaitingRoom
+                            selection={selection}
+                            stationId={stationId}
+                            setIsLaunched={setIsLaunched}
+                        />
+                    );
+                case 7:
+                    return <ResultsStep driver={driver} selection={selection} t={t} />;
+                default:
+                    return (
+                        <ScenarioStep
+                            t={t}
+                            scenarios={scenarios}
+                            setSelection={setSelection}
+                            setStep={setStep}
+                            setSelectedScenario={setSelectedScenario}
+                            setDuration={setDuration}
+                        />
+                    );
+            }
+        })();
+
+        return (
+            <AnimatePresence mode="wait">
+                <motion.div
+                    key={step}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    transition={{ duration: 0.3 }}
+                    className="h-full w-full"
+                >
+                    {content}
+                </motion.div>
+            </AnimatePresence>
+        );
     };
 
     if (!stationId) {
@@ -400,6 +514,22 @@ export default function KioskMode() {
     // I must update imports first.
 
 
+
+    // If launched, show Live Monitor instead of steps
+    if (isLaunched && settings) {
+        return (
+            <AnimatePresence>
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="h-full w-full"
+                >
+                    <LiveSessionMonitor stationId={stationId} driverName={driverName} />
+                </motion.div>
+            </AnimatePresence>
+        );
+    }
 
     return (
         <div className="h-full w-full flex flex-col relative">

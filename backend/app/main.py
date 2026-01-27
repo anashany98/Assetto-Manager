@@ -65,12 +65,12 @@ class CSPMiddleware(BaseHTTPMiddleware):
         if ENVIRONMENT == "production":
             csp_policy = (
                 "default-src 'self'; "
-                "script-src 'self'; "
-                "worker-src 'self' blob:; "
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+                "worker-src 'self' blob: 'unsafe-inline' 'unsafe-eval'; "
                 "style-src 'self' 'unsafe-inline'; "
                 "img-src 'self' data: blob:; "
                 "font-src 'self' data:; "
-                "connect-src 'self' https: http: wss: ws:;"
+                "connect-src * https: http: wss: ws:;"
             )
         else:
             csp_policy = (
@@ -79,6 +79,7 @@ class CSPMiddleware(BaseHTTPMiddleware):
                 "worker-src * data: blob: 'unsafe-inline' 'unsafe-eval'; "
                 "style-src * data: blob: 'unsafe-inline'; "
                 "img-src * data: blob:; "
+                "media-src * data: blob:; "
                 "font-src * data:; "
                 "connect-src * data: blob: wss: ws:;"
             )

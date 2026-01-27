@@ -1577,39 +1577,44 @@ export default function SettingsPage() {
                                                         <div className="text-[9px] text-gray-600 font-mono mt-1 opacity-60">
                                                             Visto: {formatLastSeen(station.last_seen)}
                                                         </div>
-                                                        {station.kiosk_code && (
-                                                            <div className="text-[9px] text-gray-600 font-mono mt-1 opacity-60 flex items-center gap-2">
-                                                                <span className="truncate">KIOSK: {buildKioskLink(station.kiosk_code)}</span>
-                                                                <button
-                                                                    onClick={() => copyToClipboard(buildKioskLink(station.kiosk_code))}
-                                                                    className="text-gray-500 hover:text-white"
-                                                                    title="Copiar link"
-                                                                >
-                                                                    <Copy size={12} />
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => window.open(buildKioskLink(station.kiosk_code), '_blank')}
-                                                                    className="text-gray-500 hover:text-white"
-                                                                    title="Abrir kiosko"
-                                                                >
-                                                                    <Link2 size={12} />
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => setQrStationId(qrStationId === station.id ? null : station.id)}
-                                                                    className="text-gray-500 hover:text-white"
-                                                                    title="Mostrar QR"
-                                                                >
-                                                                    <QrCode size={12} />
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => kioskCodeMutation.mutate(station.id)}
-                                                                    className="text-gray-500 hover:text-white"
-                                                                    title="Regenerar codigo kiosko"
-                                                                >
-                                                                    <RefreshCw size={12} />
-                                                                </button>
-                                                            </div>
-                                                        )}
+                                                        <div className="text-[9px] text-gray-400 font-mono mt-2 flex items-center gap-2 bg-gray-900/50 p-1.5 rounded w-fit border border-gray-700/50">
+                                                            <span className="font-bold text-gray-500">KIOSK CODE:</span>
+                                                            <span className="text-white font-black tracking-widest text-xs select-all cursor-text">{station.kiosk_code || '---'}</span>
+                                                            <div className="h-3 w-[1px] bg-gray-700 mx-1"></div>
+                                                            <button
+                                                                onClick={() => copyToClipboard(buildKioskLink(station.kiosk_code))}
+                                                                className="text-gray-500 hover:text-white"
+                                                                title="Copiar link"
+                                                            >
+                                                                <Copy size={12} />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => window.open(buildKioskLink(station.kiosk_code), '_blank')}
+                                                                className="text-gray-500 hover:text-white"
+                                                                title="Abrir kiosko"
+                                                            >
+                                                                <Link2 size={12} />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setQrStationId(qrStationId === station.id ? null : station.id)}
+                                                                className={cn("hover:text-white", qrStationId === station.id ? "text-blue-400" : "text-gray-500")}
+                                                                title="Ver QR"
+                                                            >
+                                                                <QrCode size={12} />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => {
+                                                                    if (confirm("¿Regenerar código de Kiosko? El código actual dejará de funcionar.")) {
+                                                                        kioskCodeMutation.mutate(station.id);
+                                                                    }
+                                                                }}
+                                                                className="text-gray-500 hover:text-yellow-400 ml-1"
+                                                                title="Regenerar código"
+                                                            >
+                                                                <RefreshCw size={10} />
+                                                            </button>
+                                                        </div>
+
                                                         {station.kiosk_code && qrStationId === station.id && (
                                                             <div className="mt-3 inline-flex items-center gap-3 bg-gray-900/60 border border-gray-800 rounded-xl px-3 py-2">
                                                                 <QRCodeCanvas value={buildKioskLink(station.kiosk_code)} size={72} bgColor="#0f172a" fgColor="#e5e7eb" />
@@ -1778,318 +1783,331 @@ export default function SettingsPage() {
                             })}
                         </div>
                     </div>
-                )}
+                )
+                }
 
                 {/* --- TAB: GAME (AC EDITOR) --- */}
-                {activeTab === 'game' && (
-                    <div className="max-w-6xl space-y-8 animate-in fade-in duration-300">
-                        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                            {/* Categories Selector */}
-                            <div className="space-y-2">
-                                <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest pl-2 mb-4">Categorías .ini</h3>
-                                {AC_CATEGORIES.map(cat => (
-                                    <button
-                                        key={cat.id}
-                                        onClick={() => setSelectedCategory(cat.id)}
-                                        className={cn(
-                                            "w-full flex items-center justify-between p-4 rounded-2xl border transition-all font-bold",
-                                            selectedCategory === cat.id
-                                                ? "bg-gray-800 border-blue-500/50 text-white shadow-lg"
-                                                : "bg-gray-900/50 border-transparent text-gray-500 hover:bg-gray-800"
-                                        )}
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <cat.icon size={18} className={cat.color} />
-                                            <span>{cat.name}</span>
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
-
-                            {/* Profiles and Deployment */}
-                            <div className="lg:col-span-3 space-y-6">
-                                <div className="bg-gray-800 p-8 rounded-3xl border border-gray-700">
-                                    <div className="flex justify-between items-center mb-8">
-                                        <h3 className="text-xl font-black text-white uppercase flex items-center gap-3">
-                                            <FileText className="text-blue-400" /> Perfiles Disponibles
-                                        </h3>
+                {
+                    activeTab === 'game' && (
+                        <div className="max-w-6xl space-y-8 animate-in fade-in duration-300">
+                            <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                                {/* Categories Selector */}
+                                <div className="space-y-2">
+                                    <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest pl-2 mb-4">Categorías .ini</h3>
+                                    {AC_CATEGORIES.map(cat => (
                                         <button
-                                            onClick={() => { setNewProfileName(''); setIsEditorOpen(true); }}
-                                            className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-black uppercase flex items-center gap-2 transition-all shadow-lg"
+                                            key={cat.id}
+                                            onClick={() => setSelectedCategory(cat.id)}
+                                            className={cn(
+                                                "w-full flex items-center justify-between p-4 rounded-2xl border transition-all font-bold",
+                                                selectedCategory === cat.id
+                                                    ? "bg-gray-800 border-blue-500/50 text-white shadow-lg"
+                                                    : "bg-gray-900/50 border-transparent text-gray-500 hover:bg-gray-800"
+                                            )}
                                         >
-                                            <Plus size={16} /> Crear Nuevo
-                                        </button>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {profiles?.[selectedCategory]?.map((profile: string) => (
-                                            <div key={profile} className="bg-gray-900/50 p-4 rounded-2xl border border-gray-700 flex flex-col gap-4">
-                                                <div className="flex justify-between items-start">
-                                                    <div>
-                                                        <p className="text-white font-black uppercase text-sm">{profile.replace('.ini', '')}</p>
-                                                        <p className="text-[10px] text-gray-500 font-mono mt-0.5">{profile}</p>
-                                                    </div>
-                                                    <button onClick={() => handleEditProfile(profile)} className="text-gray-500 hover:text-blue-400"><Edit2 size={16} /></button>
-                                                </div>
-                                                <button
-                                                    onClick={() => setSelectedProfiles(prev => ({
-                                                        ...prev,
-                                                        [selectedCategory]: profile
-                                                    }))}
-                                                    className={cn(
-                                                        "w-full py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border",
-                                                        selectedProfiles[selectedCategory] === profile
-                                                            ? "bg-blue-500/20 text-blue-400 border-blue-500/50"
-                                                            : "bg-gray-800 text-gray-500 border-transparent hover:border-gray-600"
-                                                    )}
-                                                >
-                                                    {selectedProfiles[selectedCategory] === profile ? 'SELECCIONADO PARA DESPLIEGUE' : 'SELECCIONAR'}
-                                                </button>
+                                            <div className="flex items-center gap-3">
+                                                <cat.icon size={18} className={cat.color} />
+                                                <span>{cat.name}</span>
                                             </div>
-                                        ))}
-                                    </div>
+                                        </button>
+                                    ))}
                                 </div>
 
-                                {/* Deployment Footer */}
-                                <div className="bg-blue-900/10 border border-blue-500/20 p-8 rounded-3xl flex flex-col md:flex-row justify-between items-center gap-6">
-                                    <div className="flex-1">
-                                        <h4 className="text-lg font-black text-white uppercase mb-2">Lanzar Configuración</h4>
-                                        <p className="text-sm text-gray-400">
-                                            Se enviarán {Object.keys(selectedProfiles).length} perfiles a
-                                            {selectedStationIds.length > 0 ? ` ${selectedStationIds.length} estación(es)` : ' TODAS las estaciones'}.
-                                        </p>
-                                        <div className="flex flex-wrap gap-2 mt-4">
-                                            {Array.isArray(stations) && stations.filter((s: any) => s.is_online).map((s: any) => (
-                                                <button
-                                                    key={s.id}
-                                                    onClick={() => setSelectedStationIds(prev => prev.includes(s.id) ? prev.filter(id => id !== s.id) : [...prev, s.id])}
-                                                    className={cn(
-                                                        "px-3 py-1.5 rounded-lg text-[10px] font-black transition-all border",
-                                                        selectedStationIds.includes(s.id)
-                                                            ? "bg-blue-600 border-blue-400 text-white"
-                                                            : "bg-gray-800 border-gray-700 text-gray-500"
-                                                    )}
-                                                >
-                                                    {s.name}
-                                                </button>
+                                {/* Profiles and Deployment */}
+                                <div className="lg:col-span-3 space-y-6">
+                                    <div className="bg-gray-800 p-8 rounded-3xl border border-gray-700">
+                                        <div className="flex justify-between items-center mb-8">
+                                            <h3 className="text-xl font-black text-white uppercase flex items-center gap-3">
+                                                <FileText className="text-blue-400" /> Perfiles Disponibles
+                                            </h3>
+                                            <button
+                                                onClick={() => { setNewProfileName(''); setIsEditorOpen(true); }}
+                                                className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-black uppercase flex items-center gap-2 transition-all shadow-lg"
+                                            >
+                                                <Plus size={16} /> Crear Nuevo
+                                            </button>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {profiles?.[selectedCategory]?.map((profile: string) => (
+                                                <div key={profile} className="bg-gray-900/50 p-4 rounded-2xl border border-gray-700 flex flex-col gap-4">
+                                                    <div className="flex justify-between items-start">
+                                                        <div>
+                                                            <p className="text-white font-black uppercase text-sm">{profile.replace('.ini', '')}</p>
+                                                            <p className="text-[10px] text-gray-500 font-mono mt-0.5">{profile}</p>
+                                                        </div>
+                                                        <button onClick={() => handleEditProfile(profile)} className="text-gray-500 hover:text-blue-400"><Edit2 size={16} /></button>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => setSelectedProfiles(prev => ({
+                                                            ...prev,
+                                                            [selectedCategory]: profile
+                                                        }))}
+                                                        className={cn(
+                                                            "w-full py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border",
+                                                            selectedProfiles[selectedCategory] === profile
+                                                                ? "bg-blue-500/20 text-blue-400 border-blue-500/50"
+                                                                : "bg-gray-800 text-gray-500 border-transparent hover:border-gray-600"
+                                                        )}
+                                                    >
+                                                        {selectedProfiles[selectedCategory] === profile ? 'SELECCIONADO PARA DESPLIEGUE' : 'SELECCIONAR'}
+                                                    </button>
+                                                </div>
                                             ))}
                                         </div>
                                     </div>
-                                    <button
-                                        disabled={deployMutation.isPending || Object.keys(selectedProfiles).length === 0}
-                                        onClick={() => deployMutation.mutate()}
-                                        className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest transition-all shadow-[0_0_30px_rgba(37,99,235,0.3)] flex items-center gap-3"
-                                    >
-                                        <Upload size={20} />
-                                        {deployMutation.isPending ? 'DESPLEGANDO...' : 'DESPLEGAR AHORA'}
-                                    </button>
+
+                                    {/* Deployment Footer */}
+                                    <div className="bg-blue-900/10 border border-blue-500/20 p-8 rounded-3xl flex flex-col md:flex-row justify-between items-center gap-6">
+                                        <div className="flex-1">
+                                            <h4 className="text-lg font-black text-white uppercase mb-2">Lanzar Configuración</h4>
+                                            <p className="text-sm text-gray-400">
+                                                Se enviarán {Object.keys(selectedProfiles).length} perfiles a
+                                                {selectedStationIds.length > 0 ? ` ${selectedStationIds.length} estación(es)` : ' TODAS las estaciones'}.
+                                            </p>
+                                            <div className="flex flex-wrap gap-2 mt-4">
+                                                {Array.isArray(stations) && stations.filter((s: any) => s.is_online).map((s: any) => (
+                                                    <button
+                                                        key={s.id}
+                                                        onClick={() => setSelectedStationIds(prev => prev.includes(s.id) ? prev.filter(id => id !== s.id) : [...prev, s.id])}
+                                                        className={cn(
+                                                            "px-3 py-1.5 rounded-lg text-[10px] font-black transition-all border",
+                                                            selectedStationIds.includes(s.id)
+                                                                ? "bg-blue-600 border-blue-400 text-white"
+                                                                : "bg-gray-800 border-gray-700 text-gray-500"
+                                                        )}
+                                                    >
+                                                        {s.name}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <button
+                                            disabled={deployMutation.isPending || Object.keys(selectedProfiles).length === 0}
+                                            onClick={() => deployMutation.mutate()}
+                                            className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest transition-all shadow-[0_0_30px_rgba(37,99,235,0.3)] flex items-center gap-3"
+                                        >
+                                            <Upload size={20} />
+                                            {deployMutation.isPending ? 'DESPLEGANDO...' : 'DESPLEGAR AHORA'}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                )}
+                    )
+                }
 
                 {/* --- TAB: ADS --- */}
-                {activeTab === 'ads' && (
-                    <div className="max-w-5xl animate-in fade-in duration-300">
-                        <div className="bg-gray-900/50 p-8 rounded-3xl border border-gray-800">
-                            <p className="text-gray-400 mb-6 text-sm font-medium">Gestiona la publicidad y promociones que aparecen en las pantallas del local (TV Mode).</p>
-                            <AdsSettings />
+                {
+                    activeTab === 'ads' && (
+                        <div className="max-w-5xl animate-in fade-in duration-300">
+                            <div className="bg-gray-900/50 p-8 rounded-3xl border border-gray-800">
+                                <p className="text-gray-400 mb-6 text-sm font-medium">Gestiona la publicidad y promociones que aparecen en las pantallas del local (TV Mode).</p>
+                                <AdsSettings />
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )
+                }
 
                 {/* --- TAB: LOGS --- */}
-                {activeTab === 'logs' && (
-                    <div className="max-w-5xl animate-in fade-in duration-300">
-                        <LogViewer />
-                    </div>
-                )}
+                {
+                    activeTab === 'logs' && (
+                        <div className="max-w-5xl animate-in fade-in duration-300">
+                            <LogViewer />
+                        </div>
+                    )
+                }
 
                 {/* --- TAB: DATABASE --- */}
-                {activeTab === 'database' && (
-                    <div className="max-w-5xl animate-in fade-in duration-300">
-                        <div className="bg-gray-800 p-8 rounded-3xl border border-gray-700">
-                            <h2 className="text-xl font-black text-white uppercase mb-6 flex items-center"><Database className="mr-2 text-blue-500" /> Copia de Seguridad</h2>
-                            <p className="text-gray-400 mb-8 font-medium">Gestiona la integridad de tus datos. Descarga copias de seguridad regularmente.</p>
+                {
+                    activeTab === 'database' && (
+                        <div className="max-w-5xl animate-in fade-in duration-300">
+                            <div className="bg-gray-800 p-8 rounded-3xl border border-gray-700">
+                                <h2 className="text-xl font-black text-white uppercase mb-6 flex items-center"><Database className="mr-2 text-blue-500" /> Copia de Seguridad</h2>
+                                <p className="text-gray-400 mb-8 font-medium">Gestiona la integridad de tus datos. Descarga copias de seguridad regularmente.</p>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div className="bg-gray-900 p-6 rounded-2xl border border-gray-800 flex flex-col items-center text-center">
-                                    <div className="bg-blue-500/10 p-4 rounded-full mb-4">
-                                        <Upload className="text-blue-500" size={32} />
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div className="bg-gray-900 p-6 rounded-2xl border border-gray-800 flex flex-col items-center text-center">
+                                        <div className="bg-blue-500/10 p-4 rounded-full mb-4">
+                                            <Upload className="text-blue-500" size={32} />
+                                        </div>
+                                        <h3 className="text-lg font-bold text-white mb-2">Exportar Datos</h3>
+                                        <p className="text-gray-500 text-xs mb-6">Descarga un archivo JSON con todos los eventos, pilotos, resultados y configuraciones.</p>
+                                        <button onClick={handleExport} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-colors">
+                                            DESCARGAR BACKUP
+                                        </button>
                                     </div>
-                                    <h3 className="text-lg font-bold text-white mb-2">Exportar Datos</h3>
-                                    <p className="text-gray-500 text-xs mb-6">Descarga un archivo JSON con todos los eventos, pilotos, resultados y configuraciones.</p>
-                                    <button onClick={handleExport} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-colors">
-                                        DESCARGAR BACKUP
-                                    </button>
-                                </div>
 
-                                <div className="bg-gray-900 p-6 rounded-2xl border border-gray-800 flex flex-col items-center text-center">
-                                    <div className="bg-orange-500/10 p-4 rounded-full mb-4">
-                                        <Database className="text-orange-500" size={32} />
+                                    <div className="bg-gray-900 p-6 rounded-2xl border border-gray-800 flex flex-col items-center text-center">
+                                        <div className="bg-orange-500/10 p-4 rounded-full mb-4">
+                                            <Database className="text-orange-500" size={32} />
+                                        </div>
+                                        <h3 className="text-lg font-bold text-white mb-2">Restaurar Datos</h3>
+                                        <p className="text-gray-500 text-xs mb-6">Restaura el sistema desde un archivo. <span className="text-red-400 font-bold">ESTO BORRARÁ LOS DATOS ACTUALES.</span></p>
+                                        <label className="w-full bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 rounded-xl transition-colors cursor-pointer border border-gray-700 hover:border-gray-500">
+                                            SELECCIONAR ARCHIVO
+                                            <input type="file" hidden onChange={handleImport} accept=".json" />
+                                        </label>
                                     </div>
-                                    <h3 className="text-lg font-bold text-white mb-2">Restaurar Datos</h3>
-                                    <p className="text-gray-500 text-xs mb-6">Restaura el sistema desde un archivo. <span className="text-red-400 font-bold">ESTO BORRARÁ LOS DATOS ACTUALES.</span></p>
-                                    <label className="w-full bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 rounded-xl transition-colors cursor-pointer border border-gray-700 hover:border-gray-500">
-                                        SELECCIONAR ARCHIVO
-                                        <input type="file" hidden onChange={handleImport} accept=".json" />
-                                    </label>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                )}
-            </div>
+                    )
+                }
+            </div >
 
             {/* Config Editor Modal */}
-            {isEditorOpen && (
-                <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-8 backdrop-blur-sm">
-                    <div className="bg-gray-900 w-full max-w-4xl h-full max-h-[90vh] rounded-3xl border border-gray-800 flex flex-col shadow-2xl overflow-hidden">
-                        <div className="p-6 border-b border-gray-800 flex justify-between items-center">
-                            <h3 className="text-xl font-black text-white uppercase">
-                                Editor de {AC_CATEGORIES.find(c => c.id === selectedCategory)?.name}
-                            </h3>
-                            <button onClick={() => setIsEditorOpen(false)}><Plus className="rotate-45 text-gray-500 hover:text-white" size={28} /></button>
-                        </div>
-                        <div className="p-8 overflow-y-auto flex-1 bg-gray-950">
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Nombre del perfil</label>
-                            <input value={newProfileName} onChange={e => setNewProfileName(e.target.value)} className="w-full text-xl font-bold bg-transparent border-b border-gray-700 focus:border-blue-500 outline-none text-white mb-8 pb-2" placeholder="Nombre del perfil..." />
-
-                            {newProfileName && (
-                                <ACSettingsEditor
-                                    category={selectedCategory as 'controls' | 'gameplay' | 'video' | 'audio'}
-                                    profileName={`${newProfileName}.ini`}
-                                />
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {contentStationId && (
-                <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-6 backdrop-blur-sm">
-                    <div className="bg-gray-900 w-full max-w-5xl max-h-[90vh] rounded-3xl border border-gray-800 flex flex-col shadow-2xl overflow-hidden">
-                        <div className="p-6 border-b border-gray-800 flex items-center justify-between">
-                            <div>
-                                <h3 className="text-xl font-black text-white uppercase">Contenido escaneado</h3>
-                                <p className="text-xs text-gray-500">
-                                    {contentStation ? contentStation.name : 'Estación'} {stationContent?.updated ? `· Actualizado ${new Date(stationContent.updated).toLocaleString('es-ES')}` : ''}
-                                </p>
+            {
+                isEditorOpen && (
+                    <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-8 backdrop-blur-sm">
+                        <div className="bg-gray-900 w-full max-w-4xl h-full max-h-[90vh] rounded-3xl border border-gray-800 flex flex-col shadow-2xl overflow-hidden">
+                            <div className="p-6 border-b border-gray-800 flex justify-between items-center">
+                                <h3 className="text-xl font-black text-white uppercase">
+                                    Editor de {AC_CATEGORIES.find(c => c.id === selectedCategory)?.name}
+                                </h3>
+                                <button onClick={() => setIsEditorOpen(false)}><Plus className="rotate-45 text-gray-500 hover:text-white" size={28} /></button>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => {
-                                        if (!contentStationId) return;
-                                        scanContentMutation.mutate(contentStationId);
-                                        setTimeout(() => refetchStationContent(), 1500);
-                                    }}
-                                    className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold uppercase tracking-widest"
-                                >
-                                    Reescanear
-                                </button>
-                                <button
-                                    onClick={() => setContentStationId(null)}
-                                    className="px-3 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-bold uppercase tracking-widest"
-                                >
-                                    Cerrar
-                                </button>
+                            <div className="p-8 overflow-y-auto flex-1 bg-gray-950">
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Nombre del perfil</label>
+                                <input value={newProfileName} onChange={e => setNewProfileName(e.target.value)} className="w-full text-xl font-bold bg-transparent border-b border-gray-700 focus:border-blue-500 outline-none text-white mb-8 pb-2" placeholder="Nombre del perfil..." />
+
+                                {newProfileName && (
+                                    <ACSettingsEditor
+                                        category={selectedCategory as 'controls' | 'gameplay' | 'video' | 'audio'}
+                                        profileName={`${newProfileName}.ini`}
+                                    />
+                                )}
                             </div>
                         </div>
+                    </div>
+                )
+            }
 
-                        <div className="px-6 pt-4 flex gap-2">
-                            <button
-                                onClick={() => setContentTab('cars')}
-                                className={cn(
-                                    "px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest border",
-                                    contentTab === 'cars'
-                                        ? "bg-blue-600 border-blue-400 text-white"
-                                        : "bg-gray-800 border-gray-700 text-gray-400"
-                                )}
-                            >
-                                Coches ({stationContent?.cars?.length || 0})
-                            </button>
-                            <button
-                                onClick={() => setContentTab('tracks')}
-                                className={cn(
-                                    "px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest border",
-                                    contentTab === 'tracks'
-                                        ? "bg-blue-600 border-blue-400 text-white"
-                                        : "bg-gray-800 border-gray-700 text-gray-400"
-                                )}
-                            >
-                                Circuitos ({stationContent?.tracks?.length || 0})
-                            </button>
-                        </div>
+            {
+                contentStationId && (
+                    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-6 backdrop-blur-sm">
+                        <div className="bg-gray-900 w-full max-w-5xl max-h-[90vh] rounded-3xl border border-gray-800 flex flex-col shadow-2xl overflow-hidden">
+                            <div className="p-6 border-b border-gray-800 flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-xl font-black text-white uppercase">Contenido escaneado</h3>
+                                    <p className="text-xs text-gray-500">
+                                        {contentStation ? contentStation.name : 'Estación'} {stationContent?.updated ? `· Actualizado ${new Date(stationContent.updated).toLocaleString('es-ES')}` : ''}
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => {
+                                            if (!contentStationId) return;
+                                            scanContentMutation.mutate(contentStationId);
+                                            setTimeout(() => refetchStationContent(), 1500);
+                                        }}
+                                        className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold uppercase tracking-widest"
+                                    >
+                                        Reescanear
+                                    </button>
+                                    <button
+                                        onClick={() => setContentStationId(null)}
+                                        className="px-3 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-bold uppercase tracking-widest"
+                                    >
+                                        Cerrar
+                                    </button>
+                                </div>
+                            </div>
 
-                        <div className="p-6 overflow-y-auto">
-                            {stationContentLoading && (
-                                <div className="text-center text-gray-400">Cargando contenido...</div>
-                            )}
-                            {!stationContentLoading && contentTab === 'cars' && (
-                                <>
-                                    {stationContent?.cars?.length ? (
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                            {stationContent.cars.map((car: any) => {
-                                                const imageUrl = resolveContentUrl(car.image_url);
-                                                return (
-                                                    <div key={car.id} className="bg-gray-800/60 border border-gray-700 rounded-2xl p-4 flex gap-3">
-                                                        {imageUrl && (
-                                                            <img
-                                                                src={imageUrl}
-                                                                alt={car.name}
-                                                                className="w-20 h-14 object-cover rounded-lg bg-black/40"
-                                                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                                            />
-                                                        )}
-                                                        <div>
-                                                            <div className="text-white font-bold text-sm">{car.name}</div>
-                                                            <div className="text-[10px] text-gray-500">{car.brand || 'Sin marca'}</div>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    ) : (
-                                        <div className="text-gray-500 text-sm">No hay coches escaneados.</div>
+                            <div className="px-6 pt-4 flex gap-2">
+                                <button
+                                    onClick={() => setContentTab('cars')}
+                                    className={cn(
+                                        "px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest border",
+                                        contentTab === 'cars'
+                                            ? "bg-blue-600 border-blue-400 text-white"
+                                            : "bg-gray-800 border-gray-700 text-gray-400"
                                     )}
-                                </>
-                            )}
-
-                            {!stationContentLoading && contentTab === 'tracks' && (
-                                <>
-                                    {stationContent?.tracks?.length ? (
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                            {stationContent.tracks.map((track: any) => {
-                                                const imageUrl = resolveContentUrl(track.image_url);
-                                                const mapUrl = resolveContentUrl(track.map_url);
-                                                return (
-                                                    <div key={track.id} className="bg-gray-800/60 border border-gray-700 rounded-2xl p-4 flex gap-3">
-                                                        {(imageUrl || mapUrl) && (
-                                                            <img
-                                                                src={imageUrl || mapUrl}
-                                                                alt={track.name}
-                                                                className="w-20 h-14 object-cover rounded-lg bg-black/40"
-                                                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                                            />
-                                                        )}
-                                                        <div>
-                                                            <div className="text-white font-bold text-sm">{track.name}</div>
-                                                            <div className="text-[10px] text-gray-500">{track.layout || 'Sin layout'}</div>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    ) : (
-                                        <div className="text-gray-500 text-sm">No hay circuitos escaneados.</div>
+                                >
+                                    Coches ({stationContent?.cars?.length || 0})
+                                </button>
+                                <button
+                                    onClick={() => setContentTab('tracks')}
+                                    className={cn(
+                                        "px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest border",
+                                        contentTab === 'tracks'
+                                            ? "bg-blue-600 border-blue-400 text-white"
+                                            : "bg-gray-800 border-gray-700 text-gray-400"
                                     )}
-                                </>
-                            )}
+                                >
+                                    Circuitos ({stationContent?.tracks?.length || 0})
+                                </button>
+                            </div>
+
+                            <div className="p-6 overflow-y-auto">
+                                {stationContentLoading && (
+                                    <div className="text-center text-gray-400">Cargando contenido...</div>
+                                )}
+                                {!stationContentLoading && contentTab === 'cars' && (
+                                    <>
+                                        {stationContent?.cars?.length ? (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                {stationContent.cars.map((car: any) => {
+                                                    const imageUrl = resolveContentUrl(car.image_url);
+                                                    return (
+                                                        <div key={car.id} className="bg-gray-800/60 border border-gray-700 rounded-2xl p-4 flex gap-3">
+                                                            {imageUrl && (
+                                                                <img
+                                                                    src={imageUrl}
+                                                                    alt={car.name}
+                                                                    className="w-20 h-14 object-cover rounded-lg bg-black/40"
+                                                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                                                />
+                                                            )}
+                                                            <div>
+                                                                <div className="text-white font-bold text-sm">{car.name}</div>
+                                                                <div className="text-[10px] text-gray-500">{car.brand || 'Sin marca'}</div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        ) : (
+                                            <div className="text-gray-500 text-sm">No hay coches escaneados.</div>
+                                        )}
+                                    </>
+                                )}
+
+                                {!stationContentLoading && contentTab === 'tracks' && (
+                                    <>
+                                        {stationContent?.tracks?.length ? (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                {stationContent.tracks.map((track: any) => {
+                                                    const imageUrl = resolveContentUrl(track.image_url);
+                                                    const mapUrl = resolveContentUrl(track.map_url);
+                                                    return (
+                                                        <div key={track.id} className="bg-gray-800/60 border border-gray-700 rounded-2xl p-4 flex gap-3">
+                                                            {(imageUrl || mapUrl) && (
+                                                                <img
+                                                                    src={imageUrl || mapUrl}
+                                                                    alt={track.name}
+                                                                    className="w-20 h-14 object-cover rounded-lg bg-black/40"
+                                                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                                                />
+                                                            )}
+                                                            <div>
+                                                                <div className="text-white font-bold text-sm">{track.name}</div>
+                                                                <div className="text-[10px] text-gray-500">{track.layout || 'Sin layout'}</div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        ) : (
+                                            <div className="text-gray-500 text-sm">No hay circuitos escaneados.</div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 }

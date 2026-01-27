@@ -87,3 +87,16 @@ async def upload_logo(file: UploadFile = File(...), db: Session = Depends(databa
     update_setting(schemas.GlobalSettingsBase(key="bar_logo", value=logo_url), db)
     
     return {"status": "ok", "url": logo_url}
+
+class KioskPairRequest(schemas.BaseModel):
+    code: str
+
+@router.post("/kiosk/pair")
+def pair_kiosk(payload: KioskPairRequest, db: Session = Depends(database.get_db)):
+    code = payload.code.strip().upper()
+    station = db.query(models.Station).filter(models.Station.kiosk_code == code).first()
+    
+    if not station:
+        raise HTTPException(status_code=404, detail="Invalid kiosk code")
+    
+    return {"station_id": station.id, "name": station.name}

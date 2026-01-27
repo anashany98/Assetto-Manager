@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from datetime import datetime, timezone
 import logging
 
@@ -21,31 +21,38 @@ def get_db():
 @router.post("/create", response_model=schemas.Lobby)
 async def create_lobby(
     lobby_data: schemas.LobbyCreate,
-    host_station_id: int,
+    host_station_id: Optional[int] = None,
     db: Session = Depends(database.get_db)
 ):
     """
     Create a new multiplayer lobby. The host station will run acServer.exe.
     """
+    # Prefer station_id from body if host_station_id is not provided (Kiosk flow)
+    active_host_id = host_station_id or lobby_data.station_id
+    if not active_host_id:
+        raise HTTPException(status_code=400, detail="Missing host station ID")
+
     # Verify host station exists and is online
-    host = db.query(models.Station).filter(models.Station.id == host_station_id).first()
+    host = db.query(models.Station).filter(models.Station.id == active_host_id).first()
     if not host:
-        raise HTTPException(status_code=404, detail=f"Station {host_station_id} not found")
+        raise HTTPException(status_code=404, detail=f"Station {active_host_id} not found")
     if not host.is_online:
         raise HTTPException(status_code=400, detail="Host station must be online")
     
     # Find available port (9600 + lobby_id offset)
     last_lobby = db.query(models.Lobby).order_by(models.Lobby.id.desc()).first()
-    port = 9600 + ((last_lobby.id + 1) % 100 if last_lobby else 0)
+    next_id = (last_lobby.id + 1) if last_lobby else 1
+    port = 9600 + (next_id % 100)
     
     # Create lobby
     lobby = models.Lobby(
         name=lobby_data.name,
-        host_station_id=host_station_id,
+        host_station_id=active_host_id,
         track=lobby_data.track,
         car=lobby_data.car,
         max_players=lobby_data.max_players,
         laps=lobby_data.laps,
+        duration_minutes=lobby_data.duration,
         port=port,
         server_ip=host.ip_address,
         status="waiting"
@@ -56,6 +63,7 @@ async def create_lobby(
     db.refresh(lobby)
     
     # Add host as first player
+    # Check if we should use association table directly or relationship
     lobby.players.append(host)
     db.commit()
     
@@ -70,6 +78,7 @@ async def create_lobby(
         car=lobby.car,
         max_players=lobby.max_players,
         laps=lobby.laps,
+        duration_minutes=lobby.duration_minutes,
         port=lobby.port,
         server_ip=lobby.server_ip,
         created_at=lobby.created_at,
@@ -106,6 +115,7 @@ async def list_lobbies(
             car=lobby.car,
             max_players=lobby.max_players,
             laps=lobby.laps,
+            duration_minutes=lobby.duration_minutes,
             port=lobby.port,
             server_ip=lobby.server_ip,
             created_at=lobby.created_at,
@@ -155,6 +165,7 @@ async def get_lobby(lobby_id: int, db: Session = Depends(database.get_db)):
         car=lobby.car,
         max_players=lobby.max_players,
         laps=lobby.laps,
+        duration_minutes=lobby.duration_minutes,
         port=lobby.port,
         server_ip=lobby.server_ip,
         created_at=lobby.created_at,

@@ -106,6 +106,7 @@ class Lobby(Base):
     car = Column(String)  # Single car model for equal races
     max_players = Column(Integer, default=8)
     laps = Column(Integer, default=5)
+    duration_minutes = Column(Integer, default=15)
     
     # Server networking
     port = Column(Integer, default=9600)

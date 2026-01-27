@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import axios from 'axios';
+import { soundManager } from '../utils/sound';
 import {
     ChevronRight, Trophy,
     Sun, Sunset, Cloud, CloudRain,
@@ -45,8 +46,8 @@ export const AttractMode: React.FC<AttractModeProps> = ({ isIdle, scenarios }) =
     useEffect(() => {
         if (!isIdle) return;
         const timer = setInterval(() => {
-            setSlide(prev => (prev + 1) % 2);
-        }, 5000);
+            setSlide(prev => (prev + 1) % 3); // Now 3 slides
+        }, 6000);
         return () => clearInterval(timer);
     }, [isIdle]);
 
@@ -60,7 +61,8 @@ export const AttractMode: React.FC<AttractModeProps> = ({ isIdle, scenarios }) =
                     loop
                     muted
                     className="w-full h-full object-cover"
-                    src="https://cdn.pixabay.com/video/2020/09/20/49964-463327685_large.mp4"
+                    src="https://assets.mixkit.co/videos/preview/mixkit-asphalt-road-with-white-lines-loop-2273-large.mp4"
+                    poster="https://images.unsplash.com/photo-1594787318286-3d835c1d207f?q=80&w=2070&auto=format&fit=crop"
                 />
             </div>
             <div className="relative z-10 text-center space-y-8 max-w-4xl mx-auto px-4">
@@ -72,7 +74,7 @@ export const AttractMode: React.FC<AttractModeProps> = ({ isIdle, scenarios }) =
                             <p className="text-2xl text-white font-bold">TOCA LA PANTALLA PARA EMPEZAR</p>
                         </div>
                     </div>
-                ) : (
+                ) : slide === 1 ? (
                     <div className="animate-in slide-in-from-bottom-10 duration-700 fade-in">
                         <h2 className="text-6xl font-black text-white italic mb-12 drop-shadow-lg">EVENTOS DE HOY</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
@@ -88,6 +90,16 @@ export const AttractMode: React.FC<AttractModeProps> = ({ isIdle, scenarios }) =
                                 </div>
                             ))}
                         </div>
+                    </div>
+                ) : (
+                    <div className="animate-in zoom-in duration-700 fade-in">
+                        <h2 className="text-5xl font-black text-yellow-400 italic mb-4 drop-shadow-lg">RÉCORD DEL DÍA</h2>
+                        <div className="bg-black/60 backdrop-blur-xl p-8 rounded-[3rem] border-2 border-yellow-500/50 inline-block shadow-[0_0_50px_rgba(234,179,8,0.3)]">
+                            <div className="text-8xl font-black text-white tabular-nums mb-2 font-mono">1:42.580</div>
+                            <div className="text-2xl font-bold text-gray-300 uppercase tracking-widest">Carlos Sainz</div>
+                            <div className="text-sm text-yellow-500 mt-2 font-bold">FERRARI 488 GT3 @ SPA</div>
+                        </div>
+                        <p className="text-white font-bold mt-8 text-xl animate-pulse">¿PUEDES SUPERARLO?</p>
                     </div>
                 )}
             </div>
@@ -130,7 +142,8 @@ export const ScenarioStep: React.FC<ScenarioStepProps> = ({
                 track: randomTrack,
                 car: randomCar,
                 time: 10,
-                isLobby: false
+                isLobby: true,
+                isHost: true
             });
             setDuration(10);
             setStep(2);
@@ -167,10 +180,28 @@ export const ScenarioStep: React.FC<ScenarioStepProps> = ({
             track: '',
             car: '',
             time: time,
-            isLobby: false
+            isLobby: true,
+            isHost: true
         });
         setDuration(time);
         setStep(2);
+    };
+
+
+
+    const handleJoinLobby = (lobby: any) => {
+        soundManager.playClick();
+        setSelection({
+            type: 'race',
+            track: lobby.track,
+            car: lobby.car,
+            isLobby: true,
+            isHost: false,
+            lobbyId: lobby.id,
+            time: lobby.duration
+        });
+        setDuration(lobby.duration);
+        setStep(3); // Go to Driver Registration directly
     };
 
     return (
@@ -180,49 +211,37 @@ export const ScenarioStep: React.FC<ScenarioStepProps> = ({
             </h2>
 
             <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-8 md:space-y-12 custom-scrollbar">
-                {lobbies.length > 0 && (
-                    <div>
-                        <h3 className="text-xl md:text-2xl font-black text-blue-400 mb-4 md:mb-6 flex items-center gap-3 border-b border-blue-900/50 pb-2">
-                            <Activity className="animate-pulse" /> {t('kiosk.liveLobbies')}
-                        </h3>
+                <div className="mb-8">
+                    <h3 className="text-xl md:text-2xl font-black text-blue-400 mb-4 md:mb-6 flex items-center gap-3 border-b border-blue-900/50 pb-2">
+                        <Activity className="animate-pulse" /> {t('kiosk.liveLobbies')}
+                    </h3>
+                    {lobbies.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                             {lobbies.map((l: any) => (
-                                <div
+                                <button
                                     key={l.id}
-                                    onClick={() => {
-                                        setSelection({
-                                            type: 'race',
-                                            lobbyId: l.id,
-                                            track: l.track,
-                                            car: l.car,
-                                            isLobby: true,
-                                            isHost: false
-                                        });
-                                        setStep(2);
-                                    }}
-                                    className="bg-blue-900/20 border-2 border-blue-500/50 hover:bg-blue-900/40 hover:border-blue-400 p-4 md:p-6 rounded-3xl cursor-pointer transition-all group hover:scale-[1.02] shadow-xl shadow-blue-900/20"
+                                    onClick={() => handleJoinLobby(l)}
+                                    className="bg-blue-900/20 border-2 border-blue-500/30 hover:bg-blue-900/40 hover:border-blue-500 transition-all p-4 rounded-2xl text-left group"
                                 >
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className="bg-blue-600 text-white text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider">ONLINE</div>
-                                        {l.status === 'running' ? (
-                                            <span className="flex items-center gap-2 text-red-400 font-bold text-xs uppercase animate-pulse">
-                                                <span className="w-2 h-2 rounded-full bg-red-500" /> EN CARRERA
-                                            </span>
-                                        ) : (
-                                            <span className="flex items-center gap-2 text-green-400 font-bold text-xs uppercase">
-                                                <span className="w-2 h-2 rounded-full bg-green-500" /> ESPERANDO
-                                            </span>
-                                        )}
+                                    <div className="flex justify-between items-start mb-2">
+                                        <span className="bg-blue-600 text-white text-[10px] uppercase font-bold px-2 py-1 rounded-md">{l.name}</span>
+                                        <span className="text-blue-300 font-mono text-xs">{l.players_count}/10</span>
                                     </div>
-                                    <h4 className="text-xl md:text-2xl font-black text-white group-hover:text-blue-200 truncate">{l.name}</h4>
-                                    <p className="text-blue-200/60 font-mono text-sm mt-1">{l.track} | {l.car}</p>
-                                </div>
+                                    <h4 className="font-bold text-white text-lg">{l.track}</h4>
+                                    <p className="text-sm text-gray-400">{l.car}</p>
+                                </button>
                             ))}
                         </div>
-                    </div>
-                )}
+                    ) : (
+                        <div className="w-full bg-blue-900/10 border border-blue-900/30 rounded-2xl p-6 text-center">
+                            <p className="text-blue-300/50 font-bold italic">No hay torneos activos en este momento.</p>
+                            <p className="text-xs text-blue-400/30 mt-1">¡Crea uno nuevo abajo!</p>
+                        </div>
+                    )}
+                </div>
 
-                <div>
+
+                <div className="mb-8">
                     <h3 className="text-xl md:text-2xl font-black text-yellow-500 mb-4 md:mb-6 flex items-center gap-3 border-b border-yellow-900/30 pb-2">
                         <Trophy className="text-yellow-500" /> {t('kiosk.specialEvents')}
                     </h3>
@@ -236,7 +255,8 @@ export const ScenarioStep: React.FC<ScenarioStepProps> = ({
                                         track: dailyScenario.selectedTrack,
                                         car: dailyScenario.selectedCar,
                                         time: 10,
-                                        isLobby: false
+                                        isLobby: true,
+                                        isHost: true
                                     });
                                     setDuration(10);
                                     setStep(2);
@@ -247,7 +267,7 @@ export const ScenarioStep: React.FC<ScenarioStepProps> = ({
                                 <div className="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition-all z-0" />
                                 <div className="relative z-10 text-center mt-4 flex-1 flex flex-col items-center justify-center">
                                     <Trophy size={48} className="mx-auto text-yellow-200 mb-4 drop-shadow-lg animate-bounce md:w-16 md:h-16" />
-                                    <h3 className="text-2xl md:text-3xl font-black text-white leading-none uppercase">DAILY<br />CHALLENGE</h3>
+                                    <h3 className="text-2xl md:text-3xl font-black text-white leading-none uppercase">RETO<br />DIARIO</h3>
                                     <p className="mt-2 text-yellow-200 font-bold uppercase text-sm md:text-base">{dailyScenario.selectedTrack} • {dailyScenario.selectedCar}</p>
                                 </div>
                             </div>
@@ -273,48 +293,54 @@ export const ScenarioStep: React.FC<ScenarioStepProps> = ({
                         <Flag /> PRÁCTICA LIBRE
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-                        {scenarios.map(scenario => (
-                            <div
-                                key={scenario.id}
-                                onClick={() => setExpandedId(expandedId === scenario.id ? null : scenario.id!)}
-                                className={`relative bg-gradient-to-br from-gray-800 to-gray-900 rounded-3xl p-6 md:p-8 border-4 cursor-pointer transition-all shadow-2xl group overflow-hidden ${expandedId === scenario.id ? 'border-blue-500 scale-105 z-10' : 'border-gray-700 hover:border-gray-500 hover:scale-[1.02]'}`}
-                            >
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className="bg-gray-700 p-2 md:p-3 rounded-2xl">
-                                        <Flag size={24} className={`md:w-8 md:h-8 ${expandedId === scenario.id ? "text-blue-400" : "text-gray-400"}`} />
-                                    </div>
-                                </div>
-                                <h3 className="text-2xl md:text-3xl font-black text-white mb-2 uppercase leading-none">{scenario.name}</h3>
-                                <p className="text-gray-400 mb-6 min-h-[3rem] text-sm line-clamp-2">{scenario.description || 'Competición abierta'}</p>
-                                {expandedId === scenario.id ? (
-                                    <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                                        <p className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-2">{t('kiosk.pickDuration')}</p>
-                                        <div className="grid grid-cols-2 gap-3">
-                                            {(scenario.allowed_durations?.length ? scenario.allowed_durations : [10, 15, 20]).map((mins: number) => (
-                                                <button
-                                                    key={mins}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleSelect(scenario, mins);
-                                                    }}
-                                                    className="bg-blue-600 hover:bg-blue-500 text-white font-black py-3 rounded-xl border border-blue-400/30 flex items-center justify-center gap-2 transition-transform active:scale-95 text-sm md:text-base"
-                                                >
-                                                    <Clock size={16} /> {mins}m
-                                                </button>
-                                            ))}
+                        {scenarios.map(scenario => {
+                            const isExpanded = expandedId === scenario.id;
+                            return (
+                                <div
+                                    key={scenario.id}
+                                    onClick={() => !isExpanded && setExpandedId(scenario.id!)}
+                                    className={`relative bg-gradient-to-br from-gray-800 to-gray-900 rounded-3xl p-6 md:p-8 border-4 transition-all shadow-2xl group overflow-hidden ${isExpanded ? 'border-blue-500 scale-105 z-10 cursor-default' : 'border-gray-700 hover:border-gray-500 hover:scale-[1.02] cursor-pointer'}`}
+                                >
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className="bg-gray-700 p-2 md:p-3 rounded-2xl">
+                                            <Flag size={24} className={`md:w-8 md:h-8 ${isExpanded ? "text-blue-400" : "text-gray-400"}`} />
                                         </div>
                                     </div>
-                                ) : (
-                                    <div className="mt-4 flex items-center gap-2 text-gray-500 font-bold group-hover:text-white transition-colors">
-                                        <span>{t('kiosk.select')}</span> <ChevronRight />
-                                    </div>
-                                )}
-                            </div>
-                        ))}
+                                    <h3 className="text-2xl md:text-3xl font-black text-white mb-2 uppercase leading-none">{scenario.name}</h3>
+                                    <p className="text-gray-400 mb-6 min-h-[3rem] text-sm line-clamp-2">{scenario.description || 'Competición abierta'}</p>
+                                    {isExpanded ? (
+                                        <div
+                                            className="space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-300 cursor-default"
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
+                                            <p className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-2">{t('kiosk.pickDuration')}</p>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                {(scenario.allowed_durations?.length ? scenario.allowed_durations : [10, 15, 20]).map((mins: number) => (
+                                                    <button
+                                                        key={mins}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleSelect(scenario, mins);
+                                                        }}
+                                                        className="relative z-50 pointer-events-auto bg-blue-600 hover:bg-blue-500 text-white font-black py-3 rounded-xl border border-blue-400/30 flex items-center justify-center gap-2 transition-transform active:scale-95 text-sm md:text-base hover:shadow-lg hover:shadow-blue-500/20"
+                                                    >
+                                                        <Clock size={16} /> {mins}m
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="mt-4 flex items-center gap-2 text-gray-500 font-bold group-hover:text-white transition-colors">
+                                            <span>{t('kiosk.select')}</span> <ChevronRight />
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 };
 
@@ -452,6 +478,7 @@ export const DifficultyStep: React.FC<DifficultyStepProps> = ({
             <div className="w-full pb-8">
                 <button
                     onClick={() => {
+                        soundManager.playClick();
                         paymentHandledRef.current = false;
                         noPaymentHandledRef.current = false;
                         setPaymentInfo(null);
@@ -478,6 +505,7 @@ interface PaymentStepProps {
     duration: number;
     driver: { id: number, name: string } | null;
     selection: KioskSelection | null;
+    setSelection: (s: any) => void;
     paymentProvider: PaymentProvider;
     setPaymentProvider: (p: PaymentProvider) => void;
     paymentInfo: any;
@@ -493,7 +521,7 @@ interface PaymentStepProps {
 }
 
 export const PaymentStep: React.FC<PaymentStepProps> = ({
-    t, stationId, duration, driver, selection, paymentProvider, setPaymentProvider,
+    t, stationId, duration, driver, selection, setSelection, paymentProvider, setPaymentProvider,
     paymentInfo, setPaymentInfo, paymentError, setPaymentError,
     clientTokenHeaders, sessionPrice, paymentHandledRef, setStep,
     launchSessionMutation, buildLaunchPayload
@@ -514,6 +542,29 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
             setPaymentError(null);
         },
         onError: () => setPaymentError('No se pudo iniciar el pago. Revisa la configuración.')
+    });
+
+    const createLobbyMutation = useMutation({
+        mutationFn: async () => {
+            const res = await axios.post(`${API_URL}/lobby/create`, {
+                station_id: stationId,
+                name: `GRUPO DE ${driver?.name?.toUpperCase() || 'INVITADO'}`,
+                track: selection?.track,
+                car: selection?.car,
+                duration: duration,
+                max_players: 10
+            });
+            return res.data;
+        },
+        onSuccess: (data) => {
+            setSelection((prev: any) => ({ ...prev, lobbyId: data.id }));
+            setStep(6);
+        },
+        onError: (err) => {
+            console.error("Failed to create lobby:", err);
+            alert("Error al crear la sala.");
+            setStep(1);
+        }
     });
 
     const joinLobbyMutation = useMutation({
@@ -562,7 +613,11 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
                 }
 
                 if (selection?.isLobby) {
-                    joinLobbyMutation.mutate();
+                    if (selection.isHost) {
+                        createLobbyMutation.mutate();
+                    } else {
+                        joinLobbyMutation.mutate();
+                    }
                     return;
                 }
 
@@ -699,17 +754,17 @@ export const WaitingRoom: React.FC<WaitingRoomProps> = ({ selection, stationId, 
     const myPlayer = lobbyData?.players?.find((p: any) => p.station_id === stationId);
     const isReady = myPlayer?.ready || false;
 
-    const [timeLeft, setTimeLeft] = useState(120);
+    const [timeLeft, setTimeLeft] = useState(180);
 
     useEffect(() => {
         if (!lobbyData?.created_at) return;
         const createdTime = new Date(lobbyData.created_at).getTime();
         const elapsed = Math.floor((new Date().getTime() - createdTime) / 1000);
-        const remaining = Math.max(0, 120 - elapsed);
+        const remaining = Math.max(0, 180 - elapsed);
         setTimeLeft(remaining);
 
         if (remaining === 0 && isHost && lobbyData.status === 'waiting' && !StartRaceMutation.isPending) {
-            if ((lobbyData.players?.length || 0) >= 2) StartRaceMutation.mutate();
+            StartRaceMutation.mutate();
         }
     }, [lobbyData?.created_at, lobbyData?.status, isHost]);
 
@@ -1186,9 +1241,24 @@ export const ResultsStep: React.FC<ResultsStepProps> = ({ driver, selection }) =
                     </div>
                 </div>
             </div>
-            <div className="mt-8 flex gap-4">
-                <button onClick={() => window.location.reload()} className="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-black py-6 rounded-2xl text-xl transition-all border border-gray-700">SALIR SIN GUARDAR</button>
-                <button onClick={() => window.location.reload()} className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-black py-6 rounded-2xl text-xl shadow-xl shadow-blue-600/20 active:scale-95 transition-all">CONSERVADOR PERFIL</button>
+            <div className="mt-8 flex gap-8 items-center bg-gray-900 border border-gray-800 p-6 rounded-3xl">
+                <div className="bg-white p-4 rounded-xl shadow-lg">
+                    <QRCodeCanvas
+                        value={`${window.location.origin}/p/${encodeURIComponent(driver?.name || '')}`}
+                        size={120}
+                        level="H"
+                        includeMargin
+                    />
+                </div>
+                <div className="flex-1">
+                    <h3 className="text-3xl font-black text-white italic uppercase tracking-tighter mb-2">¡LLEVATE TUS DATOS!</h3>
+                    <p className="text-gray-400 text-lg mb-4">Escanea este código para guardar tu telemetría, comparar con tus amigos y ver tu nivel de piloto en tu móvil.</p>
+                    <div className="flex gap-4">
+                        <button onClick={() => window.location.reload()} className="px-8 py-4 bg-gray-800 hover:bg-gray-700 text-white font-bold rounded-2xl border border-gray-600 transition-all">
+                            Cerrar Sesión
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     );

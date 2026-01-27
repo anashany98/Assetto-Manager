@@ -459,6 +459,8 @@ class LobbyCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=50)
     track: str
     car: str
+    station_id: Optional[int] = None # For Kiosk direct creation
+    duration: Optional[int] = 15 # For Kiosk direct creation
     max_players: int = Field(default=8, ge=2, le=24)
     laps: int = Field(default=5, ge=1, le=100)
 
@@ -477,6 +479,7 @@ class Lobby(BaseModel):
     car: str
     max_players: int
     laps: int
+    duration_minutes: Optional[int] = 15
     port: int
     server_ip: Optional[str] = None
     created_at: datetime
