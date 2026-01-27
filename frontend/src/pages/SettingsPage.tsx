@@ -700,6 +700,34 @@ export default function SettingsPage() {
                             </div>
                         </div>
 
+                        {/* Kiosk Options */}
+                        <div className="bg-gray-800 p-8 rounded-3xl border border-gray-700">
+                            <h2 className="text-xl font-black text-white uppercase mb-6 flex items-center"><MonitorPlay className="mr-2 text-cyan-400" /> Opciones de Kiosko</h2>
+                            <div className="flex flex-col gap-6">
+                                <div className="flex items-center justify-between bg-gray-900/40 p-4 rounded-xl border border-gray-700/50">
+                                    <div>
+                                        <p className="font-bold text-white text-sm">Habilitar Lluvia Visual</p>
+                                        <p className="text-xs text-gray-500">Muestra la opción de lluvia en el menú de dificultad (Requiere CSP Preview)</p>
+                                    </div>
+                                    <button
+                                        onClick={() => updateBranding.mutate({
+                                            key: 'kiosk_rain_enabled',
+                                            value: safeBranding.find(s => s.key === 'kiosk_rain_enabled')?.value === 'true' ? 'false' : 'true'
+                                        })}
+                                        className={cn(
+                                            "w-14 h-7 rounded-full transition-all relative",
+                                            safeBranding.find(s => s.key === 'kiosk_rain_enabled')?.value === 'true' ? "bg-cyan-500" : "bg-gray-600"
+                                        )}
+                                    >
+                                        <div className={cn(
+                                            "absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-transform",
+                                            safeBranding.find(s => s.key === 'kiosk_rain_enabled')?.value === 'true' && "translate-x-7"
+                                        )} />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
                         {/* Push Notifications */}
                         <div className="bg-gray-800 p-8 rounded-3xl border border-gray-700">
                             <h2 className="text-xl font-black text-white uppercase mb-6 flex items-center"><Bell className="mr-2 text-purple-400" /> Notificaciones Push</h2>
@@ -1257,57 +1285,57 @@ export default function SettingsPage() {
                             <div className="flex items-center justify-between">
                                 <h2 className="text-lg font-black text-white uppercase tracking-wide">Simuladores</h2>
                                 <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => queryClient.invalidateQueries({ queryKey: ['stations'] })}
-                                    className="px-3 py-2 rounded-lg bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700 transition-all text-xs font-bold uppercase tracking-widest flex items-center gap-2"
-                                    title="Actualizar lista"
-                                >
-                                    <RefreshCw size={14} /> Actualizar
-                                </button>
-                                <button
-                                    onClick={() => window.location.href = '/hardware'}
-                                    className="px-3 py-2 rounded-lg bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700 transition-all text-xs font-bold uppercase tracking-widest flex items-center gap-2"
-                                    title="Monitor de salud"
-                                >
-                                    <AlertTriangle size={14} /> Salud
-                                </button>
-                                <button
-                                    onClick={() => setShowInactiveStations(!showInactiveStations)}
-                                    className={`px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${showInactiveStations ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700'}`}
-                                    title="Mostrar estaciones inactivas"
-                                >
-                                    {showInactiveStations ? 'Ocultar inactivas' : 'Mostrar inactivas'}
-                                </button>
-                                <button
-                                    onClick={() => setShowGhostStations(!showGhostStations)}
-                                    className={`px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${showGhostStations ? 'bg-yellow-500 text-black' : 'bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700'}`}
-                                    title="Mostrar estaciones fantasma"
-                                >
-                                    {showGhostStations ? 'Ocultar fantasmas' : 'Mostrar fantasmas'}
-                                </button>
-                                <select
-                                    value={ghostThresholdHours}
-                                    onChange={(e) => setGhostThresholdHours(Number(e.target.value))}
-                                    className="px-3 py-2 rounded-lg bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700 transition-all text-xs font-bold uppercase tracking-widest"
-                                    title="Umbral de fantasma"
-                                >
-                                    <option value={6}>Fantasma 6h</option>
-                                    <option value={24}>Fantasma 24h</option>
-                                    <option value={168}>Fantasma 7d</option>
-                                    <option value={720}>Fantasma 30d</option>
-                                </select>
-                                <button
-                                    onClick={() => {
-                                        if (confirm("Archivar estaciones fantasma? Se ocultaran y no contaran en reservas.")) {
-                                            archiveGhostsMutation.mutate();
-                                        }
-                                    }}
-                                    disabled={ghostStations.length === 0 || archiveGhostsMutation.isPending}
-                                    className="px-3 py-2 rounded-lg bg-gray-800 text-gray-300 hover:text-white hover:bg-red-600 transition-all text-xs font-bold uppercase tracking-widest flex items-center gap-2 disabled:opacity-50"
-                                    title="Archivar estaciones fantasma"
-                                >
-                                    <Trash2 size={14} /> Archivar fantasmas
-                                </button>
+                                    <button
+                                        onClick={() => queryClient.invalidateQueries({ queryKey: ['stations'] })}
+                                        className="px-3 py-2 rounded-lg bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700 transition-all text-xs font-bold uppercase tracking-widest flex items-center gap-2"
+                                        title="Actualizar lista"
+                                    >
+                                        <RefreshCw size={14} /> Actualizar
+                                    </button>
+                                    <button
+                                        onClick={() => window.location.href = '/hardware'}
+                                        className="px-3 py-2 rounded-lg bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700 transition-all text-xs font-bold uppercase tracking-widest flex items-center gap-2"
+                                        title="Monitor de salud"
+                                    >
+                                        <AlertTriangle size={14} /> Salud
+                                    </button>
+                                    <button
+                                        onClick={() => setShowInactiveStations(!showInactiveStations)}
+                                        className={`px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${showInactiveStations ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700'}`}
+                                        title="Mostrar estaciones inactivas"
+                                    >
+                                        {showInactiveStations ? 'Ocultar inactivas' : 'Mostrar inactivas'}
+                                    </button>
+                                    <button
+                                        onClick={() => setShowGhostStations(!showGhostStations)}
+                                        className={`px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${showGhostStations ? 'bg-yellow-500 text-black' : 'bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700'}`}
+                                        title="Mostrar estaciones fantasma"
+                                    >
+                                        {showGhostStations ? 'Ocultar fantasmas' : 'Mostrar fantasmas'}
+                                    </button>
+                                    <select
+                                        value={ghostThresholdHours}
+                                        onChange={(e) => setGhostThresholdHours(Number(e.target.value))}
+                                        className="px-3 py-2 rounded-lg bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700 transition-all text-xs font-bold uppercase tracking-widest"
+                                        title="Umbral de fantasma"
+                                    >
+                                        <option value={6}>Fantasma 6h</option>
+                                        <option value={24}>Fantasma 24h</option>
+                                        <option value={168}>Fantasma 7d</option>
+                                        <option value={720}>Fantasma 30d</option>
+                                    </select>
+                                    <button
+                                        onClick={() => {
+                                            if (confirm("Archivar estaciones fantasma? Se ocultaran y no contaran en reservas.")) {
+                                                archiveGhostsMutation.mutate();
+                                            }
+                                        }}
+                                        disabled={ghostStations.length === 0 || archiveGhostsMutation.isPending}
+                                        className="px-3 py-2 rounded-lg bg-gray-800 text-gray-300 hover:text-white hover:bg-red-600 transition-all text-xs font-bold uppercase tracking-widest flex items-center gap-2 disabled:opacity-50"
+                                        title="Archivar estaciones fantasma"
+                                    >
+                                        <Trash2 size={14} /> Archivar fantasmas
+                                    </button>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest">
@@ -1378,376 +1406,376 @@ export default function SettingsPage() {
                         </div>
 
                         <div className="grid gap-4">
-                        {(!stations || stations.length === 0) && (
-                            <div className="bg-gray-800/50 border border-gray-700/50 rounded-2xl p-12 text-center">
-                                <MonitorPlay className="w-16 h-16 text-gray-700 mx-auto mb-4" />
-                                <h3 className="text-xl font-bold text-gray-400 mb-2">No se detectan estaciones</h3>
-                                <p className="text-gray-600">Asegúrate de que el agente (client.py) esté ejecutándose en los simuladores.</p>
-                            </div>
-                        )}
-                        {Array.isArray(stations) && stations.length > 0 && filteredStations.length === 0 && (
-                            <div className="bg-gray-800/50 border border-gray-700/50 rounded-2xl p-8 text-center">
-                                <h3 className="text-lg font-bold text-gray-400 mb-2">No hay estaciones activas</h3>
-                                <p className="text-gray-600">Activa "Mostrar inactivas" o "Mostrar fantasmas" para verlas.</p>
-                            </div>
-                        )}
-                        {filteredStations.map((station) => {
-                            const health = healthById.get(station.id);
-                            const alertCount = Array.isArray(health?.alerts) ? health.alerts.length : 0;
-                            const alertPreview = Array.isArray(health?.alerts) ? health.alerts.slice(0, 2) : [];
-                            const isHealthOnline = typeof health?.is_online === 'boolean' ? health.is_online : station.is_online;
-                            const isGhost = isGhostStation(station);
-                            const statusLabel = isHealthOnline
-                                ? 'online'
-                                : (isGhost ? 'fantasma' : (station.status || 'offline'));
-                            const statusClass = cn(
-                                "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
-                                isHealthOnline
-                                    ? 'bg-green-500/20 text-green-400'
-                                    : (isGhost ? 'bg-yellow-500/20 text-yellow-400' : 'bg-gray-700 text-gray-500')
-                            );
-                            return (
-                            <div key={station.id} className="bg-gray-800 p-6 rounded-2xl border border-gray-700 flex justify-between items-center">
-                                <div className="flex items-center space-x-6">
-                                    <div className={cn("p-4 rounded-xl", isHealthOnline ? "bg-green-500/10 text-green-400" : "bg-gray-700/50 text-gray-500")}>
-                                        {isHealthOnline ? <Wifi size={24} /> : <WifiOff size={24} />}
-                                    </div>
-                                    <div>
-                                        {editingId === station.id ? (
-                                            <div className="space-y-2">
-                                                <input
-                                                    value={editForm.name}
-                                                    onChange={e => setEditForm({ ...editForm, name: e.target.value })}
-                                                    className="bg-gray-900 text-white font-bold p-2 rounded-lg border border-blue-500 outline-none w-full"
-                                                    placeholder="Nombre estación"
-                                                    autoFocus
-                                                />
-                                                <input
-                                                    value={editForm.ip}
-                                                    onChange={e => setEditForm({ ...editForm, ip: e.target.value })}
-                                                    className="bg-gray-900 text-white p-2 rounded-lg border border-blue-500 outline-none w-full text-xs font-mono"
-                                                    placeholder="IP Address (ej. 192.168.1.50)"
-                                                />
-                                                <input
-                                                    value={editForm.ac_path}
-                                                    onChange={e => setEditForm({ ...editForm, ac_path: e.target.value })}
-                                                    className="bg-gray-900 text-white p-2 rounded-lg border border-blue-500 outline-none w-full text-[10px] font-mono"
-                                                    placeholder="Ruta Assetto Corsa (ej. C:\AC)"
-                                                />
-                                                <label className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={editForm.is_vr}
-                                                        onChange={(e) => setEditForm({ ...editForm, is_vr: e.target.checked })}
-                                                        className="accent-blue-500"
-                                                    />
-                                                    VR activado
-                                                </label>
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px]">
-                                                    <div className="flex flex-col gap-1">
-                                                        <span className="font-bold uppercase tracking-widest text-gray-400">Perfil de volante</span>
-                                                        <select
-                                                            value={stationWheelDrafts[station.id] || ''}
-                                                            onChange={(e) => setStationWheelDrafts(prev => ({ ...prev, [station.id]: e.target.value }))}
-                                                            className="bg-gray-900 text-white p-2 rounded-lg border border-blue-500/40 outline-none text-[10px]"
-                                                        >
-                                                            <option value="">Sin cambio</option>
-                                                            {wheelProfiles.map((profile: any) => (
-                                                                <option key={profile.id} value={String(profile.id)}>{profile.name}</option>
-                                                            ))}
-                                                        </select>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                const profileId = stationWheelDrafts[station.id];
-                                                                if (!profileId) {
-                                                                    alert("Selecciona un perfil de volante.");
-                                                                    return;
-                                                                }
-                                                                applyWheelProfileMutation.mutate({ stationId: station.id, profileId });
-                                                            }}
-                                                            className="bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest"
-                                                        >
-                                                            Aplicar perfil
-                                                        </button>
-                                                    </div>
-                                                    <div className="flex flex-col gap-1">
-                                                        <span className="font-bold uppercase tracking-widest text-gray-400">Presets (Gráficos / IA)</span>
-                                                        <select
-                                                            value={stationPresetDrafts[station.id]?.video || ''}
-                                                            onChange={(e) => setStationPresetDrafts(prev => ({
-                                                                ...prev,
-                                                                [station.id]: { ...prev[station.id], video: e.target.value }
-                                                            }))}
-                                                            className="bg-gray-900 text-white p-2 rounded-lg border border-blue-500/40 outline-none text-[10px]"
-                                                        >
-                                                            <option value="">Gráficos (sin cambio)</option>
-                                                            {(profiles?.video || []).map((profile: string) => (
-                                                                <option key={profile} value={profile}>{profile}</option>
-                                                            ))}
-                                                        </select>
-                                                        <select
-                                                            value={stationPresetDrafts[station.id]?.race || ''}
-                                                            onChange={(e) => setStationPresetDrafts(prev => ({
-                                                                ...prev,
-                                                                [station.id]: { ...prev[station.id], race: e.target.value }
-                                                            }))}
-                                                            className="bg-gray-900 text-white p-2 rounded-lg border border-blue-500/40 outline-none text-[10px]"
-                                                        >
-                                                            <option value="">IA / Carrera (sin cambio)</option>
-                                                            {(profiles?.race || []).map((profile: string) => (
-                                                                <option key={profile} value={profile}>{profile}</option>
-                                                            ))}
-                                                        </select>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                const draft = stationPresetDrafts[station.id];
-                                                                const deployMap: Record<string, string> = {};
-                                                                if (draft?.video) deployMap.video = draft.video;
-                                                                if (draft?.race) deployMap.race = draft.race;
-                                                                if (Object.keys(deployMap).length === 0) {
-                                                                    alert("Selecciona al menos un preset.");
-                                                                    return;
-                                                                }
-                                                                applyStationPresetsMutation.mutate({ stationId: station.id, deployMap });
-                                                            }}
-                                                            className="bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest"
-                                                        >
-                                                            Aplicar presets
-                                                        </button>
-                                                    </div>
-                                                </div>
+                            {(!stations || stations.length === 0) && (
+                                <div className="bg-gray-800/50 border border-gray-700/50 rounded-2xl p-12 text-center">
+                                    <MonitorPlay className="w-16 h-16 text-gray-700 mx-auto mb-4" />
+                                    <h3 className="text-xl font-bold text-gray-400 mb-2">No se detectan estaciones</h3>
+                                    <p className="text-gray-600">Asegúrate de que el agente (client.py) esté ejecutándose en los simuladores.</p>
+                                </div>
+                            )}
+                            {Array.isArray(stations) && stations.length > 0 && filteredStations.length === 0 && (
+                                <div className="bg-gray-800/50 border border-gray-700/50 rounded-2xl p-8 text-center">
+                                    <h3 className="text-lg font-bold text-gray-400 mb-2">No hay estaciones activas</h3>
+                                    <p className="text-gray-600">Activa "Mostrar inactivas" o "Mostrar fantasmas" para verlas.</p>
+                                </div>
+                            )}
+                            {filteredStations.map((station) => {
+                                const health = healthById.get(station.id);
+                                const alertCount = Array.isArray(health?.alerts) ? health.alerts.length : 0;
+                                const alertPreview = Array.isArray(health?.alerts) ? health.alerts.slice(0, 2) : [];
+                                const isHealthOnline = typeof health?.is_online === 'boolean' ? health.is_online : station.is_online;
+                                const isGhost = isGhostStation(station);
+                                const statusLabel = isHealthOnline
+                                    ? 'online'
+                                    : (isGhost ? 'fantasma' : (station.status || 'offline'));
+                                const statusClass = cn(
+                                    "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
+                                    isHealthOnline
+                                        ? 'bg-green-500/20 text-green-400'
+                                        : (isGhost ? 'bg-yellow-500/20 text-yellow-400' : 'bg-gray-700 text-gray-500')
+                                );
+                                return (
+                                    <div key={station.id} className="bg-gray-800 p-6 rounded-2xl border border-gray-700 flex justify-between items-center">
+                                        <div className="flex items-center space-x-6">
+                                            <div className={cn("p-4 rounded-xl", isHealthOnline ? "bg-green-500/10 text-green-400" : "bg-gray-700/50 text-gray-500")}>
+                                                {isHealthOnline ? <Wifi size={24} /> : <WifiOff size={24} />}
                                             </div>
-                                        ) : (
-                                            <div className="flex flex-col">
-                                                <div className="flex items-center space-x-2">
-                                                    <h3 className="text-lg font-black text-white uppercase">{station.name}</h3>
-                                                    <button
-                                                        onClick={() => {
-                                                            setEditingId(station.id);
-                                                            setEditForm({
-                                                                name: station.name,
-                                                                ip: station.ip_address,
-                                                                ac_path: station.ac_path || '',
-                                                                is_vr: !!station.is_vr
-                                                            });
-                                                        }}
-                                                        className="text-gray-600 hover:text-white"
-                                                    >
-                                                        <Edit2 size={14} />
-                                                    </button>
-                                                </div>
-                                                <div className="flex items-center space-x-4 mt-1 text-[10px] font-mono text-gray-500 uppercase font-black tracking-widest">
-                                                    <span>{station.hostname}</span>
-                                                    <span>•</span>
-                                                    <span>{station.ip_address}</span>
-                                                </div>
-                                                {station.ac_path && (
-                                                    <div className="text-[9px] text-gray-600 font-mono mt-1 opacity-60">📁 {station.ac_path}</div>
-                                                )}
-                                                <div className="text-[9px] text-gray-600 font-mono mt-1 opacity-60">
-                                                    Visto: {formatLastSeen(station.last_seen)}
-                                                </div>
-                                                {station.kiosk_code && (
-                                                    <div className="text-[9px] text-gray-600 font-mono mt-1 opacity-60 flex items-center gap-2">
-                                                        <span className="truncate">KIOSK: {buildKioskLink(station.kiosk_code)}</span>
-                                                        <button
-                                                            onClick={() => copyToClipboard(buildKioskLink(station.kiosk_code))}
-                                                            className="text-gray-500 hover:text-white"
-                                                            title="Copiar link"
-                                                        >
-                                                            <Copy size={12} />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => window.open(buildKioskLink(station.kiosk_code), '_blank')}
-                                                            className="text-gray-500 hover:text-white"
-                                                            title="Abrir kiosko"
-                                                        >
-                                                            <Link2 size={12} />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => setQrStationId(qrStationId === station.id ? null : station.id)}
-                                                            className="text-gray-500 hover:text-white"
-                                                            title="Mostrar QR"
-                                                        >
-                                                            <QrCode size={12} />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => kioskCodeMutation.mutate(station.id)}
-                                                            className="text-gray-500 hover:text-white"
-                                                            title="Regenerar codigo kiosko"
-                                                        >
-                                                            <RefreshCw size={12} />
-                                                        </button>
-                                                    </div>
-                                                )}
-                                                {station.kiosk_code && qrStationId === station.id && (
-                                                    <div className="mt-3 inline-flex items-center gap-3 bg-gray-900/60 border border-gray-800 rounded-xl px-3 py-2">
-                                                        <QRCodeCanvas value={buildKioskLink(station.kiosk_code)} size={72} bgColor="#0f172a" fgColor="#e5e7eb" />
-                                                        <div className="text-[9px] text-gray-500">
-                                                            <div className="font-bold uppercase tracking-widest">QR Kiosko</div>
-                                                            <div className="mt-1">Escanea para abrir</div>
+                                            <div>
+                                                {editingId === station.id ? (
+                                                    <div className="space-y-2">
+                                                        <input
+                                                            value={editForm.name}
+                                                            onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                                                            className="bg-gray-900 text-white font-bold p-2 rounded-lg border border-blue-500 outline-none w-full"
+                                                            placeholder="Nombre estación"
+                                                            autoFocus
+                                                        />
+                                                        <input
+                                                            value={editForm.ip}
+                                                            onChange={e => setEditForm({ ...editForm, ip: e.target.value })}
+                                                            className="bg-gray-900 text-white p-2 rounded-lg border border-blue-500 outline-none w-full text-xs font-mono"
+                                                            placeholder="IP Address (ej. 192.168.1.50)"
+                                                        />
+                                                        <input
+                                                            value={editForm.ac_path}
+                                                            onChange={e => setEditForm({ ...editForm, ac_path: e.target.value })}
+                                                            className="bg-gray-900 text-white p-2 rounded-lg border border-blue-500 outline-none w-full text-[10px] font-mono"
+                                                            placeholder="Ruta Assetto Corsa (ej. C:\AC)"
+                                                        />
+                                                        <label className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={editForm.is_vr}
+                                                                onChange={(e) => setEditForm({ ...editForm, is_vr: e.target.checked })}
+                                                                className="accent-blue-500"
+                                                            />
+                                                            VR activado
+                                                        </label>
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px]">
+                                                            <div className="flex flex-col gap-1">
+                                                                <span className="font-bold uppercase tracking-widest text-gray-400">Perfil de volante</span>
+                                                                <select
+                                                                    value={stationWheelDrafts[station.id] || ''}
+                                                                    onChange={(e) => setStationWheelDrafts(prev => ({ ...prev, [station.id]: e.target.value }))}
+                                                                    className="bg-gray-900 text-white p-2 rounded-lg border border-blue-500/40 outline-none text-[10px]"
+                                                                >
+                                                                    <option value="">Sin cambio</option>
+                                                                    {wheelProfiles.map((profile: any) => (
+                                                                        <option key={profile.id} value={String(profile.id)}>{profile.name}</option>
+                                                                    ))}
+                                                                </select>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const profileId = stationWheelDrafts[station.id];
+                                                                        if (!profileId) {
+                                                                            alert("Selecciona un perfil de volante.");
+                                                                            return;
+                                                                        }
+                                                                        applyWheelProfileMutation.mutate({ stationId: station.id, profileId });
+                                                                    }}
+                                                                    className="bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest"
+                                                                >
+                                                                    Aplicar perfil
+                                                                </button>
+                                                            </div>
+                                                            <div className="flex flex-col gap-1">
+                                                                <span className="font-bold uppercase tracking-widest text-gray-400">Presets (Gráficos / IA)</span>
+                                                                <select
+                                                                    value={stationPresetDrafts[station.id]?.video || ''}
+                                                                    onChange={(e) => setStationPresetDrafts(prev => ({
+                                                                        ...prev,
+                                                                        [station.id]: { ...prev[station.id], video: e.target.value }
+                                                                    }))}
+                                                                    className="bg-gray-900 text-white p-2 rounded-lg border border-blue-500/40 outline-none text-[10px]"
+                                                                >
+                                                                    <option value="">Gráficos (sin cambio)</option>
+                                                                    {(profiles?.video || []).map((profile: string) => (
+                                                                        <option key={profile} value={profile}>{profile}</option>
+                                                                    ))}
+                                                                </select>
+                                                                <select
+                                                                    value={stationPresetDrafts[station.id]?.race || ''}
+                                                                    onChange={(e) => setStationPresetDrafts(prev => ({
+                                                                        ...prev,
+                                                                        [station.id]: { ...prev[station.id], race: e.target.value }
+                                                                    }))}
+                                                                    className="bg-gray-900 text-white p-2 rounded-lg border border-blue-500/40 outline-none text-[10px]"
+                                                                >
+                                                                    <option value="">IA / Carrera (sin cambio)</option>
+                                                                    {(profiles?.race || []).map((profile: string) => (
+                                                                        <option key={profile} value={profile}>{profile}</option>
+                                                                    ))}
+                                                                </select>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const draft = stationPresetDrafts[station.id];
+                                                                        const deployMap: Record<string, string> = {};
+                                                                        if (draft?.video) deployMap.video = draft.video;
+                                                                        if (draft?.race) deployMap.race = draft.race;
+                                                                        if (Object.keys(deployMap).length === 0) {
+                                                                            alert("Selecciona al menos un preset.");
+                                                                            return;
+                                                                        }
+                                                                        applyStationPresetsMutation.mutate({ stationId: station.id, deployMap });
+                                                                    }}
+                                                                    className="bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest"
+                                                                >
+                                                                    Aplicar presets
+                                                                </button>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                )}
-                                                {alertCount > 0 && (
-                                                    <div className="text-[10px] text-yellow-300 font-bold mt-2 flex items-center gap-2">
-                                                        <AlertTriangle size={12} />
-                                                        <span>{alertCount} alertas</span>
-                                                        <span className="text-gray-500 font-normal">
-                                                            {alertPreview.join(', ')}
-                                                        </span>
-                                                    </div>
-                                                )}
-                                                {alertCount === 0 && health && !isHealthOnline && (
-                                                    <div className="text-[10px] text-red-400 font-bold mt-2 flex items-center gap-2">
-                                                        <AlertTriangle size={12} />
-                                                        <span>Sin respuesta</span>
+                                                ) : (
+                                                    <div className="flex flex-col">
+                                                        <div className="flex items-center space-x-2">
+                                                            <h3 className="text-lg font-black text-white uppercase">{station.name}</h3>
+                                                            <button
+                                                                onClick={() => {
+                                                                    setEditingId(station.id);
+                                                                    setEditForm({
+                                                                        name: station.name,
+                                                                        ip: station.ip_address,
+                                                                        ac_path: station.ac_path || '',
+                                                                        is_vr: !!station.is_vr
+                                                                    });
+                                                                }}
+                                                                className="text-gray-600 hover:text-white"
+                                                            >
+                                                                <Edit2 size={14} />
+                                                            </button>
+                                                        </div>
+                                                        <div className="flex items-center space-x-4 mt-1 text-[10px] font-mono text-gray-500 uppercase font-black tracking-widest">
+                                                            <span>{station.hostname}</span>
+                                                            <span>•</span>
+                                                            <span>{station.ip_address}</span>
+                                                        </div>
+                                                        {station.ac_path && (
+                                                            <div className="text-[9px] text-gray-600 font-mono mt-1 opacity-60">📁 {station.ac_path}</div>
+                                                        )}
+                                                        <div className="text-[9px] text-gray-600 font-mono mt-1 opacity-60">
+                                                            Visto: {formatLastSeen(station.last_seen)}
+                                                        </div>
+                                                        {station.kiosk_code && (
+                                                            <div className="text-[9px] text-gray-600 font-mono mt-1 opacity-60 flex items-center gap-2">
+                                                                <span className="truncate">KIOSK: {buildKioskLink(station.kiosk_code)}</span>
+                                                                <button
+                                                                    onClick={() => copyToClipboard(buildKioskLink(station.kiosk_code))}
+                                                                    className="text-gray-500 hover:text-white"
+                                                                    title="Copiar link"
+                                                                >
+                                                                    <Copy size={12} />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => window.open(buildKioskLink(station.kiosk_code), '_blank')}
+                                                                    className="text-gray-500 hover:text-white"
+                                                                    title="Abrir kiosko"
+                                                                >
+                                                                    <Link2 size={12} />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => setQrStationId(qrStationId === station.id ? null : station.id)}
+                                                                    className="text-gray-500 hover:text-white"
+                                                                    title="Mostrar QR"
+                                                                >
+                                                                    <QrCode size={12} />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => kioskCodeMutation.mutate(station.id)}
+                                                                    className="text-gray-500 hover:text-white"
+                                                                    title="Regenerar codigo kiosko"
+                                                                >
+                                                                    <RefreshCw size={12} />
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                        {station.kiosk_code && qrStationId === station.id && (
+                                                            <div className="mt-3 inline-flex items-center gap-3 bg-gray-900/60 border border-gray-800 rounded-xl px-3 py-2">
+                                                                <QRCodeCanvas value={buildKioskLink(station.kiosk_code)} size={72} bgColor="#0f172a" fgColor="#e5e7eb" />
+                                                                <div className="text-[9px] text-gray-500">
+                                                                    <div className="font-bold uppercase tracking-widest">QR Kiosko</div>
+                                                                    <div className="mt-1">Escanea para abrir</div>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        {alertCount > 0 && (
+                                                            <div className="text-[10px] text-yellow-300 font-bold mt-2 flex items-center gap-2">
+                                                                <AlertTriangle size={12} />
+                                                                <span>{alertCount} alertas</span>
+                                                                <span className="text-gray-500 font-normal">
+                                                                    {alertPreview.join(', ')}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                        {alertCount === 0 && health && !isHealthOnline && (
+                                                            <div className="text-[10px] text-red-400 font-bold mt-2 flex items-center gap-2">
+                                                                <AlertTriangle size={12} />
+                                                                <span>Sin respuesta</span>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>
-                                        )}
-                                    </div>
-                                </div>
-                                <div className="flex items-center space-x-4">
-                                    <div className="flex flex-col items-end gap-2">
-                                        <span className={statusClass}>
-                                            {statusLabel}
-                                        </span>
-                                        <div className="flex flex-wrap items-center justify-end gap-2 max-w-[260px]">
-                                            <button
-                                                onClick={() => testConnectionMutation.mutate(station.id)}
-                                                className="p-2 bg-gray-700/60 text-gray-300 rounded-lg hover:bg-gray-600 hover:text-white transition-all"
-                                                title="Test de conexion"
-                                            >
-                                                <CheckCircle size={14} />
-                                            </button>
-                                            <button
-                                                onClick={() => setSearchParams({ tab: 'logs', source: station.hostname || station.name })}
-                                                className="p-2 bg-gray-700/60 text-gray-300 rounded-lg hover:bg-gray-600 hover:text-white transition-all"
-                                                title="Ver logs del agente"
-                                            >
-                                                <Terminal size={14} />
-                                            </button>
-                                            <button
-                                                onClick={() => kioskToggleMutation.mutate({ id: station.id, enabled: !station.is_kiosk_mode })}
-                                                className={`p-2 rounded-lg transition-all ${station.is_kiosk_mode ? 'bg-blue-600 text-white' : 'bg-gray-700/60 text-gray-300 hover:bg-gray-600 hover:text-white'}`}
-                                                title="Toggle kiosko"
-                                            >
-                                                <MonitorPlay size={14} />
-                                            </button>
-                                            <button
-                                                onClick={() => station.is_locked ? unlockMutation.mutate(station.id) : lockMutation.mutate(station.id)}
-                                                className={`p-2 rounded-lg transition-all ${station.is_locked ? 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500 hover:text-black' : 'bg-gray-700/60 text-gray-300 hover:bg-gray-600 hover:text-white'}`}
-                                                title={station.is_locked ? "Desbloquear estacion" : "Bloquear estacion"}
-                                            >
-                                                {station.is_locked ? <Unlock size={14} /> : <Lock size={14} />}
-                                            </button>
-                                            <button
-                                                onClick={() => powerMutation.mutate({ id: station.id, action: 'power-on' })}
-                                                className="p-2 bg-green-500/10 text-green-500 rounded-lg hover:bg-green-500 hover:text-white transition-all"
-                                                title="Encender (Wake-on-LAN)"
-                                            >
-                                                <Zap size={14} />
-                                            </button>
-                                            <button
-                                                onClick={() => scanContentMutation.mutate(station.id)}
-                                                disabled={!isHealthOnline || scanContentMutation.isPending}
-                                                className="p-2 bg-green-500/10 text-green-500 rounded-lg hover:bg-green-500 hover:text-white transition-all disabled:opacity-50"
-                                                title="Escanear contenido AC"
-                                            >
-                                                <Monitor size={14} />
-                                            </button>
-                                            <button
-                                                onClick={() => { setContentStationId(station.id); setContentTab('cars'); }}
-                                                className="p-2 bg-gray-700/60 text-gray-300 rounded-lg hover:bg-gray-600 hover:text-white transition-all"
-                                                title="Ver contenido escaneado"
-                                            >
-                                                <Layout size={14} />
-                                            </button>
-                                            <button
-                                                onClick={() => syncContentMutation.mutate(station.id)}
-                                                disabled={!isHealthOnline || syncContentMutation.isPending}
-                                                className="p-2 bg-blue-500/10 text-blue-500 rounded-lg hover:bg-blue-500 hover:text-white transition-all disabled:opacity-50"
-                                                title="Forzar sync de contenido"
-                                            >
-                                                <RefreshCw size={14} />
-                                            </button>
-                                            <button
-                                                onClick={() => restartAgentMutation.mutate(station.id)}
-                                                disabled={!isHealthOnline || restartAgentMutation.isPending}
-                                                className="p-2 bg-purple-500/10 text-purple-400 rounded-lg hover:bg-purple-500 hover:text-white transition-all disabled:opacity-50"
-                                                title="Reiniciar agente"
-                                            >
-                                                <RotateCw size={14} />
-                                            </button>
-                                            <button
-                                                onClick={() => { if (confirm("¿Reiniciar estacion?")) powerMutation.mutate({ id: station.id, action: 'restart' }) }}
-                                                disabled={!isHealthOnline}
-                                                className="p-2 bg-blue-500/10 text-blue-500 rounded-lg hover:bg-blue-500 hover:text-white transition-all disabled:opacity-50"
-                                                title="Reiniciar PC"
-                                            >
-                                                <Activity size={14} />
-                                            </button>
-                                            <button
-                                                onClick={() => { if (confirm("¡EMERGENCIA! ¿Forzar cierre del juego?")) powerMutation.mutate({ id: station.id, action: 'panic' }) }}
-                                                disabled={!isHealthOnline}
-                                                className="p-2 bg-yellow-500/10 text-yellow-500 rounded-lg hover:bg-yellow-500 hover:text-black transition-all disabled:opacity-50"
-                                                title="Boton panico (cerrar AC)"
-                                            >
-                                                <AlertTriangle size={14} />
-                                            </button>
-                                            <button
-                                                onClick={() => { if (confirm("¿Apagar estacion?")) powerMutation.mutate({ id: station.id, action: 'shutdown' }) }}
-                                                className="p-2 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all"
-                                                title="Apagar PC"
-                                            >
-                                                <Power size={14} />
-                                            </button>
-                                            {(station.is_active === false || station.status === 'archived') && (
+                                        </div>
+                                        <div className="flex items-center space-x-4">
+                                            <div className="flex flex-col items-end gap-2">
+                                                <span className={statusClass}>
+                                                    {statusLabel}
+                                                </span>
+                                                <div className="flex flex-wrap items-center justify-end gap-2 max-w-[260px]">
+                                                    <button
+                                                        onClick={() => testConnectionMutation.mutate(station.id)}
+                                                        className="p-2 bg-gray-700/60 text-gray-300 rounded-lg hover:bg-gray-600 hover:text-white transition-all"
+                                                        title="Test de conexion"
+                                                    >
+                                                        <CheckCircle size={14} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setSearchParams({ tab: 'logs', source: station.hostname || station.name })}
+                                                        className="p-2 bg-gray-700/60 text-gray-300 rounded-lg hover:bg-gray-600 hover:text-white transition-all"
+                                                        title="Ver logs del agente"
+                                                    >
+                                                        <Terminal size={14} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => kioskToggleMutation.mutate({ id: station.id, enabled: !station.is_kiosk_mode })}
+                                                        className={`p-2 rounded-lg transition-all ${station.is_kiosk_mode ? 'bg-blue-600 text-white' : 'bg-gray-700/60 text-gray-300 hover:bg-gray-600 hover:text-white'}`}
+                                                        title="Toggle kiosko"
+                                                    >
+                                                        <MonitorPlay size={14} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => station.is_locked ? unlockMutation.mutate(station.id) : lockMutation.mutate(station.id)}
+                                                        className={`p-2 rounded-lg transition-all ${station.is_locked ? 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500 hover:text-black' : 'bg-gray-700/60 text-gray-300 hover:bg-gray-600 hover:text-white'}`}
+                                                        title={station.is_locked ? "Desbloquear estacion" : "Bloquear estacion"}
+                                                    >
+                                                        {station.is_locked ? <Unlock size={14} /> : <Lock size={14} />}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => powerMutation.mutate({ id: station.id, action: 'power-on' })}
+                                                        className="p-2 bg-green-500/10 text-green-500 rounded-lg hover:bg-green-500 hover:text-white transition-all"
+                                                        title="Encender (Wake-on-LAN)"
+                                                    >
+                                                        <Zap size={14} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => scanContentMutation.mutate(station.id)}
+                                                        disabled={!isHealthOnline || scanContentMutation.isPending}
+                                                        className="p-2 bg-green-500/10 text-green-500 rounded-lg hover:bg-green-500 hover:text-white transition-all disabled:opacity-50"
+                                                        title="Escanear contenido AC"
+                                                    >
+                                                        <Monitor size={14} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => { setContentStationId(station.id); setContentTab('cars'); }}
+                                                        className="p-2 bg-gray-700/60 text-gray-300 rounded-lg hover:bg-gray-600 hover:text-white transition-all"
+                                                        title="Ver contenido escaneado"
+                                                    >
+                                                        <Layout size={14} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => syncContentMutation.mutate(station.id)}
+                                                        disabled={!isHealthOnline || syncContentMutation.isPending}
+                                                        className="p-2 bg-blue-500/10 text-blue-500 rounded-lg hover:bg-blue-500 hover:text-white transition-all disabled:opacity-50"
+                                                        title="Forzar sync de contenido"
+                                                    >
+                                                        <RefreshCw size={14} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => restartAgentMutation.mutate(station.id)}
+                                                        disabled={!isHealthOnline || restartAgentMutation.isPending}
+                                                        className="p-2 bg-purple-500/10 text-purple-400 rounded-lg hover:bg-purple-500 hover:text-white transition-all disabled:opacity-50"
+                                                        title="Reiniciar agente"
+                                                    >
+                                                        <RotateCw size={14} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => { if (confirm("¿Reiniciar estacion?")) powerMutation.mutate({ id: station.id, action: 'restart' }) }}
+                                                        disabled={!isHealthOnline}
+                                                        className="p-2 bg-blue-500/10 text-blue-500 rounded-lg hover:bg-blue-500 hover:text-white transition-all disabled:opacity-50"
+                                                        title="Reiniciar PC"
+                                                    >
+                                                        <Activity size={14} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => { if (confirm("¡EMERGENCIA! ¿Forzar cierre del juego?")) powerMutation.mutate({ id: station.id, action: 'panic' }) }}
+                                                        disabled={!isHealthOnline}
+                                                        className="p-2 bg-yellow-500/10 text-yellow-500 rounded-lg hover:bg-yellow-500 hover:text-black transition-all disabled:opacity-50"
+                                                        title="Boton panico (cerrar AC)"
+                                                    >
+                                                        <AlertTriangle size={14} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => { if (confirm("¿Apagar estacion?")) powerMutation.mutate({ id: station.id, action: 'shutdown' }) }}
+                                                        className="p-2 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all"
+                                                        title="Apagar PC"
+                                                    >
+                                                        <Power size={14} />
+                                                    </button>
+                                                    {(station.is_active === false || station.status === 'archived') && (
+                                                        <button
+                                                            onClick={() => reactivateStationMutation.mutate(station.id)}
+                                                            className="p-2 bg-green-500/10 text-green-500 rounded-lg hover:bg-green-500 hover:text-white transition-all"
+                                                            title="Reactivar estacion"
+                                                        >
+                                                            <RefreshCw size={14} />
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        onClick={() => {
+                                                            if (confirm("¿Eliminar estacion? Solo se permite si esta offline.")) {
+                                                                deleteStationMutation.mutate(station.id);
+                                                            }
+                                                        }}
+                                                        disabled={isHealthOnline}
+                                                        className="p-2 bg-gray-700/60 text-gray-300 rounded-lg hover:bg-red-600 hover:text-white transition-all disabled:opacity-50"
+                                                        title="Eliminar estacion"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            {editingId === station.id && (
                                                 <button
-                                                    onClick={() => reactivateStationMutation.mutate(station.id)}
-                                                    className="p-2 bg-green-500/10 text-green-500 rounded-lg hover:bg-green-500 hover:text-white transition-all"
-                                                    title="Reactivar estacion"
+                                                    onClick={() => stationMutation.mutate({
+                                                        id: station.id,
+                                                        data: {
+                                                            name: editForm.name,
+                                                            ip_address: editForm.ip,
+                                                            ac_path: editForm.ac_path,
+                                                            is_vr: editForm.is_vr
+                                                        }
+                                                    })}
+                                                    className="bg-blue-600 p-2 rounded-lg text-white hover:bg-blue-500"
                                                 >
-                                                    <RefreshCw size={14} />
+                                                    <CheckCircle size={20} />
                                                 </button>
                                             )}
-                                            <button
-                                                onClick={() => {
-                                                    if (confirm("¿Eliminar estacion? Solo se permite si esta offline.")) {
-                                                        deleteStationMutation.mutate(station.id);
-                                                    }
-                                                }}
-                                                disabled={isHealthOnline}
-                                                className="p-2 bg-gray-700/60 text-gray-300 rounded-lg hover:bg-red-600 hover:text-white transition-all disabled:opacity-50"
-                                                title="Eliminar estacion"
-                                            >
-                                                <Trash2 size={14} />
-                                            </button>
                                         </div>
                                     </div>
-                                    {editingId === station.id && (
-                                        <button
-                                            onClick={() => stationMutation.mutate({
-                                                id: station.id,
-                                                data: {
-                                                    name: editForm.name,
-                                                    ip_address: editForm.ip,
-                                                    ac_path: editForm.ac_path,
-                                                    is_vr: editForm.is_vr
-                                                }
-                                            })}
-                                            className="bg-blue-600 p-2 rounded-lg text-white hover:bg-blue-500"
-                                        >
-                                            <CheckCircle size={20} />
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-                        );
-                        })}
+                                );
+                            })}
                         </div>
                     </div>
                 )}

@@ -18,20 +18,17 @@ export interface TelemetryPacket {
     normalized_pos: number;
     gas?: number;
     brake?: number;
+    win_count?: number;
+    total_laps?: number;
+    // Environment
+    track_temp?: number;
+    air_temp?: number;
     steer?: number;
     g_lat?: number;
     g_lon?: number;
     tyre_temp?: number;
     x?: number;
     y?: number;
-    z?: number;
-    timestamp?: number;
-    // Extended telemetry fields
-    fuel?: number;
-    engine_temp?: number;
-    damage?: number[];
-    win_count?: number;
-    total_laps?: number;
 }
 
 export const useTelemetry = () => {

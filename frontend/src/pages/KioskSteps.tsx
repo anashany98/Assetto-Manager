@@ -5,7 +5,7 @@ import {
     ChevronRight, Trophy,
     Sun, Sunset, Cloud, CloudRain,
     Activity, ShieldCheck, Clock, Play, LogOut,
-    Zap, TrendingUp, Gauge
+    Zap, TrendingUp, Gauge, CloudFog
 } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import {
@@ -175,17 +175,17 @@ export const ScenarioStep: React.FC<ScenarioStepProps> = ({
 
     return (
         <div className="h-full flex flex-col animate-in zoom-in duration-300">
-            <h2 className="text-4xl font-black text-white italic tracking-tighter mb-8 text-center drop-shadow-lg">
+            <h2 className="text-3xl md:text-5xl font-black text-white italic tracking-tighter mb-4 md:mb-8 text-center drop-shadow-lg">
                 {t('kiosk.chooseCompetition')}
             </h2>
 
-            <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-12 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-8 md:space-y-12 custom-scrollbar">
                 {lobbies.length > 0 && (
                     <div>
-                        <h3 className="text-2xl font-black text-blue-400 mb-6 flex items-center gap-3 border-b border-blue-900/50 pb-2">
+                        <h3 className="text-xl md:text-2xl font-black text-blue-400 mb-4 md:mb-6 flex items-center gap-3 border-b border-blue-900/50 pb-2">
                             <Activity className="animate-pulse" /> {t('kiosk.liveLobbies')}
                         </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                             {lobbies.map((l: any) => (
                                 <div
                                     key={l.id}
@@ -200,7 +200,7 @@ export const ScenarioStep: React.FC<ScenarioStepProps> = ({
                                         });
                                         setStep(2);
                                     }}
-                                    className="bg-blue-900/20 border-2 border-blue-500/50 hover:bg-blue-900/40 hover:border-blue-400 p-6 rounded-3xl cursor-pointer transition-all group hover:scale-[1.02] shadow-xl shadow-blue-900/20"
+                                    className="bg-blue-900/20 border-2 border-blue-500/50 hover:bg-blue-900/40 hover:border-blue-400 p-4 md:p-6 rounded-3xl cursor-pointer transition-all group hover:scale-[1.02] shadow-xl shadow-blue-900/20"
                                 >
                                     <div className="flex justify-between items-start mb-4">
                                         <div className="bg-blue-600 text-white text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider">ONLINE</div>
@@ -214,7 +214,7 @@ export const ScenarioStep: React.FC<ScenarioStepProps> = ({
                                             </span>
                                         )}
                                     </div>
-                                    <h4 className="text-2xl font-black text-white group-hover:text-blue-200 truncate">{l.name}</h4>
+                                    <h4 className="text-xl md:text-2xl font-black text-white group-hover:text-blue-200 truncate">{l.name}</h4>
                                     <p className="text-blue-200/60 font-mono text-sm mt-1">{l.track} | {l.car}</p>
                                 </div>
                             ))}
@@ -223,10 +223,10 @@ export const ScenarioStep: React.FC<ScenarioStepProps> = ({
                 )}
 
                 <div>
-                    <h3 className="text-2xl font-black text-yellow-500 mb-6 flex items-center gap-3 border-b border-yellow-900/30 pb-2">
+                    <h3 className="text-xl md:text-2xl font-black text-yellow-500 mb-4 md:mb-6 flex items-center gap-3 border-b border-yellow-900/30 pb-2">
                         <Trophy className="text-yellow-500" /> {t('kiosk.specialEvents')}
                     </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                         {dailyScenario && (
                             <div
                                 onClick={() => {
@@ -241,50 +241,50 @@ export const ScenarioStep: React.FC<ScenarioStepProps> = ({
                                     setDuration(10);
                                     setStep(2);
                                 }}
-                                className="group relative bg-gradient-to-br from-yellow-600 to-orange-700 rounded-3xl p-6 cursor-pointer border-4 border-yellow-400/50 hover:border-white shadow-2xl hover:scale-[1.03] transition-all overflow-hidden flex flex-col justify-between h-80"
+                                className="group relative bg-gradient-to-br from-yellow-600 to-orange-700 rounded-3xl p-4 md:p-6 cursor-pointer border-4 border-yellow-400/50 hover:border-white shadow-2xl hover:scale-[1.03] transition-all overflow-hidden flex flex-col justify-between h-64 md:h-80"
                             >
                                 <div className="absolute top-0 right-0 bg-yellow-400 text-black font-black text-xs px-3 py-1 rounded-bl-xl z-20">RETO DEL DÍA</div>
                                 <div className="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition-all z-0" />
                                 <div className="relative z-10 text-center mt-4 flex-1 flex flex-col items-center justify-center">
-                                    <Trophy size={64} className="mx-auto text-yellow-200 mb-4 drop-shadow-lg animate-bounce" />
-                                    <h3 className="text-3xl font-black text-white leading-none uppercase">DAILY<br />CHALLENGE</h3>
-                                    <p className="mt-2 text-yellow-200 font-bold uppercase">{dailyScenario.selectedTrack} • {dailyScenario.selectedCar}</p>
+                                    <Trophy size={48} className="mx-auto text-yellow-200 mb-4 drop-shadow-lg animate-bounce md:w-16 md:h-16" />
+                                    <h3 className="text-2xl md:text-3xl font-black text-white leading-none uppercase">DAILY<br />CHALLENGE</h3>
+                                    <p className="mt-2 text-yellow-200 font-bold uppercase text-sm md:text-base">{dailyScenario.selectedTrack} • {dailyScenario.selectedCar}</p>
                                 </div>
                             </div>
                         )}
 
                         <div
                             onClick={handleSurpriseMe}
-                            className="group relative bg-gradient-to-br from-purple-600 to-pink-600 rounded-3xl p-6 cursor-pointer border-4 border-white/10 hover:border-white shadow-2xl hover:scale-[1.03] transition-all overflow-hidden flex flex-col justify-between h-80"
+                            className="group relative bg-gradient-to-br from-purple-600 to-pink-600 rounded-3xl p-4 md:p-6 cursor-pointer border-4 border-white/10 hover:border-white shadow-2xl hover:scale-[1.03] transition-all overflow-hidden flex flex-col justify-between h-64 md:h-80"
                         >
                             <div className="absolute inset-0 flex flex-col items-center justify-center opacity-20 z-0">
-                                <div className="text-9xl font-black text-white">?</div>
+                                <div className="text-7xl md:text-9xl font-black text-white">?</div>
                             </div>
                             <div className="relative z-10 flex flex-col items-center justify-center h-full text-center">
-                                <Gauge size={80} className="text-white mb-6 drop-shadow-lg group-hover:rotate-180 transition-transform duration-700" />
-                                <h3 className="text-4xl font-black text-white leading-tight">¡SORPRÉNDEME!</h3>
+                                <Gauge size={64} className="text-white mb-6 drop-shadow-lg group-hover:rotate-180 transition-transform duration-700 md:w-20 md:h-20" />
+                                <h3 className="text-3xl md:text-4xl font-black text-white leading-tight">¡SORPRÉNDEME!</h3>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <div>
-                    <h3 className="text-2xl font-black text-gray-400 mb-6 flex items-center gap-3 border-b border-gray-800 pb-2">
+                    <h3 className="text-xl md:text-2xl font-black text-gray-400 mb-4 md:mb-6 flex items-center gap-3 border-b border-gray-800 pb-2">
                         <Flag /> PRÁCTICA LIBRE
                     </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
                         {scenarios.map(scenario => (
                             <div
                                 key={scenario.id}
                                 onClick={() => setExpandedId(expandedId === scenario.id ? null : scenario.id!)}
-                                className={`relative bg-gradient-to-br from-gray-800 to-gray-900 rounded-3xl p-8 border-4 cursor-pointer transition-all shadow-2xl group overflow-hidden ${expandedId === scenario.id ? 'border-blue-500 scale-105 z-10' : 'border-gray-700 hover:border-gray-500 hover:scale-[1.02]'}`}
+                                className={`relative bg-gradient-to-br from-gray-800 to-gray-900 rounded-3xl p-6 md:p-8 border-4 cursor-pointer transition-all shadow-2xl group overflow-hidden ${expandedId === scenario.id ? 'border-blue-500 scale-105 z-10' : 'border-gray-700 hover:border-gray-500 hover:scale-[1.02]'}`}
                             >
                                 <div className="flex justify-between items-start mb-4">
-                                    <div className="bg-gray-700 p-3 rounded-2xl">
-                                        <Flag size={32} className={expandedId === scenario.id ? "text-blue-400" : "text-gray-400"} />
+                                    <div className="bg-gray-700 p-2 md:p-3 rounded-2xl">
+                                        <Flag size={24} className={`md:w-8 md:h-8 ${expandedId === scenario.id ? "text-blue-400" : "text-gray-400"}`} />
                                     </div>
                                 </div>
-                                <h3 className="text-3xl font-black text-white mb-2 uppercase leading-none">{scenario.name}</h3>
+                                <h3 className="text-2xl md:text-3xl font-black text-white mb-2 uppercase leading-none">{scenario.name}</h3>
                                 <p className="text-gray-400 mb-6 min-h-[3rem] text-sm line-clamp-2">{scenario.description || 'Competición abierta'}</p>
                                 {expandedId === scenario.id ? (
                                     <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -297,7 +297,7 @@ export const ScenarioStep: React.FC<ScenarioStepProps> = ({
                                                         e.stopPropagation();
                                                         handleSelect(scenario, mins);
                                                     }}
-                                                    className="bg-blue-600 hover:bg-blue-500 text-white font-black py-3 rounded-xl border border-blue-400/30 flex items-center justify-center gap-2 transition-transform active:scale-95"
+                                                    className="bg-blue-600 hover:bg-blue-500 text-white font-black py-3 rounded-xl border border-blue-400/30 flex items-center justify-center gap-2 transition-transform active:scale-95 text-sm md:text-base"
                                                 >
                                                     <Clock size={16} /> {mins}m
                                                 </button>
@@ -345,6 +345,7 @@ interface DifficultyStepProps {
     paymentHandledRef: React.MutableRefObject<boolean>;
     noPaymentHandledRef: React.MutableRefObject<boolean>;
     resolveAssetUrl: (url?: string) => string | null;
+    rainEnabled?: boolean;
 }
 
 export const DifficultyStep: React.FC<DifficultyStepProps> = ({
@@ -353,7 +354,8 @@ export const DifficultyStep: React.FC<DifficultyStepProps> = ({
     difficulty, setDifficulty,
     paymentEnabled, setStep,
     setPaymentInfo, setPaymentError, launchWithoutPayment,
-    launchingNoPayment, paymentNote, paymentHandledRef, noPaymentHandledRef, resolveAssetUrl
+    launchingNoPayment, paymentNote, paymentHandledRef, noPaymentHandledRef, resolveAssetUrl,
+    rainEnabled = false
 }) => {
 
     const getMockSpecs = (id: string = '') => {
@@ -371,55 +373,67 @@ export const DifficultyStep: React.FC<DifficultyStepProps> = ({
         || "https://upload.wikimedia.org/wikipedia/commons/thumb/6/67/Circuit_de_Spa-Francorchamps_trace.svg/1200px-Circuit_de_Spa-Francorchamps_trace.svg.png";
 
     return (
-        <div className="h-full flex flex-col items-center justify-center animate-in zoom-in duration-300 max-w-4xl mx-auto w-full custom-scrollbar overflow-y-auto px-4">
-            <h2 className="text-4xl font-black text-white mb-6 uppercase tracking-tighter">CONFIGURA TU SESIÓN</h2>
+        <div className="h-full flex flex-col items-center justify-center animate-in zoom-in duration-300 max-w-4xl mx-auto w-full custom-scrollbar overflow-y-auto px-4 py-8">
+            <h2 className="text-3xl md:text-5xl font-black text-white mb-6 md:mb-8 uppercase tracking-tighter text-center">
+                CONFIGURA TU SESIÓN
+            </h2>
 
-            <div className="w-full grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8 text-left">
-                <div className="bg-gray-800/60 border border-gray-700 rounded-3xl p-6 flex flex-col relative overflow-hidden group">
+            <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8 text-left">
+                <div className="bg-gray-800/60 border border-gray-700 rounded-3xl p-4 md:p-6 flex flex-col relative overflow-hidden group">
                     <h4 className="text-gray-400 font-bold text-xs tracking-widest uppercase mb-4">VEHÍCULO</h4>
-                    {carImageUrl && <img src={carImageUrl} className="w-full h-40 object-cover rounded-2xl mb-4 border border-gray-700/60" alt="" />}
-                    <div className="text-2xl font-black text-white mb-1">{selectedCarObj?.name || selection?.car}</div>
-                    <div className="grid grid-cols-3 gap-4 mt-auto">
-                        <div className="bg-black/30 rounded-xl p-3 text-center">
-                            <div className="text-gray-500 text-[10px] uppercase">Potencia</div>
-                            <div className="text-white font-black">{specs.bhp}</div>
+                    {carImageUrl && <img src={carImageUrl} className="w-full h-32 md:h-40 object-cover rounded-2xl mb-4 border border-gray-700/60" alt="" />}
+                    <div className="text-xl md:text-2xl font-black text-white mb-1 truncate">{selectedCarObj?.name || selection?.car}</div>
+                    <div className="grid grid-cols-3 gap-2 md:gap-4 mt-auto">
+                        <div className="bg-black/30 rounded-xl p-2 md:p-3 text-center">
+                            <div className="text-gray-500 text-[8px] md:text-[10px] uppercase">Potencia</div>
+                            <div className="text-white font-black text-sm md:text-base">{specs.bhp}</div>
                         </div>
-                        <div className="bg-black/30 rounded-xl p-3 text-center">
-                            <div className="text-gray-500 text-[10px] uppercase">Peso</div>
-                            <div className="text-white font-black">{specs.weight}</div>
+                        <div className="bg-black/30 rounded-xl p-2 md:p-3 text-center">
+                            <div className="text-gray-500 text-[8px] md:text-[10px] uppercase">Peso</div>
+                            <div className="text-white font-black text-sm md:text-base">{specs.weight}</div>
                         </div>
-                        <div className="bg-black/30 rounded-xl p-3 text-center">
-                            <div className="text-gray-500 text-[10px] uppercase">Top Speed</div>
-                            <div className="text-white font-black">{specs.top_speed}</div>
+                        <div className="bg-black/30 rounded-xl p-2 md:p-3 text-center">
+                            <div className="text-gray-500 text-[8px] md:text-[10px] uppercase">Top Speed</div>
+                            <div className="text-white font-black text-sm md:text-base">{specs.top_speed}</div>
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-gray-800/60 border border-gray-700 rounded-3xl p-6 flex flex-col relative overflow-hidden">
+                <div className="bg-gray-800/60 border border-gray-700 rounded-3xl p-4 md:p-6 flex flex-col relative overflow-hidden">
                     <h4 className="text-gray-400 font-bold text-xs tracking-widest uppercase mb-1">CIRCUITO</h4>
-                    <div className="text-xl font-black text-white mb-4">{selectedTrackObj?.name || selection?.track}</div>
-                    {trackImageUrl && <img src={trackImageUrl} className="w-full h-32 object-cover rounded-2xl mb-4 border border-gray-700/60" alt="" />}
+                    <div className="text-lg md:text-xl font-black text-white mb-4 truncate">{selectedTrackObj?.name || selection?.track}</div>
+                    {trackImageUrl && <img src={trackImageUrl} className="w-full h-24 md:h-32 object-cover rounded-2xl mb-4 border border-gray-700/60" alt="" />}
                     <div className="flex-1 flex items-center justify-center">
-                        <img src={mapUrl} className="h-24 w-auto object-contain brightness-200 filter invert" alt="" />
+                        <img src={mapUrl} className="h-16 md:h-24 w-auto object-contain brightness-200 filter invert" alt="" />
                     </div>
                 </div>
             </div>
 
-            <div className="w-full mb-8 text-left">
+            <div className="w-full mb-6 md:mb-8 text-left">
                 <p className="text-gray-400 font-bold mb-4 uppercase text-xs tracking-widest">CONDICIONES</p>
-                <div className="bg-gray-800/50 p-2 rounded-2xl grid grid-cols-4 gap-2">
+                <div className={`bg-gray-800/50 p-2 rounded-2xl grid grid-cols-3 gap-2`}>
                     <button onClick={() => setTimeOfDay('noon')} className={`p-3 rounded-xl flex flex-col items-center gap-2 transition-all ${timeOfDay === 'noon' ? 'bg-yellow-500 text-black shadow-lg' : 'hover:bg-gray-700 text-gray-400'}`}>
-                        <Sun size={20} /> <span className="text-[10px] font-bold">MEDIODÍA</span>
+                        <Sun size={20} className="md:w-6 md:h-6" /> <span className="text-[10px] md:text-xs font-bold">MEDIODÍA</span>
                     </button>
                     <button onClick={() => setTimeOfDay('evening')} className={`p-3 rounded-xl flex flex-col items-center gap-2 transition-all ${timeOfDay === 'evening' ? 'bg-orange-500 text-white shadow-lg' : 'hover:bg-gray-700 text-gray-400'}`}>
-                        <Sunset size={20} /> <span className="text-[10px] font-bold">OCASO</span>
+                        <Sunset size={20} className="md:w-6 md:h-6" /> <span className="text-[10px] md:text-xs font-bold">OCASO</span>
+                    </button>
+
+                    {/* WEATHER OPTIONS */}
+                    <button onClick={() => setWeather('sun')} className={`p-3 rounded-xl flex flex-col items-center gap-2 transition-all ${weather === 'sun' ? 'bg-blue-400 text-white shadow-lg' : 'hover:bg-gray-700 text-gray-400'}`}>
+                        <Sun size={20} className="md:w-6 md:h-6" /> <span className="text-[10px] md:text-xs font-bold">DESPEJADO</span>
                     </button>
                     <button onClick={() => setWeather('cloud')} className={`p-3 rounded-xl flex flex-col items-center gap-2 transition-all ${weather === 'cloud' ? 'bg-gray-500 text-white shadow-lg' : 'hover:bg-gray-700 text-gray-400'}`}>
-                        <Cloud size={20} /> <span className="text-[10px] font-bold">NUBLADO</span>
+                        <Cloud size={20} className="md:w-6 md:h-6" /> <span className="text-[10px] md:text-xs font-bold">NUBLADO</span>
                     </button>
-                    <button onClick={() => setWeather('rain')} className={`p-3 rounded-xl flex flex-col items-center gap-2 transition-all ${weather === 'rain' ? 'bg-blue-600 text-white shadow-lg' : 'hover:bg-gray-700 text-gray-400'}`}>
-                        <CloudRain size={20} /> <span className="text-[10px] font-bold">LLUVIA</span>
+                    <button onClick={() => setWeather('fog')} className={`p-3 rounded-xl flex flex-col items-center gap-2 transition-all ${weather === 'fog' ? 'bg-gray-400 text-white shadow-lg' : 'hover:bg-gray-700 text-gray-400'}`}>
+                        <CloudFog size={20} className="md:w-6 md:h-6" /> <span className="text-[10px] md:text-xs font-bold">NIEBLA</span>
                     </button>
+                    {rainEnabled && (
+                        <button onClick={() => setWeather('rain')} className={`p-3 rounded-xl flex flex-col items-center gap-2 transition-all ${weather === 'rain' ? 'bg-blue-600 text-white shadow-lg' : 'hover:bg-gray-700 text-gray-400'}`}>
+                            <CloudRain size={20} className="md:w-6 md:h-6" /> <span className="text-[10px] md:text-xs font-bold">LLUVIA</span>
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -428,14 +442,14 @@ export const DifficultyStep: React.FC<DifficultyStepProps> = ({
                 <div className="grid grid-cols-3 gap-4">
                     {['novice', 'amateur', 'pro'].map(lv => (
                         <button key={lv} onClick={() => setDifficulty(lv)} className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${difficulty === lv ? 'border-blue-500 bg-blue-500/10' : 'border-gray-700 bg-gray-800/50'}`}>
-                            {lv === 'novice' ? <ShieldCheck /> : lv === 'amateur' ? <Activity /> : <Trophy />}
-                            <span className="font-black text-sm uppercase">{lv}</span>
+                            {lv === 'novice' ? <ShieldCheck className="md:w-8 md:h-8" /> : lv === 'amateur' ? <Activity className="md:w-8 md:h-8" /> : <Trophy className="md:w-8 md:h-8" />}
+                            <span className="font-black text-xs md:text-sm uppercase">{lv}</span>
                         </button>
                     ))}
                 </div>
             </div>
 
-            <div className="w-full">
+            <div className="w-full pb-8">
                 <button
                     onClick={() => {
                         paymentHandledRef.current = false;
@@ -446,7 +460,7 @@ export const DifficultyStep: React.FC<DifficultyStepProps> = ({
                         else launchWithoutPayment();
                     }}
                     disabled={launchingNoPayment}
-                    className="w-full bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-black text-2xl py-6 rounded-2xl shadow-xl active:scale-95 transition-all flex items-center justify-center gap-4 disabled:opacity-50"
+                    className="w-full bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-black text-xl md:text-2xl py-4 md:py-6 rounded-2xl shadow-xl active:scale-95 transition-all flex items-center justify-center gap-4 disabled:opacity-50 touch-manipulation"
                 >
                     {paymentEnabled ? t('kiosk.payAndLaunch') : 'LANZAR'} <Play fill="currentColor" size={24} />
                 </button>
@@ -566,7 +580,7 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
 
     return (
         <div className="h-full flex flex-col items-center justify-center animate-in zoom-in duration-300 max-w-4xl mx-auto w-full">
-            <h2 className="text-4xl font-black text-white mb-4">{t('kiosk.paymentTitle')}</h2>
+            <h2 className="text-3xl md:text-4xl font-black text-white mb-4">{t('kiosk.paymentTitle')}</h2>
             <p className="text-gray-400 mb-6 text-center">{t('kiosk.paymentSubtitle')}</p>
 
             <div className="bg-gray-900/60 border border-gray-700 rounded-2xl p-6 w-full mb-6 text-left">
@@ -580,7 +594,7 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
                 </div>
             </div>
 
-            <div className="flex gap-4 mb-6">
+            <div className="flex gap-4 mb-6 w-full">
                 {(['stripe_qr', 'bizum'] as PaymentProvider[]).map((p) => (
                     <button
                         key={p}
@@ -589,7 +603,7 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
                             setPaymentInfo(null);
                             setPaymentError(null);
                         }}
-                        className={`px-6 py-3 rounded-xl font-black border-2 transition-all ${paymentProvider === p ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'}`}
+                        className={`flex-1 px-4 py-3 md:px-6 md:py-4 rounded-xl font-black border-2 transition-all text-sm md:text-base ${paymentProvider === p ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'}`}
                     >
                         {p === 'stripe_qr' ? 'Stripe QR' : 'Bizum'}
                     </button>
@@ -615,8 +629,8 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
             </div>
 
             <div className="w-full mt-6 flex gap-4">
-                <button onClick={() => setStep(4)} className="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-bold py-4 rounded-xl border border-gray-700">{t('common.back')}</button>
-                <button onClick={() => createCheckout.mutate(paymentProvider)} className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl">{t('kiosk.retryPayment')}</button>
+                <button onClick={() => setStep(4)} className="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-bold py-4 rounded-xl border border-gray-700 touch-manipulation">{t('common.back')}</button>
+                <button onClick={() => createCheckout.mutate(paymentProvider)} className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl touch-manipulation">{t('kiosk.retryPayment')}</button>
             </div>
         </div>
     );
@@ -638,7 +652,7 @@ export const NoPaymentStep: React.FC<NoPaymentStepProps> = ({
     }, [paymentEnabled, selection?.car, selection?.track, stationId]);
 
     return (
-        <div className="h-full flex flex-col items-center justify-center animate-in zoom-in duration-300 max-w-3xl mx-auto w-full text-center">
+        <div className="h-full flex flex-col items-center justify-center animate-in zoom-in duration-300 max-w-3xl mx-auto w-full text-center px-4">
             <h2 className="text-3xl font-black text-white mb-3">Iniciando sesión</h2>
             <p className="text-gray-400">El pago está desactivado. Lanzando la sesión...</p>
         </div>

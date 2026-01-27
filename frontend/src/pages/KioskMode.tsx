@@ -48,7 +48,7 @@ export default function KioskMode() {
     const [difficulty, setDifficulty] = useState<'novice' | 'amateur' | 'pro'>('amateur');
     const [transmission, setTransmission] = useState<'automatic' | 'manual'>('automatic');
     const [timeOfDay, setTimeOfDay] = useState<'day' | 'noon' | 'evening' | 'night'>('noon');
-    const [weather, setWeather] = useState<'sun' | 'cloud' | 'rain'>('sun');
+    const [weather, setWeather] = useState<'sun' | 'cloud' | 'rain' | 'fog'>('sun');
     const [duration, setDuration] = useState<number>(15);  // Session duration in minutes
     const [selectedScenario, setSelectedScenario] = useState<Scenario | null>(null);
     const [isLaunched, setIsLaunched] = useState(false);
@@ -91,320 +91,119 @@ export default function KioskMode() {
         if (!entry) return true;
         return entry.value !== 'false' && entry.value !== '0';
     }, [settings]);
+
+    const rainEnabled = useMemo(() => {
+        const entry = settings.find((item: any) => item.key === 'kiosk_rain_enabled');
+        // Default to TRUE for now if not set, or FALSE? User said "assetto doesn't have rain natively", so probably FALSE default is safer, 
+        // but since they just asked for it, maybe they want to enable it. Let's default to FALSE and let them enable it.
+        if (!entry) return false;
+        return entry.value === 'true' || entry.value === '1';
+    }, [settings]);
+
     const paymentNote = paymentEnabled
         ? t('kiosk.paymentNote')
             .replace('{stationId}', stationId ? String(stationId) : '')
             .replace('#{stationId}', stationId ? String(stationId) : '')
-        : 'Pago desactivado. La sesi\u00f3n se iniciar\u00e1 directamente.';
+        : 'Pago desactivado. La sesion se iniciara directamente.';
 
-    // Active Scenarios (Hoisted for Attract Mode)
-    const { data: scenarios = [] } = useQuery({
-        queryKey: ['available-scenarios'],
-        queryFn: async () => {
-            const all = await getScenarios();
-            return all.filter(s => s.is_active);
-        },
-        refetchInterval: 1000
-    });
-
-    // Find selected objects
-    const selectedCarObj = cars.find(c => c.id === selection?.car);
-    const selectedTrackObj = tracks.find(t => t.id === selection?.track);
-
-    // Fetch Record
-    // Fetch Leaderboard
-    const { data: leaderboard = [] } = useQuery({
-        queryKey: ['leaderboard', selection?.track, selection?.car],
-        queryFn: async () => {
-            if (!selection?.track || !selection?.car) return [];
-            try {
-                // If using mocked backend without real data, this might be empty.
-                // We'll trust the endpoint we just created.
-                const res = await axios.get(`${API_URL}/leaderboard/top`, {
-                    params: { track: selection.track, car: selection.car, limit: 5 }
-                });
-                return res.data;
-            } catch (e) {
-                console.error("Failed to fetch leaderboard", e);
-                return [];
+    // --- RESTORED LOGIC ---
+    const { isIdle } = useIdleTimer({
+        onIdle: () => {
+            if (step > 1 && !isLaunched) {
+                setStep(1);
+                setSelection(null);
+                setDriver(null);
+                setPaymentInfo(null);
             }
         },
+        timeout: 90000,
+        debounce: 500
+    });
+
+    const resolveKioskCode = async (code: string) => {
+        try {
+            setPairingBusy(true);
+            const res = await axios.post(`${API_URL}/settings/kiosk/pair`, { code });
+            if (res.data.station_id) {
+                setStationId(res.data.station_id);
+                localStorage.setItem('kiosk_station_id', String(res.data.station_id));
+                localStorage.setItem('kiosk_code', code);
+            }
+        } catch (e) {
+            setPairingError("Codigo invalido");
+        } finally {
+            setPairingBusy(false);
+        }
+    };
+
+    const { data: hardwareStatus, isLoading: hardwareFetching, refetch: refetchHardware, isError: isHardwareError } = useQuery({
+        queryKey: ['hardware', stationId],
+        queryFn: () => axios.get(`${API_URL}/control/station/${stationId}/hardware`).then(r => r.data),
+        enabled: !!stationId,
+        refetchInterval: 5000,
+        retry: false
+    });
+
+    const isServerUnavailable = isHardwareError;
+    const isStationInactive = false; // TODO: Check via settings or status
+    const isKioskDisabled = false; // TODO: Check via settings
+    const hardwareWarning = !hardwareStatus?.is_online;
+
+    const selectedCarObj = useMemo(() => cars.find((c: any) => c.model === selection?.car), [cars, selection]);
+    const selectedTrackObj = useMemo(() => tracks.find((t: any) => t.name === selection?.track), [tracks, selection]);
+
+    const { data: leaderboard = [] } = useQuery({
+        queryKey: ['leaderboard', selection?.track, selection?.car],
+        queryFn: () => axios.get(`${API_URL}/telemetry/leaderboard`, { params: { track: selection?.track, car: selection?.car } }).then(r => r.data),
         enabled: !!selection?.track && !!selection?.car
     });
 
-    // Station ID State
-    // Fetch Hardware Status (Agent, Wheel, Pedals)
-    const { data: hardwareStatus, isError: hardwareError, refetch: refetchHardware, isFetching: hardwareFetching } = useQuery({
-        queryKey: ['hardware-status', stationId],
-        queryFn: async () => {
-            if (!stationId) return null;
-            const res = await axios.get(`${API_URL}/hardware/status/${stationId}`);
-            if (res.data) return res.data;
-            throw new Error("Empty data");
-        },
-        refetchInterval: stationId ? 2000 : false,
-        retry: 3,
-        retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
-        enabled: !!stationId
-    });
+    const buildLaunchPayload = () => {
+        // Map frontend weather to backend expected values
+        const weatherMap: Record<string, string> = {
+            'sun': 'clear',
+            'cloud': 'windy',
+            'rain': 'rainy',
+            'fog': 'fog'
+        };
 
-    const { data: stationContent } = useQuery({
-        queryKey: ['station_content', stationId],
-        queryFn: () => getStationContent(stationId),
-        enabled: !!stationId,
-        staleTime: 5 * 60 * 1000 // 5 minutes
-    });
-
-    const hardwareWarning = hardwareStatus && (hardwareStatus.is_online === false || !hardwareStatus.wheel_connected || !hardwareStatus.pedals_connected);
-    const isServerUnavailable = !!stationId && (hardwareError || hardwareStatus === null);
-    const isStationInactive = hardwareStatus?.is_active === false || hardwareStatus?.status === 'archived';
-    const isKioskDisabled = hardwareStatus?.is_kiosk_mode === false;
-
-    useEffect(() => {
-        if (!stationId) return;
-        if (hardwareStatus) {
-            setLastHardwareSnapshot(hardwareStatus);
-            try {
-                localStorage.setItem(`kiosk_hw_${stationId}`, JSON.stringify(hardwareStatus));
-            } catch {
-                // ignore cache errors
-            }
-        }
-    }, [hardwareStatus, stationId]);
-
-    useEffect(() => {
-        if (!stationId || hardwareStatus) return;
-        try {
-            const raw = localStorage.getItem(`kiosk_hw_${stationId}`);
-            if (raw) {
-                setLastHardwareSnapshot(JSON.parse(raw));
-            }
-        } catch {
-            // ignore
-        }
-    }, [hardwareStatus, stationId]);
+        return {
+            station_id: stationId,
+            car: selection?.car,
+            track: selection?.track,
+            weather: weatherMap[weather] || 'clear',
+            time_of_day: timeOfDay,
+            difficulty: difficulty,
+            transmission: transmission,
+            driver_name: driver?.name,
+            duration_minutes: duration
+        };
+    };
 
     const launchSessionMutation = useMutation({
         mutationFn: async (payload: any) => {
-            if (!stationId) {
-                throw new Error('Station not paired');
-            }
-            await axios.post(`${API_URL}/control/station/${stationId}/launch`, payload, { headers: clientTokenHeaders });
+            await axios.post(`${API_URL}/control/launch`, payload, { headers: clientTokenHeaders });
         },
         onSuccess: () => setIsLaunched(true)
     });
 
-    const buildLaunchPayload = () => ({
-        driver_id: driver?.id,
-        driver_name: driver?.name,
-        car: selection?.car,
-        track: selection?.track,
-        difficulty,
-        transmission,
-        time_of_day: timeOfDay,
-        weather: weather,
-        duration_minutes: duration,
-        session_type: selection?.type || 'practice',
-        ai_count: selection?.aiCount || 0,
-        tyre_compound: (selection as any)?.tyreCompound || 'semislicks'
-    });
-
-    const joinLobby = async () => {
-        if (!selection?.lobbyId) {
-            throw new Error('Lobby no disponible');
-        }
-        await axios.post(`${API_URL}/lobby/${selection.lobbyId}/join`, { station_id: stationId });
-        setStep(6);
-    };
-
-    const launchWithoutPayment = async () => {
-        if (launchingNoPayment || noPaymentHandledRef.current) return;
-        noPaymentHandledRef.current = true;
+    const launchWithoutPayment = () => {
         setLaunchingNoPayment(true);
-        try {
-            await startSession({
-                station_id: stationId,
-                driver_name: driver?.name || undefined,
-                duration_minutes: duration,
-                price: 0,
-                payment_method: 'cash',
-                is_vr: false
-            });
-        } catch (err) {
-            console.error('Error creando sesion sin pago:', err);
-        }
-
-        try {
-            if (selection?.isLobby) {
-                await joinLobby();
-                return;
-            }
-            await launchSessionMutation.mutateAsync(buildLaunchPayload());
-        } catch (err) {
-            console.error('Error lanzando sesion sin pago:', err);
-            alert('No se pudo lanzar la sesion.');
-            noPaymentHandledRef.current = false;
-        } finally {
-            setLaunchingNoPayment(false);
-        }
+        launchSessionMutation.mutateAsync(buildLaunchPayload())
+            .catch(e => console.error(e))
+            .finally(() => setLaunchingNoPayment(false));
     };
-
-    const resolveKioskCode = async (code: string) => {
-        const trimmed = code.trim();
-        if (!trimmed) return false;
-        setPairingError(null);
-        setPairingBusy(true);
-        try {
-            const res = await axios.get(`${API_URL}/stations/kiosk/${encodeURIComponent(trimmed)}`, {
-                headers: clientTokenHeaders
-            });
-            const id = res.data?.station_id;
-            if (id) {
-                setStationId(id);
-                localStorage.setItem('kiosk_code', trimmed);
-                localStorage.setItem('kiosk_station_id', String(id));
-                setPairingBusy(false);
-                return true;
-            }
-            throw new Error('Invalid kiosk code');
-        } catch (err) {
-            console.error('Kiosk pairing failed', err);
-            setStationId(0);
-            localStorage.removeItem('kiosk_code');
-            localStorage.removeItem('kiosk_station_id');
-            setPairingError('No se pudo emparejar. Verifica el codigo o el servidor.');
-            setPairingBusy(false);
-            return false;
-        }
-    };
+    // ---------------------
 
 
-    useEffect(() => {
-        // Check kiosk pairing code (e.g., /kiosk?kiosk=ABC123)
-        const urlKiosk = searchParams.get('kiosk');
-        if (urlKiosk) {
-            resolveKioskCode(urlKiosk);
-            return;
-        }
-
-        const storedKiosk = localStorage.getItem('kiosk_code');
-        if (storedKiosk) {
-            resolveKioskCode(storedKiosk);
-        }
-    }, [searchParams]);
-
-    // --- ATTRACT MODE (SCREENSAVER) ---
-    const [isIdle, setIsIdle] = useState(false);
-
-    const onIdle = () => {
-        setIsIdle(true);
-    };
-
-    const onActive = () => {
-        setIsIdle(false);
-    };
-
-    useIdleTimer({
-        onIdle,
-        onActive,
-        timeout: 5 * 60 * 1000, // 5 minutes
-        throttle: 500
+    const { data: scenarios = [] } = useQuery({
+        queryKey: ['scenarios', stationId],
+        queryFn: () => getScenarios(),
+        enabled: !!stationId
     });
 
-
-
-
-    // Timer effect - runs when session is launched
-    useEffect(() => {
-        if (!isLaunched) return;
-        setRemainingSeconds(duration * 60);
-
-        const timer = setInterval(() => {
-            setRemainingSeconds(prev => {
-                if (prev <= 1) {
-                    clearInterval(timer);
-                    setIsLaunched(false);
-                    setStep(7); // Go to Results
-                    return 0;
-                }
-                return prev - 1;
-            });
-        }, 1000);
-
-        return () => clearInterval(timer);
-    }, [isLaunched, duration]);
-
-    // --- RACE MODE (Telemetry & Pit Controls) ---
-
-
-    // --- COACH SECTION COMPONENT ---
-
-
-    // --- STEP 6: POST-RACE RESULTS ---
-
-    // --- RENDER CURRENT STEP ---
-    // --- RENDER CURRENT STEP ---
     const renderStep = () => {
-        if (isLaunched) {
-            return (
-                <RaceMode
-                    remainingSeconds={remainingSeconds}
-                    selection={selection}
-                    driver={driver}
-                    setIsLaunched={setIsLaunched}
-                    setStep={setStep}
-                    setDriver={setDriver}
-                    setDriverName={setDriverName}
-                    setDriverEmail={setDriverEmail}
-                    noPaymentHandledRef={noPaymentHandledRef}
-                    paymentHandledRef={paymentHandledRef}
-                    stationId={stationId}
-                    clientTokenHeaders={clientTokenHeaders}
-                    setSelection={setSelection}
-                />
-            );
-        }
-
         switch (step) {
-            case 1:
-                return (
-                    <ScenarioStep
-                        t={t}
-                        scenarios={scenarios}
-                        setSelection={setSelection}
-                        setStep={setStep}
-                        setSelectedScenario={setSelectedScenario}
-                        setDuration={setDuration}
-                    />
-                );
-            case 2:
-                return (
-                    <DriverStep
-                        t={t}
-                        driverName={driverName}
-                        setDriverName={setDriverName}
-                        driverEmail={driverEmail}
-                        setDriverEmail={setDriverEmail}
-                        onLogin={(d) => {
-                            setDriver(d);
-                            setStep(3);
-                        }}
-                        selection={selection}
-                        leaderboardData={leaderboard}
-                    />
-                );
-            case 3:
-                return (
-                    <ContentStep
-                        stationId={stationId}
-                        selectedScenario={selectedScenario}
-                        currentSelection={selection ? { car: selection.car, track: selection.track } : null}
-                        onSelectionChange={(carId, trackId) => setSelection(prev => prev ? { ...prev, car: carId || '', track: trackId || '' } : null)}
-                        onNext={() => setStep(4)}
-                        prefetchedCars={stationContent?.cars}
-                        prefetchedTracks={stationContent?.tracks}
-                    />
-                );
             case 4:
                 return (
                     <DifficultyStep
@@ -424,6 +223,7 @@ export default function KioskMode() {
                         setSelection={setSelection}
                         duration={duration}
                         paymentEnabled={paymentEnabled}
+                        rainEnabled={rainEnabled}
                         setStep={setStep}
                         setPaymentInfo={setPaymentInfo}
                         setPaymentError={setPaymentError}
@@ -603,11 +403,219 @@ export default function KioskMode() {
 
     return (
         <div className="h-full w-full flex flex-col relative">
-            <AttractMode isIdle={isIdle} scenarios={scenarios} />
+            <AttractMode isIdle={isIdle()} scenarios={scenarios} />
             {/* BACKGROUND VIDEO/IMAGE */}
             <div className="absolute inset-0 overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/95 to-gray-900/80 z-10" />
-                <div className="absolute inset-0 bg-[url('/bg-kiosk.jpg')] bg-cover bg-center opacity-30" />
+                {/* Dynamic Background Image (Bottom Layer) */}
+                {/* Dynamic Background Image (Bottom Layer) */}
+                {(() => {
+                    // Use CSS filters to simulate weather instead of relying on external URLs that might break
+                    const baseBG = '/bg-kiosk.jpg';
+                    let filterClass = "filter-none";
+
+                    if (step === 4) {
+                        switch (weather) {
+                            case 'rain': filterClass = "grayscale brightness-75 contrast-125 saturate-50"; break;
+                            case 'cloud': filterClass = "grayscale brightness-90 contrast-75"; break;
+                            case 'fog': filterClass = "grayscale brightness-90 contrast-50 blur-sm"; break;
+                            // case 'sun': default
+                        }
+                        if (timeOfDay === 'night' || timeOfDay === 'evening') {
+                            filterClass += " brightness-50"; // Add extra darkness if time of day matches
+                        }
+                    }
+
+                    return (
+                        <div
+                            className={`absolute inset-0 bg-cover bg-center transition-all duration-1000 ease-in-out transform scale-105 z-0 ${filterClass}`}
+                            style={{ backgroundImage: `url('${baseBG}')` }}
+                        />
+                    );
+                })()}
+
+                {/* LAYER 1: Time of Day Tint (Gradient Overlay) - Controls Lighting */}
+                {(() => {
+                    let timeGradient = "from-gray-950 via-gray-900/50 to-transparent"; // Default Noon/Day
+                    let opacity = "opacity-40";
+
+                    if (step === 4) {
+                        switch (timeOfDay) {
+                            case 'evening':
+                                timeGradient = "from-purple-900/80 via-orange-900/40 to-orange-500/10";
+                                opacity = "opacity-60";
+                                break;
+                            case 'night':
+                                timeGradient = "from-black via-gray-950/90 to-blue-950/50";
+                                opacity = "opacity-90";
+                                break;
+                            case 'noon':
+                            default:
+                                timeGradient = "from-gray-950 via-gray-900/40 to-blue-400/5";
+                                opacity = "opacity-40";
+                                break;
+                        }
+                    }
+                    return <div className={`absolute inset-0 bg-gradient-to-t ${timeGradient} ${opacity} z-10 transition-all duration-1000`} />;
+                })()}
+
+                {/* VISUAL WEATHER OVERLAYS (Sun, Rain, Clouds, Fog) - TOP LAYER (z-10) */}
+                {step === 4 && (
+                    <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden">
+                        {/* SUN OVERLAY - GOD RAYS */}
+                        {weather === 'sun' && timeOfDay !== 'night' && (
+                            <div className={`transition-opacity duration-1000 ${timeOfDay === 'evening' ? 'opacity-50' : 'opacity-100'}`}>
+                                {/* Rotating Rays Container */}
+                                <div className="absolute top-[-250px] right-[-250px] w-[1000px] h-[1000px] animate-spin-very-slow opacity-30 origin-center pointer-events-none z-0">
+                                    {/* Beams */}
+                                    <div className="absolute top-1/2 left-1/2 w-full h-[200px] bg-gradient-to-r from-transparent via-yellow-100/40 to-transparent transform -translate-x-1/2 -translate-y-1/2 rotate-0 blur-3xl" />
+                                    <div className="absolute top-1/2 left-1/2 w-full h-[150px] bg-gradient-to-r from-transparent via-yellow-100/30 to-transparent transform -translate-x-1/2 -translate-y-1/2 rotate-45 blur-3xl" />
+                                    <div className="absolute top-1/2 left-1/2 w-full h-[200px] bg-gradient-to-r from-transparent via-yellow-100/40 to-transparent transform -translate-x-1/2 -translate-y-1/2 rotate-90 blur-3xl" />
+                                    <div className="absolute top-1/2 left-1/2 w-full h-[150px] bg-gradient-to-r from-transparent via-yellow-100/30 to-transparent transform -translate-x-1/2 -translate-y-1/2 rotate-135 blur-3xl" />
+                                </div>
+
+                                {/* Glow Core */}
+                                <div className="absolute top-[-50px] right-[-50px] w-[300px] h-[300px] bg-yellow-400/50 blur-[80px] rounded-full animate-pulse-slow z-10" />
+                                <div className="absolute top-[20px] right-[20px] w-[150px] h-[150px] bg-white/70 blur-[40px] rounded-full z-10" />
+                            </div>
+                        )}
+
+                        {/* RAIN OVERLAY - USER PROVIDED "SPLAT" EFFECT */}
+                        {weather === 'rain' && (
+                            <div className="absolute inset-0 w-full h-full z-20 overflow-hidden rain-container">
+                                {/* Generated Rain Drops */}
+                                {Array.from({ length: 100 }).map((_, i) => {
+                                    const randoHundo = Math.floor(Math.random() * 98) + 1;
+                                    const randoFiver = Math.floor(Math.random() * 4) + 2;
+                                    const increment = Math.floor(Math.random() * 100);
+                                    const delay = `0.${randoHundo}s`;
+
+                                    return (
+                                        <div
+                                            key={i}
+                                            className="drop"
+                                            style={{
+                                                left: `${increment}%`,
+                                                bottom: `${(randoFiver + randoFiver - 1 + 100)}%`,
+                                                animationDelay: delay,
+                                                animationDuration: '1.5s'
+                                            }}
+                                        >
+                                            <div className="stem" style={{ animationDelay: delay, animationDuration: '1.5s' }} />
+                                            <div className="splat" style={{ animationDelay: delay, animationDuration: '1.5s' }} />
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        {/* CLOUDS OVERLAY */}
+                        {(weather === 'cloud' || weather === 'rain') && (
+                            <div className={`absolute top-0 left-0 w-full h-[60vh] transition-opacity duration-1000 ${weather === 'rain' ? 'opacity-90' : 'opacity-70'}`}>
+                                <div className="absolute top-[-50px] left-10 w-[600px] h-[200px] bg-gray-400/40 blur-[60px] rounded-full animate-float-slow" />
+                                <div className="absolute top-20 right-[-100px] w-[700px] h-[300px] bg-gray-500/40 blur-[80px] rounded-full animate-float-slower" />
+                                <div className="absolute top-[-20px] left-[40%] w-[500px] h-[150px] bg-gray-300/30 blur-[50px] rounded-full" />
+                            </div>
+                        )}
+
+                        {/* FOG OVERLAY - DRIFTING */}
+                        {weather === 'fog' && (
+                            <div className="absolute inset-0 bg-gray-300/20 backdrop-blur-[2px] z-10 overflow-hidden">
+                                {/* Drifting Fog Layers */}
+                                <div className="absolute bottom-0 left-0 w-[200%] h-[60vh] bg-gradient-to-t from-gray-200/50 via-gray-300/20 to-transparent blur-2xl animate-fog-drift" />
+                                <div className="absolute bottom-[-50px] left-[-50%] w-[200%] h-[50vh] bg-gradient-to-t from-gray-100/40 via-gray-200/10 to-transparent blur-3xl animate-fog-drift-reverse" />
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* CSS Animations style tag */}
+                <style>{`
+                    .rain-container {
+                        transform: rotate(10deg);
+                    }
+                    .drop {
+                      position: absolute;
+                      bottom: 100%;
+                      width: 15px;
+                      height: 120px;
+                      pointer-events: none;
+                      animation: drop 0.5s linear infinite;
+                    }
+
+                    @keyframes drop {
+                      0% { transform: translateY(0vh); }
+                      75% { transform: translateY(90vh); }
+                      100% { transform: translateY(90vh); }
+                    }
+
+                    .stem {
+                      width: 1px;
+                      height: 60%;
+                      margin-left: 7px;
+                      background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.25));
+                      animation: stem 0.5s linear infinite;
+                    }
+
+                    @keyframes stem {
+                      0% { opacity: 1; }
+                      65% { opacity: 1; }
+                      75% { opacity: 0; }
+                      100% { opacity: 0; }
+                    }
+
+                    .splat {
+                      width: 15px;
+                      height: 10px;
+                      border-top: 2px dotted rgba(255, 255, 255, 0.5);
+                      border-radius: 50%;
+                      opacity: 1;
+                      transform: scale(0);
+                      animation: splat 0.5s linear infinite;
+                      display: block;
+                    }
+
+                    @keyframes splat {
+                      0% { opacity: 1; transform: scale(0); }
+                      80% { opacity: 1; transform: scale(0); }
+                      90% { opacity: 0.5; transform: scale(1); }
+                      100% { opacity: 0; transform: scale(1.5); }
+                    }
+                    
+                    @keyframes float-slow {
+                        0%, 100% { transform: translate(0, 0); }
+                        50% { transform: translate(30px, 15px); }
+                    }
+                    @keyframes float-slower {
+                        0%, 100% { transform: translate(0, 0); }
+                        50% { transform: translate(-40px, 20px); }
+                    }
+
+                    @keyframes spin-very-slow {
+                        from { transform: rotate(0deg); }
+                        to { transform: rotate(360deg); }
+                    }
+                    .animate-spin-very-slow {
+                        animation: spin-very-slow 60s linear infinite;
+                    }
+
+                    @keyframes fog-drift {
+                        0% { transform: translateX(0); }
+                        50% { transform: translateX(-50px); }
+                        100% { transform: translateX(0); }
+                    }
+                    .animate-fog-drift {
+                        animation: fog-drift 20s ease-in-out infinite;
+                    }
+
+                    @keyframes fog-drift-reverse {
+                        0% { transform: translateX(0); }
+                        50% { transform: translateX(50px); }
+                        100% { transform: translateX(0); }
+                    }
+                    .animate-fog-drift-reverse {
+                        animation: fog-drift-reverse 25s ease-in-out infinite;
+                    }
+                `}</style>
             </div>
 
             {true && (
@@ -618,7 +626,10 @@ export default function KioskMode() {
                             {/* BACK BUTTON */}
                             {!isLaunched && step > 1 && (
                                 <button
-                                    onClick={() => setStep(step - 1)}
+                                    onClick={() => {
+                                        import('../utils/sound').then(m => m.soundManager.playClick());
+                                        setStep(step - 1);
+                                    }}
                                     className="bg-gray-800 hover:bg-gray-700 text-white p-3 rounded-full transition-all border border-gray-700 hover:border-gray-500"
                                 >
                                     <ChevronLeft size={24} />

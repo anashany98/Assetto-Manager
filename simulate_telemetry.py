@@ -56,6 +56,8 @@ async def simulate_race():
                         "brake": 0,
                         "lap_time_ms": 85000 + random.randint(0, 500),
                         "pos": 1,
+                        "track_temp": 28 + random.uniform(-0.5, 0.5), # Dynamic Track Temp
+                        "air_temp": 22 + random.uniform(-0.2, 0.2),   # Dynamic Air Temp
                         "x": x,
                         "z": z
                     }

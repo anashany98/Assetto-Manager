@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hardware Compatible - Assetto Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #020617;
+            color: white;
+            overflow-x: hidden;
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .grid-pattern {
+            background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+        }
+    </style>
+</head>
+
+<body class="antialiased">
+
+    <div class="fixed inset-0 grid-pattern z-0 pointer-events-none"></div>
+
+    <!-- Navbar -->
+    <nav class="fixed w-full z-50 transition-all duration-300 backdrop-blur-md border-b border-white/5 bg-black/50">
+        <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+            <a href="index.html" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
+                <i data-lucide="arrow-left" class="text-white w-6 h-6"></i>
+                <span class="font-bold text-xl">Volver</span>
+            </a>
+            <div class="flex items-center gap-3">
+                <span class="font-bold text-2xl tracking-tighter">Assetto<span
+                        class="text-blue-500">Manager</span></span>
+            </div>
+        </div>
+    </nav>
+
+    <section class="relative pt-32 pb-20 z-10">
+        <div class="container mx-auto px-6 text-center">
+            <h1 class="text-4xl md:text-6xl font-black mb-6">Compatible con <span class="text-blue-500">TODO</span></h1>
+            <p class="text-xl text-gray-400 max-w-2xl mx-auto mb-16">
+                Desde un humilde G29 hasta motion rigs de 50.000€. Assetto Manager unifica tu flota sin importar la
+                marca.
+            </p>
+
+            <!-- Brands Grid -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-5xl mx-auto mb-20">
+                <!-- Fanatec -->
+                <div
+                    class="glass p-8 rounded-2xl flex items-center justify-center grayscale hover:grayscale-0 transition-all hover:bg-white/5 opacity-80 hover:opacity-100 group">
+                    <span class="text-2xl font-bold group-hover:text-blue-400">FANATEC</span>
+                </div>
+                <!-- Moza -->
+                <div
+                    class="glass p-8 rounded-2xl flex items-center justify-center grayscale hover:grayscale-0 transition-all hover:bg-white/5 opacity-80 hover:opacity-100 group">
+                    <span class="text-2xl font-bold group-hover:text-blue-400">MOZA</span>
+                </div>
+                <!-- Simucube -->
+                <div
+                    class="glass p-8 rounded-2xl flex items-center justify-center grayscale hover:grayscale-0 transition-all hover:bg-white/5 opacity-80 hover:opacity-100 group">
+                    <span class="text-2xl font-bold group-hover:text-blue-400">SIMUCUBE</span>
+                </div>
+                <!-- Logitech -->
+                <div
+                    class="glass p-8 rounded-2xl flex items-center justify-center grayscale hover:grayscale-0 transition-all hover:bg-white/5 opacity-80 hover:opacity-100 group">
+                    <span class="text-2xl font-bold group-hover:text-blue-400">LOGITECH</span>
+                </div>
+                <!-- Thrustmaster -->
+                <div
+                    class="glass p-8 rounded-2xl flex items-center justify-center grayscale hover:grayscale-0 transition-all hover:bg-white/5 opacity-80 hover:opacity-100 group">
+                    <span class="text-2xl font-bold group-hover:text-blue-400">THRUSTMASTER</span>
+                </div>
+                <!-- Asetek -->
+                <div
+                    class="glass p-8 rounded-2xl flex items-center justify-center grayscale hover:grayscale-0 transition-all hover:bg-white/5 opacity-80 hover:opacity-100 group">
+                    <span class="text-2xl font-bold group-hover:text-blue-400">ASETEK</span>
+                </div>
+                <!-- Leo Bodnar -->
+                <div
+                    class="glass p-8 rounded-2xl flex items-center justify-center grayscale hover:grayscale-0 transition-all hover:bg-white/5 opacity-80 hover:opacity-100 group">
+                    <span class="text-2xl font-bold group-hover:text-blue-400">LEO BODNAR</span>
+                </div>
+                <!-- Heusinkveld -->
+                <div
+                    class="glass p-8 rounded-2xl flex items-center justify-center grayscale hover:grayscale-0 transition-all hover:bg-white/5 opacity-80 hover:opacity-100 group">
+                    <span class="text-2xl font-bold group-hover:text-blue-400">HEUSINKVELD</span>
+                </div>
+            </div>
+
+            <!-- Interactive Checker -->
+            <div class="max-w-2xl mx-auto glass p-10 rounded-3xl border border-blue-500/30">
+                <h3 class="text-2xl font-bold mb-6">Comprobador Rápido</h3>
+                <div class="flex gap-4">
+                    <input type="text" placeholder="Escribe tu modelo (ej. CS DD)"
+                        class="flex-1 bg-black/30 border border-white/10 rounded-xl px-6 py-4 outline-none focus:border-blue-500 placeholder-gray-600">
+                    <button class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-8 rounded-xl transition-colors"
+                        onclick="check()">
+                        Verificar
+                    </button>
+                </div>
+                <div id="result" class="mt-6 hidden">
+                    <div
+                        class="inline-flex items-center gap-2 text-green-400 font-bold bg-green-400/10 px-4 py-2 rounded-full">
+                        <i data-lucide="check-circle" class="w-5 h-5"></i>
+                        <span>¡Totalmente Compatible!</span>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-2">Soporte nativo detectado (API v2.4)</p>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <script>
+        lucide.createIcons();
+        function check() {
+            const res = document.getElementById('result');
+            res.classList.remove('hidden');
+            res.classList.add('animate-bounce');
+            setTimeout(() => res.classList.remove('animate-bounce'), 1000);
+        }
+    </script>
+</body>
+
+</html>

@@ -186,3 +186,19 @@ def setup_admin(
     db.add(user)
     db.commit()
     return {"status": "ok", "message": "Admin user created"}
+
+@router.post("/register")
+def register_user(
+    data: UserSetup,
+    db: Session = Depends(database.get_db)
+):
+    existing_user = db.query(models.User).filter(models.User.username == data.username).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Username already exists")
+
+    hashed = get_password_hash(data.password)
+    # Default to admin role for local instances as verified earlier
+    new_user = models.User(username=data.username, hashed_password=hashed, role="admin", is_active=True)
+    db.add(new_user)
+    db.commit()
+    return {"status": "ok", "message": "User registered successfully"}

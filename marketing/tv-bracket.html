@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tournament Bracket - Assetto Manager TV</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #0f172a;
+            color: white;
+            overflow: hidden;
+            background-image: radial-gradient(circle at 50% 50%, #1e293b 0%, #0f172a 100%);
+        }
+
+        .bracket-line {
+            stroke: #475569;
+            stroke-width: 2;
+            fill: none;
+        }
+
+        .active-line {
+            stroke: #3b82f6;
+            stroke-width: 3;
+            animation: dash 1s linear infinite;
+        }
+
+        .match-card {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .match-card:hover {
+            transform: scale(1.05);
+            border-color: #60a5fa;
+            z-index: 10;
+        }
+
+        .winner {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: #3b82f6;
+        }
+
+        .champion-card {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            border: none;
+            box-shadow: 0 0 30px rgba(245, 158, 11, 0.4);
+        }
+    </style>
+</head>
+
+<body class="flex flex-col h-screen p-8">
+
+    <!-- Header -->
+    <div class="text-center mb-12">
+        <h1 class="text-5xl font-black uppercase tracking-widest mb-2">Winter Cup 2024</h1>
+        <p class="text-blue-400 font-bold uppercase tracking-wider">Playoffs - Eliminatoria Directa</p>
+    </div>
+
+    <!-- Bracket Container -->
+    <div class="flex-1 flex justify-center items-center gap-16 relative w-full max-w-7xl mx-auto">
+
+        <!-- Round 1 (Quarter) -->
+        <div class="flex flex-col justify-between h-[600px] z-10 w-64">
+            <!-- Match 1 -->
+            <div class="match-card rounded-xl overflow-hidden shadow-lg winner">
+                <div class="flex justify-between px-4 py-3 border-b border-white/5 bg-blue-500/20">
+                    <span class="font-bold">M. Verstappen</span>
+                    <span class="font-bold text-blue-400">WIN</span>
+                </div>
+                <div class="flex justify-between px-4 py-3 opacity-50">
+                    <span>L. Hamilton</span>
+                    <span>1:24.5</span>
+                </div>
+            </div>
+            <!-- Match 2 -->
+            <div class="match-card rounded-xl overflow-hidden shadow-lg">
+                <div class="flex justify-between px-4 py-3 border-b border-white/5">
+                    <span class="font-bold">C. Leclerc</span>
+                    <span>-</span>
+                </div>
+                <div class="flex justify-between px-4 py-3">
+                    <span>G. Russell</span>
+                    <span>-</span>
+                </div>
+            </div>
+            <!-- Match 3 -->
+            <div class="match-card rounded-xl overflow-hidden shadow-lg">
+                <div class="flex justify-between px-4 py-3 border-b border-white/5">
+                    <span class="font-bold">F. Alonso</span>
+                    <span>-</span>
+                </div>
+                <div class="flex justify-between px-4 py-3">
+                    <span>L. Norris</span>
+                    <span>-</span>
+                </div>
+            </div>
+            <!-- Match 4 -->
+            <div class="match-card rounded-xl overflow-hidden shadow-lg">
+                <div class="flex justify-between px-4 py-3 border-b border-white/5">
+                    <span class="font-bold">S. Perez</span>
+                    <span>-</span>
+                </div>
+                <div class="flex justify-between px-4 py-3">
+                    <span>C. Sainz</span>
+                    <span>-</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- SVG Connectors -->
+        <svg class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 0;">
+            <!-- Paths would be calculated here dynamically in a real app, keeping it static for demo -->
+            <!-- Q1 -> S1 -->
+            <path d="M 350 180 C 400 180, 400 250, 450 250" class="bracket-line active-line" />
+            <path d="M 350 330 C 400 330, 400 250, 450 250" class="bracket-line" />
+
+            <!-- Q3 -> S2 -->
+            <path d="M 350 480 C 400 480, 400 550, 450 550" class="bracket-line" />
+            <path d="M 350 630 C 400 630, 400 550, 450 550" class="bracket-line" />
+
+            <!-- S1 -> F1 -->
+            <path d="M 700 250 C 750 250, 750 400, 800 400" class="bracket-line" />
+            <path d="M 700 550 C 750 550, 750 400, 800 400" class="bracket-line" />
+        </svg>
+
+        <!-- Round 2 (Semis) -->
+        <div class="flex flex-col justify-around h-[600px] z-10 w-64">
+            <div class="match-card rounded-xl overflow-hidden shadow-lg border-blue-500 scale-110">
+                <div class="bg-blue-600 px-4 py-1 text-[10px] uppercase font-bold text-center">En Curso</div>
+                <div class="flex justify-between px-4 py-3 border-b border-white/5 bg-blue-500/10">
+                    <span class="font-bold">M. Verstappen</span>
+                    <span class="animate-pulse">...</span>
+                </div>
+                <div class="flex justify-between px-4 py-3 opacity-50">
+                    <span>(Ganador M2)</span>
+                    <span></span>
+                </div>
+            </div>
+
+            <div class="match-card rounded-xl overflow-hidden shadow-lg opacity-50">
+                <div class="flex justify-between px-4 py-3 border-b border-white/5">
+                    <span>TBD</span>
+                    <span></span>
+                </div>
+                <div class="flex justify-between px-4 py-3">
+                    <span>TBD</span>
+                    <span></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Round 3 (Final) -->
+        <div class="flex flex-col justify-center h-[600px] z-10 w-72">
+            <div class="champion-card rounded-2xl overflow-hidden shadow-2xl transform scale-125">
+                <div class="bg-white/20 px-4 py-2 text-center font-black uppercase text-sm">Gran Final</div>
+                <div class="p-6 text-center">
+                    <i data-lucide="trophy" class="w-12 h-12 mx-auto mb-4 text-white drop-shadow-lg"></i>
+                    <div class="text-2xl font-black mb-1">?</div>
+                    <div class="text-sm font-bold opacity-80">Esperando Finalistas</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Footer Overlay -->
+    <div class="fixed bottom-0 w-full left-0 flex items-center justify-center pb-8 z-40 pointer-events-none">
+        <a href="index.html"
+            class="pointer-events-auto px-8 py-3 bg-white/10 backdrop-blur rounded-full text-sm font-bold hover:bg-white/20 transition-colors border border-white/10">
+            VOLVER A LA WEB
+        </a>
+    </div>
+
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+
+</html>

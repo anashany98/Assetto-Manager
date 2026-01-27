@@ -4,30 +4,35 @@ import axios from 'axios';
 import { useTelemetry } from '../hooks/useTelemetry';
 import { API_URL } from '../config';
 import { cn } from '../lib/utils';
-import { Activity, AlertTriangle, Flag, Zap, Loader2 } from 'lucide-react';
+import { Video } from 'lucide-react';
+// import { Link } from 'react-router-dom'; // Unused in kiosk mode
 
-// Format lap time from milliseconds
-const formatLapTime = (ms: number) => {
-    if (!ms || ms <= 0) return "--:--.---";
-    const minutes = Math.floor(ms / 60000);
-    const seconds = Math.floor((ms % 60000) / 1000);
-    const millis = Math.round(ms % 1000);
-    return `${minutes}:${seconds.toString().padStart(2, '0')}.${millis.toString().padStart(3, '0')}`;
+// ============================================================================
+// CONFIG & HELPERS
+// ============================================================================
+const GRAPH_POINTS = 300; // Number of points in the graph history
+const CAR_INTERPOLATION = 0.1; // Lower = smoother car movement
+const BATTLE_THRESHOLD = 0.02; // ~2% of track length
+
+// Helper to format time gaps
+const formatGap = (ms: number, isLeader: boolean) => {
+    if (isLeader) return "P1";
+    if (!ms) return "-";
+    return `+${(ms / 1000).toFixed(3)}`;
 };
 
-// Driver colors
-const DRIVER_COLORS = ['#ef4444', '#3b82f6', '#22c55e', '#eab308', '#a855f7', '#f97316', '#06b6d4', '#ec4899'];
-const getDriverColor = (stationId: string | number) => {
-    const idx = typeof stationId === 'string' ? parseInt(stationId, 10) : stationId;
-    return DRIVER_COLORS[(idx - 1) % DRIVER_COLORS.length];
+const formatTime = (ms: number) => {
+    if (!ms) return "-:--.---";
+    const min = Math.floor(ms / 60000);
+    const sec = Math.floor((ms % 60000) / 1000);
+    const mil = ms % 1000;
+    return `${min}:${sec.toString().padStart(2, '0')}.${mil.toString().padStart(3, '0')}`;
 };
 
-// Fallback track paths for when AC files aren't available
-const FALLBACK_TRACKS: Record<string, { path: string; viewBox: string }> = {
-    default: {
-        viewBox: "0 0 1000 800",
-        path: "M 200,400 Q 150,200 300,100 L 700,100 Q 850,200 850,400 Q 850,600 700,700 L 300,700 Q 150,600 200,400 Z"
-    }
+// Fallback track (Generic Loop)
+const FALLBACK_TRACK = {
+    viewBox: "0 0 1000 800",
+    path: "M 200,400 Q 150,200 300,100 L 700,100 Q 850,200 850,400 Q 850,600 700,700 L 300,700 Q 150,600 200,400 Z"
 };
 
 // Calculate position on SVG path
@@ -35,7 +40,9 @@ const getPointOnPath = (pathElement: SVGPathElement | null, normalizedPos: numbe
     if (!pathElement) return { x: 500, y: 400 };
     try {
         const length = pathElement.getTotalLength();
-        const point = pathElement.getPointAtLength(normalizedPos * length);
+        // Safe clamp 0-1
+        const pos = Math.max(0, Math.min(1, normalizedPos));
+        const point = pathElement.getPointAtLength(pos * length);
         return { x: point.x, y: point.y };
     } catch {
         return { x: 500, y: 400 };
@@ -43,371 +50,445 @@ const getPointOnPath = (pathElement: SVGPathElement | null, normalizedPos: numbe
 };
 
 // ============================================================================
-// MAIN COMPONENT - TV OPTIMIZED LIVE MAP
+// HOOKS
+// ============================================================================
+
+// Hook: Interpolates car positions for smooth 60fps movement
+const useSmoothCars = (liveCars: Record<string, any>) => {
+    const [smoothCars, setSmoothCars] = useState<Record<string, any>>({});
+    const requestRef = useRef<number>(0);
+
+    useEffect(() => {
+        const animate = () => {
+            setSmoothCars(prevSmooth => {
+                const nextSmooth = { ...prevSmooth };
+
+                Object.values(liveCars).forEach((targetCar: any) => {
+                    const id = targetCar.station_id;
+                    const prevCar = prevSmooth[id] || targetCar;
+
+                    // Initialize if new
+                    if (!prevSmooth[id]) {
+                        nextSmooth[id] = targetCar;
+                        return;
+                    }
+
+                    // Linear Interpolation for Normalized Pos
+                    let currentPos = prevCar.normalized_pos;
+                    let targetPos = targetCar.normalized_pos;
+
+                    // Handle lap wrap-around (0.99 -> 0.01)
+                    if (targetPos < 0.1 && currentPos > 0.9) {
+                        targetPos += 1;
+                    }
+
+                    // Interpolate
+                    const diff = targetPos - currentPos;
+                    let newPos = currentPos + (diff * CAR_INTERPOLATION);
+
+                    // Unwrap
+                    if (newPos > 1) newPos -= 1;
+
+                    nextSmooth[id] = {
+                        ...targetCar,
+                        normalized_pos: newPos
+                    };
+                });
+
+                return nextSmooth;
+            });
+            requestRef.current = requestAnimationFrame(animate);
+        };
+
+        requestRef.current = requestAnimationFrame(animate);
+        return () => cancelAnimationFrame(requestRef.current);
+    }, [liveCars]);
+
+    return smoothCars;
+};
+
+// ============================================================================
+// MAIN COMPONENT
 // ============================================================================
 const LiveMapPage = () => {
-    const { liveCars, isConnected } = useTelemetry();
-    const [selectedStation, setSelectedStation] = useState<string | null>(null);
+    const { liveCars: rawCars } = useTelemetry();
+    const smoothCarsMap = useSmoothCars(rawCars); // Use interpolated cars
+
+    // State
+    const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
+    const [fastestLap, setFastestLap] = useState<{ time: number, driver: string } | null>(null);
+    const [showRecordToast, setShowRecordToast] = useState(false);
+
+    // Refs
     const pathRef = useRef<SVGPathElement>(null);
-    const [driverPositions, setDriverPositions] = useState<Record<string, { x: number; y: number }>>({});
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const historyRef = useRef<{ throttle: number[], brake: number[] }>({
+        throttle: new Array(GRAPH_POINTS).fill(0),
+        brake: new Array(GRAPH_POINTS).fill(0)
+    });
 
-    const allCars = useMemo(() => Object.values(liveCars), [liveCars]);
+    const allCars = useMemo(() => Object.values(smoothCarsMap), [smoothCarsMap]);
 
-    // Sort cars by track position (leader first)
-    const sortedCars = useMemo(() =>
-        [...allCars].sort((a, b) => (b.normalized_pos || 0) - (a.normalized_pos || 0)),
-        [allCars]
-    );
+    // Sort cars: Priority to those with lap data, then by position/lap
+    const sortedCars = useMemo(() => {
+        return [...allCars].sort((a, b) => {
+            // If we have real "Position" data from race
+            if (a.pos && b.pos) return a.pos - b.pos;
+            // Fallback: Use laps completed + normalized pos
+            const scoreA = (a.laps || 0) + (a.normalized_pos || 0);
+            const scoreB = (b.laps || 0) + (b.normalized_pos || 0);
+            return scoreB - scoreA;
+        });
+    }, [allCars]);
 
-    // Get current track name from telemetry
+    // Track Fastest Lap
+    useEffect(() => {
+        allCars.forEach(car => {
+            if (car.lap_time_ms > 0) {
+                if (!fastestLap || car.lap_time_ms < fastestLap.time) {
+                    setFastestLap({ time: car.lap_time_ms, driver: car.driver });
+                    setShowRecordToast(true);
+                    setTimeout(() => setShowRecordToast(false), 5000); // Hide after 5s
+                }
+            }
+        });
+    }, [allCars]); // Caution: this might trigger often, but logic handles check
+
+    // Select the first car (leader) by default if none selected
+    useEffect(() => {
+        if (!selectedStationId && sortedCars.length > 0) {
+            setSelectedStationId(sortedCars[0].station_id);
+        }
+    }, [sortedCars.length, selectedStationId]);
+
+    const activeCar = selectedStationId ? smoothCarsMap[selectedStationId] : null;
+
+    // Track Name Logic
     const currentTrackName = sortedCars[0]?.track || '';
 
-    // Fetch track outline from backend (parses fast_lane.ai)
-    const { data: trackData, isLoading: trackLoading, error: trackError } = useQuery({
+    // Fetch Track Data
+    const { data: trackData } = useQuery({
         queryKey: ['trackOutline', currentTrackName],
         queryFn: async () => {
             if (!currentTrackName) return null;
             try {
-                // Convert track name to ID format (e.g., "ks_monza" -> "ks_monza")
                 const trackId = currentTrackName.toLowerCase().replace(/\s+/g, '_');
                 const res = await axios.get(`${API_URL}/tracks/${trackId}/outline`);
                 return res.data;
-            } catch (err) {
-                console.warn('Track outline not available, using fallback:', err);
-                return null;
-            }
+            } catch { return null; }
         },
         enabled: !!currentTrackName,
-        staleTime: 60000, // Cache for 1 minute
-        retry: false
+        staleTime: 60000
     });
 
-    // Use fetched track data or fallback
     const activeTrack = useMemo(() => {
         if (trackData?.path) {
             return {
                 path: trackData.path,
-                viewBox: trackData.viewBox || "0 0 1000 800",
-                name: trackData.trackName || currentTrackName
+                viewBox: trackData.viewBox || "0 0 1000 800"
             };
         }
-        return {
-            ...FALLBACK_TRACKS.default,
-            name: currentTrackName || 'Esperando circuito...'
-        };
-    }, [trackData, currentTrackName]);
+        return FALLBACK_TRACK;
+    }, [trackData]);
 
-    // Update driver positions on path
+
+    // ========================================================================
+    // TELEMETRY GRAPH
+    // ========================================================================
     useEffect(() => {
-        if (!pathRef.current) return;
+        if (!activeCar) return;
+        const gas = (activeCar.gas || 0) * 100;
+        const brake = (activeCar.brake || 0) * 100;
 
-        const newPositions: Record<string, { x: number; y: number }> = {};
-        sortedCars.forEach(car => {
-            const pos = getPointOnPath(pathRef.current, car.normalized_pos || 0);
-            newPositions[car.station_id] = pos;
-        });
-        setDriverPositions(newPositions);
-    }, [sortedCars, activeTrack]);
+        historyRef.current.throttle.push(gas); historyRef.current.throttle.shift();
+        historyRef.current.brake.push(brake); historyRef.current.brake.shift();
 
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const w = canvas.width; const h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+
+        ctx.strokeStyle = '#333'; ctx.lineWidth = 1; ctx.beginPath();
+        ctx.moveTo(0, h); ctx.lineTo(w, h); ctx.stroke();
+
+        const drawLine = (data: number[], color: string) => {
+            ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
+            const step = w / (GRAPH_POINTS - 1);
+            data.forEach((val, i) => {
+                const x = i * step; const y = h - (val / 100) * h;
+                i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+        };
+
+        drawLine(historyRef.current.throttle, '#22c55e');
+        drawLine(historyRef.current.brake, '#ef4444');
+    }, [activeCar]); // Will update as smooth car updates 60fps
+
+
+    // ========================================================================
+    // RENDER
+    // ========================================================================
     return (
-        <div className="h-screen w-screen bg-black overflow-hidden flex flex-col font-sans">
-            {/* ==================== HEADER BAR ==================== */}
-            <header className="h-20 bg-gradient-to-r from-gray-900 to-black border-b border-white/10 flex items-center justify-between px-8">
-                <div className="flex items-center gap-6">
-                    {/* Live Indicator */}
-                    <div className="flex items-center gap-3">
-                        <div className="relative">
-                            <div className="w-4 h-4 rounded-full bg-red-600 animate-pulse" />
-                            <div className="absolute inset-0 w-4 h-4 rounded-full bg-red-500 animate-ping opacity-50" />
-                        </div>
-                        <span className="text-2xl font-black text-white uppercase tracking-tight">EN VIVO</span>
-                    </div>
-                    {/* Divider */}
-                    <div className="w-px h-10 bg-white/20" />
-                    {/* Track Name */}
-                    <div>
-                        <div className="text-xs text-gray-500 uppercase tracking-wider font-bold">Circuito</div>
-                        <div className="text-xl font-bold text-white flex items-center gap-2">
-                            {activeTrack.name}
-                            {trackLoading && <Loader2 size={16} className="animate-spin text-blue-400" />}
-                        </div>
+        <div className="flex h-screen bg-[#0b0b0b] text-white overflow-hidden font-mono">
+
+            {/* LEFT SIDEBAR */}
+            <div className="w-80 flex flex-col border-r border-white/10 bg-[#111] z-20 shadow-2xl">
+                {/* Header */}
+                <div className="p-4 border-b border-white/10 bg-gradient-to-r from-blue-900/20 to-transparent">
+                    <h1 className="text-xl font-black italic uppercase tracking-tighter">Live Telemetry</h1>
+                    <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
+                        <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                        LIVE FEED • {sortedCars.length} CARS
                     </div>
                 </div>
 
-                {/* Right side info */}
-                <div className="flex items-center gap-8">
-                    {/* Drivers Count */}
-                    <div className="flex items-center gap-3 px-5 py-2 bg-green-500/10 border border-green-500/30 rounded-xl">
-                        <Activity size={20} className="text-green-400" />
-                        <span className="text-2xl font-black text-green-400">{allCars.length}</span>
-                        <span className="text-green-400/80 uppercase text-sm font-bold">Pilotos</span>
-                    </div>
-                    {/* Connection Status */}
-                    <div className={cn(
-                        "flex items-center gap-2 px-4 py-2 rounded-lg border",
-                        isConnected ? "bg-green-500/10 border-green-500/30" : "bg-red-500/10 border-red-500/30"
-                    )}>
-                        <div className={cn("w-3 h-3 rounded-full", isConnected ? "bg-green-500" : "bg-red-500")} />
-                        <span className={cn("text-sm font-bold uppercase", isConnected ? "text-green-400" : "text-red-400")}>
-                            {isConnected ? "Conectado" : "Sin conexión"}
-                        </span>
+                {/* Driver List */}
+                <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                    {sortedCars.map((car, idx) => {
+                        const isSelected = selectedStationId === car.station_id;
+                        const isLeader = idx === 0;
+                        const gap = formatGap(0, isLeader);
+                        const isFastest = fastestLap && fastestLap.driver === car.driver;
+
+                        return (
+                            <div
+                                key={car.station_id}
+                                onClick={() => setSelectedStationId(car.station_id)}
+                                className={cn(
+                                    "relative flex items-center gap-3 p-3 rounded cursor-pointer transition-all overflow-hidden group",
+                                    isSelected ? "bg-blue-600 text-white" : "bg-white/5 hover:bg-white/10 text-gray-300"
+                                )}
+                            >
+                                {/* Active Indicator Bar */}
+                                {isSelected && <div className="absolute left-0 top-0 bottom-0 w-1 bg-white" />}
+
+                                <span className={cn("text-lg font-black w-6 text-center italic", isLeader ? "text-yellow-400" : "opacity-50")}>
+                                    {car.pos || idx + 1}
+                                </span>
+
+                                <div className="flex-1 min-w-0">
+                                    <div className="font-bold truncate leading-tight uppercase flex items-center gap-2">
+                                        {car.driver}
+                                        {isFastest && <span className="text-[9px] bg-purple-600 text-white px-1 rounded font-bold">FL</span>}
+                                    </div>
+                                    <div className="text-[10px] opacity-70 truncate">{car.car}</div>
+                                </div>
+
+                                <div className="text-right">
+                                    <div className="text-xs font-bold tabular-nums">{Math.round(car.speed_kmh || 0)} <span className="text-[8px] opacity-70">KMH</span></div>
+                                    <div className={cn("text-[10px] font-mono", isLeader ? "text-yellow-300" : "opacity-50")}>{gap}</div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {/* Footer Brand (Replaces Controls) */}
+                <div className="mt-auto p-4 border-t border-white/10 bg-[#0f0f0f]">
+                    <div className="flex items-center justify-center opacity-30">
+                        <img src="/logo.png" alt="Assetto Manager" className="h-6" />
                     </div>
                 </div>
-            </header>
+            </div>
 
-            {/* ==================== MAIN CONTENT ==================== */}
-            <div className="flex-1 flex min-h-0">
-                {/* ==================== TRACK VISUALIZATION ==================== */}
-                <div className="flex-1 p-6 flex flex-col">
-                    <div className="flex-1 relative rounded-3xl border-2 border-white/10 bg-gradient-to-br from-gray-900/50 to-black overflow-hidden">
-                        {/* Background Grid */}
-                        <div
-                            className="absolute inset-0 opacity-10"
-                            style={{
-                                backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)',
-                                backgroundSize: '40px 40px'
-                            }}
+
+            {/* MAIN MAP AREA */}
+            <div className="flex-1 relative bg-black">
+
+                {/* SVG MAP */}
+                <div className="absolute inset-0 w-full h-full">
+                    <svg viewBox={activeTrack.viewBox} className="w-full h-full" preserveAspectRatio="xMidYMid meet">
+                        {/* Defs for gradients/glows */}
+                        <defs>
+                            <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                                <feGaussianBlur stdDeviation="4" result="blur" />
+                                <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                            </filter>
+                        </defs>
+
+                        {/* Track Outline (Base) */}
+                        <path d={activeTrack.path} fill="none" stroke="#111" strokeWidth="60" strokeLinejoin="round" strokeLinecap="round" />
+
+                        {/* SECTORS (Simulated styling for now) */}
+                        {/* We use stroke-dasharray to fake sectors until real sector splits are available */}
+                        {/* Sector 1: Purple, Sector 2: Green, Sector 3: White */}
+                        <path
+                            d={activeTrack.path}
+                            fill="none"
+                            stroke="#333"
+                            strokeWidth="30"
+                            strokeLinejoin="round"
+                            strokeLinecap="round"
+                        />
+                        {/* Center Line */}
+                        <path
+                            ref={pathRef}
+                            d={activeTrack.path}
+                            stroke="#444"
+                            strokeWidth="2"
+                            fill="none"
+                            strokeDasharray="10 10"
                         />
 
-                        {sortedCars.length > 0 ? (
-                            <svg
-                                viewBox={activeTrack.viewBox}
-                                className="w-full h-full"
-                                preserveAspectRatio="xMidYMid meet"
-                            >
-                                {/* Track Glow */}
-                                <path
-                                    d={activeTrack.path}
-                                    fill="none"
-                                    stroke="rgba(59, 130, 246, 0.15)"
-                                    strokeWidth="60"
-                                    strokeLinejoin="round"
-                                    strokeLinecap="round"
-                                />
-                                {/* Track Surface */}
-                                <path
-                                    d={activeTrack.path}
-                                    fill="none"
-                                    stroke="#1e293b"
-                                    strokeWidth="45"
-                                    strokeLinejoin="round"
-                                    strokeLinecap="round"
-                                />
-                                {/* Track Inner */}
-                                <path
-                                    d={activeTrack.path}
-                                    fill="none"
-                                    stroke="rgba(255,255,255,0.08)"
-                                    strokeWidth="40"
-                                    strokeLinejoin="round"
-                                    strokeLinecap="round"
-                                />
-                                {/* Center Line (reference path for positioning) */}
-                                <path
-                                    ref={pathRef}
-                                    d={activeTrack.path}
-                                    fill="none"
-                                    stroke="rgba(255,255,255,0.15)"
-                                    strokeWidth="2"
-                                    strokeDasharray="15 20"
-                                    strokeLinejoin="round"
-                                    strokeLinecap="round"
-                                />
+                        {/* Cars */}
+                        {sortedCars.map((car, idx) => {
+                            const pos = getPointOnPath(pathRef.current, car.normalized_pos || 0);
+                            const isSelected = selectedStationId === car.station_id;
+                            const isLeader = idx === 0;
 
-                                {/* Driver markers */}
-                                {sortedCars.map((car, idx) => {
-                                    const pos = driverPositions[car.station_id] || { x: 500, y: 400 };
-                                    const color = getDriverColor(car.station_id);
-                                    const isSelected = selectedStation === car.station_id;
-                                    const isLeader = idx === 0;
+                            // Battle Mode Logic
+                            const isInBattle = sortedCars.some(other => {
+                                if (other.station_id === car.station_id) return false;
+                                const dist = Math.abs((car.normalized_pos || 0) - (other.normalized_pos || 0));
+                                return dist < BATTLE_THRESHOLD;
+                            });
 
-                                    return (
-                                        <g key={car.station_id}>
-                                            {/* Outer glow for leader */}
-                                            {isLeader && (
-                                                <circle
-                                                    cx={pos.x} cy={pos.y} r={28}
-                                                    fill="rgba(234,179,8,0.3)"
-                                                    className="animate-pulse"
-                                                />
-                                            )}
-                                            {/* Driver glow */}
-                                            <circle
-                                                cx={pos.x} cy={pos.y}
-                                                r={isSelected ? 22 : 16}
-                                                fill={color}
-                                                opacity={0.4}
-                                            />
-                                            {/* Driver dot */}
-                                            <circle
-                                                cx={pos.x} cy={pos.y}
-                                                r={isSelected ? 14 : 10}
-                                                fill={color}
-                                                stroke="white"
-                                                strokeWidth={isSelected ? 3 : 2}
-                                                style={{
-                                                    filter: `drop-shadow(0 0 12px ${color})`,
-                                                    cursor: 'pointer',
-                                                    transition: 'all 0.3s ease'
-                                                }}
-                                                onClick={() => setSelectedStation(
-                                                    selectedStation === car.station_id ? null : car.station_id
-                                                )}
-                                            />
-                                            {/* Position number inside */}
+                            return (
+                                <g key={car.station_id} style={{ transition: 'none' /* Handled by RequestAnimation */ }}>
+
+                                    {/* Battle Mode Ring */}
+                                    {isInBattle && (
+                                        <circle cx={pos.x} cy={pos.y} r={25} fill="none" stroke="#ef4444" strokeWidth="2" opacity="0.8">
+                                            <animate attributeName="r" values="20;30;20" dur="0.5s" repeatCount="indefinite" />
+                                            <animate attributeName="opacity" values="0.8;0.2;0.8" dur="0.5s" repeatCount="indefinite" />
+                                        </circle>
+                                    )}
+
+                                    {/* Leader Pulsing Ring */}
+                                    {isLeader && !isInBattle && (
+                                        <circle cx={pos.x} cy={pos.y} r={20} fill="none" stroke="#eab308" strokeWidth="2" opacity="0.5">
+                                            <animate attributeName="r" values="20;40" dur="1s" repeatCount="indefinite" />
+                                            <animate attributeName="opacity" values="0.5;0" dur="1s" repeatCount="indefinite" />
+                                        </circle>
+                                    )}
+
+                                    {/* Car Dot */}
+                                    <circle
+                                        cx={pos.x} cy={pos.y}
+                                        r={isSelected ? 10 : 6}
+                                        fill={isLeader ? "#eab308" : (isSelected ? "#3b82f6" : "#aaa")}
+                                        stroke="black"
+                                        strokeWidth="2"
+                                        filter="url(#glow)"
+                                    />
+
+                                    {/* Driver Label */}
+                                    {(isSelected || isLeader || isInBattle) && (
+                                        <g transform={`translate(${pos.x}, ${pos.y - 30})`}>
+                                            <rect x="-40" y="-15" width="80" height="20" rx="4" fill="rgba(0,0,0,0.8)" />
                                             <text
-                                                x={pos.x} y={pos.y + 4}
+                                                x="0" y="0" dy="5"
                                                 textAnchor="middle"
                                                 fill="white"
-                                                fontSize={isSelected ? "12" : "10"}
+                                                fontSize="10"
                                                 fontWeight="bold"
+                                                fontFamily="monospace"
                                             >
-                                                {idx + 1}
+                                                {car.driver}
                                             </text>
-                                            {/* Name tag */}
-                                            <g transform={`translate(${pos.x}, ${pos.y - 30})`}>
-                                                <rect
-                                                    x="-45" y="-12"
-                                                    width="90" height="22"
-                                                    rx="4"
-                                                    fill="rgba(0,0,0,0.85)"
-                                                />
-                                                <text
-                                                    x="0" y="4"
-                                                    textAnchor="middle"
-                                                    fill="white"
-                                                    fontSize="11"
-                                                    fontWeight="bold"
-                                                >
-                                                    {(car.driver || `P${car.station_id}`).slice(0, 12)}
-                                                </text>
-                                            </g>
                                         </g>
-                                    );
-                                })}
-                            </svg>
-                        ) : (
-                            <div className="flex-1 h-full flex flex-col items-center justify-center text-gray-500">
-                                <Activity size={64} className="mb-6 opacity-30 animate-pulse" />
-                                <p className="text-2xl font-bold">Esperando telemetría...</p>
-                                <p className="text-gray-600 mt-2">Conecta un simulador para ver datos en tiempo real</p>
-                            </div>
-                        )}
+                                    )}
+                                </g>
+                            );
+                        })}
+                    </svg>
+                </div>
 
-                        {/* Track Name Overlay */}
-                        <div className="absolute bottom-6 left-6 bg-black/60 backdrop-blur-sm px-4 py-2 rounded-xl border border-white/10">
-                            <div className="flex items-center gap-2">
-                                <Flag size={16} className="text-green-400" />
-                                <span className="text-sm font-bold text-white">{currentTrackName || 'Sin pista'}</span>
-                                {trackData?.pointCount && (
-                                    <span className="text-xs text-gray-500">({trackData.pointCount} puntos)</span>
-                                )}
+                {/* OVERLAYS */}
+
+                {/* Track Conditions Widget */}
+                <div className="absolute top-8 right-8 flex flex-col items-end gap-2">
+                    <div className="bg-black/60 backdrop-blur px-4 py-2 rounded border border-white/10 flex items-center gap-4">
+                        <div className="text-right">
+                            <div className="text-[9px] text-gray-400 uppercase">Track Temp</div>
+                            <div className="text-sm font-bold text-white">
+                                {activeCar?.track_temp ? `${activeCar.track_temp.toFixed(1)}°C` : '--°C'}
+                            </div>
+                        </div>
+                        <div className="w-px h-6 bg-white/10"></div>
+                        <div className="text-right">
+                            <div className="text-[9px] text-gray-400 uppercase">Air Temp</div>
+                            <div className="text-sm font-bold text-white">
+                                {activeCar?.air_temp ? `${activeCar.air_temp.toFixed(1)}°C` : '--°C'}
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* ==================== LEADERBOARD SIDEBAR ==================== */}
-                <div className="w-[420px] bg-gradient-to-b from-gray-900/80 to-black border-l border-white/10 p-5 overflow-y-auto">
-                    <div className="flex items-center justify-between mb-5">
-                        <h2 className="text-lg font-black text-white uppercase tracking-wider">Clasificación</h2>
-                        <div className="text-xs text-gray-500 uppercase">{sortedCars.length} en pista</div>
+                {/* Fastest Lap Toast */}
+                {showRecordToast && fastestLap && (
+                    <div className="absolute top-24 right-8 bg-purple-900/90 backdrop-blur border border-purple-500/50 p-4 rounded shadow-2xl animate-in fade-in slide-in-from-right duration-500">
+                        <div className="text-xs text-purple-200 font-bold uppercase tracking-wider mb-1">New Fastest Lap</div>
+                        <div className="text-xl font-black italic text-white">{fastestLap.driver}</div>
+                        <div className="text-2xl font-mono font-bold text-purple-300">{formatTime(fastestLap.time)}</div>
                     </div>
+                )}
 
-                    <div className="space-y-3">
-                        {sortedCars.map((car, idx) => {
-                            const color = getDriverColor(car.station_id);
-                            const isSelected = selectedStation === car.station_id;
-                            const progress = (car.normalized_pos || 0) * 100;
-                            const hasAlert = (car.engine_temp || 0) > 105;
-
-                            return (
-                                <div
-                                    key={car.station_id}
-                                    onClick={() => setSelectedStation(isSelected ? null : car.station_id)}
-                                    className={cn(
-                                        "relative p-4 rounded-2xl border cursor-pointer transition-all duration-300",
-                                        isSelected
-                                            ? "bg-white/10 border-white/30 shadow-xl scale-[1.02]"
-                                            : "bg-white/5 border-white/5 hover:bg-white/8"
-                                    )}
-                                >
-                                    {/* Position Badge */}
-                                    <div
-                                        className="absolute -left-2 -top-2 w-10 h-10 rounded-xl flex items-center justify-center font-black text-lg shadow-lg"
-                                        style={{ backgroundColor: color }}
-                                    >
-                                        {idx + 1}
-                                    </div>
-
-                                    {/* Alert Indicator */}
-                                    {hasAlert && (
-                                        <div className="absolute top-2 right-2">
-                                            <AlertTriangle size={18} className="text-red-400 animate-pulse" />
-                                        </div>
-                                    )}
-
-                                    {/* Content */}
-                                    <div className="flex items-start justify-between pl-8">
-                                        <div>
-                                            <div className="text-white font-bold text-xl">{car.driver || 'Piloto'}</div>
-                                            <div className="text-xs text-gray-500 mt-0.5">{car.car || 'Vehículo'}</div>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="text-3xl font-black tabular-nums" style={{ color }}>
-                                                {Math.round(car.speed_kmh || 0)}
-                                                <span className="text-sm text-gray-500 ml-1">km/h</span>
-                                            </div>
-                                            <div className="text-sm text-yellow-400/80 font-mono tabular-nums mt-1">
-                                                {formatLapTime(car.lap_time_ms)}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Progress Bar */}
-                                    <div className="mt-3 h-2 bg-white/10 rounded-full overflow-hidden">
-                                        <div
-                                            className="h-full rounded-full transition-all duration-500"
-                                            style={{ width: `${progress}%`, backgroundColor: color }}
-                                        />
-                                    </div>
-
-                                    {/* Stats Row */}
-                                    <div className="grid grid-cols-4 gap-2 mt-3">
-                                        <div className="text-center p-2 bg-white/5 rounded-lg">
-                                            <div className="text-[10px] text-gray-500">RPM</div>
-                                            <div className="text-sm font-bold tabular-nums">{Math.round(car.rpm || 0)}</div>
-                                        </div>
-                                        <div className="text-center p-2 bg-white/5 rounded-lg">
-                                            <div className="text-[10px] text-gray-500">FUEL</div>
-                                            <div className="text-sm font-bold tabular-nums">{Math.round(car.fuel || 0)}L</div>
-                                        </div>
-                                        <div className={cn(
-                                            "text-center p-2 rounded-lg",
-                                            hasAlert ? "bg-red-500/20" : "bg-white/5"
-                                        )}>
-                                            <div className="text-[10px] text-gray-500">TEMP</div>
-                                            <div className={cn("text-sm font-bold", hasAlert && "text-red-400")}>
-                                                {Math.round(car.engine_temp || 0)}°
-                                            </div>
-                                        </div>
-                                        <div className="text-center p-2 bg-white/5 rounded-lg">
-                                            <div className="text-[10px] text-gray-500">GEAR</div>
-                                            <div className="text-sm font-bold">{car.gear || 'N'}</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
-
-                        {sortedCars.length === 0 && (
-                            <div className="text-center py-16 text-gray-600">
-                                <Zap size={48} className="mx-auto mb-4 opacity-30" />
-                                <p className="text-lg font-medium">Sin pilotos activos</p>
-                            </div>
-                        )}
+                {/* Top Center: Track Info */}
+                <div className="absolute top-6 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-black/60 backdrop-blur px-6 py-2 rounded-full border border-white/10">
+                    <div className="flex flex-col items-center">
+                        <span className="text-[10px] text-gray-400 uppercase tracking-widest">Circuit</span>
+                        <span className="font-bold text-white uppercase">{currentTrackName || "Unknown Track"}</span>
                     </div>
                 </div>
+
+                {/* Bottom Right: Telemetry Graph */}
+                {selectedStationId && (
+                    <div className="absolute bottom-8 right-8 w-[400px] bg-black/80 backdrop-blur border border-white/10 rounded-xl overflow-hidden shadow-2xl">
+                        {/* Header */}
+                        <div className="flex justify-between items-center p-3 border-b border-white/10 bg-white/5">
+                            <div className="flex items-center gap-2">
+                                <Video size={14} className="text-red-500 animate-pulse" />
+                                <span className="text-xs font-bold uppercase tracking-widest text-white">{activeCar?.driver} ONBOARD</span>
+                            </div>
+                            <div className="flex gap-3 text-[10px] font-bold uppercase">
+                                <span className="text-green-500">Throttle</span>
+                                <span className="text-red-500">Brake</span>
+                            </div>
+                        </div>
+
+                        {/* Graph */}
+                        <div className="p-4 relative">
+                            <canvas ref={canvasRef} width={360} height={120} className="w-full h-[120px]" />
+
+                            {/* Live Values Overlay */}
+                            <div className="absolute top-4 right-4 flex flex-col items-end pointer-events-none">
+                                <span className="text-2xl font-black italic tracking-tighter text-white">
+                                    {Math.round(activeCar?.speed_kmh || 0)} <span className="text-sm text-gray-500 not-italic">KMH</span>
+                                </span>
+                                <div className="flex gap-1 mt-1">
+                                    <div className="w-12 h-1 bg-gray-700/50 rounded-full overflow-hidden">
+                                        <div className="h-full bg-green-500 transition-all duration-75" style={{ width: `${(activeCar?.gas || 0) * 100}%` }} />
+                                    </div>
+                                    <div className="w-12 h-1 bg-gray-700/50 rounded-full overflow-hidden">
+                                        <div className="h-full bg-red-500 transition-all duration-75" style={{ width: `${(activeCar?.brake || 0) * 100}%` }} />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Split Times (Simulated) */}
+                        <div className="grid grid-cols-3 divide-x divide-white/10 border-t border-white/10 bg-black/50">
+                            <div className="p-2 text-center">
+                                <div className="text-[9px] text-gray-500 uppercase">Sector 1</div>
+                                <div className="text-xs font-bold text-purple-400">23.412</div>
+                            </div>
+                            <div className="p-2 text-center">
+                                <div className="text-[9px] text-gray-500 uppercase">Sector 2</div>
+                                <div className="text-xs font-bold text-green-400">41.201</div>
+                            </div>
+                            <div className="p-2 text-center">
+                                <div className="text-[9px] text-gray-500 uppercase">Lap Time</div>
+                                <div className="text-xs font-bold text-white">{formatTime(activeCar?.lap_time_ms || 0)}</div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
             </div>
         </div>
     );
