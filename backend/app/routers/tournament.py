@@ -166,6 +166,10 @@ def advance_bracket_for_winner(event: models.Event, winner_name: str, db: Sessio
 # ENDPOINTS
 # --------------------------
 
+from ..routers.websockets import manager
+
+# ... (Previous code remains, skipping to endpoints)
+
 @router.get("/{event_id}/bracket")
 def get_bracket(event_id: int, db: Session = Depends(get_db)):
     event = db.query(models.Event).filter(models.Event.id == event_id).first()
@@ -179,7 +183,7 @@ def get_bracket(event_id: int, db: Session = Depends(get_db)):
     return bracket
 
 @router.post("/{event_id}/generate")
-def generate_bracket_endpoint(event_id: int, participants: list[str], db: Session = Depends(get_db)):
+async def generate_bracket_endpoint(event_id: int, participants: list[str], db: Session = Depends(get_db)):
     event = db.query(models.Event).filter(models.Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Evento no encontrado")
@@ -187,10 +191,17 @@ def generate_bracket_endpoint(event_id: int, participants: list[str], db: Sessio
     bracket = build_bracket(participants)
     save_bracket(event, bracket, db)
     
+    # Broadcast Update
+    await manager.broadcast(json.dumps({
+        "type": "tournament_update",
+        "event_id": event_id,
+        "data": bracket
+    }))
+    
     return bracket
 
 @router.post("/{event_id}/match/{match_id}/update")
-def update_match(event_id: int, match_id: int, score1: int, score2: int, winner: str, db: Session = Depends(get_db)):
+async def update_match(event_id: int, match_id: int, score1: int, score2: int, winner: str, db: Session = Depends(get_db)):
     event = db.query(models.Event).filter(models.Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Evento no encontrado")
@@ -201,5 +212,12 @@ def update_match(event_id: int, match_id: int, score1: int, score2: int, winner:
     
     bracket = update_bracket_match(bracket, match_id, score1, score2, winner)
     save_bracket(event, bracket, db)
+    
+    # Broadcast Update
+    await manager.broadcast(json.dumps({
+        "type": "tournament_update",
+        "event_id": event_id,
+        "data": bracket
+    }))
     
     return {"message": "Resultado actualizado", "bracket": bracket}

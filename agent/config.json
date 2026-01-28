@@ -1,5 +1,5 @@
 {
-    "server_url": "http://localhost:8001",
+    "server_url": "http://localhost:8000",
     "ac_content_dir": "D:/SteamLibrary/steamapps/common/assettocorsa/content",
     "agent_token": "local-agent"
 }

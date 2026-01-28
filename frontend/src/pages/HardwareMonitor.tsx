@@ -22,6 +22,7 @@ interface StationHealth {
     wheel_connected: boolean;
     pedals_connected: boolean;
     shifter_connected: boolean;
+    peripherals_list: string[];
     ac_running: boolean;
     current_driver: string | null;
     current_track: string | null;
@@ -66,7 +67,6 @@ function StationHealthCard({ station }: { station: StationHealth }) {
         setIsPending(true);
         try {
             await axios.post(`${API_URL}/stations/${station.station_id}/${action}`);
-            // Success notification implied by UI update soon
         } catch (err) {
             console.error("Power action failed", err);
             alert("Error al ejecutar acción de energía");
@@ -81,7 +81,7 @@ function StationHealthCard({ station }: { station: StationHealth }) {
             await axios.post(`${API_URL}/control/station/${station.station_id}/${action}`);
         } catch (err) {
             console.error("Quick action failed", err);
-            alert("Error al ejecutar acciÃ³n rÃ¡pida");
+            alert("Error al ejecutar acción rávida");
         } finally {
             setIsPending(false);
         }
@@ -112,7 +112,7 @@ function StationHealthCard({ station }: { station: StationHealth }) {
                 </div>
             </div>
 
-            {/* Power Controls overlay-like strip */}
+            {/* Power Controls */}
             <div className="flex gap-2 mb-4">
                 {!station.is_online ? (
                     <button
@@ -158,38 +158,10 @@ function StationHealthCard({ station }: { station: StationHealth }) {
                             disabled={isPending}
                             onClick={() => handleQuickAction('stop')}
                             className="flex-1 bg-yellow-500/10 hover:bg-yellow-500 text-yellow-400 hover:text-black py-2 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all border border-yellow-500/30"
-                            title="Detener sesiÃ³n"
+                            title="Detener sesión"
                         >
                             <AlertTriangle size={12} /> Detener AC
                         </button>
-                    )}
-                </div>
-            )}
-
-            {/* Current Activity */}
-            {station.is_online && station.ac_running && (
-                <div className="mb-4 p-2 bg-blue-500/10 rounded-lg border border-blue-500/30">
-                    <div className="flex items-center gap-2 text-sm">
-                        <Gamepad2 className="w-4 h-4 text-blue-400" />
-                        <span className="text-blue-300">AC en ejecución</span>
-                    </div>
-                    {station.current_driver && (
-                        <div className="flex items-center gap-2 text-xs mt-1 text-gray-300">
-                            <User className="w-3 h-3" />
-                            <span>{station.current_driver}</span>
-                        </div>
-                    )}
-                    {station.current_track && (
-                        <div className="flex items-center gap-2 text-xs mt-1 text-gray-300">
-                            <MapPin className="w-3 h-3" />
-                            <span>{station.current_track}</span>
-                        </div>
-                    )}
-                    {station.current_car && (
-                        <div className="flex items-center gap-2 text-xs mt-1 text-gray-300">
-                            <Car className="w-3 h-3" />
-                            <span>{station.current_car}</span>
-                        </div>
                     )}
                 </div>
             )}
@@ -212,51 +184,36 @@ function StationHealthCard({ station }: { station: StationHealth }) {
                         color={station.gpu_percent > 90 ? "bg-red-500" : station.gpu_percent > 75 ? "bg-yellow-500" : "bg-purple-500"}
                         label="GPU"
                     />
-                    <ProgressBar
-                        value={station.disk_percent}
-                        color={station.disk_percent > 90 ? "bg-red-500" : station.disk_percent > 80 ? "bg-yellow-500" : "bg-cyan-500"}
-                        label="Disco"
-                    />
-
-                    {/* Temperature */}
-                    {station.gpu_temp > 0 && (
-                        <div className="flex items-center gap-2 text-sm mt-2">
-                            <Thermometer className={cn(
-                                "w-4 h-4",
-                                station.gpu_temp > 85 ? "text-red-400" :
-                                    station.gpu_temp > 75 ? "text-yellow-400" : "text-green-400"
-                            )} />
-                            <span className="text-gray-400">GPU Temp:</span>
-                            <span className={cn(
-                                station.gpu_temp > 85 ? "text-red-400" :
-                                    station.gpu_temp > 75 ? "text-yellow-400" : "text-green-400"
-                            )}>{station.gpu_temp}°C</span>
-                        </div>
-                    )}
                 </div>
             )}
 
             {/* Peripherals */}
             {station.is_online && (
-                <div className="flex gap-2 mb-4">
-                    <div className={cn(
-                        "flex items-center gap-1 px-2 py-1 rounded text-xs",
-                        station.wheel_connected ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
-                    )}>
-                        {station.wheel_connected ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-                        Volante
+                <div className="space-y-2 mb-4">
+                    <div className="flex gap-2">
+                        <div className={cn(
+                            "flex items-center gap-1 px-2 py-1 rounded text-xs",
+                            station.wheel_connected ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
+                        )}>
+                            {station.wheel_connected ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                            Volante
+                        </div>
+                        <div className={cn(
+                            "flex items-center gap-1 px-2 py-1 rounded text-xs",
+                            station.pedals_connected ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
+                        )}>
+                            {station.pedals_connected ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                            Pedales
+                        </div>
                     </div>
-                    <div className={cn(
-                        "flex items-center gap-1 px-2 py-1 rounded text-xs",
-                        station.pedals_connected ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
-                    )}>
-                        {station.pedals_connected ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-                        Pedales
-                    </div>
-                    {station.shifter_connected && (
-                        <div className="flex items-center gap-1 px-2 py-1 rounded text-xs bg-green-500/20 text-green-400">
-                            <CheckCircle className="w-3 h-3" />
-                            Shifter
+
+                    {station.peripherals_list && station.peripherals_list.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                            {station.peripherals_list.map((name, idx) => (
+                                <span key={idx} className="text-[10px] bg-blue-500/10 text-blue-300 px-1.5 py-0.5 rounded border border-blue-500/20">
+                                    {name}
+                                </span>
+                            ))}
                         </div>
                     )}
                 </div>
@@ -271,13 +228,6 @@ function StationHealthCard({ station }: { station: StationHealth }) {
                             {alert}
                         </div>
                     ))}
-                </div>
-            )}
-
-            {/* Last seen */}
-            {!station.is_online && station.last_seen && (
-                <div className="text-xs text-gray-500 mt-2">
-                    Última conexión: {new Date(station.last_seen).toLocaleString('es-ES')}
                 </div>
             )}
         </div>
@@ -307,7 +257,6 @@ export default function HardwareMonitor() {
 
     return (
         <div className="p-6 space-y-6">
-            {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-white flex items-center gap-2">
@@ -317,26 +266,6 @@ export default function HardwareMonitor() {
                     <p className="text-gray-400 text-sm mt-1">Estado en tiempo real de los simuladores</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <button
-                        onClick={async () => {
-                            if (window.confirm("¿Apagar TODAS las estaciones online?")) {
-                                try {
-                                    await Promise.all(
-                                        stations?.filter(s => s.is_online).map(s =>
-                                            axios.post(`${API_URL}/stations/${s.station_id}/shutdown`)
-                                        ) || []
-                                    );
-                                    refetch();
-                                } catch (e) {
-                                    alert("Error al apagar algunas estaciones");
-                                }
-                            }
-                        }}
-                        className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm flex items-center gap-2 transition shadow-lg"
-                    >
-                        <PowerOff className="w-4 h-4" />
-                        Apagar TODO
-                    </button>
                     <button
                         onClick={() => setAutoRefresh(!autoRefresh)}
                         className={cn(
@@ -357,30 +286,7 @@ export default function HardwareMonitor() {
                 </div>
             </div>
 
-
-            {/* Critical Alert Banner */}
-            {summary && (summary.with_alerts > 0 || summary.offline > 0) && (
-                <div className="bg-red-500/10 border-l-4 border-red-500 p-4 rounded-r flex items-center justify-between animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.2)]">
-                    <div className="flex items-center gap-3">
-                        <AlertTriangle className="text-red-500 w-6 h-6 animate-bounce" />
-                        <div>
-                            <h3 className="font-bold text-red-500 uppercase tracking-wider text-sm">Atención Requerida</h3>
-                            <p className="text-sm text-red-300 font-medium">
-                                {summary.with_alerts > 0 && `⚠️ ${summary.with_alerts} estaciones con alertas de hardware. `}
-                                {summary.offline > 0 && `❌ ${summary.offline} estaciones desconectadas.`}
-                            </p>
-                        </div>
-                    </div>
-                    <button
-                        onClick={() => window.scrollTo({ top: 500, behavior: 'smooth' })}
-                        className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-xs font-bold uppercase tracking-widest rounded transition-colors"
-                    >
-                        Ver Detalles
-                    </button>
-                </div>
-            )}
-
-            {/* Summary Cards */}
+            {/* Summary */}
             {summary && (
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                     <div className="bg-gray-800 rounded-xl p-4 text-center">
@@ -391,39 +297,15 @@ export default function HardwareMonitor() {
                         <div className="text-3xl font-bold text-green-400">{summary.online}</div>
                         <div className="text-sm text-gray-400">Online</div>
                     </div>
-                    <div className="bg-gray-800 rounded-xl p-4 text-center border border-red-500/30">
-                        <div className="text-3xl font-bold text-red-400">{summary.offline}</div>
-                        <div className="text-sm text-gray-400">Offline</div>
-                    </div>
-                    <div className="bg-gray-800 rounded-xl p-4 text-center border border-yellow-500/30">
-                        <div className="text-3xl font-bold text-yellow-400">{summary.with_alerts}</div>
-                        <div className="text-sm text-gray-400">Con alertas</div>
-                    </div>
-                    <div className="bg-gray-800 rounded-xl p-4 text-center border border-blue-500/30">
-                        <div className="text-3xl font-bold text-blue-400">{summary.running_ac}</div>
-                        <div className="text-sm text-gray-400">Jugando</div>
-                    </div>
                 </div>
             )}
 
-            {/* Stations Grid */}
-            {isLoading ? (
-                <div className="text-center py-12 text-gray-400">
-                    <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2" />
-                    Cargando estado de estaciones...
-                </div>
-            ) : stations?.length === 0 ? (
-                <div className="text-center py-12 text-gray-400">
-                    <Monitor className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                    No hay estaciones registradas
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {stations?.map(station => (
-                        <StationHealthCard key={station.station_id} station={station} />
-                    ))}
-                </div>
-            )}
+            {/* Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {stations?.map(station => (
+                    <StationHealthCard key={station.station_id} station={station} />
+                ))}
+            </div>
         </div>
     );
 }

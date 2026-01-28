@@ -489,7 +489,7 @@ class ImageProxyServer:
     
     def _run_server(self):
         """Run the HTTP server"""
-        from http.server import HTTPServer, SimpleHTTPRequestHandler
+        from http.server import HTTPServer, SimpleHTTPRequestHandler, ThreadingHTTPServer
         import urllib.parse
         
         ac_path = self.ac_path
@@ -547,7 +547,8 @@ class ImageProxyServer:
                 pass
         
         try:
-            self.server = HTTPServer(('0.0.0.0', self.port), ImageHandler)
+            # use ThreadingHTTPServer for parallel processing
+            self.server = ThreadingHTTPServer(('0.0.0.0', self.port), ImageHandler)
             self.server.serve_forever()
         except Exception as e:
             logger.error(f"ImageProxy server error: {e}")
@@ -1163,6 +1164,64 @@ CLOUD_SPEED=0.2
                         logger.info(f"Wrote race.ini to {race_ini_path} (Blankets: {tyre_blankets}, Grip: {track_grip}, Compound: {compound}, JumpStart: {jump_start}, Damage: {damage_mult}%)")
                     except Exception as e:
                         logger.error(f"Failed to write race.ini: {e}")
+
+                    # 3b. Update video.ini for VR
+                    is_vr = data.get("is_vr", False)
+                    video_ini_path = os.path.join(ac_docs_path, "video.ini")
+                    try:
+                        # Read existing content
+                        vid_content = ""
+                        if os.path.exists(video_ini_path):
+                            with open(video_ini_path, 'r') as f:
+                                vid_content = f.read()
+                        
+                        # Determine mode and graphics preset
+                        if is_vr:
+                            rendering_mode = "OCULUS"
+                            
+                            # Load VR settings from external JSON if exists, else use defaults
+                            vr_config_path = os.path.join(os.path.dirname(__file__), "vr_settings.json")
+                            vr_settings = {
+                                "RENDERING_MODE": "OCULUS",
+                                "AASAMPLES": "2",
+                                "SHADOW_MAP_SIZE": "2048",
+                                "REFLECTION_QUALITY": "1",
+                                "GLARE": "3",
+                                "DEPTH_OF_FIELD": "0",
+                                "POST_PROC_QUALITY": "3"
+                            }
+                            
+                            if os.path.exists(vr_config_path):
+                                try:
+                                    with open(vr_config_path, 'r') as f:
+                                        custom_vr = json.load(f)
+                                        vr_settings.update(custom_vr)
+                                    logger.info(f"Loaded custom VR settings from {vr_config_path}")
+                                except Exception as e:
+                                    logger.error(f"Failed to load vr_settings.json: {e}")
+
+                            settings_map = vr_settings
+                        else:
+                            rendering_mode = "SINGLE_SCREEN"
+                            # For Single Screen, we ONLY switch mode, we DO NOT touch graphics quality
+                            # respecting the user's manual tuning.
+                            settings_map = {
+                                "RENDERING_MODE": "SINGLE_SCREEN"
+                            }
+                        
+                        import re
+                        
+                        # Apply all settings in the map
+                        for key, val in settings_map.items():
+                            if f"{key}=" in vid_content:
+                                vid_content = re.sub(f"{key}=.*", f"{key}={val}", vid_content)
+                            
+                        with open(video_ini_path, 'w') as f:
+                            f.write(vid_content)
+                        logger.info(f"Updated video.ini for {'VR' if is_vr else 'Screen'} mode (Mode={rendering_mode})")
+                            
+                    except Exception as e:
+                        logger.error(f"Failed to update video.ini: {e}")
                     
                     # 4. Launch Assetto Corsa
                     if ac_path:
@@ -1287,6 +1346,21 @@ CLOUD_SPEED=0.2
                         os.system("taskkill /F /IM acs.exe 2>nul")
                     else:
                         os.system("pkill -9 acs 2>/dev/null")
+
+                elif command == "shutdown":
+                    logger.info("Received SHUTDOWN command. Shutting down system in 5 seconds...")
+                    if platform.system() == "Windows":
+                        os.system("shutdown /s /t 5")
+                    else:
+                        os.system("sudo shutdown -h now")
+
+                elif command == "restart":
+                    logger.info("Received RESTART command. Restarting system in 5 seconds...")
+                    if platform.system() == "Windows":
+                        os.system("shutdown /r /t 5")
+                    else:
+                        os.system("sudo shutdown -r now")
+
 
             except websockets.ConnectionClosed:
                 break

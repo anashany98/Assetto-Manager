@@ -1,0 +1,9 @@
+{
+    "RENDERING_MODE": "OCULUS",
+    "AASAMPLES": "2",
+    "SHADOW_MAP_SIZE": "2048",
+    "REFLECTION_QUALITY": "1",
+    "GLARE": "3",
+    "DEPTH_OF_FIELD": "0",
+    "POST_PROC_QUALITY": "3"
+}

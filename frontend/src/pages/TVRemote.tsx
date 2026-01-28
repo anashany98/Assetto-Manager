@@ -334,34 +334,6 @@ export default function TVRemote() {
                     </p>
                 </div>
 
-                {/* EMERGENCY CONTROLS */}
-                <div className="mt-8 bg-red-900/20 border border-red-500/30 rounded-3xl p-6">
-                    <h2 className="text-red-500 text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
-                        <Zap size={14} /> Zona de Peligro
-                    </h2>
-                    <button
-                        onClick={async () => {
-                            if (confirm(`⚠ ¿ESTÁS SEGURO?\n\nEsto matará inmediatamente todos los procesos de juego en la PANTALLA ${selectedScreen}.\n\nÚsalo solo si el simulador se ha colgado.`)) {
-                                try {
-                                    await axios.post(`${API_URL}/stations/${selectedScreen}/panic`, {}, {
-                                        headers: { Authorization: `Bearer ${token}` }
-                                    });
-                                    alert(`Comando de emergencia enviado a Pantalla ${selectedScreen}`);
-                                } catch {
-                                    alert("Error al enviar comando de pánico");
-                                }
-                            }
-                        }}
-                        className="w-full bg-red-600 hover:bg-red-700 text-white font-black py-4 rounded-xl shadow-lg shadow-red-600/20 flex items-center justify-center space-x-3 active:scale-95 transition-all"
-                    >
-                        <Zap size={24} className="animate-pulse" />
-                        <span>INTERRUPTOR DE EMERGENCIA (PANIC)</span>
-                    </button>
-                    <p className="text-center text-red-400/60 text-[10px] mt-2 font-mono">
-                        Fuerza el cierre de acs.exe, content_manager.exe y steam.exe en la estación remota.
-                    </p>
-                </div>
-
                 {/* PREVIEW */}
                 <div className="mt-8">
                     <div className="bg-black rounded-lg aspect-video w-full max-w-sm mx-auto border-4 border-gray-800 relative flex items-center justify-center overflow-hidden shadow-2xl">

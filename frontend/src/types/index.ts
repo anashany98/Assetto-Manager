@@ -62,6 +62,7 @@ export interface SessionSummary {
     car_model: string;
     date: string;
     best_lap: number;
+    best_lap_id?: number;
     laps_count: number;
 }
 
@@ -77,6 +78,9 @@ export interface PilotProfile {
     total_wins: number;
     total_podiums: number;
     elo_rating: number;
+    badges?: Array<{ id: string; label: string; icon: string; desc: string }>;
+    xp_points?: number;
+    level?: number;
 }
 
 export interface DriverDetails {

@@ -50,6 +50,7 @@ class StationUpdate(BaseModel):
     ac_path: Optional[str] = None
     diagnostics: Optional[dict] = None
     kiosk_code: Optional[str] = None
+    mac_address: Optional[str] = None
 
 # ...
 
@@ -142,6 +143,8 @@ class Mod(ModBase):
     status: str
     manifest: Optional[str] # JSON string
     source_path: Optional[str] # Path to content on server
+    preview_url: Optional[str] = None
+    image_url: Optional[str] = None
     is_active: bool
     size_bytes: Optional[int] = 0
     created_at: datetime
@@ -362,6 +365,7 @@ class SessionSummary(BaseModel):
     car_model: str
     date: datetime
     best_lap: int
+    best_lap_id: Optional[int] = None
     laps_count: int
 
 class DriverSummary(BaseModel):
@@ -386,6 +390,9 @@ class PilotProfile(BaseModel):
     elo_rating: float = 1200.0
     photo_url: Optional[str] = None
     phone: Optional[str] = None
+    badges: List[dict] = []
+    xp_points: int = 0
+    level: int = 1
 
 class HallOfFameEntry(BaseModel):
     driver_name: str

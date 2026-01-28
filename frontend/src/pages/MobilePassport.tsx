@@ -103,7 +103,7 @@ export default function MobilePassport() {
             );
         }
 
-        const passportUrl = `${window.location.origin}/passport?driver=${encodeURIComponent(selectedDriver)}`;
+        const passportUrl = `${window.location.origin}/p/${encodeURIComponent(selectedDriver)}`;
 
         return (
             <div className="min-h-screen bg-gray-950 text-white pb-safe">
@@ -128,8 +128,11 @@ export default function MobilePassport() {
                 {/* Main Card */}
                 <div className="p-4 space-y-4">
                     {/* Identity Card */}
-                    <div className="bg-gradient-to-br from-blue-900/40 to-gray-900 border border-blue-500/30 rounded-2xl p-6 relative overflow-hidden shadow-2xl">
-                        <div className="absolute top-0 right-0 p-2 opacity-10">
+                    <div className="bg-gradient-to-br from-blue-900/90 via-gray-900 to-gray-900 border border-blue-500/50 rounded-2xl p-6 relative overflow-hidden shadow-2xl group perspective-1000">
+                        {/* Holographic Shine Effect */}
+                        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none transform -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%]" style={{ transition: 'transform 1s' }} />
+
+                        <div className="absolute top-0 right-0 p-2 opacity-20">
                             <QRCodeSVG
                                 value={passportUrl}
                                 size={100}
@@ -140,8 +143,8 @@ export default function MobilePassport() {
                         </div>
 
                         <div className="relative z-10 flex flex-col items-center">
-                            <div className="relative group">
-                                <div className="w-24 h-24 rounded-full bg-gray-800 border-2 border-blue-400 flex items-center justify-center text-3xl font-black mb-3 shadow-lg overflow-hidden">
+                            <div className="relative group/avatar">
+                                <div className="w-24 h-24 rounded-full bg-gray-800 border-2 border-blue-400 flex items-center justify-center text-3xl font-black mb-3 shadow-[0_0_20px_rgba(59,130,246,0.3)] overflow-hidden">
                                     {profile.photo_url ? (
                                         <img src={`${API_URL}${profile.photo_url}`} alt={profile.driver_name} className="w-full h-full object-cover" />
                                     ) : (
@@ -150,7 +153,7 @@ export default function MobilePassport() {
                                 </div>
                                 <button
                                     onClick={() => fileInputRef.current?.click()}
-                                    className="absolute bottom-3 right-0 bg-blue-600 rounded-full p-1.5 border-2 border-gray-900 text-white hover:bg-blue-500 transition-colors"
+                                    className="absolute bottom-3 right-0 bg-blue-600 rounded-full p-1.5 border-2 border-gray-900 text-white hover:bg-blue-500 transition-colors shadow-lg"
                                 >
                                     <Camera size={14} />
                                 </button>
@@ -168,12 +171,12 @@ export default function MobilePassport() {
                                 )}
                             </div>
 
-                            <h1 className="text-2xl font-black uppercase tracking-tight text-center">{profile.driver_name}</h1>
+                            <h1 className="text-2xl font-black uppercase tracking-tight text-center text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-400">{profile.driver_name}</h1>
                             <div className="flex gap-2 mt-2">
-                                <div className="px-3 py-1 bg-blue-600/20 border border-blue-500/50 rounded-full text-blue-300 text-xs font-bold uppercase tracking-widest">
+                                <div className="px-3 py-1 bg-blue-600/20 border border-blue-500/50 rounded-full text-blue-300 text-xs font-bold uppercase tracking-widest shadow-[0_0_10px_rgba(59,130,246,0.2)]">
                                     {profile.total_laps > 100 ? "Pro Driver" : "Rookie"}
                                 </div>
-                                <div className="px-3 py-1 bg-yellow-600/20 border border-yellow-500/50 rounded-full text-yellow-300 text-xs font-bold uppercase tracking-widest flex items-center gap-1">
+                                <div className="px-3 py-1 bg-yellow-600/20 border border-yellow-500/50 rounded-full text-yellow-300 text-xs font-bold uppercase tracking-widest flex items-center gap-1 shadow-[0_0_10px_rgba(234,179,8,0.2)]">
                                     <Trophy size={10} />
                                     ELO {Math.round(profile.elo_rating || 1200)}
                                 </div>
@@ -184,11 +187,11 @@ export default function MobilePassport() {
                         <div className="grid grid-cols-3 gap-2 mt-6 border-t border-white/10 pt-4">
                             <div className="text-center">
                                 <div className="text-gray-400 text-[10px] uppercase font-bold">Vueltas</div>
-                                <div className="text-xl font-mono font-bold">{profile.total_laps || 0}</div>
+                                <div className="text-xl font-mono font-bold text-white">{profile.total_laps || 0}</div>
                             </div>
                             <div className="text-center border-l border-white/10">
                                 <div className="text-gray-400 text-[10px] uppercase font-bold">Km Totales</div>
-                                <div className="text-xl font-mono font-bold">{Math.round(profile.total_km || 0)}</div>
+                                <div className="text-xl font-mono font-bold text-white">{Math.round(profile.total_km || 0)}</div>
                             </div>
                             <div className="text-center border-l border-white/10">
                                 <div className="text-gray-400 text-[10px] uppercase font-bold">Consist.</div>

@@ -4,6 +4,7 @@ import threading
 import requests
 import logging
 import os
+import subprocess
 
 logger = logging.getLogger("AC-Agent-Monitor")
 
@@ -45,7 +46,6 @@ class HardwareMonitor(threading.Thread):
         gpu_percent = 0
         gpu_temp = 0
         try:
-            import subprocess
             # Get GPU load and temp
             cmd = "nvidia-smi --query-gpu=utilization.gpu,temperature.gpu --format=csv,noheader,nounits"
             result = subprocess.check_output(cmd, shell=True).decode('utf-8').strip()
@@ -58,20 +58,36 @@ class HardwareMonitor(threading.Thread):
             gpu_percent = 0
             gpu_temp = 0
 
-        # Peripheral Detection (Basic check for Joypads/Controllers via PowerShell)
+        # Peripheral Detection (Detailed check)
         wheel_connected = False
         pedals_connected = False
+        detected_peripherals = []
+        
         try:
-            # Use PowerShell to find HID devices for Gaming Controllers
-            cmd_ps = 'powershell "Get-PnpDevice -Class GameControllers -Status OK"'
-            out = subprocess.check_output(cmd_ps, shell=True).decode('utf-8')
-            if out and "OK" in out:
-                # If any device is found, we assume at least a wheel is there
-                # Identifying specifically wheel vs pedals requires semi-complex vendor ID parsing
-                # For now, if GameControllers are OK, we assume connected
-                wheel_connected = True
-                pedals_connected = True
-        except Exception:
+            # Use PowerShell to find HID devices for Gaming Controllers (FriendlyName)
+            cmd_ps = 'powershell "Get-PnpDevice -Class GameControllers -Status OK | Select-Object -ExpandProperty FriendlyName"'
+            out = subprocess.check_output(cmd_ps, shell=True).decode('utf-8', errors='ignore').strip()
+            
+            if out:
+                lines = [line.strip() for line in out.split('\n') if line.strip()]
+                detected_peripherals = lines
+                
+                # Check specifics
+                for name in lines:
+                    name_lower = name.lower()
+                    if any(x in name_lower for x in ['wheel', 'base', 'dd1', 'dd2', 'csl', 'g29', 'g923', 't300', 'thrustmaster', 'simucube', 'moza', 'fanatec']):
+                        wheel_connected = True
+                    if any(x in name_lower for x in ['pedal', 'v3', 'sprint', 'ultimate', 'tlcm', 'heusinkveld']):
+                        pedals_connected = True
+                
+                # Fallback: If we assume Logi/Thrustmaster combos where pedals plug into base
+                if not wheel_connected and len(lines) > 0:
+                    wheel_connected = True
+                    # Assume pedals connected if wheel is detected in generic mode
+                    pedals_connected = True
+
+        except Exception as e:
+            # logger.error(f"Error checking peripherals: {e}")
             wheel_connected = False
             pedals_connected = False
 
@@ -89,8 +105,24 @@ class HardwareMonitor(threading.Thread):
         except Exception:
             pass
 
+        # MAC Address collection
+        mac_address = None
+        try:
+            import getmac
+            mac_address = getmac.get_mac_address()
+        except ImportError:
+            try:
+                import uuid
+                mac_address = ':'.join(['{:02x}'.format((uuid.getnode() >> ele) & 0xff)
+                                    for ele in range(0, 8*6, 8)][::-1])
+            except:
+                pass
+        except:
+            pass
+
         return {
             "station_id": self.station_id,
+            "mac_address": mac_address,
             "cpu_percent": round(cpu, 1),
             "ram_percent": round(ram, 1),
             "disk_percent": round(disk, 1),
@@ -98,7 +130,8 @@ class HardwareMonitor(threading.Thread):
             "gpu_temp": round(gpu_temp, 1),
             "ac_running": ac_running,
             "wheel_connected": wheel_connected,
-            "pedals_connected": pedals_connected
+            "pedals_connected": pedals_connected,
+            "peripherals_list": detected_peripherals
         }
 
     def send_report(self, data):

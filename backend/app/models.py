@@ -48,7 +48,7 @@ class Driver(Base):
     photo_path = Column(String, nullable=True)  # Profile photo for digital card
     
     # Stats
-    elo_rating = Column(Float, default=1200.0)
+    elo_rating = Column(Float, default=1200.0, index=True)
     total_wins = Column(Integer, default=0)
     total_podiums = Column(Integer, default=0)
     total_races = Column(Integer, default=0) 
@@ -126,11 +126,12 @@ class Mod(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)
     version = Column(String)
-    type = Column(String) # car, track, app
+    type = Column(String, index=True) # car, track, app
     status = Column(String, default="installed")
     manifest = Column(JSON, nullable=True) 
     source_path = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
+    preview_url = Column(String, nullable=True) # Optimized image path
     size_bytes = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     
@@ -142,6 +143,10 @@ class Mod(Base):
         secondaryjoin=id==mod_dependencies.c.child_mod_id,
         backref="required_by"
     )
+
+    @property
+    def image_url(self):
+        return self.preview_url
 
 class Tag(Base):
     __tablename__ = "tags"

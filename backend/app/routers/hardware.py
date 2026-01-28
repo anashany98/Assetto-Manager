@@ -35,6 +35,8 @@ class StationHealthReport(BaseModel):
     current_driver: Optional[str] = None
     current_track: Optional[str] = None
     current_car: Optional[str] = None
+    peripherals_list: List[str] = []
+    mac_address: Optional[str] = None
 
 
 class StationHealthStatus(BaseModel):
@@ -58,6 +60,7 @@ class StationHealthStatus(BaseModel):
     current_driver: Optional[str] = None
     current_track: Optional[str] = None
     current_car: Optional[str] = None
+    peripherals_list: List[str] = []
     alerts: List[str] = []
     is_locked: bool = False
 
@@ -91,6 +94,11 @@ async def report_health(report: StationHealthReport, db: Session = Depends(get_d
     station.status = "online"
     station.last_seen = now
     station.archived_at = None
+    
+    # Save MAC address if reported and not already set
+    if report.mac_address and (not station.mac_address or station.mac_address == "00:00:00:00:00:00"):
+        station.mac_address = report.mac_address
+        
     db.commit()
     
     # Store in cache
@@ -182,6 +190,7 @@ async def get_all_health(db: Session = Depends(get_db)):
             current_driver=cached.get("current_driver"),
             current_track=cached.get("current_track"),
             current_car=cached.get("current_car"),
+            peripherals_list=cached.get("peripherals_list", []),
             alerts=alerts,
             is_locked=station.is_locked
         ))
@@ -227,6 +236,7 @@ async def get_station_health(station_id: int, db: Session = Depends(get_db)):
         current_driver=cached.get("current_driver"),
         current_track=cached.get("current_track"),
         current_car=cached.get("current_car"),
+        peripherals_list=cached.get("peripherals_list", []),
         alerts=[],
         is_locked=station.is_locked
     )

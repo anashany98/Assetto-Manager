@@ -13,10 +13,9 @@ from sqlalchemy import event, inspect, text
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 if not SQLALCHEMY_DATABASE_URL:
-    if ENVIRONMENT == "test":
-        SQLALCHEMY_DATABASE_URL = "sqlite:///./ac_manager.db"
-    else:
-        raise RuntimeError("DATABASE_URL must be set (Supabase/PostgreSQL)")
+    # Fallback to local SQLite if no DATABASE_URL is provided in .env
+    SQLALCHEMY_DATABASE_URL = "sqlite:///./ac_manager_local.db"
+    logger.warning("DATABASE_URL not set. Falling back to local SQLite: %s", SQLALCHEMY_DATABASE_URL)
 
 connect_args = {}
 if "sqlite" in SQLALCHEMY_DATABASE_URL:

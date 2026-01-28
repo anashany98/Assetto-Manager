@@ -80,6 +80,7 @@
 
         input[type=range] {
             -webkit-appearance: none;
+            appearance: none;
             width: 100%;
             background: transparent;
         }
@@ -126,6 +127,7 @@
 
             <div class="hidden md:flex items-center gap-8 text-sm font-medium text-gray-400">
                 <a href="#howitworks" class="hover:text-white transition-colors">Cómo Funciona</a>
+                <a href="features.html" class="hover:text-white transition-colors">Características</a>
                 <a href="roi.html" class="hover:text-white transition-colors">Calculadora Ingresos</a>
                 <a href="wiki.html" class="hover:text-white transition-colors">Wiki</a>
                 <a href="login.html" class="hover:text-white transition-colors">Login</a>
@@ -142,6 +144,12 @@
             </a>
         </div>
     </nav>
+
+    <!-- ... existing content ... -->
+    <!-- (Skipping middle sections for brevity in replace tool, will target footer specifically next) -->
+    <!-- Wait, replace_file_content replaces a CONTIGUOUS block. I should do nav update separately or check line numbers. -->
+    <!-- Nav is around line 127. Footer is around 545. I must use multi_replace or separate calls. I'll use separate. -->
+    <!-- This call only updates Nav. -->
 
     <!-- Hero Section -->
     <section class="relative min-h-screen flex items-center justify-center pt-32 pb-20 z-10">
@@ -542,8 +550,43 @@
     </section>
 
     <!-- Footer -->
-    <footer class="py-12 border-t border-white/5 bg-black/40 text-center text-sm text-gray-500 relative z-10">
-        <p>&copy; 2024 Assetto Manager Systems. Construido para la velocidad.</p>
+    <footer class="py-12 border-t border-white/5 bg-black/40 text-sm text-gray-500 relative z-10">
+        <div class="container mx-auto px-6 grid md:grid-cols-4 gap-8 mb-8 text-left">
+            <div>
+                <h4 class="font-bold text-white mb-4">Producto</h4>
+                <ul class="space-y-2">
+                    <li><a href="features.html" class="hover:text-blue-400">Características</a></li>
+                    <li><a href="index.html#pricing" class="hover:text-blue-400">Precios</a></li>
+                    <li><a href="hardware.html" class="hover:text-blue-400">Hardware Soportado</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="font-bold text-white mb-4">Soporte</h4>
+                <ul class="space-y-2">
+                    <li><a href="wiki.html" class="hover:text-blue-400">Manual Wiki</a></li>
+                    <li><a href="installation.html" class="hover:text-blue-400">Guía Instalación</a></li>
+                    <li><a href="mailto:soporte@assettomanager.com" class="hover:text-blue-400">Contactar</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="font-bold text-white mb-4">Legal</h4>
+                <ul class="space-y-2">
+                    <li><a href="legal.html#privacy" class="hover:text-blue-400">Política de Privacidad</a></li>
+                    <li><a href="legal.html#terms" class="hover:text-blue-400">Términos de Servicio</a></li>
+                    <li><a href="legal.html#gdpr" class="hover:text-blue-400">Aviso Legal (LSSI)</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="font-bold text-white mb-4">Assetto Manager</h4>
+                <p class="text-xs leading-relaxed">
+                    Software para la gestión integral de SimCenters. No afiliado oficialmete con Kunos Simulazioni.
+                    Assetto Corsa es una marca registrada de Kunos Simulazioni Srl.
+                </p>
+            </div>
+        </div>
+        <div class="border-t border-white/5 pt-8 text-center">
+            &copy; 2024 Assetto Manager Systems. Todos los derechos reservados.
+        </div>
     </footer>
 
     <script>

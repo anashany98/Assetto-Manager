@@ -233,7 +233,7 @@ export const ContentStep: React.FC<ContentStepProps> = ({
     } else if (phase === 'country') {
         bgImage = 'https://www.gran-turismo.com/gtsport/images/c/map_spa_francorchamps.jpg';
     } else if (currentItem) {
-        bgImage = resolveAssetUrl(currentItem.image_url);
+        bgImage = resolveAssetUrl(currentItem.image_url || '');
         if (phase === 'track') bgImageFallback = "https://www.gran-turismo.com/gtsport/images/c/map_spa_francorchamps.jpg";
     }
 
@@ -287,7 +287,8 @@ export const ContentStep: React.FC<ContentStepProps> = ({
                             {uniqueBrands.map((brand) => (
                                 <button
                                     key={brand}
-                                    onClick={() => selectBrand(brand)}
+                                    onMouseEnter={() => soundManager.playHover()}
+                                    onClick={() => { soundManager.playClick(); selectBrand(brand); }}
                                     className="group relative bg-white/5 hover:bg-white/20 border border-white/10 hover:border-blue-500/50 backdrop-blur-md rounded-2xl p-8 transition-all hover:scale-105 flex flex-col items-center justify-center gap-4 aspect-video"
                                 >
                                     {/* Mock Logo Placeholder - In production use actual brand logos */}
@@ -312,7 +313,8 @@ export const ContentStep: React.FC<ContentStepProps> = ({
                             {uniqueCountries.map((country) => (
                                 <button
                                     key={country}
-                                    onClick={() => selectCountry(country)}
+                                    onMouseEnter={() => soundManager.playHover()}
+                                    onClick={() => { soundManager.playClick(); selectCountry(country); }}
                                     className="group relative bg-white/5 hover:bg-white/20 border border-white/10 hover:border-green-500/50 backdrop-blur-md rounded-2xl p-8 transition-all hover:scale-105 flex flex-col items-center justify-center gap-4 aspect-video"
                                 >
                                     <div className="text-6xl group-hover:scale-110 transition-transform">
@@ -330,7 +332,7 @@ export const ContentStep: React.FC<ContentStepProps> = ({
                 {phase !== 'brand' && currentItem && (
                     <div className="flex items-center justify-center w-full h-full">
                         {/* LEFT ARROW */}
-                        <button onClick={prevItem} className="p-4 md:p-8 rounded-full bg-white/5 hover:bg-white/20 border border-white/10 hover:border-white/50 backdrop-blur-md transition-all group mr-2 md:mr-8 touch-manipulation z-30">
+                        <button onClick={() => { soundManager.playClick(); prevItem(); }} className="p-4 md:p-8 rounded-full bg-white/5 hover:bg-white/20 border border-white/10 hover:border-white/50 backdrop-blur-md transition-all group mr-2 md:mr-8 touch-manipulation z-30">
                             <ChevronLeft size={48} className="text-white md:w-16 md:h-16 group-hover:scale-110 transition-transform" />
                         </button>
 
@@ -411,7 +413,7 @@ export const ContentStep: React.FC<ContentStepProps> = ({
 
                                 {/* TAP AREA HINT */}
                                 <div
-                                    onClick={confirmSelection}
+                                    onClick={() => { soundManager.playClick(); confirmSelection(); }}
                                     className="absolute inset-0 z-50 flex items-end justify-center pb-20 opacity-0 hover:opacity-100 transition-opacity cursor-pointer md:hidden"
                                 >
                                     <div className="bg-blue-600 text-white font-bold py-2 px-6 rounded-full shadow-lg animate-bounce">
@@ -422,7 +424,7 @@ export const ContentStep: React.FC<ContentStepProps> = ({
                         </div>
 
                         {/* RIGHT ARROW */}
-                        <button onClick={nextItem} className="p-4 md:p-8 rounded-full bg-white/5 hover:bg-white/20 border border-white/10 hover:border-white/50 backdrop-blur-md transition-all group mr-2 md:mr-8 touch-manipulation z-30">
+                        <button onClick={() => { soundManager.playClick(); nextItem(); }} className="p-4 md:p-8 rounded-full bg-white/5 hover:bg-white/20 border border-white/10 hover:border-white/50 backdrop-blur-md transition-all group mr-2 md:mr-8 touch-manipulation z-30">
                             <ChevronRight size={48} className="text-white md:w-16 md:h-16 group-hover:scale-110 transition-transform" />
                         </button>
                     </div>
@@ -448,7 +450,8 @@ export const ContentStep: React.FC<ContentStepProps> = ({
                 <div className="flex gap-4 w-full md:w-auto order-1 md:order-2 justify-end">
                     {phase !== 'brand' && (
                         <button
-                            onClick={goBack}
+                            onMouseEnter={() => soundManager.playHover()}
+                            onClick={() => { soundManager.playClick(); goBack(); }}
                             className="bg-gray-800 hover:bg-gray-700 text-white font-bold text-lg px-6 py-4 rounded-xl border-2 border-gray-700 hidden md:block"
                         >
                             {phase === 'car' ? 'CAMBIAR MARCA' : (phase === 'country' ? 'VOLVER A COCHES' : 'CAMBIAR PAÍS')}
@@ -456,7 +459,8 @@ export const ContentStep: React.FC<ContentStepProps> = ({
                     )}
                     {phase !== 'brand' && phase !== 'country' && (
                         <button
-                            onClick={confirmSelection}
+                            onMouseEnter={() => soundManager.playHover()}
+                            onClick={() => { soundManager.playConfirm(); confirmSelection(); }}
                             className="w-full md:w-auto bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-black text-xl md:text-2xl px-8 py-4 rounded-xl shadow-[0_0_30px_rgba(37,99,235,0.5)] hover:shadow-[0_0_50px_rgba(37,99,235,0.8)] transition-all transform hover:scale-105"
                         >
                             {phase === 'car' ? 'CONFIRMAR COCHE' : 'CORRER AQUÍ'}

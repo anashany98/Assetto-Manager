@@ -169,7 +169,10 @@ async def launch_station_session(station_id: int, cmd: LaunchSessionCommand, db:
         "weather": cmd.weather,
         "session_type": cmd.session_type,
         "ai_count": cmd.ai_count,
-        "tyre_compound": cmd.tyre_compound
+        "session_type": cmd.session_type,
+        "ai_count": cmd.ai_count,
+        "tyre_compound": cmd.tyre_compound,
+        "is_vr": station.is_vr if station else False
     }
 
     # Send to specific station

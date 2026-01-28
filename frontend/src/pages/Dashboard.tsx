@@ -2,28 +2,15 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     Activity,
-    Users,
-    Trophy,
     Monitor,
-    Tv,
-    ExternalLink,
     HardDrive,
     Zap,
-    Flag,
-    Cloud,
-    Sun,
-    CloudRain,
-    CloudLightning,
-    Wind,
     Play,
     Glasses
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getDashboardStats, type DashboardStats } from '../api/dashboard';
-import { getStations } from '../api/stations';
 import { getActiveSessions, type Session } from '../api/sessions';
-import { AlertTriangle } from 'lucide-react';
-import axios from 'axios';
 import { API_URL } from '../config';
 import AnalyticsPanel from '../components/AnalyticsPanel';
 import SessionTimer from '../components/SessionTimer';
@@ -36,17 +23,55 @@ export default function Dashboard() {
     const [showLaunchModal, setShowLaunchModal] = useState(false);
     const [startModalStation, setStartModalStation] = useState<any | null>(null);
 
-    const { data: stats, isLoading, error } = useQuery<DashboardStats>({
+    const { data: stats } = useQuery<DashboardStats>({
         queryKey: ['dashboardStats'],
         queryFn: getDashboardStats,
         refetchInterval: 5000
     });
 
-    // ... (keep existing code) ...
+    const { data: activeSessions } = useQuery<Session[]>({
+        queryKey: ['active-sessions'],
+        queryFn: getActiveSessions,
+        refetchInterval: 5000
+    });
 
     return (
-        <>
-            <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-6">
+            {/* STATS GRID */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-6 pt-0">
+                <StatCard
+                    label="Total Simuladores"
+                    value={stats?.total_stations || 0}
+                    subvalue="Configurados en el sistema"
+                    icon={Monitor}
+                    color="blue"
+                />
+                <StatCard
+                    label="Online"
+                    value={stats?.online_stations || 0}
+                    subvalue="Listos para competir"
+                    icon={Activity}
+                    color="green"
+                    animate={(stats?.online_stations || 0) > 0}
+                />
+                <StatCard
+                    label="Syncing"
+                    value={stats?.syncing_stations || 0}
+                    subvalue="Descargando contenido"
+                    icon={HardDrive}
+                    color="orange"
+                />
+                <StatCard
+                    label="Perfil Activo"
+                    value={stats?.active_profile || "Ninguno"}
+                    subvalue="Configuración global"
+                    icon={Zap}
+                    color="indigo"
+                />
+            </div>
+
+            {/* QUICK ACTIONS */}
+            <div className="px-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <button
                     onClick={() => setShowLaunchModal(true)}
                     className="block p-5 rounded-xl border border-gray-200 dark:border-white/5 bg-white dark:bg-white/5 backdrop-blur-sm shadow-sm dark:shadow-lg transition-all duration-300 group hover:-translate-y-1 hover:shadow-md dark:hover:shadow-xl hover:border-red-500/50 hover:bg-red-50 dark:hover:bg-red-500/10 hover:shadow-red-500/10 text-left"
@@ -70,20 +95,65 @@ export default function Dashboard() {
                     color="indigo"
                 />
                 <QuickAction
-                    to="/championships"
-                    title="Gestionar Campeonato"
-                    desc="Administrar puntos de temporada"
+                    to="/settings"
+                    title="Configuración"
+                    desc="Ajustes globales del sistema"
                     color="purple"
                 />
             </div>
 
-            <div className="bg-white dark:bg-gradient-to-br dark:from-gray-900 dark:to-gray-800 rounded-2xl shadow-sm dark:shadow-xl overflow-hidden text-gray-900 dark:text-white border border-gray-200 dark:border-gray-800">
-                {/* ... (keep existing code) ... */}
-            </div>
+            {/* MAIN CONTENT AREA */}
+            <div className="px-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* ACTIVE SESSIONS LIST */}
+                <div className="lg:col-span-2 space-y-4">
+                    <h2 className="text-xl font-bold flex items-center gap-2">
+                        <Play size={20} className="text-green-500" /> Sesiones en Curso
+                    </h2>
 
-            {/* ANALYTICS SECTION */}
-            <div className="mt-10">
-                <AnalyticsPanel />
+                    {activeSessions && activeSessions.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {activeSessions.map(session => (
+                                <div key={session.id} className="bg-white dark:bg-white/5 border border-gray-200 dark:border-white/5 rounded-2xl p-5 shadow-sm">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div>
+                                            <h4 className="font-bold text-lg">{session.station_name || `Sim ${session.station_id}`}</h4>
+                                            <p className="text-sm text-gray-500">{session.driver_name || "Anónimo"}</p>
+                                        </div>
+                                        <div className="bg-green-500/20 text-green-400 text-[10px] font-black uppercase px-2 py-1 rounded">
+                                            ACTIVA
+                                        </div>
+                                    </div>
+                                    <SessionTimer
+                                        session={session}
+                                        onUpdate={() => queryClient.invalidateQueries({ queryKey: ['active-sessions'] })}
+                                    />
+                                    <div className="mt-4 pt-4 border-t border-gray-100 dark:border-white/5 flex gap-2">
+                                        {session.is_vr && <Glasses size={16} className="text-blue-400" />}
+                                        <span className="text-xs text-gray-400 uppercase font-bold tracking-tighter">
+                                            {session.payment_method} • {session.is_paid ? 'PAGADO' : 'PENDIENTE'}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="p-12 text-center bg-gray-50 dark:bg-white/5 rounded-3xl border-2 border-dashed border-gray-200 dark:border-white/10">
+                            <Activity size={40} className="mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+                            <p className="text-gray-500">No hay sesiones activas en este momento</p>
+                            <button
+                                onClick={() => setShowLaunchModal(true)}
+                                className="mt-4 text-sm font-bold text-red-500 hover:underline"
+                            >
+                                Iniciar sesión manual &rarr;
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                {/* SIDEBAR ANALYTICS */}
+                <div className="space-y-6">
+                    <AnalyticsPanel />
+                </div>
             </div>
 
             {/* MODALS */}
@@ -106,7 +176,7 @@ export default function Dashboard() {
                     />
                 )
             }
-        </>
+        </div>
     );
 }
 

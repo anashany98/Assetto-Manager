@@ -12,6 +12,10 @@ export interface Session {
     remaining_minutes: number;
     status: 'active' | 'paused' | 'completed' | 'expired';
     price: number;
+    is_vr?: boolean;
+    payment_method?: string;
+    is_paid?: boolean;
+    notes?: string;
 }
 
 export type SessionCreate = {

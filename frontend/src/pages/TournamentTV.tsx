@@ -1,10 +1,10 @@
 import { useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { API_URL } from '../config';
 import { Trophy, Users, AlertTriangle } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 
 // Types for Bracket
 type Match = {
@@ -27,6 +27,8 @@ type BracketResponse = BracketData | { status: string; message?: string };
 export default function TournamentTV() {
     const { id } = useParams<{ id: string }>();
     const eventId = parseInt(id || '0');
+    const queryClient = useQueryClient();
+
 
     // Fetch Event Data
     const { data: event, isLoading, error: eventError } = useQuery({
@@ -38,15 +40,50 @@ export default function TournamentTV() {
     });
 
     // Fetch Bracket Data (Backend)
-    const { data: bracketData } = useQuery<BracketResponse>({
+    const { data: bracketData, refetch } = useQuery<BracketResponse>({
         queryKey: ['bracket', eventId],
         queryFn: async () => {
             const res = await axios.get(`${API_URL}/tournaments/${eventId}/bracket`);
             return res.data;
         },
         enabled: !!event, // Trigger if event exists
-        refetchInterval: 5000 // Live updates for TV
     });
+
+    // Real-Time Updates via WebSocket
+    useEffect(() => {
+        if (!event) return;
+
+        // Use PUBLIC_WS_TOKEN or similar if auth is required, 
+        // but for TV we assume it might be on a trusted network or use a public readonly token.
+        // For now, we connect without a specialized token or use a default one.
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsHost = API_URL.replace(/^http(s)?:\/\//, '');
+        const socket = new WebSocket(`${wsProtocol}//${wsHost}/ws/telemetry/client?token=public_tv_access`);
+
+        socket.onopen = () => {
+            console.log("📺 TV Connected to Live Updates");
+        };
+
+        socket.onmessage = (event) => {
+            try {
+                const msg = JSON.parse(event.data);
+                if (msg.type === 'tournament_update' && msg.event_id === eventId) {
+                    console.log("🔄 Update Received: Refreshing Bracket...");
+                    // Option A: Refetch from API (Safest)
+                    // refetch();
+
+                    // Option B: Use data directly from WS (Fastest)
+                    queryClient.setQueryData(['bracket', eventId], msg.data);
+                }
+            } catch (e) {
+                console.error("WS Parse Error", e);
+            }
+        };
+
+        return () => {
+            socket.close();
+        };
+    }, [event, eventId, queryClient, refetch]);
 
     const bracket = useMemo(() => {
         if (bracketData && 'rounds' in bracketData) {

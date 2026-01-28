@@ -1,8 +1,8 @@
 import requests
 
 try:
-    print("Querying http://localhost:8001/mods/...")
-    r = requests.get("http://localhost:8001/mods/")
+    print("Querying http://localhost:8000/mods/...")
+    r = requests.get("http://localhost:8000/mods/")
     if r.status_code == 200:
         mods = r.json()
         print(f"Total Mods: {len(mods)}")

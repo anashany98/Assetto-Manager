@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wiki Privada - Assetto Manager</title>
+    <title>Wiki Oficial - Assetto Manager</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800&display=swap" rel="stylesheet">
@@ -13,6 +13,7 @@
             font-family: 'Outfit', sans-serif;
             background-color: #020617;
             color: white;
+            scroll-behavior: smooth;
         }
 
         .sidebar {
@@ -37,6 +38,15 @@
             border: 1px solid rgba(255, 255, 255, 0.1);
             overflow-x: auto;
             font-family: monospace;
+            color: #a5b4fc;
+        }
+
+        code {
+            font-family: monospace;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 0.2rem 0.4rem;
+            border-radius: 0.25rem;
+            color: #e2e8f0;
         }
 
         .nav-link {
@@ -45,12 +55,20 @@
             border-radius: 0.5rem;
             color: #94a3b8;
             transition: all 0.2s;
+            text-decoration: none;
         }
 
         .nav-link:hover,
         .nav-link.active {
             background: rgba(59, 130, 246, 0.1);
             color: #60a5fa;
+            padding-left: 1.5rem;
+        }
+
+        section {
+            padding-top: 5rem;
+            /* Offset for sticky header */
+            margin-top: -3rem;
         }
     </style>
 </head>
@@ -58,33 +76,39 @@
 <body class="flex min-h-screen">
 
     <!-- Sidebar -->
-    <aside class="w-64 sidebar fixed h-screen overflow-y-auto hidden md:block">
+    <aside class="w-64 sidebar fixed h-screen overflow-y-auto hidden md:block z-20">
         <div class="p-6">
             <a href="index.html" class="flex items-center gap-2 mb-8">
                 <div
                     class="w-6 h-6 bg-gradient-to-br from-blue-600 to-indigo-600 rounded flex items-center justify-center">
                     <i data-lucide="zap" class="text-white w-3 h-3"></i>
                 </div>
-                <span class="font-bold">Wiki<span class="text-blue-500">Docs</span></span>
+                <span class="font-bold">Assetto<span class="text-blue-500">Manager</span></span>
             </a>
 
             <div class="space-y-6">
                 <div>
-                    <h3 class="text-xs font-bold text-gray-500 uppercase px-4 mb-2">Getting Started</h3>
-                    <a href="#" class="nav-link active">Instalación</a>
-                    <a href="#" class="nav-link">Primeros Pasos</a>
-                    <a href="#" class="nav-link">Licencias</a>
+                    <h3 class="text-xs font-bold text-gray-500 uppercase px-4 mb-2">Inicio</h3>
+                    <a href="#intro" class="nav-link">Visión General</a>
+                    <a href="#requirements" class="nav-link">Requisitos</a>
                 </div>
                 <div>
-                    <h3 class="text-xs font-bold text-gray-500 uppercase px-4 mb-2">Configuración</h3>
-                    <a href="#" class="nav-link">Añadir Simuladores</a>
-                    <a href="#" class="nav-link">Modo Kiosco</a>
-                    <a href="#" class="nav-link">Reservas</a>
+                    <h3 class="text-xs font-bold text-gray-500 uppercase px-4 mb-2">Instalación</h3>
+                    <a href="#install-server" class="nav-link">Servidor Central</a>
+                    <a href="#install-agent" class="nav-link">Agentes (Sims)</a>
                 </div>
                 <div>
-                    <h3 class="text-xs font-bold text-gray-500 uppercase px-4 mb-2">API & Advanced</h3>
-                    <a href="#" class="nav-link">Webhooks</a>
-                    <a href="#" class="nav-link">JSON Schema</a>
+                    <h3 class="text-xs font-bold text-gray-500 uppercase px-4 mb-2">Operación</h3>
+                    <a href="#dashboard" class="nav-link">Dashboard</a>
+                    <a href="#sessions" class="nav-link">Lanzar Sesiones</a>
+                    <a href="#vr-mode" class="nav-link"><i data-lucide="glasses" class="inline w-3 h-3 mr-1"></i> Modo
+                        VR</a>
+                </div>
+                <div>
+                    <h3 class="text-xs font-bold text-gray-500 uppercase px-4 mb-2">Avanzado</h3>
+                    <a href="#tournaments" class="nav-link">Torneos</a>
+                    <a href="#tv-mode" class="nav-link">Pantallas TV</a>
+                    <a href="#troubleshooting" class="nav-link">Solución Problemas</a>
                 </div>
             </div>
         </div>
@@ -94,92 +118,374 @@
     <main class="ml-0 md:ml-64 flex-1 content-area min-h-screen">
         <!-- Topbar -->
         <header
-            class="h-16 border-b border-white/5 flex items-center justify-between px-8 bg-black/20 backdrop-blur-sm sticky top-0 z-10">
+            class="h-16 border-b border-white/5 flex items-center justify-between px-8 bg-black/80 backdrop-blur-md sticky top-0 z-10 shadow-lg">
             <div class="flex items-center text-gray-400 text-sm gap-2">
-                <span>Docs</span>
-                <i data-lucide="chevron-right" class="w-4 h-4"></i>
-                <span class="text-white">Instalación</span>
+                <i data-lucide="book" class="w-4 h-4"></i>
+                <span>Documentación Oficial</span>
             </div>
             <div class="flex items-center gap-4">
                 <div class="relative hidden sm:block">
                     <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-gray-500"></i>
-                    <input type="text" placeholder="Buscar..."
+                    <input type="text" placeholder="Buscar en la wiki..."
                         class="bg-white/5 border border-white/10 rounded-full pl-10 pr-4 py-2 text-sm outline-none focus:border-blue-500 transition-colors w-64">
                 </div>
-                <!-- Profile -->
-                <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center font-bold text-xs">U</div>
+                <a href="index.html" class="text-sm font-bold text-blue-400 hover:text-white transition-colors">Volver a
+                    la Web</a>
             </div>
         </header>
 
-        <div class="p-8 max-w-4xl mx-auto">
-            <h1 class="text-4xl font-bold mb-6">Guía de Instalación</h1>
-            <p class="text-gray-400 text-lg mb-8 leading-relaxed">
-                Bienvenido al manual oficial de Assetto Manager. Sigue estos pasos para desplegar el servidor en tu
-                centro de simulación en menos de 10 minutos.
-            </p>
+        <div class="p-8 max-w-5xl mx-auto space-y-16 pb-32">
 
-            <div class="space-y-12">
-                <!-- Section 1 -->
-                <section>
-                    <h2 class="text-2xl font-bold mb-4 flex items-center gap-2">
-                        <span
-                            class="w-8 h-8 bg-blue-500/10 text-blue-400 rounded-lg flex items-center justify-center text-sm">1</span>
-                        Requisitos Previos
-                    </h2>
+            <!-- INTRO -->
+            <section id="intro">
+                <h1
+                    class="text-5xl font-black mb-6 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-500">
+                    Documentación Técnica
+                </h1>
+                <p class="text-xl text-gray-400 leading-relaxed mb-8">
+                    Bienvenido a la Wiki Oficial de <b>Assetto Manager</b>. Esta guía está diseñada para instaladores y
+                    operadores de SimCenters, cubriendo desde el despliegue inicial hasta la operativa diaria avanzada.
+                </p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="glass p-6 rounded-xl border-l-4 border-blue-500">
+                        <h3 class="text-xl font-bold mb-2 flex items-center gap-2">
+                            <i data-lucide="server" class="text-blue-500"></i> Servidor de Gestión
+                        </h3>
+                        <p class="text-sm text-gray-400">Instalado en el PC de Recepción. Aloja la base de datos
+                            centralizada, la interfaz de administración y el motor de sincronización de contenido.</p>
+                    </div>
+                    <div class="glass p-6 rounded-xl border-l-4 border-green-500">
+                        <h3 class="text-xl font-bold mb-2 flex items-center gap-2">
+                            <i data-lucide="monitor" class="text-green-500"></i> Agente de Estación
+                        </h3>
+                        <p class="text-sm text-gray-400">Un servicio ligero instalado en cada cockpit. Ejecuta el juego,
+                            cambia la configuración de hardware al vuelo e informa del estado del PC.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- REQUIREMENTS -->
+            <section id="requirements">
+                <h2 class="text-3xl font-bold mb-6 flex items-center gap-3">
+                    <span
+                        class="w-10 h-10 bg-blue-500/10 text-blue-400 rounded-lg flex items-center justify-center text-lg font-black">01</span>
+                    Requisitos Mínimos
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="glass p-6 rounded-xl">
-                        <ul class="space-y-3 text-gray-300">
-                            <li class="flex items-center gap-3"><i data-lucide="check"
-                                    class="text-green-500 w-4 h-4"></i> Windows 10/11 Pro (Recomendado)</li>
-                            <li class="flex items-center gap-3"><i data-lucide="check"
-                                    class="text-green-500 w-4 h-4"></i> Python 3.12+ Instalado</li>
-                            <li class="flex items-center gap-3"><i data-lucide="check"
-                                    class="text-green-500 w-4 h-4"></i> Puertos 8000 y 3010 abiertos en el Firewall</li>
+                        <h3 class="font-bold text-white mb-4 flex items-center gap-2 italic">
+                            <i data-lucide="layout" class="text-blue-400 w-4 h-4"></i> Servidor (Master)
+                        </h3>
+                        <ul class="space-y-3 text-sm text-gray-400">
+                            <li class="flex items-center gap-2"><i data-lucide="check-circle"
+                                    class="text-blue-500 w-4 h-4 mb-auto"></i> <span><b>SO:</b> Windows 10/11 o Ubuntu
+                                    22.04+ LTS.</span></li>
+                            <li class="flex items-center gap-2"><i data-lucide="check-circle"
+                                    class="text-blue-500 w-4 h-4 mb-auto"></i> <span><b>Software:</b> Node.js 18+,
+                                    Python 3.10+.</span></li>
+                            <li class="flex items-center gap-2"><i data-lucide="check-circle"
+                                    class="text-blue-500 w-4 h-4 mb-auto"></i> <span><b>DB:</b> PostgreSQL (Soporte
+                                    nativo para Supabase).</span></li>
+                            <li class="flex items-center gap-2"><i data-lucide="check-circle"
+                                    class="text-blue-500 w-4 h-4 mb-auto"></i> <span><b>Red:</b> Conexión Gigabit
+                                    Ethernet recomendada.</span></li>
                         </ul>
                     </div>
-                </section>
-
-                <!-- Section 2 -->
-                <section>
-                    <h2 class="text-2xl font-bold mb-4 flex items-center gap-2">
-                        <span
-                            class="w-8 h-8 bg-blue-500/10 text-blue-400 rounded-lg flex items-center justify-center text-sm">2</span>
-                        Instalación Express
-                    </h2>
-                    <p class="text-gray-400 mb-4">Ejecuta el script de instalación automática en PowerShell como
-                        Administrador:</p>
-                    <pre class="text-sm text-green-400">
-iwr -useb https://get.assettomanager.com/install.ps1 | iex
-                    </pre>
-                    <div class="mt-4 p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg flex gap-3">
-                        <i data-lucide="alert-triangle" class="text-amber-500 w-5 h-5 shrink-0"></i>
-                        <p class="text-sm text-amber-200">Asegúrate de ejecutar esto en el PC "Servidor" (Recepción). No
-                            lo instales en cada simulador individual.</p>
+                    <div class="glass p-6 rounded-xl">
+                        <h3 class="font-bold text-white mb-4 flex items-center gap-2 italic">
+                            <i data-lucide="gamepad-2" class="text-green-400 w-4 h-4"></i> Simuladores (Nodes)
+                        </h3>
+                        <ul class="space-y-3 text-sm text-gray-400">
+                            <li class="flex items-center gap-2"><i data-lucide="check-circle"
+                                    class="text-green-500 w-4 h-4 mb-auto"></i> <span><b>SO:</b> Windows 10 Pro
+                                    (imprescindible para Modo Kiosko).</span></li>
+                            <li class="flex items-center gap-2"><i data-lucide="check-circle"
+                                    class="text-green-500 w-4 h-4 mb-auto"></i> <span><b>Juego:</b> Assetto Corsa (con
+                                    Steam abierto).</span></li>
+                            <li class="flex items-center gap-2"><i data-lucide="check-circle"
+                                    class="text-green-500 w-4 h-4 mb-auto"></i> <span><b>Software:</b> Python 3.10+
+                                    (para el Agente).</span></li>
+                            <li class="flex items-center gap-2"><i data-lucide="check-circle"
+                                    class="text-green-500 w-4 h-4 mb-auto"></i> <span><b>Hardware:</b> Volante Direct
+                                    Drive / Logitech / Fanatec.</span></li>
+                        </ul>
                     </div>
-                </section>
+                </div>
+            </section>
 
-                <!-- Section 3 -->
-                <section>
-                    <h2 class="text-2xl font-bold mb-4 flex items-center gap-2">
-                        <span
-                            class="w-8 h-8 bg-blue-500/10 text-blue-400 rounded-lg flex items-center justify-center text-sm">3</span>
-                        Primer Inicio
-                    </h2>
-                    <p class="text-gray-400 mb-4">Una vez instalado, abre el navegador y ve a
-                        <code>http://localhost:3010</code>. Inicia sesión con las credenciales por defecto:</p>
-                    <div class="glass p-6 rounded-xl inline-block pr-12">
-                        <div class="mb-2"><span
-                                class="text-gray-500 w-24 inline-block font-mono text-xs uppercase">Usuario</span> <span
-                                class="text-white font-mono">admin</span></div>
-                        <div><span class="text-gray-500 w-24 inline-block font-mono text-xs uppercase">Contraseña</span>
-                            <span class="text-white font-mono">admin</span></div>
+            <!-- INSTALLATION -->
+            <section id="install-server">
+                <h2 class="text-3xl font-bold mb-6 flex items-center gap-3">
+                    <span
+                        class="w-10 h-10 bg-blue-500/10 text-blue-400 rounded-lg flex items-center justify-center text-lg font-black">02</span>
+                    Instalación del Servidor Master
+                </h2>
+                <p class="text-gray-400 mb-6">El PC de recepción gestiona la lógica del negocio.</p>
+
+                <div class="space-y-6">
+                    <div class="glass p-6 rounded-xl border-l-4 border-blue-500">
+                        <h4 class="font-bold text-white mb-3">1. Clonar e Instalar</h4>
+                        <pre>git clone https://github.com/tu-usuario/ac-manager.git
+cd ac-manager
+install_dependencies.bat</pre>
                     </div>
-                </section>
-            </div>
+
+                    <div class="glass p-6 rounded-xl border-l-4 border-blue-500">
+                        <h4 class="font-bold text-white mb-3">2. Configurar Variables de Entorno (.env)</h4>
+                        <p class="text-sm text-gray-500 mb-3 text-balance">Crea un archivo <code>backend/.env</code> con
+                            tus credenciales:</p>
+                        <pre>DATABASE_URL=postgresql://user:pass@localhost:5432/ac_manager
+SECRET_KEY=clave_ultra_segura
+ENABLE_TELEMETRY=true</pre>
+                    </div>
+
+                    <div class="glass p-6 rounded-xl border-l-4 border-blue-500">
+                        <h4 class="font-bold text-white mb-3">3. Primer Arranque</h4>
+                        <p class="text-sm text-gray-400 mb-3">Utiliza el script de inicio unificado para mayor
+                            comodidad:</p>
+                        <pre>START_SYSTEM.bat</pre>
+                        <p
+                            class="text-xs text-blue-400 mt-2 font-bold uppercase tracking-widest flex items-center gap-2">
+                            <i data-lucide="globe" class="w-3 h-3"></i> Acceso Web: http://localhost:3000
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="install-agent">
+                <h2 class="text-3xl font-bold mb-6 flex items-center gap-3">
+                    <span
+                        class="w-10 h-10 bg-blue-500/10 text-blue-400 rounded-lg flex items-center justify-center text-lg font-black">03</span>
+                    Instalación de Agentes (Simuladores)
+                </h2>
+                <p class="text-gray-400 mb-6">El Agente es el puente entre el servidor y el juego.</p>
+
+                <div class="space-y-4">
+                    <div class="glass p-6 rounded-xl border-l-4 border-indigo-500">
+                        <h4 class="font-bold text-white mb-2">1. Distribución de Archivos</h4>
+                        <p class="text-sm text-gray-400">Copia la carpeta <code>/agent</code> a una ruta limpia en el PC
+                            simulador (ej: <code>C:\AssettoManager\agent</code>).</p>
+                    </div>
+
+                    <div class="glass p-6 rounded-xl border-l-4 border-indigo-500">
+                        <h4 class="font-bold text-white mb-2">2. Configuración de Red (config.json)</h4>
+                        <p class="text-sm text-gray-400 mb-3">En cada simulador, edita <b>config.json</b> para apuntar
+                            al servidor:</p>
+                        <pre>{
+  "server_url": "http://192.168.1.50:8000",
+  "station_name": "Simulador 01",
+  "ac_path": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\assettocorsa"
+}</pre>
+                        <p class="text-[10px] text-amber-500 mt-2 flex items-center gap-1 font-bold">
+                            <i data-lucide="alert-triangle" class="w-3 h-3"></i> Ojo: La IP debe ser la del PC Master en
+                            tu red LAN.
+                        </p>
+                    </div>
+
+                    <div class="glass p-6 rounded-xl border-l-4 border-indigo-500">
+                        <h4 class="font-bold text-white mb-2">3. Activación</h4>
+                        <pre>python main.py</pre>
+                        <p class="text-sm text-gray-500 mt-2 italic">Tip: Crea un acceso directo en 'Inicio' de Windows
+                            para que el agente arranque solo.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- OPERATIONS -->
+            <section id="dashboard">
+                <h2 class="text-3xl font-bold mb-6 flex items-center gap-3">
+                    <span
+                        class="w-10 h-10 bg-blue-500/10 text-blue-400 rounded-lg flex items-center justify-center text-lg font-black">04</span>
+                    El Dashboard (Panel de Control)
+                </h2>
+                <div class="glass p-6 rounded-xl space-y-4">
+                    <p class="text-gray-400">El núcleo de Assetto Manager. Una vista de pájaro de todo tu negocio.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-black/40 p-5 rounded-xl border border-white/5">
+                            <h4 class="font-bold text-white flex items-center gap-2 mb-2">
+                                <i data-lucide="activity" class="text-green-500 w-4 h-4"></i> Telemetría de Hardware
+                            </h4>
+                            <p class="text-xs text-gray-400">Cada tarjeta muestra el % de CPU, RAM y GPU del simulador.
+                                Si un valor se pone rojo, el sistema emitirá una alerta visual.</p>
+                        </div>
+                        <div class="bg-black/40 p-5 rounded-xl border border-white/5">
+                            <h4 class="font-bold text-white flex items-center gap-2 mb-2">
+                                <i data-lucide="gamepad" class="text-blue-500 w-4 h-4"></i> Detección de Periféricos
+                            </h4>
+                            <p class="text-xs text-gray-400">Identifica automáticamente si el volante y los pedales
+                                están correctamente conectados por USB antes de que el cliente se siente.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="sessions">
+                <h2 class="text-3xl font-bold mb-6 flex items-center gap-3">
+                    <span
+                        class="w-10 h-10 bg-blue-500/10 text-blue-400 rounded-lg flex items-center justify-center text-lg font-black">05</span>
+                    Gestión de Sesiones
+                </h2>
+                <div class="space-y-6">
+                    <div class="glass p-6 rounded-xl">
+                        <h4 class="font-bold text-white mb-4 italic">Flujo de Lanzamiento:</h4>
+                        <ol class="space-y-4 text-sm text-gray-400">
+                            <li class="pl-4 border-l-2 border-blue-500"><b>Selección:</b> Haz clic en un simulador
+                                libre. El sistema te pedirá el nombre del piloto (para el Leaderboard).</li>
+                            <li class="pl-4 border-l-2 border-blue-500"><b>Configuración:</b> Elige coche, pista y
+                                tiempo. Activa el interruptor <b>VR</b> si el cliente usará gafas.</li>
+                            <li class="pl-4 border-l-2 border-blue-500"><b>Arranque:</b> Al pulsar "Iniciar", el Agente
+                                cierra procesos innecesarios, ajusta los `.ini` del juego y lanza el simulador.</li>
+                        </ol>
+                    </div>
+
+                    <div id="vr-mode"
+                        class="bg-gradient-to-br from-purple-900/30 to-blue-900/30 border border-purple-500/20 p-6 rounded-xl">
+                        <h4 class="font-bold text-white mb-4 flex items-center gap-2">
+                            <i data-lucide="glasses" class="text-purple-400"></i> Automatización VR Profesional
+                        </h4>
+                        <p class="text-sm text-gray-300 mb-4 text-pretty">Olvídate de cambiar ajustes gráficos a mano.
+                            El sistema lo hace solo:</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div class="bg-black/40 p-3 rounded-lg border border-purple-500/10">
+                                <span class="text-xs font-bold text-white block mb-1">Modo Monitor</span>
+                                <p class="text-[10px] text-gray-500">Resolución nativa, 60+ FPS, gráficos en Ultra/High.
+                                </p>
+                            </div>
+                            <div class="bg-purple-500/10 p-3 rounded-lg border border-purple-500/20">
+                                <span class="text-xs font-bold text-purple-400 block mb-1">Modo VR
+                                    (SteamVR/Oculus)</span>
+                                <p class="text-[10px] text-gray-400 font-medium italic">Sombras Low, Reflejos Low, 90
+                                    FPS estables garantizados.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="tournaments">
+                <h2 class="text-3xl font-bold mb-6 flex items-center gap-3">
+                    <span
+                        class="w-10 h-10 bg-blue-500/10 text-blue-400 rounded-lg flex items-center justify-center text-lg font-black">06</span>
+                    Ecosistema de Competición
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="glass p-6 rounded-xl">
+                        <h4 class="font-bold text-white mb-4">🏆 Gestión de Torneos</h4>
+                        <p class="text-sm text-gray-400 mb-4">Crea eventos periódicos para aumentar la retención:</p>
+                        <ul class="space-y-2 text-xs text-gray-500">
+                            <li>• <b>Time Attack:</b> Clasifica pilotos por su mejor vuelta.</li>
+                            <li>• <b>Brackets Pro:</b> El sistema genera automáticamente cruces 1v1 eliminatorios.</li>
+                            <li>• <b>Sincronización LAN:</b> Configura el servidor multijugador automáticamente.</li>
+                        </ul>
+                    </div>
+                    <div class="glass p-6 rounded-xl">
+                        <h4 class="font-bold text-white mb-4">🥇 Salón de la Fama</h4>
+                        <p class="text-sm text-gray-400 mb-4">Incentiva el pique entre clientes:</p>
+                        <ul class="space-y-2 text-xs text-gray-500">
+                            <li>• Récords por categoría (F1, GT3, Street).</li>
+                            <li>• Perfiles de piloto con Elo y XP.</li>
+                            <li>• <b>Badge System:</b> Insignias automáticas por logros.</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <section id="tv-mode">
+                <h2 class="text-3xl font-bold mb-6 flex items-center gap-3">
+                    <span
+                        class="w-10 h-10 bg-blue-500/10 text-blue-400 rounded-lg flex items-center justify-center text-lg font-black">07</span>
+                    Vistas de Pantalla (Smart TV)
+                </h2>
+                <p class="text-gray-400 mb-6">Ambienta tu local con información profesional en tiempo real simplemente
+                    abriendo estas URLs en cualquier navegador:</p>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="glass p-5 rounded-xl border-t border-blue-500/50">
+                        <h5 class="text-blue-400 font-bold mb-2">TELEVISIÓN EN VIVO</h5>
+                        <code>/tv-mode</code>
+                        <p class="text-[10px] text-gray-500 mt-2">Streaming de datos de los 4 mejores del torneo.</p>
+                    </div>
+                    <div class="glass p-5 rounded-xl border-t border-purple-500/50">
+                        <h5 class="text-purple-400 font-bold mb-2">CLAN/HAME OF FAME</h5>
+                        <code>/tv/hall-of-fame</code>
+                        <p class="text-[10px] text-gray-500 mt-2">Display estético de récords históricos por categorías.
+                        </p>
+                    </div>
+                    <div class="glass p-5 rounded-xl border-t border-red-500/50">
+                        <h5 class="text-red-400 font-bold mb-2">PUBLICIDAD ADS</h5>
+                        <code>/tv/ads</code>
+                        <p class="text-[10px] text-gray-500 mt-2">Carrusel masivo de tus patrocinadores y ofertas.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TROUBLESHOOTING -->
+            <section id="troubleshooting">
+                <h2 class="text-3xl font-bold mb-6 text-red-500 flex items-center gap-3">
+                    <i data-lucide="shield-alert"></i> Solución de Problemas
+                </h2>
+
+                <div class="space-y-3">
+                    <details class="glass p-4 rounded-xl group">
+                        <summary class="font-bold text-white flex items-center justify-between cursor-pointer">
+                            <span>¿Simuladores aparecen Offline?</span>
+                            <i data-lucide="chevron-down"
+                                class="w-4 h-4 text-gray-500 group-open:rotate-180 transition-transform"></i>
+                        </summary>
+                        <div class="mt-4 text-sm text-gray-400 space-y-2 border-t border-white/5 pt-4">
+                            <p>1. Revisa que <b>main.py</b> esté abierto en el PC simulador.</p>
+                            <p>2. IP: Verifica que `config.json` tenga la IP correcta del PC de recepción.</p>
+                            <p>3. Puertos: Asegúrate de que el puerto <b>8000</b> (servidor) no esté bloqueado por el
+                                cortafuegos.</p>
+                        </div>
+                    </details>
+
+                    <details class="glass p-4 rounded-xl group">
+                        <summary class="font-bold text-white flex items-center justify-between cursor-pointer">
+                            <span>¿El juego no lanza VR?</span>
+                            <i data-lucide="chevron-down"
+                                class="w-4 h-4 text-gray-500 group-open:rotate-180 transition-transform"></i>
+                        </summary>
+                        <div class="mt-4 text-sm text-gray-400 space-y-2 border-t border-white/5 pt-4">
+                            <p>1. Selecciona el modo VR en el panel antes de pulsar "Lanzar".</p>
+                            <p>2. Abre <b>SteamVR</b> o el software de <b>Oculus</b> ANTES de iniciar la sesión.</p>
+                        </div>
+                    </details>
+
+                    <details class="glass p-4 rounded-xl group">
+                        <summary class="font-bold text-white flex items-center justify-between cursor-pointer">
+                            <span>¿No carga contenido nuevo?</span>
+                            <i data-lucide="chevron-down"
+                                class="w-4 h-4 text-gray-500 group-open:rotate-180 transition-transform"></i>
+                        </summary>
+                        <div class="mt-4 text-sm text-gray-400 space-y-2 border-t border-white/5 pt-4">
+                            <p>1. Asegúrate de que el archivo es un <b>.zip</b> estándar.</p>
+                            <p>2. Revisa el espacio en disco en el PC Servidor.</p>
+                        </div>
+                    </details>
+                </div>
+
+                <div class="mt-12 p-8 glass rounded-2xl border-dashed border-2 border-gray-700 text-center">
+                    <p class="text-gray-400 italic">¿Sigues teniendo problemas?</p>
+                    <p class="text-white font-bold mt-2">soporte@assettomanager.com</p>
+                </div>
+            </section>
+
         </div>
     </main>
 
     <script>
         lucide.createIcons();
+
+        // Simple active link highlighting
+        const links = document.querySelectorAll('.nav-link');
+        links.forEach(link => {
+            link.addEventListener('click', () => {
+                links.forEach(l => l.classList.remove('active'));
+                link.classList.add('active');
+            });
+        });
     </script>
 </body>
 

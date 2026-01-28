@@ -178,7 +178,7 @@
                     window.location.href = 'http://localhost:3010/';
                 } else {
                     // REGISTER FLOW
-                    const res = await fetch('http://localhost:8000/auth/register', {
+                    const res = await fetch('http://localhost:8000/register', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ username, password })

@@ -21,6 +21,7 @@ const TVRemote = lazy(() => import('./pages/TVRemote'));
 const BattleMode = lazy(() => import('./pages/BattleMode'));
 const LandingPage = lazy(() => import('./pages/LandingPage'));
 const TournamentTV = lazy(() => import('./pages/TournamentTV'));
+const TVAds = lazy(() => import('./pages/TVAds'));
 const MobileLeaderboard = lazy(() => import('./pages/MobileLeaderboard'));
 const MobilePassport = lazy(() => import('./pages/MobilePassport'));
 const LiveMapPage = lazy(() => import('./pages/LiveMapPage'));
@@ -96,6 +97,7 @@ function App() {
               {/* TV & Mobile (Handled by Layout to hide sidebar) */}
               <Route path="/tv/leaderboard" element={<Leaderboard />} />
               <Route path="/tv/bracket/:id" element={<TournamentTV />} />
+              <Route path="/tv/ads" element={<TVAds />} />
               <Route path="/mobile" element={<MobileLeaderboard />} />
               <Route path="/passport-scanner" element={<MobilePassport />} />
               <Route path="/tv-mode" element={<TVMode />} />

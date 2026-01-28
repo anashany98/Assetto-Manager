@@ -119,13 +119,18 @@ async def get_available_slots(
     availability = []
     for slot in TIME_SLOTS:
         slot_bookings = [b for b in existing_bookings if b.time_slot == slot]
-        remaining = station_count - len(slot_bookings)
+        
+        # FIX: Sum num_players instead of counting rows.
+        # Handle case where num_players might be None (default to 1)
+        occupied_slots = sum((b.num_players or 1) for b in slot_bookings)
+        
+        remaining = station_count - occupied_slots
         
         availability.append({
             "time_slot": slot,
             "available": remaining > 0,
-            "remaining_slots": remaining,
-            "booked_count": len(slot_bookings)
+            "remaining_slots": max(0, remaining),
+            "booked_count": occupied_slots
         })
     
     return {
@@ -163,10 +168,15 @@ async def create_booking(data: BookingCreate, db: Session = Depends(get_db)):
             # Check if all stations are booked
             stations = db.query(models.Station).filter(models.Station.is_active == True).all()
             station_count = len(stations) if stations else 1
-            booked_count = existing.count()
             
-            if booked_count >= station_count:
-                raise HTTPException(status_code=409, detail="No available stations for this time slot")
+            # Get all existing bookings for this slot to sum players
+            # We can't just use .count() on the query because we need to sum num_players
+            slot_existing_bookings = existing.all()
+            occupied_slots = sum((b.num_players or 1) for b in slot_existing_bookings)
+            
+            # Check if there is enough space for the new group
+            if occupied_slots + data.num_players > station_count:
+                raise HTTPException(status_code=409, detail=f"Not enough stations available. Requested: {data.num_players}, Available: {station_count - occupied_slots}")
         
         # Create booking
         booking = models.Booking(

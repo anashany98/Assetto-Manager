@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, Response
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func, asc, desc
 from typing import List, Optional, Union, Any
 from .. import models, schemas, database
-from ..paths import STORAGE_DIR
+from ..paths import STORAGE_DIR, REPO_ROOT
 from datetime import datetime, timezone, timedelta
 import os
 import json
@@ -12,6 +12,15 @@ import math
 import logging
 from .auth import require_agent_token, require_admin
 from . import tournament
+import io
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+from reportlab.lib.units import cm
+plt.switch_backend('agg') # Headless mode for server environment
 
 # Magic Numbers / Constants
 DEFAULT_LAP_LENGTH_KM = 4.8
@@ -406,7 +415,277 @@ def get_lap_telemetry(lap_id: int, db: Session = Depends(database.get_db)):
             
         return telemetry_trace
     
-    return _coerce_json_value(lap.telemetry_data) or []
+    # Format as a downloadable JSON file
+    import json
+    from fastapi.responses import Response
+    
+    data = _coerce_json_value(lap.telemetry_data) or []
+    content = json.dumps(data, indent=2)
+    filename = f"telemetry_{lap_id}.json"
+    
+    return Response(
+        content=content,
+        media_type="application/json",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}"
+        }
+    )
+
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+from reportlab.lib.units import cm
+import io
+
+def format_ms(ms: int) -> str:
+    if not ms: return "--:--.---"
+    mins = ms // 60000
+    secs = (ms % 60000) / 1000
+    return f"{mins:02d}:{secs:06.3f}"
+
+@router.get("/driver/{driver_name}/history")
+def get_driver_history(driver_name: str, db: Session = Depends(database.get_db)):
+    """
+    Get all laps for a driver.
+    Optimized: Defers loading of heavy telemetry_data column.
+    """
+    from sqlalchemy.orm import defer
+    
+    # 1. Find Driver via Profile or name match?
+    # For now, simplistic name match on SessionResult
+    sessions = db.query(models.SessionResult).filter(models.SessionResult.driver_name == driver_name).all()
+    session_ids = [s.id for s in sessions]
+    
+    if not session_ids:
+        return []
+        
+    laps = db.query(models.LapTime)\
+        .filter(models.LapTime.session_id.in_(session_ids))\
+        .options(defer(models.LapTime.telemetry_data))\
+        .order_by(models.LapTime.id.desc())\
+        .limit(100)\
+        .all()
+        
+    return laps
+
+@router.get("/session/{session_id}/pdf")
+def get_session_pdf(session_id: int, db: Session = Depends(database.get_db)):
+    """
+    Generate a high-end professional PDF report for a session with advanced telemetry, 
+    including charts, track maps, and local records.
+    """
+    session = db.query(models.SessionResult).filter(models.SessionResult.id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    laps = db.query(models.LapTime).filter(models.LapTime.session_id == session_id, models.LapTime.valid == True).order_by(models.LapTime.lap_number).all()
+    if not laps:
+        raise HTTPException(status_code=404, detail="No valid laps found for this session")
+
+    # 1. Advanced Calculations
+    lap_times = [l.time for l in laps]
+    consistency = calculate_consistency_score(lap_times)
+    
+    # Calculate Ideal Lap (Best of each sector)
+    best_s1 = min([l.splits[0] for l in laps if l.splits and len(l.splits) > 0] or [0])
+    best_s2 = min([l.splits[1] for l in laps if l.splits and len(l.splits) > 1] or [0])
+    best_s3 = min([l.splits[2] for l in laps if l.splits and len(l.splits) > 2] or [0])
+    ideal_lap = best_s1 + best_s2 + best_s3
+
+    # Local Record Comparison
+    local_record = db.query(func.min(models.SessionResult.best_lap))\
+        .filter(models.SessionResult.track_name == session.track_name, 
+                models.SessionResult.car_model == session.car_model)\
+        .scalar()
+
+    # Telemetry for charts (Best Lap)
+    best_lap_obj = db.query(models.LapTime).filter(
+        models.LapTime.session_id == session_id, 
+        models.LapTime.time == session.best_lap, 
+        models.LapTime.valid == True
+    ).first()
+    best_telemetry = _coerce_json_value(best_lap_obj.telemetry_data) if best_lap_obj else None
+
+    # 2. PDF Document Setup
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
+    styles = getSampleStyleSheet()
+    
+    brand_dark = colors.HexColor("#1e293b")
+    brand_blue = colors.HexColor("#3b82f6")
+    brand_success = colors.HexColor("#22c55e")
+    bg_light = colors.HexColor("#f8fafc")
+    text_muted = colors.HexColor("#64748b")
+    
+    style_report_title = ParagraphStyle('ReportTitle', parent=styles['Heading1'], fontSize=28, textColor=colors.white, spaceAfter=5, fontName="Helvetica-Bold")
+    style_report_subtitle = ParagraphStyle('ReportSubtitle', parent=styles['Normal'], fontSize=10, textColor=colors.HexColor("#94a3b8"), spaceAfter=0)
+    style_card_label = ParagraphStyle('CardLabel', parent=styles['Normal'], fontSize=8, textColor=text_muted, fontName="Helvetica-Bold", leading=10, spaceAfter=2)
+    style_card_value = ParagraphStyle('CardValue', parent=styles['Normal'], fontSize=12, textColor=brand_dark, fontName="Helvetica-Bold", leading=14)
+    style_section_title = ParagraphStyle('SectionTitle', parent=styles['Heading2'], fontSize=14, textColor=brand_dark, spaceBefore=20, spaceAfter=15, fontName="Helvetica-Bold")
+    
+    elements = []
+
+    # 3. HEADER & TITLE
+    logo_path = os.path.join(REPO_ROOT, "frontend", "public", "logo.png")
+    logo_img = None
+    if os.path.exists(logo_path):
+        try: logo_img = Image(logo_path, width=2.5*cm, height=2.5*cm, kind='proportional')
+        except: pass
+
+    title_box = [
+        Paragraph("PERFORMANCE REPORT", style_report_title),
+        Paragraph("ASSETTO MANAGER - PROFESSIONAL RACING EDITION", style_report_subtitle)
+    ]
+    
+    header_table = Table([[logo_img, title_box]], colWidths=[3.5*cm, 14.5*cm])
+    header_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), brand_dark),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 20),
+        ('TOPPADDING', (0, 0), (-1, -1), 25),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 25),
+    ]))
+    elements.append(header_table)
+    elements.append(Spacer(1, 1*cm))
+
+    # 4. SUMMARY INFO GRID (Modified with Local Record)
+    def make_card(label, value, highlight=False):
+        style = ParagraphStyle('CardVal', parent=style_card_value, textColor=brand_blue if highlight else brand_dark)
+        return Table([
+            [Paragraph(label.upper(), style_card_label)],
+            [Paragraph(str(value), style)]
+        ], colWidths=[4.2*cm])
+
+    # Find Track Map
+    track_map_img = None
+    mods_dir = STORAGE_DIR / "mods"
+    if mods_dir.exists():
+        for mod_folder in os.listdir(mods_dir):
+            if session.track_name.lower() in mod_folder.lower():
+                mod_path = mods_dir / mod_folder
+                for root, dirs, files in os.walk(mod_path):
+                    for file in files:
+                        if file.lower() in ["map.png", "map.jpg"]:
+                            try: track_map_img = Image(os.path.join(root, file), width=3*cm, height=3*cm, kind='proportional')
+                            except: pass
+                            break
+                    if track_map_img: break
+            if track_map_img: break
+
+    info_cards = Table([
+        [make_card("Piloto", session.driver_name), make_card("Vehículo", session.car_model), make_card("Mejor Vuelta", format_ms(session.best_lap), True)],
+        [make_card("Circuito", session.track_name), make_card("Local Record", format_ms(local_record), True), make_card("Consistencia", f"{consistency:.1f}%", True)]
+    ], colWidths=[4.7*cm, 4.7*cm, 4.7*cm])
+    info_cards.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), bg_light),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+        ('grid', (0,0), (-1,-1), 0.5, colors.HexColor("#e2e8f0")),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+
+    # Top layout with Map and Cards (QR removed)
+    summary_layout = Table([[track_map_img, info_cards]], colWidths=[4*cm, 14*cm])
+    summary_layout.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('ALIGN', (0,0), (0,0), 'LEFT'), ('ALIGN', (1,0), (1,0), 'RIGHT')]))
+    elements.append(summary_layout)
+    elements.append(Spacer(1, 0.5*cm))
+
+    # 5. CHARTS (NEW) - Lap Evolution & Telemetry
+    charts_table_data = []
+    
+    # Chart A: Lap Evolution
+    try:
+        plt.figure(figsize=(5, 3), dpi=100)
+        plt.plot(range(1, len(lap_times) + 1), [t/1000 for t in lap_times], marker='o', color='#3b82f6', linewidth=2, markersize=4)
+        plt.axhline(y=session.best_lap/1000, color='#22c55e', linestyle='--', linewidth=1, label='Best')
+        plt.title("Evolución de Carrera", fontsize=11, fontweight='bold', color='#1e293b')
+        plt.xlabel("Vuelta", fontsize=9)
+        plt.ylabel("Tiempo (s)", fontsize=9)
+        plt.grid(True, linestyle='--', alpha=0.3)
+        plt.tight_layout()
+        chart_buf = io.BytesIO()
+        plt.savefig(chart_buf, format='png', transparent=True)
+        plt.close()
+        chart_buf.seek(0)
+        evo_img = Image(chart_buf, width=8.5*cm, height=5*cm)
+    except: evo_img = Paragraph("Gráfico no disponible", styles['Normal'])
+
+    # Chart B: Speed Profile (Best Lap)
+    try:
+        if best_telemetry:
+            points = [p['n'] * 100 for p in best_telemetry]
+            speeds = [p['s'] for p in best_telemetry]
+            plt.figure(figsize=(5, 3), dpi=100)
+            plt.fill_between(points, speeds, color='#3b82f6', alpha=0.15)
+            plt.plot(points, speeds, color='#3b82f6', linewidth=1.5)
+            plt.title("Perfil de Velocidad (Mejor Vuelta)", fontsize=11, fontweight='bold', color='#1e293b')
+            plt.xlabel("Posición Pista (%)", fontsize=9)
+            plt.ylabel("Velocidad (km/h)", fontsize=9)
+            plt.grid(True, linestyle='--', alpha=0.3)
+            plt.tight_layout()
+            tel_buf = io.BytesIO()
+            plt.savefig(tel_buf, format='png', transparent=True)
+            plt.close()
+            tel_buf.seek(0)
+            tel_img = Image(tel_buf, width=8.5*cm, height=5*cm)
+        else: tel_img = Paragraph("Telemetría no grabada", styles['Normal'])
+    except: tel_img = Paragraph("Gráfico no disponible", styles['Normal'])
+
+    charts_table = Table([[evo_img, tel_img]], colWidths=[9*cm, 9*cm])
+    elements.append(charts_table)
+    elements.append(Spacer(1, 0.5*cm))
+
+    # 6. LAP DETAIL (Same as before but professional)
+    elements.append(Paragraph("ANÁLISIS TÉCNICO DE VUELTAS", style_section_title))
+    lap_data = [["LAP", "TIEMPO", "SECTOR 1", "SECTOR 2", "SECTOR 3"]]
+    for lap in laps:
+        s1, s2, s3 = "--", "--", "--"
+        if lap.splits:
+            splits = lap.splits if isinstance(lap.splits, list) else []
+            if len(splits) > 0: s1 = format_ms(splits[0])
+            if len(splits) > 1: s2 = format_ms(splits[1])
+            if len(splits) > 2: s3 = format_ms(splits[2])
+        lap_data.append([str(lap.lap_number), format_ms(lap.time), s1, s2, s3])
+
+    t_laps = Table(lap_data, colWidths=[2*cm, 4*cm, 4*cm, 4*cm, 4*cm])
+    t_style = [
+        ('BACKGROUND', (0, 0), (-1, 0), brand_dark),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('TOPPADDING', (0, 0), (-1, 0), 12),
+        ('LINEBELOW', (0, 0), (-1, 0), 2, brand_blue),
+    ]
+    for i in range(1, len(lap_data)):
+        if i % 2 == 0: t_style.append(('BACKGROUND', (0, i), (-1, i), bg_light))
+        lap_obj = laps[i-1]
+        if lap_obj.time == session.best_lap:
+            t_style.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor("#fef9c3")))
+            t_style.append(('TEXTCOLOR', (1, i), (1, i), brand_blue))
+            t_style.append(('FONTNAME', (1, i), (1, i), 'Helvetica-Bold'))
+        if lap_obj.splits:
+            best_color = brand_success
+            if len(lap_obj.splits) > 0 and lap_obj.splits[0] == best_s1: t_style.append(('TEXTCOLOR', (2, i), (2, i), best_color))
+            if len(lap_obj.splits) > 1 and lap_obj.splits[1] == best_s2: t_style.append(('TEXTCOLOR', (3, i), (3, i), best_color))
+            if len(lap_obj.splits) > 2 and lap_obj.splits[2] == best_s3: t_style.append(('TEXTCOLOR', (4, i), (4, i), best_color))
+    t_laps.setStyle(TableStyle(t_style))
+    elements.append(t_laps)
+    
+    # 7. FOOTER
+    elements.append(Spacer(1, 1*cm))
+    id_lap_text = f"Vuelta Ideal Calculada: {format_ms(ideal_lap)} | Potencial de mejora: {format_ms(session.best_lap - ideal_lap)}"
+    elements.append(Paragraph(id_lap_text, ParagraphStyle('Ideal', parent=styles['Normal'], fontSize=9, textColor=brand_blue, alignment=1, fontName="Helvetica-Bold")))
+    elements.append(Spacer(1, 1*cm))
+    footer_text = f"Reporte técnico Assetto Manager v2.5 - {datetime.now().strftime('%d/%m/%Y %H:%M')}"
+    elements.append(Paragraph(footer_text, ParagraphStyle('Foot', parent=styles['Normal'], fontSize=7, textColor=text_muted, alignment=1)))
+
+    doc.build(elements)
+    buffer.seek(0)
+    filename = f"Reporte_Full_{session.driver_name.replace(' ', '_')}_{session_id}.pdf"
+    return Response(content=buffer.getvalue(), media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename={filename}"})
+
 
 @router.get("/details/{track_name}/{driver_name}", response_model=schemas.DriverDetails)
 def get_driver_details(
@@ -583,12 +862,19 @@ def get_pilot_profile(driver_name: str, db: Session = Depends(database.get_db)):
 
     recent_sessions = []
     for s, laps_count in recent_sessions_db:
+        # Find the actual ID of the best lap for this session
+        best_lap_obj = db.query(models.LapTime).filter(
+            models.LapTime.session_id == s.id,
+            models.LapTime.valid == True
+        ).order_by(asc(models.LapTime.time)).first()
+
         recent_sessions.append(schemas.SessionSummary(
             session_id=s.id,
             track_name=s.track_name,
             car_model=s.car_model,
             date=s.date,
             best_lap=s.best_lap,
+            best_lap_id=best_lap_obj.id if best_lap_obj else None,
             laps_count=laps_count or 0
         ))
 
@@ -606,6 +892,14 @@ def get_pilot_profile(driver_name: str, db: Session = Depends(database.get_db)):
     if driver_obj.photo_path:
         photo_url = f"/static/drivers/{Path(driver_obj.photo_path).name}"
 
+    xp_points = total_laps * 10 + (driver_obj.total_wins * 100)
+    level = int(1 + (xp_points / 500))
+    badges = []
+    if driver_obj.total_wins > 0:
+        badges.append({"id": "winner", "label": "Ganador", "icon": "🏆", "desc": "Ha ganado al menos una carrera"})
+    if total_laps > 100:
+        badges.append({"id": "veteran", "label": "Veterano", "icon": "🎖️", "desc": "Más de 100 vueltas completadas"})
+
     return schemas.PilotProfile(
         driver_name=driver_name,
         total_laps=total_laps,
@@ -620,7 +914,10 @@ def get_pilot_profile(driver_name: str, db: Session = Depends(database.get_db)):
         elo_rating=driver_obj.elo_rating,
         photo_url=photo_url,
         phone=driver_obj.phone,
-        driver_id=driver_obj.id
+        driver_id=driver_obj.id,
+        badges=badges,
+        xp_points=xp_points,
+        level=level
     )
 
 @router.post("/seed", dependencies=[Depends(require_admin)])
@@ -874,6 +1171,116 @@ def get_hall_of_fame(db: Session = Depends(database.get_db)):
             ))
     
     return hall_of_fame
+
+def _classify_car_category(car_model: str) -> str:
+    """
+    Heuristics to group cars into categories for TV Display.
+    """
+    model = car_model.lower()
+    
+    # Priority Categories
+    if "f1" in model or "formula" in model or "tatuus" in model or "rss" in model: 
+        return "Formula"
+    if "gt3" in model: 
+        return "GT3"
+    if "gt4" in model: 
+        return "GT4"
+    if "lmp" in model or "prototype" in model or "hypercar" in model: 
+        return "Prototype"
+    if "drift" in model or "e30" in model: 
+        return "Drift"
+    if "rally" in model or "wrc" in model: 
+        return "Rally"
+    if "cup" in model or "mx5" in model or "clio" in model: 
+        return "Cup"
+    if "kart" in model: 
+        return "Karting"
+    if "jdm" in model or "nissan" in model or "toyota" in model or "honda" in model:
+        return "JDM / Tuner"
+        
+    return "Road Cars" # Default fallback
+
+@router.get("/hall_of_fame/categories", response_model=List[schemas.HallOfFameCategory])
+def get_hall_of_fame_categories(db: Session = Depends(database.get_db)):
+    """
+    Aggregated Hall of Fame for TV Mode.
+    Groups records by Track + Category (instead of specific Car Model).
+    """
+    # 1. Get all valid laps joined with session info
+    # We want to process this in python for flexibility with the regex categories,
+    # avoiding complex SQL case statements.
+    
+    # Optimization: Query distinct (Track, Car, Driver, Time) first?
+    # No, let's just grab the best lap PER (Driver, Track, Car) first to reduce dataset
+    
+    subq = db.query(
+        models.SessionResult.track_name,
+        models.SessionResult.car_model,
+        models.SessionResult.driver_name,
+        func.min(models.LapTime.time).label('best_lap'),
+        func.max(models.SessionResult.date).label('latest_date')
+    ).join(models.LapTime).filter(
+        models.LapTime.valid == True
+    ).group_by(
+        models.SessionResult.track_name,
+        models.SessionResult.car_model,
+        models.SessionResult.driver_name
+    ).all()
+    
+    # 2. Group in Python
+    grouped_data = {} # Key: (track_name, category) -> List of records
+    
+    for row in subq:
+        track = row.track_name
+        car = row.car_model
+        driver = row.driver_name
+        time = row.best_lap
+        date = row.latest_date
+        
+        category = _classify_car_category(car)
+        key = (track, category)
+        
+        if key not in grouped_data:
+            grouped_data[key] = []
+            
+        grouped_data[key].append({
+            "driver_name": driver,
+            "lap_time": time,
+            "date": date,
+            "precise_car": car # Keep specific car for display if needed
+        })
+        
+    # 3. Sort and Limit per group
+    final_output = []
+    
+    for key, records in grouped_data.items():
+        track, category = key
+        
+        # Sort by time ASC
+        records.sort(key=lambda x: x["lap_time"])
+        
+        # Take Top 5 for TV
+        top_records = records[:5]
+        
+        # Convert to Schema
+        schema_records = [
+            schemas.HallOfFameEntry(
+                driver_name=r["driver_name"],
+                lap_time=r["lap_time"],
+                date=r["date"]
+            ) for r in top_records
+        ]
+        
+        final_output.append(schemas.HallOfFameCategory(
+            track_name=track,
+            car_model=category, # We send Category as "Car Model" for the schema to reuse it
+            records=schema_records
+        ))
+        
+    # Sort groups by Track Name then Category
+    final_output.sort(key=lambda x: (x.track_name, x.car_model))
+    
+    return final_output
 
 @router.get("/compare/{driver1}/{driver2}", response_model=schemas.DriverComparison)
 def get_driver_comparison(

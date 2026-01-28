@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import axios from 'axios';
@@ -38,9 +39,10 @@ export interface KioskSelection {
 interface AttractModeProps {
     isIdle: boolean;
     scenarios: Scenario[];
+    t: any;
 }
 
-export const AttractMode: React.FC<AttractModeProps> = ({ isIdle, scenarios }) => {
+export const AttractMode: React.FC<AttractModeProps> = ({ isIdle, scenarios, t }) => {
     const [slide, setSlide] = useState(0);
 
     useEffect(() => {
@@ -54,7 +56,10 @@ export const AttractMode: React.FC<AttractModeProps> = ({ isIdle, scenarios }) =
     if (!isIdle) return null;
 
     return (
-        <div className="fixed inset-0 z-50 bg-black flex items-center justify-center overflow-hidden animate-in fade-in duration-1000">
+        <div
+            onClick={() => soundManager.playConfirm()}
+            className="fixed inset-0 z-50 bg-black flex items-center justify-center overflow-hidden animate-in fade-in duration-1000 cursor-pointer"
+        >
             <div className="absolute inset-0 opacity-60">
                 <video
                     autoPlay
@@ -93,13 +98,13 @@ export const AttractMode: React.FC<AttractModeProps> = ({ isIdle, scenarios }) =
                     </div>
                 ) : (
                     <div className="animate-in zoom-in duration-700 fade-in">
-                        <h2 className="text-5xl font-black text-yellow-400 italic mb-4 drop-shadow-lg">RÉCORD DEL DÍA</h2>
+                        <h2 className="text-5xl font-black text-yellow-400 italic mb-4 drop-shadow-lg">{t('attract.sessionRecord') || 'RÉCORD DE LA SESIÓN'}</h2>
                         <div className="bg-black/60 backdrop-blur-xl p-8 rounded-[3rem] border-2 border-yellow-500/50 inline-block shadow-[0_0_50px_rgba(234,179,8,0.3)]">
-                            <div className="text-8xl font-black text-white tabular-nums mb-2 font-mono">1:42.580</div>
-                            <div className="text-2xl font-bold text-gray-300 uppercase tracking-widest">Carlos Sainz</div>
-                            <div className="text-sm text-yellow-500 mt-2 font-bold">FERRARI 488 GT3 @ SPA</div>
+                            <div className="text-8xl font-black text-white tabular-nums mb-2 font-mono">1:44.210</div>
+                            <div className="text-2xl font-bold text-gray-300 uppercase tracking-widest">{t('attract.localRecord') || 'REGISTRO LOCAL'}</div>
+                            <div className="text-sm text-yellow-500 mt-2 font-bold uppercase tracking-tight">{t('attract.anyCarAnyTrack') || 'CUALQUIER VEHÍCULO / CUALQUIER PISTA'}</div>
                         </div>
-                        <p className="text-white font-bold mt-8 text-xl animate-pulse">¿PUEDES SUPERARLO?</p>
+                        <p className="text-white font-bold mt-8 text-xl animate-pulse tracking-widest">{t('attract.canYouBeatIt') || '¿PUEDES SUPERARLO?'}</p>
                     </div>
                 )}
             </div>
@@ -130,6 +135,7 @@ export const ScenarioStep: React.FC<ScenarioStepProps> = ({
     });
 
     const handleSurpriseMe = () => {
+        soundManager.playClick();
         if (scenarios.length > 0) {
             const randomScenario = scenarios[Math.floor(Math.random() * scenarios.length)];
             const randomCar = randomScenario.allowed_cars?.[Math.floor(Math.random() * randomScenario.allowed_cars.length)] || 'ks_mercedes_amg_gt3';
@@ -171,6 +177,7 @@ export const ScenarioStep: React.FC<ScenarioStepProps> = ({
     const [expandedId, setExpandedId] = useState<number | null>(null);
 
     const handleSelect = (scenario: Scenario, time: number) => {
+        soundManager.playClick();
         setSelectedScenario(scenario);
         const sessionType = (scenario.session_type as any) || 'practice';
 
@@ -220,6 +227,7 @@ export const ScenarioStep: React.FC<ScenarioStepProps> = ({
                             {lobbies.map((l: any) => (
                                 <button
                                     key={l.id}
+                                    onMouseEnter={() => soundManager.playHover()}
                                     onClick={() => handleJoinLobby(l)}
                                     className="bg-blue-900/20 border-2 border-blue-500/30 hover:bg-blue-900/40 hover:border-blue-500 transition-all p-4 rounded-2xl text-left group"
                                 >
@@ -234,8 +242,8 @@ export const ScenarioStep: React.FC<ScenarioStepProps> = ({
                         </div>
                     ) : (
                         <div className="w-full bg-blue-900/10 border border-blue-900/30 rounded-2xl p-6 text-center">
-                            <p className="text-blue-300/50 font-bold italic">No hay torneos activos en este momento.</p>
-                            <p className="text-xs text-blue-400/30 mt-1">¡Crea uno nuevo abajo!</p>
+                            <p className="text-blue-300/50 font-bold italic">{t('kiosk.noActiveTournaments') || 'No hay torneos activos en este momento.'}</p>
+                            <p className="text-xs text-blue-400/30 mt-1">{t('kiosk.createBelow') || '¡Crea uno nuevo abajo!'}</p>
                         </div>
                     )}
                 </div>
@@ -249,6 +257,7 @@ export const ScenarioStep: React.FC<ScenarioStepProps> = ({
                         {dailyScenario && (
                             <div
                                 onClick={() => {
+                                    soundManager.playClick();
                                     setSelection({
                                         type: (dailyScenario.session_type as any) || 'practice',
                                         scenarioId: dailyScenario.id!,
@@ -261,6 +270,7 @@ export const ScenarioStep: React.FC<ScenarioStepProps> = ({
                                     setDuration(10);
                                     setStep(2);
                                 }}
+                                onMouseEnter={() => soundManager.playHover()}
                                 className="group relative bg-gradient-to-br from-yellow-600 to-orange-700 rounded-3xl p-4 md:p-6 cursor-pointer border-4 border-yellow-400/50 hover:border-white shadow-2xl hover:scale-[1.03] transition-all overflow-hidden flex flex-col justify-between h-64 md:h-80"
                             >
                                 <div className="absolute top-0 right-0 bg-yellow-400 text-black font-black text-xs px-3 py-1 rounded-bl-xl z-20">RETO DEL DÍA</div>
@@ -274,6 +284,7 @@ export const ScenarioStep: React.FC<ScenarioStepProps> = ({
                         )}
 
                         <div
+                            onMouseEnter={() => soundManager.playHover()}
                             onClick={handleSurpriseMe}
                             className="group relative bg-gradient-to-br from-purple-600 to-pink-600 rounded-3xl p-4 md:p-6 cursor-pointer border-4 border-white/10 hover:border-white shadow-2xl hover:scale-[1.03] transition-all overflow-hidden flex flex-col justify-between h-64 md:h-80"
                         >
@@ -298,12 +309,18 @@ export const ScenarioStep: React.FC<ScenarioStepProps> = ({
                             return (
                                 <div
                                     key={scenario.id}
-                                    onClick={() => !isExpanded && setExpandedId(scenario.id!)}
-                                    className={`relative bg-gradient-to-br from-gray-800 to-gray-900 rounded-3xl p-6 md:p-8 border-4 transition-all shadow-2xl group overflow-hidden ${isExpanded ? 'border-blue-500 scale-105 z-10 cursor-default' : 'border-gray-700 hover:border-gray-500 hover:scale-[1.02] cursor-pointer'}`}
+                                    onMouseEnter={() => soundManager.playHover()}
+                                    onClick={() => {
+                                        if (!isExpanded) {
+                                            soundManager.playClick();
+                                            setExpandedId(scenario.id!);
+                                        }
+                                    }}
+                                    className={`relative bg-gradient-to-br from-gray-800 to-gray-900 rounded-3xl p-6 md: p-8 border-4 transition-all shadow-2xl group overflow-hidden ${isExpanded ? 'border-blue-500 scale-105 z-10 cursor-default' : 'border-gray-700 hover:border-gray-500 hover:scale-[1.02] cursor-pointer'} `}
                                 >
                                     <div className="flex justify-between items-start mb-4">
                                         <div className="bg-gray-700 p-2 md:p-3 rounded-2xl">
-                                            <Flag size={24} className={`md:w-8 md:h-8 ${isExpanded ? "text-blue-400" : "text-gray-400"}`} />
+                                            <Flag size={24} className={`md: w-8 md: h-8 ${isExpanded ? "text-blue-400" : "text-gray-400"} `} />
                                         </div>
                                     </div>
                                     <h3 className="text-2xl md:text-3xl font-black text-white mb-2 uppercase leading-none">{scenario.name}</h3>
@@ -322,6 +339,7 @@ export const ScenarioStep: React.FC<ScenarioStepProps> = ({
                                                             e.stopPropagation();
                                                             handleSelect(scenario, mins);
                                                         }}
+                                                        onMouseEnter={() => soundManager.playHover()}
                                                         className="relative z-50 pointer-events-auto bg-blue-600 hover:bg-blue-500 text-white font-black py-3 rounded-xl border border-blue-400/30 flex items-center justify-center gap-2 transition-transform active:scale-95 text-sm md:text-base hover:shadow-lg hover:shadow-blue-500/20"
                                                     >
                                                         <Clock size={16} /> {mins}m
@@ -411,7 +429,7 @@ export const DifficultyStep: React.FC<DifficultyStepProps> = ({
                     <div className="text-xl md:text-2xl font-black text-white mb-1 truncate">{selectedCarObj?.name || selection?.car}</div>
                     <div className="grid grid-cols-3 gap-2 md:gap-4 mt-auto">
                         <div className="bg-black/30 rounded-xl p-2 md:p-3 text-center">
-                            <div className="text-gray-500 text-[8px] md:text-[10px] uppercase">Potencia</div>
+                            <div className="text-gray-500 text-[8px] md:text-[10px] uppercase">{t('kiosk.power') || 'Potencia'}</div>
                             <div className="text-white font-black text-sm md:text-base">{specs.bhp}</div>
                         </div>
                         <div className="bg-black/30 rounded-xl p-2 md:p-3 text-center">
@@ -419,7 +437,7 @@ export const DifficultyStep: React.FC<DifficultyStepProps> = ({
                             <div className="text-white font-black text-sm md:text-base">{specs.weight}</div>
                         </div>
                         <div className="bg-black/30 rounded-xl p-2 md:p-3 text-center">
-                            <div className="text-gray-500 text-[8px] md:text-[10px] uppercase">Top Speed</div>
+                            <div className="text-gray-500 text-[8px] md:text-[10px] uppercase">{t('kiosk.topSpeed') || 'Top Speed'}</div>
                             <div className="text-white font-black text-sm md:text-base">{specs.top_speed}</div>
                         </div>
                     </div>
@@ -438,26 +456,50 @@ export const DifficultyStep: React.FC<DifficultyStepProps> = ({
             <div className="w-full mb-6 md:mb-8 text-left">
                 <p className="text-gray-400 font-bold mb-4 uppercase text-xs tracking-widest">CONDICIONES</p>
                 <div className={`bg-gray-800/50 p-2 rounded-2xl grid grid-cols-3 gap-2`}>
-                    <button onClick={() => setTimeOfDay('noon')} className={`p-3 rounded-xl flex flex-col items-center gap-2 transition-all ${timeOfDay === 'noon' ? 'bg-yellow-500 text-black shadow-lg' : 'hover:bg-gray-700 text-gray-400'}`}>
-                        <Sun size={20} className="md:w-6 md:h-6" /> <span className="text-[10px] md:text-xs font-bold">MEDIODÍA</span>
+                    <button
+                        onMouseEnter={() => soundManager.playHover()}
+                        onClick={() => { soundManager.playClick(); setTimeOfDay('noon'); }}
+                        className={`p-3 rounded-xl flex flex-col items-center gap-2 transition-all ${timeOfDay === 'noon' ? 'bg-yellow-500 text-black shadow-lg' : 'hover:bg-gray-700 text-gray-400'} `}
+                    >
+                        <Sun size={20} className="md:w-6 md:h-6" /> <span className="text-[10px] md:text-xs font-bold">{t('weather.noon') || 'MEDIODÍA'}</span>
                     </button>
-                    <button onClick={() => setTimeOfDay('evening')} className={`p-3 rounded-xl flex flex-col items-center gap-2 transition-all ${timeOfDay === 'evening' ? 'bg-orange-500 text-white shadow-lg' : 'hover:bg-gray-700 text-gray-400'}`}>
-                        <Sunset size={20} className="md:w-6 md:h-6" /> <span className="text-[10px] md:text-xs font-bold">OCASO</span>
+                    <button
+                        onMouseEnter={() => soundManager.playHover()}
+                        onClick={() => { soundManager.playClick(); setTimeOfDay('evening'); }}
+                        className={`p-3 rounded-xl flex flex-col items-center gap-2 transition-all ${timeOfDay === 'evening' ? 'bg-orange-500 text-white shadow-lg' : 'hover:bg-gray-700 text-gray-400'} `}
+                    >
+                        <Sunset size={20} className="md:w-6 md:h-6" /> <span className="text-[10px] md:text-xs font-bold">{t('weather.sunset') || 'OCASO'}</span>
                     </button>
 
                     {/* WEATHER OPTIONS */}
-                    <button onClick={() => setWeather('sun')} className={`p-3 rounded-xl flex flex-col items-center gap-2 transition-all ${weather === 'sun' ? 'bg-blue-400 text-white shadow-lg' : 'hover:bg-gray-700 text-gray-400'}`}>
-                        <Sun size={20} className="md:w-6 md:h-6" /> <span className="text-[10px] md:text-xs font-bold">DESPEJADO</span>
+                    <button
+                        onMouseEnter={() => soundManager.playHover()}
+                        onClick={() => { soundManager.playClick(); setWeather('sun'); }}
+                        className={`p-3 rounded-xl flex flex-col items-center gap-2 transition-all ${weather === 'sun' ? 'bg-blue-400 text-white shadow-lg' : 'hover:bg-gray-700 text-gray-400'} `}
+                    >
+                        <Sun size={20} className="md:w-6 md:h-6" /> <span className="text-[10px] md:text-xs font-bold">{t('weather.clear') || 'DESPEJADO'}</span>
                     </button>
-                    <button onClick={() => setWeather('cloud')} className={`p-3 rounded-xl flex flex-col items-center gap-2 transition-all ${weather === 'cloud' ? 'bg-gray-500 text-white shadow-lg' : 'hover:bg-gray-700 text-gray-400'}`}>
-                        <Cloud size={20} className="md:w-6 md:h-6" /> <span className="text-[10px] md:text-xs font-bold">NUBLADO</span>
+                    <button
+                        onMouseEnter={() => soundManager.playHover()}
+                        onClick={() => { soundManager.playClick(); setWeather('cloud'); }}
+                        className={`p-3 rounded-xl flex flex-col items-center gap-2 transition-all ${weather === 'cloud' ? 'bg-gray-500 text-white shadow-lg' : 'hover:bg-gray-700 text-gray-400'} `}
+                    >
+                        <Cloud size={20} className="md:w-6 md:h-6" /> <span className="text-[10px] md:text-xs font-bold">{t('weather.cloudy') || 'NUBLADO'}</span>
                     </button>
-                    <button onClick={() => setWeather('fog')} className={`p-3 rounded-xl flex flex-col items-center gap-2 transition-all ${weather === 'fog' ? 'bg-gray-400 text-white shadow-lg' : 'hover:bg-gray-700 text-gray-400'}`}>
-                        <CloudFog size={20} className="md:w-6 md:h-6" /> <span className="text-[10px] md:text-xs font-bold">NIEBLA</span>
+                    <button
+                        onMouseEnter={() => soundManager.playHover()}
+                        onClick={() => { soundManager.playClick(); setWeather('fog'); }}
+                        className={`p-3 rounded-xl flex flex-col items-center gap-2 transition-all ${weather === 'fog' ? 'bg-gray-400 text-white shadow-lg' : 'hover:bg-gray-700 text-gray-400'} `}
+                    >
+                        <CloudFog size={20} className="md:w-6 md:h-6" /> <span className="text-[10px] md:text-xs font-bold">{t('weather.fog') || 'NIEBLA'}</span>
                     </button>
                     {rainEnabled && (
-                        <button onClick={() => setWeather('rain')} className={`p-3 rounded-xl flex flex-col items-center gap-2 transition-all ${weather === 'rain' ? 'bg-blue-600 text-white shadow-lg' : 'hover:bg-gray-700 text-gray-400'}`}>
-                            <CloudRain size={20} className="md:w-6 md:h-6" /> <span className="text-[10px] md:text-xs font-bold">LLUVIA</span>
+                        <button
+                            onMouseEnter={() => soundManager.playHover()}
+                            onClick={() => { soundManager.playClick(); setWeather('rain'); }}
+                            className={`p-3 rounded-xl flex flex-col items-center gap-2 transition-all ${weather === 'rain' ? 'bg-blue-600 text-white shadow-lg' : 'hover:bg-gray-700 text-gray-400'} `}
+                        >
+                            <CloudRain size={20} className="md:w-6 md:h-6" /> <span className="text-[10px] md:text-xs font-bold">{t('weather.rain') || 'LLUVIA'}</span>
                         </button>
                     )}
                 </div>
@@ -467,7 +509,12 @@ export const DifficultyStep: React.FC<DifficultyStepProps> = ({
                 <p className="text-gray-400 font-bold mb-4 uppercase text-xs tracking-widest">AYUDAS</p>
                 <div className="grid grid-cols-3 gap-4">
                     {['novice', 'amateur', 'pro'].map(lv => (
-                        <button key={lv} onClick={() => setDifficulty(lv)} className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${difficulty === lv ? 'border-blue-500 bg-blue-500/10' : 'border-gray-700 bg-gray-800/50'}`}>
+                        <button
+                            key={lv}
+                            onMouseEnter={() => soundManager.playHover()}
+                            onClick={() => { soundManager.playClick(); setDifficulty(lv as any); }}
+                            className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${difficulty === lv ? 'border-blue-500 bg-blue-500/10' : 'border-gray-700 bg-gray-800/50'} `}
+                        >
                             {lv === 'novice' ? <ShieldCheck className="md:w-8 md:h-8" /> : lv === 'amateur' ? <Activity className="md:w-8 md:h-8" /> : <Trophy className="md:w-8 md:h-8" />}
                             <span className="font-black text-xs md:text-sm uppercase">{lv}</span>
                         </button>
@@ -548,7 +595,7 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
         mutationFn: async () => {
             const res = await axios.post(`${API_URL}/lobby/create`, {
                 station_id: stationId,
-                name: `GRUPO DE ${driver?.name?.toUpperCase() || 'INVITADO'}`,
+                name: `GRUPO DE ${driver?.name?.toUpperCase() || 'INVITADO'} `,
                 track: selection?.track,
                 car: selection?.car,
                 duration: duration,
@@ -654,10 +701,12 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
                     <button
                         key={p}
                         onClick={() => {
+                            soundManager.playClick();
                             setPaymentProvider(p);
                             setPaymentInfo(null);
                             setPaymentError(null);
                         }}
+                        onMouseEnter={() => soundManager.playHover()}
                         className={`flex-1 px-4 py-3 md:px-6 md:py-4 rounded-xl font-black border-2 transition-all text-sm md:text-base ${paymentProvider === p ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'}`}
                     >
                         {p === 'stripe_qr' ? 'Stripe QR' : 'Bizum'}
@@ -684,8 +733,20 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
             </div>
 
             <div className="w-full mt-6 flex gap-4">
-                <button onClick={() => setStep(4)} className="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-bold py-4 rounded-xl border border-gray-700 touch-manipulation">{t('common.back')}</button>
-                <button onClick={() => createCheckout.mutate(paymentProvider)} className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl touch-manipulation">{t('kiosk.retryPayment')}</button>
+                <button
+                    onMouseEnter={() => soundManager.playHover()}
+                    onClick={() => { soundManager.playClick(); setStep(4); }}
+                    className="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-bold py-4 rounded-xl border border-gray-700 touch-manipulation"
+                >
+                    {t('common.back')}
+                </button>
+                <button
+                    onMouseEnter={() => soundManager.playHover()}
+                    onClick={() => { soundManager.playClick(); createCheckout.mutate(paymentProvider); }}
+                    className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl touch-manipulation"
+                >
+                    {t('kiosk.retryPayment')}
+                </button>
             </div>
         </div>
     );
@@ -812,17 +873,26 @@ export const WaitingRoom: React.FC<WaitingRoomProps> = ({ selection, stationId, 
 
             <div className="w-full flex gap-4">
                 {!isReady ? (
-                    <button onClick={() => ReadyMutation.mutate(true)} className="flex-1 bg-green-600 hover:bg-green-500 text-white font-black py-6 rounded-2xl text-2xl shadow-xl shadow-green-600/20 transition-all flex items-center justify-center gap-3">
+                    <button
+                        onMouseEnter={() => soundManager.playHover()}
+                        onClick={() => { soundManager.playClick(); ReadyMutation.mutate(true); }}
+                        className="flex-1 bg-green-600 hover:bg-green-500 text-white font-black py-6 rounded-2xl text-2xl shadow-xl shadow-green-600/20 transition-all flex items-center justify-center gap-3"
+                    >
                         ESTOY LISTO <ShieldCheck size={32} />
                     </button>
                 ) : (
-                    <button onClick={() => ReadyMutation.mutate(false)} className="flex-1 bg-orange-600 hover:bg-orange-500 text-white font-black py-6 rounded-2xl text-2xl shadow-xl shadow-orange-600/20 transition-all flex items-center justify-center gap-3">
+                    <button
+                        onMouseEnter={() => soundManager.playHover()}
+                        onClick={() => { soundManager.playClick(); ReadyMutation.mutate(false); }}
+                        className="flex-1 bg-orange-600 hover:bg-orange-500 text-white font-black py-6 rounded-2xl text-2xl shadow-xl shadow-orange-600/20 transition-all flex items-center justify-center gap-3"
+                    >
                         CANCELAR LISTO <Clock size={32} />
                     </button>
                 )}
                 {isHost && (
                     <button
-                        onClick={() => StartRaceMutation.mutate()}
+                        onMouseEnter={() => soundManager.playHover()}
+                        onClick={() => { soundManager.playClick(); StartRaceMutation.mutate(); }}
                         disabled={(lobbyData?.players?.length || 0) < 2}
                         className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-black py-6 rounded-2xl text-2xl shadow-xl shadow-blue-600/20 transition-all flex items-center justify-center gap-3"
                     >
@@ -830,7 +900,7 @@ export const WaitingRoom: React.FC<WaitingRoomProps> = ({ selection, stationId, 
                     </button>
                 )}
             </div>
-        </div>
+        </div >
     );
 };
 
@@ -864,6 +934,7 @@ export const DriverStep: React.FC<DriverStepProps> = ({
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        soundManager.playConfirm();
         onLogin({ id: 1, name: (driverName || "Guest Driver").trim() });
     };
 
@@ -895,7 +966,11 @@ export const DriverStep: React.FC<DriverStepProps> = ({
                                 onChange={e => setDriverEmail(e.target.value)}
                             />
                         </div>
-                        <button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-black text-2xl py-6 rounded-2xl shadow-xl shadow-blue-600/20 active:scale-95 hover:scale-[1.02] transition-all flex items-center justify-center gap-3">
+                        <button
+                            type="submit"
+                            onMouseEnter={() => soundManager.playHover()}
+                            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-black text-2xl py-6 rounded-2xl shadow-xl shadow-blue-600/20 active:scale-95 hover:scale-[1.02] transition-all flex items-center justify-center gap-3"
+                        >
                             {t('kiosk.start')} <ChevronRight size={32} />
                         </button>
                     </form>
@@ -968,7 +1043,7 @@ export const CoachSection: React.FC<CoachSectionProps> = ({ lapId }) => {
                         </div>
                         <div>
                             <h5 className="font-bold text-white uppercase text-xs mb-1 tracking-wider">
-                                {tip.type === 'braking' ? 'Punto de frenada' : tip.type === 'apex' ? 'Velocidad en el vértice' : 'Tracción / Salida'}
+                                {tip.type === 'braking' ? 'Punto de frenada' : tip.type === 'apex' ? 'Velocidad en el vértice' : 'Tracción/Salida'}
                             </h5>
                             <p className="text-sm text-gray-300 leading-tight">{tip.message}</p>
                         </div>
@@ -1039,7 +1114,7 @@ export const RaceMode: React.FC<RaceModeProps> = ({
                     {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
                 </div>
                 <p className={`text-sm font-black uppercase tracking-[0.3em] mt-2 ${isLowTime ? 'text-white' : 'text-gray-500'}`}>
-                    {isLowTime ? '¡ÚLTIMO MINUTO - FINALIZANDO SESIÓN!' : 'TIEMPO RESTANTE'}
+                    {isLowTime ? '¡ÚLTIMO MINUTO-FINALIZANDO SESIÓN!' : 'TIEMPO RESTANTE'}
                 </p>
             </div>
 

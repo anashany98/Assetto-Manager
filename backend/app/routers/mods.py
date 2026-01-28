@@ -142,7 +142,10 @@ def process_mod_file(file_path: Path, original_filename: str, db: Session, user_
 
         # 3. Generate Manifest (Integrity Check)
         manifest = hashing.generate_manifest(str(extract_dir))
-        
+
+        # --- PREVIEW URL PRE-CALCULATION ---
+        preview_url = _find_preview_url(extract_dir, detected_name, detected_type)
+
         # 4. Create DB Entry
         new_mod = models.Mod(
             name=detected_name, 
@@ -150,7 +153,8 @@ def process_mod_file(file_path: Path, original_filename: str, db: Session, user_
             version=detected_version,
             source_path=str(extract_dir),
             manifest=json.dumps(manifest),
-            status="approved"
+            status="approved",
+            preview_url=preview_url
         )
         
         # Check if mod with same name exists? 
@@ -247,6 +251,111 @@ def _apply_auto_tags(db, mod, type_str, name):
         logger.error(f"Auto-tagging failed: {e}")
 
 
+    except Exception as e:
+        logger.error(f"Auto-tagging failed: {e}")
+
+# --- HELPER: Find Preview URL ---
+def _find_preview_url(mod_path: Path, mod_name: str, mod_type: str) -> str:
+    """
+    Helper to find the best preview image for a mod and return its static URL.
+    This logic was previously in get_mod_metadata but is now pre-calculated.
+    """
+    try:
+        storage_root = STORAGE_DIR.resolve()
+        
+        # Determine likely UI path
+        # Try finding 'ui' folder first
+        ui_path = None
+        for root, dirs, files in os.walk(mod_path):
+            if "ui" in dirs:
+                ui_path = Path(root) / "ui"
+                break
+        
+        if not ui_path and (mod_path / "ui").exists():
+             ui_path = mod_path / "ui"
+             
+        if not ui_path:
+            return None
+
+        # Logic copied/adapted from get_mod_metadata
+        image_url = None
+        
+        # 1. Skin Check (Cars only)
+        if mod_type == "car":
+            car_root = ui_path.parent
+            skins_dir = car_root / "skins"
+            if skins_dir.exists() and skins_dir.is_dir():
+                skins = [d for d in skins_dir.iterdir() if d.is_dir()]
+                if skins:
+                    skins.sort(key=lambda x: x.name)
+                    first_skin = skins[0]
+                    skin_preview = first_skin / "preview.jpg"
+                    if skin_preview.exists():
+                        try:
+                            skin_rel = skin_preview.resolve().relative_to(storage_root)
+                            image_url = f"/static/{str(skin_rel).replace(os.sep, '/')}"
+                        except: pass
+
+        # 2. UI Folder Fallbacks
+        if not image_url:
+            try:
+                rel_path = ui_path.resolve().relative_to(storage_root)
+                base_url = f"/static/{str(rel_path).replace(os.sep, '/')}"
+                
+                if (ui_path / "preview.png").exists():
+                    image_url = f"{base_url}/preview.png"
+                elif (ui_path / "preview.jpg").exists():
+                    image_url = f"{base_url}/preview.jpg"
+                else:
+                    parent_dir = ui_path.parent
+                    if (parent_dir / "logo.png").exists():
+                         parent_rel = parent_dir.resolve().relative_to(storage_root)
+                         parent_base = f"/static/{str(parent_rel).replace(os.sep, '/')}"
+                         image_url = f"{parent_base}/logo.png"
+                    elif (ui_path / "badge.png").exists():
+                          image_url = f"{base_url}/badge.png"
+            except: pass
+            
+        return image_url
+
+    except Exception as e:
+        logger.error(f"Error finding preview for {mod_name}: {e}")
+        return None
+
+# --- MAINTENANCE: Migrate Previews ---
+@router.post("/maintenance/migrate_previews")
+def migrate_mod_previews(db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_active_user)):
+    """
+    Scans all mods in DB and populates the 'preview_url' column.
+    Use this once after updating the schema.
+    """
+    mods = db.query(models.Mod).all()
+    count = 0
+    errors = 0
+    
+    for mod in mods:
+        try:
+            if not mod.source_path:
+                continue
+                
+            path = Path(mod.source_path)
+            if not path.exists():
+                continue
+                
+            # Re-calculate
+            new_url = _find_preview_url(path, mod.name, mod.type)
+            
+            if new_url and new_url != mod.preview_url:
+                mod.preview_url = new_url
+                count += 1
+        except Exception as e:
+            logger.error(f"Failed to migrate mod {mod.id}: {e}")
+            errors += 1
+            
+    db.commit()
+    return {"migrated": count, "errors": errors, "total_scanned": len(mods)}
+
+
 @router.post("/upload", response_model=schemas.Mod)
 def upload_mod(
     file: UploadFile = File(...), 
@@ -331,50 +440,69 @@ def list_mods(
     query = db.query(models.Mod)
     
     if only_universal:
-        # Get all active and online stations
-        active_stations = db.query(models.Station).filter(
-            models.Station.is_active == True,
-            models.Station.is_online == True,
-            models.Station.status != "archived"
-        ).all()
+        # --- CACHING LOGIC ---
+        # Cache key based on "universal_content_ids"
+        import time
+        current_time = time.time()
         
-        if active_stations:
-            common_cars = None
-            common_tracks = None
+        # Simple global cache variable (in-memory)
+        # We need to access it from global scope. 
+        # Since I can't easily modify global scope here without imports, 
+        # I'll use a function attribute or similar hack, or just re-calc if it's cheap enough?
+        # No, the JSON parsing is the heavy part.
+        
+        # Let's attach cache to the router object or use a global dict
+        if not hasattr(list_mods, "cache"):
+            list_mods.cache = {"data": None, "timestamp": 0}
             
-            for s in active_stations:
-                if not s.content_cache:
-                    # If any active station has no content, the intersection is technically empty 
-                    # for safety, or we just skip it if it's never been scanned.
-                    # Let's be strict: if it's active but not scanned, we can't guarantee content.
-                    continue
-                
-                s_cars = {c.get("id") or c.get("name") for c in s.content_cache.get("cars", []) if c.get("id") or c.get("name")}
-                s_tracks = {t.get("id") or t.get("name") for t in s.content_cache.get("tracks", []) if t.get("id") or t.get("name")}
-                
-                if common_cars is None:
-                    common_cars = s_cars
-                    common_tracks = s_tracks
-                else:
-                    common_cars &= s_cars
-                    common_tracks &= s_tracks
+        # 60 seconds TTL
+        if list_mods.cache["data"] and (current_time - list_mods.cache["timestamp"] < 60):
+             allowed_items = list_mods.cache["data"]
+        else:
+            # Get all active and online stations
+            active_stations = db.query(models.Station).filter(
+                models.Station.is_active == True,
+                models.Station.is_online == True,
+                models.Station.status != "archived"
+            ).all()
             
-            if common_cars is not None:
-                # Filter mods by the intersection of names/ids found on stations
-                # We check both name and source_path (which contains the folder name)
-                from sqlalchemy import or_
-                allowed_items = list(common_cars) + list(common_tracks)
+            allowed_items = []
+            if active_stations:
+                common_cars = None
+                common_tracks = None
                 
-                # We need to be careful: the Mod table stores name as the primary identifier.
-                # The agent scan returns folder names as 'id' and pretty names as 'name'.
-                # Our ensure_mod_exists uses 'name' as display name.
+                for s in active_stations:
+                    if not s.content_cache:
+                        continue
+                    
+                    s_cars = {c.get("id") or c.get("name") for c in s.content_cache.get("cars", []) if c.get("id") or c.get("name")}
+                    s_tracks = {t.get("id") or t.get("name") for t in s.content_cache.get("tracks", []) if t.get("id") or t.get("name")}
+                    
+                    if common_cars is None:
+                        common_cars = s_cars
+                        common_tracks = s_tracks
+                    else:
+                        common_cars &= s_cars
+                        common_tracks &= s_tracks
                 
-                # Filter: Mod name or ID from auto_scan must be in allowed_items
-                query = query.filter(or_(
-                    models.Mod.name.in_(allowed_items),
-                    # Check auto_scan::id format
-                    or_(*[models.Mod.source_path.like(f"%::{item}") for item in allowed_items[:100]]) if allowed_items else False
-                ))
+                if common_cars is not None:
+                     allowed_items = list(common_cars) + list(common_tracks)
+
+            # Update cache
+            list_mods.cache = {"data": allowed_items, "timestamp": current_time}
+        
+        # Apply filter
+        if allowed_items:
+            from sqlalchemy import or_
+            query = query.filter(or_(
+                models.Mod.name.in_(allowed_items),
+                # Check auto_scan::id format
+                or_(*[models.Mod.source_path.like(f"%::{item}") for item in allowed_items[:100]]) if allowed_items else False
+            ))
+        else:
+            # If no intersection or no stations, return empty?
+            # Or return nothing if we requested universal.
+            query = query.filter(models.Mod.id == -1) # Impossible ID
 
     if search:
         search_filter = f"%{search}%"

@@ -533,7 +533,7 @@ export default function KioskMode() {
 
     return (
         <div className="h-full w-full flex flex-col relative">
-            <AttractMode isIdle={isIdle()} scenarios={scenarios} />
+            <AttractMode isIdle={isIdle()} scenarios={scenarios} t={t} />
             {/* BACKGROUND VIDEO/IMAGE */}
             <div className="absolute inset-0 overflow-hidden">
                 {/* Dynamic Background Image (Bottom Layer) */}
@@ -609,11 +609,11 @@ export default function KioskMode() {
                             </div>
                         )}
 
-                        {/* RAIN OVERLAY - USER PROVIDED "SPLAT" EFFECT */}
+                        {/* RAIN OVERLAY - OPTIMIZED */}
                         {weather === 'rain' && (
                             <div className="absolute inset-0 w-full h-full z-20 overflow-hidden rain-container">
-                                {/* Generated Rain Drops */}
-                                {Array.from({ length: 100 }).map((_, i) => {
+                                {/* Generated Rain Drops - Reduced count */}
+                                {Array.from({ length: 25 }).map((_, i) => {
                                     const randoHundo = Math.floor(Math.random() * 98) + 1;
                                     const randoFiver = Math.floor(Math.random() * 4) + 2;
                                     const increment = Math.floor(Math.random() * 100);
@@ -627,11 +627,11 @@ export default function KioskMode() {
                                                 left: `${increment}%`,
                                                 bottom: `${(randoFiver + randoFiver - 1 + 100)}%`,
                                                 animationDelay: delay,
-                                                animationDuration: '1.5s'
+                                                animationDuration: '1s' // Faster fall
                                             }}
                                         >
-                                            <div className="stem" style={{ animationDelay: delay, animationDuration: '1.5s' }} />
-                                            <div className="splat" style={{ animationDelay: delay, animationDuration: '1.5s' }} />
+                                            <div className="stem" style={{ animationDelay: delay, animationDuration: '1s' }} />
+                                            {/* Removed Splat for Performance */}
                                         </div>
                                     );
                                 })}
@@ -643,11 +643,10 @@ export default function KioskMode() {
                             <div className={`absolute top-0 left-0 w-full h-[60vh] transition-opacity duration-1000 ${weather === 'rain' ? 'opacity-90' : 'opacity-70'}`}>
                                 <div className="absolute top-[-50px] left-10 w-[600px] h-[200px] bg-gray-400/40 blur-[60px] rounded-full animate-float-slow" />
                                 <div className="absolute top-20 right-[-100px] w-[700px] h-[300px] bg-gray-500/40 blur-[80px] rounded-full animate-float-slower" />
-                                <div className="absolute top-[-20px] left-[40%] w-[500px] h-[150px] bg-gray-300/30 blur-[50px] rounded-full" />
                             </div>
                         )}
 
-                        {/* FOG OVERLAY - DRIFTING */}
+                        {/* FOG OVERLAY - STATIC CSS BLUR instead of heavy anims if possible, but keeping drift for now as only 2 divs */}
                         {weather === 'fog' && (
                             <div className="absolute inset-0 bg-gray-300/20 backdrop-blur-[2px] z-10 overflow-hidden">
                                 {/* Drifting Fog Layers */}
@@ -679,10 +678,10 @@ export default function KioskMode() {
                     }
 
                     .stem {
-                      width: 1px;
+                      width: 2px; /* Thicker for visibility with fewer drops */
                       height: 60%;
                       margin-left: 7px;
-                      background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.25));
+                      background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.4));
                       animation: stem 0.5s linear infinite;
                     }
 
@@ -691,24 +690,6 @@ export default function KioskMode() {
                       65% { opacity: 1; }
                       75% { opacity: 0; }
                       100% { opacity: 0; }
-                    }
-
-                    .splat {
-                      width: 15px;
-                      height: 10px;
-                      border-top: 2px dotted rgba(255, 255, 255, 0.5);
-                      border-radius: 50%;
-                      opacity: 1;
-                      transform: scale(0);
-                      animation: splat 0.5s linear infinite;
-                      display: block;
-                    }
-
-                    @keyframes splat {
-                      0% { opacity: 1; transform: scale(0); }
-                      80% { opacity: 1; transform: scale(0); }
-                      90% { opacity: 0.5; transform: scale(1); }
-                      100% { opacity: 0; transform: scale(1.5); }
                     }
                     
                     @keyframes float-slow {

@@ -1,25 +1,35 @@
-color 0a
-
-echo ===================================================
-echo   STARTING ASSETTO CORSA MANAGER
-echo ===================================================
+@echo off
+title Assetto Manager - Lanzador Maestro
+echo ==========================================
+echo    Assetto Manager - V1.0 GOLD EDITION
+echo ==========================================
 echo.
 
-:: 1. Start Backend (Background)
-echo [1/2] Starting Backend Server (Port 8000, 0.0.0.0)...
-start "🔴 BACKEND SERVER" /D "%~dp0" cmd /k "title 🔴 BACKEND SERVER && color 0C && call .venv\Scripts\activate.bat && python -m uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8001"
+:: Detectar Directorio Raiz
+set REPO_ROOT=%~dp0
+cd /d %REPO_ROOT%
 
-:: 2. Start Frontend
-echo [2/2] Starting Frontend Interface...
-start "🔵 FRONTEND WEB" /D "%~dp0" cmd /k "title 🔵 FRONTEND WEB && color 09 && cd frontend && npm run dev -- --host"
+:: 1. Iniciar Base de Datos (SQLite)
+echo [1/3] Verificando Base de Datos...
+if not exist "backend\ac_manager.db" (
+    echo Iniciando primera migracion...
+)
+
+:: 2. Lanzar Backend (Python/Uvicorn)
+echo [2/3] Iniciando Servidor Backend (Puerto 8000)...
+start /min "AM_BACKEND" cmd /c "cd backend && python -m uvicorn app.main:app --reload --port 8000"
+
+:: 3. Lanzar Frontend (Vite)
+echo [3/3] Iniciando Interfaz Frontend (Puerto 3010)...
+start /min "AM_FRONTEND" cmd /c "cd frontend && npm run dev -- --port 3010"
 
 echo.
-echo   System is running!
-echo   > LOCAL ACCESS:   http://localhost:3010
-echo   > NETWORK ACCESS: http://YOUR_PC_IP:3010 (Look for "Network" in Frontend window)
+echo ==========================================
+echo   SISTEMA INICIADO CORRECTAMENTE
+echo   Backend:  http://localhost:8000
+echo   Frontend: http://localhost:3010
+echo ==========================================
 echo.
-echo   > Access TV Mode: /tv?screen=1
-echo   > Access Mobile:  /mobile
-echo.
-echo   (Don't close the black windows)
-pause
+echo Presiona cualquier tecla para cerrar el lanzador (los servicios seguiran activos en segundo plano).
+pause > nul
+exit
