@@ -818,16 +818,34 @@ export const WaitingRoom: React.FC<WaitingRoomProps> = ({ selection, stationId, 
     const [timeLeft, setTimeLeft] = useState(180);
 
     useEffect(() => {
+        // Robust Timer Logic: Calculate remaining time relative to server creation time
+        // This ensures all clients are synced even if they join late or refresh.
         if (!lobbyData?.created_at) return;
-        const createdTime = new Date(lobbyData.created_at).getTime();
-        const elapsed = Math.floor((new Date().getTime() - createdTime) / 1000);
-        const remaining = Math.max(0, 180 - elapsed);
-        setTimeLeft(remaining);
 
-        if (remaining === 0 && isHost && lobbyData.status === 'waiting' && !StartRaceMutation.isPending) {
-            StartRaceMutation.mutate();
-        }
-    }, [lobbyData?.created_at, lobbyData?.status, isHost]);
+        const updateTimer = () => {
+            const createdTime = new Date(lobbyData.created_at).getTime();
+            const now = new Date().getTime();
+            // Standard 180s (3min) wait time for lobby start
+            const WAIT_TIME_SEC = 180;
+
+            const elapsedSec = Math.floor((now - createdTime) / 1000);
+            const remaining = Math.max(0, WAIT_TIME_SEC - elapsedSec);
+
+            setTimeLeft(remaining);
+
+            if (remaining === 0 && isHost && lobbyData.status === 'waiting' && !StartRaceMutation.isPending) {
+                // Auto-start when timer hits zero
+                StartRaceMutation.mutate();
+            }
+        };
+
+        // Update immediately
+        updateTimer();
+
+        // Interval for display update
+        const timer = setInterval(updateTimer, 1000);
+        return () => clearInterval(timer);
+    }, [lobbyData?.created_at, lobbyData?.status, isHost, lobbyData?.duration_minutes]);
 
     const formatTime = (seconds: number) => {
         const m = Math.floor(seconds / 60);
@@ -839,7 +857,7 @@ export const WaitingRoom: React.FC<WaitingRoomProps> = ({ selection, stationId, 
         <div className="h-full flex flex-col items-center p-8 animate-in zoom-in duration-300 max-w-6xl mx-auto w-full text-left">
             <div className="w-full flex justify-between items-end mb-8 border-b border-gray-800 pb-6">
                 <div>
-                    <span className="bg-purple-600 text-white px-4 py-1 rounded-full font-bold text-sm tracking-widest mb-4 inline-block animate-pulse">SALA DE ESPERA</span>
+                    <span className="bg-purple-600 text-white px-4 py-1 rounded-full font-bold text-sm tracking-widest mb-4 inline-block shadow-lg shadow-purple-900/50">SALA DE ESPERA</span>
                     <h2 className="text-5xl font-black text-white">{lobbyData?.name || 'Cargando...'}</h2>
                     <p className="text-gray-400 mt-2 font-mono text-xl">{lobbyData?.track} | {lobbyData?.car}</p>
                 </div>

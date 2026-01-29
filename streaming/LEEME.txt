@@ -1,0 +1,36 @@
+MODO ESPECTADOR - GUIA DE STREAMING LOCAL
+===========================================
+
+Este sistema permite transmitir la señal de video de los simuladores al frontend en tiempo real (baja latencia) usando una red local.
+
+PASO 1: INICIAR EL SERVIDOR
+---------------------------
+1. Ejecuta el archivo "start_server.bat" en esta carpeta.
+2. Esto instalará las dependencias necesarias y levantará el servidor.
+3. El servidor correrá en segundo plano recibiendo señales RTMP y convirtiéndolas a FLV/HTTP.
+
+PASO 2: CONFIGURAR OBS EN CADA SIMULADOR
+----------------------------------------
+1. Abre OBS Studio en el PC del simulador.
+2. Ve a Ajustes -> Emisión.
+3. Servicio: Personalizado
+4. Servidor: rtmp://<IP_DEL_SERVIDOR_DONDE_CORRE_ESTE_SCRIPT>/live
+   (Ejemplo: rtmp://192.168.1.50/live)
+5. Clave de retransmisión: station1 (o station2, station3, etc. según el número de puesto).
+   IMPORTANTE: Usa "station" seguido del ID exacto que tiene en el Assetto Manager.
+
+PASO 3: CONFIGURAR EL ASSETTO MANAGER
+-------------------------------------
+1. Entra al panel de administración -> Simuladores.
+2. Edita cada puesto.
+3. En el campo "URL de Stream", pon la siguiente dirección:
+   http://<IP_DEL_SERVIDOR>:8888/live/stationX.flv
+   
+   (Sustituye <IP_DEL_SERVIDOR> por la IP del PC donde corre start_server.bat)
+   (Sustituye X por el número de puesto, ej: station1.flv, station2.flv)
+
+PASO 4: VERIFICAR
+-----------------
+1. Inicia transmisión en OBS.
+2. Abre la página de Espectador (/tv/spectator).
+3. Selecciona el puesto. Deberías ver el video con muy baja latencia (~1-2 segundos).

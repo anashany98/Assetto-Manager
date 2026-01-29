@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import models
+from .auth import get_current_active_user
 import json
 
 router = APIRouter(
@@ -182,7 +183,7 @@ def get_bracket(event_id: int, db: Session = Depends(get_db)):
     
     return bracket
 
-@router.post("/{event_id}/generate")
+@router.post("/{event_id}/generate", dependencies=[Depends(get_current_active_user)])
 async def generate_bracket_endpoint(event_id: int, participants: list[str], db: Session = Depends(get_db)):
     event = db.query(models.Event).filter(models.Event.id == event_id).first()
     if not event:
@@ -200,7 +201,7 @@ async def generate_bracket_endpoint(event_id: int, participants: list[str], db: 
     
     return bracket
 
-@router.post("/{event_id}/match/{match_id}/update")
+@router.post("/{event_id}/match/{match_id}/update", dependencies=[Depends(get_current_active_user)])
 async def update_match(event_id: int, match_id: int, score1: int, score2: int, winner: str, db: Session = Depends(get_db)):
     event = db.query(models.Event).filter(models.Event.id == event_id).first()
     if not event:

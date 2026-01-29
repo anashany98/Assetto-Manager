@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
+// useSearchParams removed
+
 import { useIdleTimer } from 'react-idle-timer';
 import {
     ChevronLeft,
@@ -14,15 +15,21 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import { API_URL, PUBLIC_API_TOKEN } from '../config';
-import { getCars, getTracks, getStationContent } from '../api/content';
+import { getCars, getTracks } from '../api/content';
 import { getScenarios } from '../api/scenarios';
 import type { Scenario } from '../api/scenarios';
 import { type PaymentProvider, type PaymentStatus } from '../api/payments';
-import { startSession } from '../api/sessions';
+// startSession removed
+
 import { calculatePrice, getPricingConfig } from '../utils/pricing';
 import { useLanguage } from '../contexts/useLanguage';
-import { cn, resolveAssetUrl } from '../lib/utils';
-import { LiveSessionMonitor } from '../components/LiveSessionMonitor';
+import { resolveAssetUrl } from '../lib/utils';
+// LiveSessionMonitor import removed
+
+// RaceMode is now used directly from KioskSteps, LiveSessionMonitor import removed if unused,
+// but let's keep it if we want to switch back or use it inside RaceMode?
+// No, the instruction is to REPLACE usage. I will remove the import.
+
 import { AnimatePresence, motion } from 'framer-motion';
 import {
     AttractMode, ScenarioStep, DriverStep, DifficultyStep,
@@ -37,7 +44,8 @@ const clientTokenHeaders: Record<string, string> = PUBLIC_API_TOKEN ? { 'X-Clien
 import { ContentStep } from './KioskContentStep';
 
 export default function KioskMode() {
-    const [searchParams] = useSearchParams();
+    // searchParams removed
+
     const [stationId, setStationId] = useState<number>(0);
     const [pairingCode, setPairingCode] = useState('');
     const [pairingError, setPairingError] = useState<string | null>(null);
@@ -55,6 +63,25 @@ export default function KioskMode() {
     const [selectedScenario, setSelectedScenario] = useState<Scenario | null>(null);
     const [isLaunched, setIsLaunched] = useState(false);
     const [remainingSeconds, setRemainingSeconds] = useState<number>(duration * 60);
+
+    // COUNTDOWN TIMER LOGIC
+    useEffect(() => {
+        let interval: NodeJS.Timeout;
+        if (isLaunched && remainingSeconds > 0) {
+            interval = setInterval(() => {
+                setRemainingSeconds(prev => Math.max(0, prev - 1));
+            }, 1000);
+        }
+        return () => clearInterval(interval);
+    }, [isLaunched, remainingSeconds]);
+
+    // Update remaining seconds when duration changes (only if not launched)
+    useEffect(() => {
+        if (!isLaunched) {
+            setRemainingSeconds(duration * 60);
+        }
+    }, [duration, isLaunched]);
+
     const { language, setLanguage, t } = useLanguage();
     const [paymentProvider, setPaymentProvider] = useState<PaymentProvider>('stripe_qr');
     const [paymentInfo, setPaymentInfo] = useState<PaymentStatus | null>(null);
@@ -62,7 +89,8 @@ export default function KioskMode() {
     const paymentHandledRef = useRef(false);
     const noPaymentHandledRef = useRef(false);
     const [launchingNoPayment, setLaunchingNoPayment] = useState(false);
-    const [lastHardwareSnapshot, setLastHardwareSnapshot] = useState<any>(null);
+    // lastHardwareSnapshot removed
+
 
     // Queries
     const { data: cars = [] } = useQuery({
@@ -157,14 +185,8 @@ export default function KioskMode() {
         }
     }, []);
 
-    const handleUnpair = () => {
-        if (confirm("¿Desvincular Kiosko de esta estación?")) {
-            setStationId(0);
-            localStorage.removeItem('kiosk_station_id');
-            localStorage.removeItem('kiosk_code');
-            setPairingCode('');
-        }
-    };
+    // handleUnpair removed (logic is inline)
+
 
     const isServerUnavailable = isHardwareError;
     const isStationInactive = false; // TODO: Check via settings or status
@@ -210,7 +232,7 @@ export default function KioskMode() {
     });
 
     const launchWithoutPayment = async () => {
-        console.log("Launching Session. Selection:", selection);
+        // Session launch initiated
         setLaunchingNoPayment(true);
 
         // HANDLE LOBBY FLOW (Torneo or Joined Lobby)
@@ -457,11 +479,9 @@ export default function KioskMode() {
                     <p className="text-gray-400 text-lg">
                         No se puede contactar con el servidor. Revisa la red o espera unos segundos.
                     </p>
-                    {lastHardwareSnapshot?.last_seen && (
-                        <p className="text-gray-500 text-sm mt-2">
-                            Ultimo estado: {new Date(lastHardwareSnapshot.last_seen).toLocaleString('es-ES')}
-                        </p>
-                    )}
+                    <p className="text-gray-500 text-sm mt-2">
+                        Servidor no disponible
+                    </p>
                     <div className="mt-6 flex flex-col items-center gap-3">
                         <button
                             onClick={() => refetchHardware()}
@@ -516,7 +536,8 @@ export default function KioskMode() {
 
 
     // If launched, show Live Monitor instead of steps
-    if (isLaunched && settings) {
+    // If launched, show Race Mode (User View) instead of Live Monitor (Admin View)
+    if (isLaunched) {
         return (
             <AnimatePresence>
                 <motion.div
@@ -525,7 +546,21 @@ export default function KioskMode() {
                     exit={{ opacity: 0 }}
                     className="h-full w-full"
                 >
-                    <LiveSessionMonitor stationId={stationId} driverName={driverName} />
+                    <RaceMode
+                        remainingSeconds={remainingSeconds}
+                        selection={selection}
+                        driver={driver}
+                        setIsLaunched={setIsLaunched}
+                        setStep={setStep}
+                        setDriver={setDriver}
+                        setDriverName={setDriverName}
+                        setDriverEmail={setDriverEmail}
+                        noPaymentHandledRef={noPaymentHandledRef}
+                        paymentHandledRef={paymentHandledRef}
+                        stationId={stationId}
+                        clientTokenHeaders={clientTokenHeaders}
+                        setSelection={setSelection}
+                    />
                 </motion.div>
             </AnimatePresence>
         );

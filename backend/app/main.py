@@ -1,8 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from .database import engine, Base, ensure_station_schema
-from .routers import stations, mods, telemetry, websockets, settings, profiles, events, config_manager, championships, integrations, tournament, logs, ads, auth, backup, exports, loyalty, bookings, analytics, push, elimination, elo, hardware, control, drivers, payments, tables, tracks
+from .database import engine, Base, ensure_station_schema, ensure_table_schema
+from .routers import stations, mods, websockets, settings, profiles, events, config_manager, championships, integrations, tournament, logs, ads, auth, backup, exports, loyalty, bookings, analytics, push, elimination, elo, hardware, control, drivers, payments, tables, tracks, deploy_sync
+from .routers.telemetry import router as telemetry_router  # Modular telemetry package
 
 # ...
 
@@ -13,6 +14,7 @@ from .services.scheduler import start_scheduler, stop_scheduler
 # Create Tables
 Base.metadata.create_all(bind=engine)
 ensure_station_schema(engine)
+ensure_table_schema(engine)
 
 from fastapi.staticfiles import StaticFiles
 import os
@@ -120,14 +122,14 @@ STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(STORAGE_DIR)), name="static")
 
 # CORS Configuration
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5174,http://localhost:5175,http://localhost:3010").split(",")
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=["*"], # Allow all for local dev ease
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "X-Agent-Token", "X-Setup-Token", "X-Client-Token"],
+    allow_headers=["*"],
 )
 
 # Rate Limiting
@@ -143,7 +145,7 @@ app.include_router(profiles.router)
 app.include_router(mods.router)
 app.include_router(settings.router)
 app.include_router(stations.router)
-app.include_router(telemetry.router)
+app.include_router(telemetry_router)
 app.include_router(events.router)
 app.include_router(config_manager.router)
 app.include_router(championships.router)
@@ -178,14 +180,32 @@ app.include_router(lobby.router)
 # Track Layout Parser
 app.include_router(tracks.router)
 
-# Scenarios
+# Leaderboard & CSV Export
+from .routers import leaderboard
+app.include_router(leaderboard.router)
+
+# Reservations (Online Booking)
+from .routers import reservations
+app.include_router(reservations.router)
+
+# Pilot Portal (Public Driver Stats)
+from .routers import portal
+app.include_router(portal.router)
+
 # Scenarios
 from .routers import scenarios
 app.include_router(scenarios.router)
 
+# TV Spectator Mode (OBS Control)
+from .routers import spectator
+app.include_router(spectator.router)
+
 # Leaderboard
 from .routers import leaderboard
 app.include_router(leaderboard.router)
+
+# Mod Sync Across Stations
+app.include_router(deploy_sync.router)
 
 
 # @app.get("/")

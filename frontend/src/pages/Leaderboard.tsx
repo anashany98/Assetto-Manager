@@ -7,7 +7,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import ManualEntryModal from '../components/ManualEntryModal';
 import { TelemetryChart } from '../components/TelemetryChart';
 import { EloBadge } from '../components/EloBadge';
-
+import { DEMO_LEADERBOARD } from '../data/demoData'; // New Import
 
 import { API_URL } from '../config';
 
@@ -56,9 +56,6 @@ const TrackMap = ({ track }: { track: string }) => {
     const [hasFailedOnce, setHasFailedOnce] = useState(false);
     const [isVisible, setIsVisible] = useState(true);
 
-    // Removed useEffect that syncs state, handled by remounting
-
-
     const handleError = () => {
         if (!hasFailedOnce) {
             setHasFailedOnce(true);
@@ -91,6 +88,7 @@ export default function LeaderboardPage() {
     const searchParams = new URLSearchParams(window.location.search);
     const screenId = searchParams.get('screen') || '1';
     const isTVMode = location.pathname.startsWith('/tv') || searchParams.get('tv') === 'true';
+    const isDemo = searchParams.get('demo') === 'true'; // DETECT DEMO MODE
 
     // State
     const [selectedTrack] = useState('Monza');
@@ -127,14 +125,13 @@ export default function LeaderboardPage() {
         ? combinations[rotationIndex].track_name
         : selectedTrack;
 
-    // Apply Rotation Side Effect (Set Car to null if needed? No, just use null when queried if in TV mode)
-    // Actually, forcing car to null in TV mode was part of the original logic.
-    // We can handle that in getLeaderboard args.
-
     const { data: leaderboard, isLoading, error } = useQuery<LeaderboardEntry[]>({
-        queryKey: ['leaderboard', activeTrack, isTVMode ? null : selectedCar, selectedPeriod],
-        queryFn: () => getLeaderboard(activeTrack, isTVMode ? null : selectedCar, selectedPeriod),
-        refetchInterval: 5000
+        queryKey: ['leaderboard', activeTrack, isTVMode ? null : selectedCar, selectedPeriod, isDemo],
+        queryFn: async () => {
+            if (isDemo) return DEMO_LEADERBOARD as any; // Cast for simplicity if types mismatch slightly
+            return getLeaderboard(activeTrack, isTVMode ? null : selectedCar, selectedPeriod);
+        },
+        refetchInterval: isDemo ? false : 5000 // No need to refetch static demo data
     });
 
     // TTS: Track previous top record to announce changes

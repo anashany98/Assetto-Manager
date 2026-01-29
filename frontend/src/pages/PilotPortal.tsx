@@ -1,252 +1,253 @@
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { getPilotProfile } from '../api/telemetry';
-import { Trophy, ArrowLeft, Star, TrendingUp, Clock, Share2, Download, Zap, Users, FileText } from 'lucide-react';
-import {
-    ResponsiveContainer, RadarChart, PolarGrid,
-    PolarAngleAxis, PolarRadiusAxis, Radar, LineChart,
-    CartesianGrid, XAxis, YAxis, Line, Tooltip
-} from 'recharts';
-import { format, formatDistanceToNow } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { useState, useEffect } from 'react';
+import { User, Trophy, Clock, Car, MapPin, Award, TrendingUp, Mail, ArrowLeft } from 'lucide-react';
+import api from '../api/client';
+
+interface DriverProfile {
+    driver_name: string;
+    email: string | null;
+    elo_rating: number;
+    total_wins: number;
+    total_podiums: number;
+    total_races: number;
+    membership_tier: string;
+    loyalty_points: number;
+    created_at: string;
+}
+
+interface SessionItem {
+    id: number;
+    car: string;
+    track: string;
+    best_lap: string;
+    best_lap_raw: number;
+    session_type: string;
+    date: string;
+}
+
+interface DriverStats {
+    total_sessions: number;
+    total_laps: number;
+    favorite_car: string | null;
+    favorite_track: string | null;
+    best_lap_time: string | null;
+    best_lap_track: string | null;
+}
+
+interface Badge {
+    name: string;
+    description: string;
+    icon: string;
+}
 
 export default function PilotPortal() {
-    const { driverName } = useParams<{ driverName: string }>();
-    const navigate = useNavigate();
-    const { data: profile, isLoading } = useQuery({
-        queryKey: ['pilot', driverName],
-        queryFn: () => getPilotProfile(driverName!),
-        enabled: !!driverName
-    });
+    const [identifier, setIdentifier] = useState('');
+    const [profile, setProfile] = useState<DriverProfile | null>(null);
+    const [sessions, setSessions] = useState<SessionItem[]>([]);
+    const [stats, setStats] = useState<DriverStats | null>(null);
+    const [badges, setBadges] = useState<Badge[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [searched, setSearched] = useState(false);
 
-    if (isLoading) return (
-        <div className="min-h-screen bg-black flex items-center justify-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-        </div>
-    );
+    const searchPilot = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!identifier.trim()) return;
 
-    if (!profile) return (
-        <div className="min-h-screen bg-black flex flex-col items-center justify-center p-8 text-center">
-            <div className="text-red-500 text-6xl mb-4 font-black">404</div>
-            <h1 className="text-2xl font-bold text-white mb-2">PILOTO NO ENCONTRADO</h1>
-            <p className="text-gray-500 mb-8">El perfil que buscas no existe o es privado.</p>
-            <Link to="/" className="px-6 py-3 bg-blue-600 text-white rounded-full font-bold">Volver al Inicio</Link>
-        </div>
-    );
+        setLoading(true);
+        setError('');
+        setSearched(true);
 
-    // Data for Radar Chart (Skills)
-    const radarData = [
-        { subject: 'Consistencia', A: profile.avg_consistency, fullMark: 100 },
-        { subject: 'Experiencia', A: Math.min(100, profile.total_laps / 5), fullMark: 100 },
-        { subject: 'Actividad', A: Math.min(100, profile.active_days * 10), fullMark: 100 },
-        { subject: 'Versatilidad', A: Math.min(100, profile.records.length * 20), fullMark: 100 },
-        { subject: 'Velocidad', A: profile.elo_rating > 1200 ? 90 : 70, fullMark: 100 },
-    ];
+        try {
+            const [profileRes, sessionsRes, statsRes, badgesRes] = await Promise.all([
+                api.get(`/portal/${encodeURIComponent(identifier)}/profile`),
+                api.get(`/portal/${encodeURIComponent(identifier)}/sessions`),
+                api.get(`/portal/${encodeURIComponent(identifier)}/stats`),
+                api.get(`/portal/${encodeURIComponent(identifier)}/badges`)
+            ]);
 
-    const historyData = profile.recent_sessions
-        .slice()
-        .reverse()
-        .map(s => ({
-            date: format(new Date(s.date), 'dd/MM'),
-            time: s.best_lap,
-        }));
-
-    const handleDownloadReport = (sessionId: number) => {
-        const url = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/telemetry/session/${sessionId}/pdf`;
-        window.open(url, '_blank');
-    };
-
-    const handleDownloadTelemetry = (lapId?: number) => {
-        if (!lapId) {
-            alert("No hay telemetría avanzada disponible para esta sesión.");
-            return;
+            setProfile(profileRes.data);
+            setSessions(sessionsRes.data);
+            setStats(statsRes.data);
+            setBadges(badgesRes.data);
+        } catch (err: any) {
+            setError(err.response?.data?.detail || 'Piloto no encontrado');
+            setProfile(null);
+        } finally {
+            setLoading(false);
         }
-        const url = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/telemetry/lap/${lapId}/telemetry`;
-        window.open(url, '_blank');
     };
+
+    const reset = () => {
+        setProfile(null);
+        setSessions([]);
+        setStats(null);
+        setBadges([]);
+        setSearched(false);
+        setIdentifier('');
+    };
+
+    const getTierColor = (tier: string) => {
+        switch (tier.toLowerCase()) {
+            case 'platinum': return 'text-purple-400 bg-purple-500/20';
+            case 'gold': return 'text-yellow-400 bg-yellow-500/20';
+            case 'silver': return 'text-gray-300 bg-gray-500/20';
+            default: return 'text-orange-400 bg-orange-500/20';
+        }
+    };
+
+    if (!searched) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6">
+                <div className="text-center max-w-md w-full">
+                    <div className="mb-8">
+                        <div className="w-24 h-24 bg-blue-600/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <User size={48} className="text-blue-400" />
+                        </div>
+                        <h1 className="text-4xl font-black text-white mb-2">Portal del Piloto</h1>
+                        <p className="text-gray-400">Consulta tu historial, estadísticas e insignias</p>
+                    </div>
+
+                    <form onSubmit={searchPilot} className="space-y-4">
+                        <div className="relative">
+                            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                            <input
+                                type="text"
+                                placeholder="Tu email o nombre de piloto"
+                                value={identifier}
+                                onChange={(e) => setIdentifier(e.target.value)}
+                                className="w-full pl-12 pr-4 py-4 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+                            />
+                        </div>
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors disabled:opacity-50"
+                        >
+                            {loading ? 'Buscando...' : 'Ver Mi Perfil'}
+                        </button>
+                    </form>
+
+                    {error && <p className="mt-4 text-red-400">{error}</p>}
+                </div>
+            </div>
+        );
+    }
+
+    if (!profile) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6">
+                <div className="text-center">
+                    <p className="text-red-400 text-xl mb-4">{error || 'Piloto no encontrado'}</p>
+                    <button onClick={reset} className="text-blue-400 hover:underline flex items-center gap-2 mx-auto">
+                        <ArrowLeft size={16} /> Volver a buscar
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <div className="min-h-screen bg-gray-950 text-white pb-20">
-            {/* Header Mobile Sticky */}
-            <div className="sticky top-0 z-50 bg-gray-900/80 backdrop-blur-md border-b border-gray-800 p-4 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                    <button onClick={() => navigate(-1)} className="p-2 bg-gray-800 rounded-full text-gray-400 hover:text-white transition-colors">
-                        <ArrowLeft size={20} />
-                    </button>
-                    <div>
-                        <h1 className="text-lg font-black italic uppercase truncate max-w-[150px]">{driverName}</h1>
-                        <div className="text-[10px] text-blue-400 font-bold uppercase tracking-widest">Nivel {profile.level || 1} • {profile.xp_points || 0} XP</div>
-                    </div>
-                </div>
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={() => {
-                            if (navigator.share) {
-                                navigator.share({
-                                    title: `Perfil de Piloto: ${driverName}`,
-                                    text: `Mira mis estadísticas en Assetto Manager!`,
-                                    url: window.location.href
-                                }).catch(console.error);
-                            } else {
-                                alert("Copia la URL para compartir!");
-                            }
-                        }}
-                        className="p-2 bg-blue-600 rounded-full text-white shadow-lg hover:bg-blue-500 transition-colors"
-                    >
-                        <Share2 size={20} />
-                    </button>
-                    <div className="bg-gray-800 px-3 py-1 rounded-full text-xs font-black border border-gray-700">
-                        {Math.round(profile.elo_rating)}
-                    </div>
-                </div>
-            </div>
+        <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6">
+            <div className="max-w-4xl mx-auto space-y-6">
+                {/* Back Button */}
+                <button onClick={reset} className="text-gray-400 hover:text-white flex items-center gap-2">
+                    <ArrowLeft size={16} /> Buscar otro piloto
+                </button>
 
-            {/* Level Progress Bar */}
-            <div className="h-1 bg-gray-800 w-full overflow-hidden">
-                <div
-                    className="h-full bg-gradient-to-r from-blue-600 to-purple-600 transition-all duration-1000"
-                    style={{ width: `${((profile.xp_points || 0) % 500) / 5}%` }}
-                />
-            </div>
-
-            <div className="p-4 space-y-4 max-w-lg mx-auto">
-
-                {/* Comparison Hook */}
-                <div className="bg-gradient-to-br from-indigo-600 to-blue-700 p-4 rounded-3xl shadow-xl flex items-center justify-between group">
-                    <div>
-                        <h4 className="font-black italic text-sm mb-1 uppercase">¿Eres mejor que {driverName}?</h4>
-                        <p className="text-[10px] text-blue-100 font-medium">Compara tus tiempos cara a cara</p>
-                    </div>
-                    <Link
-                        to={`/compare/${driverName}`}
-                        className="bg-white text-blue-600 p-2 rounded-full shadow-lg group-hover:scale-110 transition-transform"
-                    >
-                        <Users size={20} />
-                    </Link>
-                </div>
-
-                {/* Badges / Insignias */}
-                {profile.badges && profile.badges.length > 0 && (
-                    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                        {profile.badges.map((badge: any) => (
-                            <div key={badge.id} className="flex-shrink-0 bg-gray-900 border border-gray-800 rounded-2xl p-3 flex flex-col items-center gap-1 min-w-[80px]">
-                                <span className="text-2xl">{badge.icon}</span>
-                                <span className="text-[8px] font-black uppercase text-gray-400 text-center">{badge.label}</span>
+                {/* Profile Header */}
+                <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6">
+                    <div className="flex items-center gap-6">
+                        <div className="w-20 h-20 bg-blue-600/20 rounded-full flex items-center justify-center">
+                            <User size={40} className="text-blue-400" />
+                        </div>
+                        <div className="flex-1">
+                            <h1 className="text-3xl font-bold text-white">{profile.driver_name}</h1>
+                            <div className="flex items-center gap-4 mt-2">
+                                <span className={`px-3 py-1 rounded-full text-sm font-medium ${getTierColor(profile.membership_tier)}`}>
+                                    {profile.membership_tier.toUpperCase()}
+                                </span>
+                                <span className="text-gray-400">ELO: <span className="text-white font-bold">{profile.elo_rating}</span></span>
+                                <span className="text-gray-400">Puntos: <span className="text-yellow-400 font-bold">{profile.loyalty_points}</span></span>
                             </div>
-                        ))}
+                        </div>
+                        <div className="text-right">
+                            <div className="text-3xl font-black text-yellow-400">{profile.total_wins}</div>
+                            <div className="text-xs text-gray-400">VICTORIAS</div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Stats Grid */}
+                {stats && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 text-center">
+                            <Clock size={24} className="mx-auto text-blue-400 mb-2" />
+                            <div className="text-2xl font-bold text-white">{stats.total_sessions}</div>
+                            <div className="text-xs text-gray-400">Sesiones</div>
+                        </div>
+                        <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 text-center">
+                            <TrendingUp size={24} className="mx-auto text-green-400 mb-2" />
+                            <div className="text-2xl font-bold text-white">{stats.best_lap_time || '--'}</div>
+                            <div className="text-xs text-gray-400">Mejor Tiempo</div>
+                        </div>
+                        <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 text-center">
+                            <Car size={24} className="mx-auto text-purple-400 mb-2" />
+                            <div className="text-lg font-bold text-white truncate">{stats.favorite_car || '--'}</div>
+                            <div className="text-xs text-gray-400">Coche Favorito</div>
+                        </div>
+                        <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 text-center">
+                            <MapPin size={24} className="mx-auto text-orange-400 mb-2" />
+                            <div className="text-lg font-bold text-white truncate">{stats.favorite_track || '--'}</div>
+                            <div className="text-xs text-gray-400">Pista Favorita</div>
+                        </div>
                     </div>
                 )}
 
-                {/* Stats Grid */}
-                <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-gray-900 p-4 rounded-3xl border border-gray-800 flex flex-col items-center text-center">
-                        <Trophy className="text-yellow-500 mb-2" size={24} />
-                        <div className="text-2xl font-black">{profile.total_wins}</div>
-                        <div className="text-[10px] text-gray-500 uppercase font-bold">Victorias</div>
-                    </div>
-                    <div className="bg-gray-900 p-4 rounded-3xl border border-gray-800 flex flex-col items-center text-center">
-                        <Star className="text-blue-400 mb-2" size={24} />
-                        <div className="text-2xl font-black">{profile.total_podiums}</div>
-                        <div className="text-[10px] text-gray-500 uppercase font-bold">Podios</div>
-                    </div>
-                </div>
-
-                {/* Performance Radar */}
-                <div className="bg-gray-900 p-6 rounded-3xl border border-gray-800">
-                    <div className="flex items-center gap-2 mb-6">
-                        <TrendingUp size={18} className="text-blue-500" />
-                        <h3 className="text-sm font-black uppercase tracking-tighter">ANÁLISIS DE RENDIMIENTO</h3>
-                    </div>
-                    <div className="h-64 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
-                                <PolarGrid stroke="#374151" />
-                                <PolarAngleAxis dataKey="subject" tick={{ fill: '#9CA3AF', fontSize: 10, fontWeight: 'bold' }} />
-                                <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
-                                <Radar
-                                    name={driverName}
-                                    dataKey="A"
-                                    stroke="#3B82F6"
-                                    strokeWidth={2}
-                                    fill="#3B82F6"
-                                    fillOpacity={0.3}
-                                />
-                            </RadarChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-
-                {/* Progress Chart */}
-                <div className="bg-gray-900 p-6 rounded-3xl border border-gray-800">
-                    <div className="flex items-center gap-2 mb-6">
-                        <Clock size={18} className="text-orange-500" />
-                        <h3 className="text-sm font-black uppercase tracking-tighter">EVOLUCIÓN EN PISTA</h3>
-                    </div>
-                    <div className="h-48 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={historyData}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
-                                <XAxis dataKey="date" hide />
-                                <YAxis hide domain={['auto', 'auto']} />
-                                <Tooltip
-                                    contentStyle={{ backgroundColor: '#111827', border: 'none', borderRadius: '12px', fontSize: '10px' }}
-                                    itemStyle={{ color: '#F59E0B' }}
-                                />
-                                <Line
-                                    type="monotone"
-                                    dataKey="time"
-                                    stroke="#F59E0B"
-                                    strokeWidth={3}
-                                    dot={{ r: 4, fill: '#F59E0B' }}
-                                    activeDot={{ r: 6 }}
-                                />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-
-                {/* Recent Activity with Download */}
-                <div className="space-y-3">
-                    <h3 className="text-xs font-black text-gray-500 uppercase border-b border-gray-800 pb-2">ÚLTIMAS SESIONES</h3>
-                    {profile.recent_sessions.slice(0, 5).map(session => (
-                        <div key={session.session_id} className="bg-gray-900/50 p-4 rounded-2xl border border-gray-800 flex justify-between items-center group transition-all">
-                            <div className="flex gap-4 items-center">
-                                <div className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center text-gray-500">
-                                    <Zap size={18} className={session.best_lap < 120000 ? 'text-yellow-500' : ''} />
-                                </div>
-                                <div className="max-w-[120px]">
-                                    <div className="text-xs font-bold text-white uppercase truncate">{session.track_name}</div>
-                                    <div className="text-[10px] text-gray-500 truncate">{session.car_model}</div>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-4">
-                                <div className="text-right">
-                                    <div className="text-xs font-mono font-bold text-blue-400">
-                                        {Math.floor(session.best_lap / 60000)}:{((session.best_lap % 60000) / 1000).toFixed(3).padStart(6, '0')}
-                                    </div>
-                                    <div className="text-[10px] text-gray-600">
-                                        {formatDistanceToNow(new Date(session.date), { addSuffix: true, locale: es })}
+                {/* Badges */}
+                {badges.length > 0 && (
+                    <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6">
+                        <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                            <Award className="text-yellow-400" /> Insignias
+                        </h2>
+                        <div className="flex flex-wrap gap-3">
+                            {badges.map((b, i) => (
+                                <div key={i} className="flex items-center gap-2 px-4 py-2 bg-gray-700/50 rounded-full">
+                                    <span className="text-2xl">{b.icon}</span>
+                                    <div>
+                                        <div className="text-white font-medium text-sm">{b.name}</div>
+                                        <div className="text-gray-400 text-xs">{b.description}</div>
                                     </div>
                                 </div>
-                                <div className="flex gap-1">
-                                    <button
-                                        onClick={() => handleDownloadReport(session.session_id)}
-                                        className="p-2 bg-blue-600/20 hover:bg-blue-600 text-blue-400 hover:text-white rounded-lg transition-all border border-blue-500/20"
-                                        title="Informe PDF Profesional"
-                                    >
-                                        <FileText size={14} />
-                                    </button>
-                                    <button
-                                        onClick={() => handleDownloadTelemetry(session.best_lap_id)}
-                                        className="p-2 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded-lg transition-all"
-                                        title="Descargar Datos JSON"
-                                    >
-                                        <Download size={14} />
-                                    </button>
-                                </div>
-                            </div>
+                            ))}
                         </div>
-                    ))}
+                    </div>
+                )}
+
+                {/* Recent Sessions */}
+                <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6">
+                    <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                        <Trophy className="text-blue-400" /> Historial de Sesiones
+                    </h2>
+                    {sessions.length === 0 ? (
+                        <p className="text-gray-400 text-center py-8">Sin sesiones registradas</p>
+                    ) : (
+                        <div className="space-y-3">
+                            {sessions.slice(0, 10).map((s) => (
+                                <div key={s.id} className="flex items-center justify-between py-3 border-b border-gray-700 last:border-0">
+                                    <div className="flex items-center gap-4">
+                                        <div className="text-2xl font-mono text-white">{s.best_lap}</div>
+                                        <div>
+                                            <div className="text-white font-medium">{s.track}</div>
+                                            <div className="text-gray-400 text-sm">{s.car}</div>
+                                        </div>
+                                    </div>
+                                    <div className="text-right text-sm text-gray-400">
+                                        {new Date(s.date).toLocaleDateString('es-ES')}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

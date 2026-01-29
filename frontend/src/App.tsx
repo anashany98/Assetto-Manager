@@ -40,6 +40,11 @@ const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
 const PilotPortal = lazy(() => import('./pages/PilotPortal'));
 const ManageBooking = lazy(() => import('./pages/ManageBooking'));
 const LockScreen = lazy(() => import('./pages/LockScreen'));
+const Reservations = lazy(() => import('./pages/Reservations'));
+const LapComparison = lazy(() => import('./pages/LapComparison'));
+const TVSpectator = lazy(() => import('./pages/TVSpectator'));
+const TVSpectatorFullscreen = lazy(() => import('./pages/TVSpectatorFullscreen'));
+const TVSpectatorMulti = lazy(() => import('./pages/TVSpectatorMulti'));
 
 import { useBranding } from './hooks/useBranding';
 
@@ -76,6 +81,8 @@ function App() {
               <Route path="/bookings" element={<PrivateRoute><BookingsPage /></PrivateRoute>} />
               <Route path="/reservations" element={<PrivateRoute><TableReservations /></PrivateRoute>} />
               <Route path="/mods" element={<PrivateRoute><ModsLibrary /></PrivateRoute>} />
+              <Route path="/online-reservations" element={<PrivateRoute><Reservations /></PrivateRoute>} />
+              <Route path="/compare" element={<PrivateRoute><LapComparison /></PrivateRoute>} />
 
               {/* System */}
               <Route path="/settings" element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
@@ -93,11 +100,15 @@ function App() {
               <Route path="/reservar" element={<PublicBookingPage />} />
               <Route path="/reserva/:token" element={<ManageBooking />} />
               <Route path="/p/:driverName" element={<PilotPortal />} />
+              <Route path="/portal" element={<PilotPortal />} />
 
               {/* TV & Mobile (Handled by Layout to hide sidebar) */}
               <Route path="/tv/leaderboard" element={<Leaderboard />} />
               <Route path="/tv/bracket/:id" element={<TournamentTV />} />
               <Route path="/tv/ads" element={<TVAds />} />
+              <Route path="/tv/spectator" element={<TVSpectator />} />
+              <Route path="/tv/spectator-fullscreen" element={<TVSpectatorFullscreen />} />
+              <Route path="/tv/spectator-multi" element={<TVSpectatorMulti />} />
               <Route path="/mobile" element={<MobileLeaderboard />} />
               <Route path="/passport-scanner" element={<MobilePassport />} />
               <Route path="/tv-mode" element={<TVMode />} />

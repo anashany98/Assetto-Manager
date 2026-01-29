@@ -17,6 +17,7 @@ import SessionTimer from '../components/SessionTimer';
 import StartSessionModal from '../components/StartSessionModal';
 import MassLaunchModal from '../components/MassLaunchModal';
 import { Rocket } from 'lucide-react';
+import { FEATURES } from '../config/features';
 
 export default function Dashboard() {
     const queryClient = useQueryClient();
@@ -82,24 +83,32 @@ export default function Dashboard() {
                     <p className="text-sm text-gray-500 dark:text-gray-400">Despliegue masivo en simuladores</p>
                 </button>
 
-                <QuickAction
-                    to="/profiles"
-                    title="Perfiles Volante"
-                    desc="Aplicar FFB y config hardware"
-                    color="blue"
-                />
-                <QuickAction
-                    to="/events"
-                    title="Organizar Torneo"
-                    desc="Crear eliminatorias y brackets"
-                    color="indigo"
-                />
-                <QuickAction
-                    to="/settings"
-                    title="Configuración"
-                    desc="Ajustes globales del sistema"
-                    color="purple"
-                />
+                {FEATURES.profiles && (
+                    <QuickAction
+                        to="/profiles"
+                        title="Perfiles Volante"
+                        desc="Aplicar FFB y config hardware"
+                        color="blue"
+                    />
+                )}
+
+                {FEATURES.tournaments && (
+                    <QuickAction
+                        to="/events"
+                        title="Organizar Torneo"
+                        desc="Crear eliminatorias y brackets"
+                        color="indigo"
+                    />
+                )}
+
+                {FEATURES.settings && (
+                    <QuickAction
+                        to="/settings"
+                        title="Configuración"
+                        desc="Ajustes globales del sistema"
+                        color="purple"
+                    />
+                )}
             </div>
 
             {/* MAIN CONTENT AREA */}

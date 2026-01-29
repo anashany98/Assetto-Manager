@@ -12,7 +12,7 @@ import { API_URL } from '../config';
 import { TournamentLeaderboard } from '../components/TournamentLeaderboard';
 import { TournamentVersusWrapper } from '../components/TournamentVersusWrapper';
 import TournamentBracket from '../components/TournamentBracket';
-import { Trophy, AlertTriangle } from 'lucide-react';
+import { Trophy, AlertTriangle, Sparkles } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { TelemetryGauges } from '../components/TelemetryGauges';
 
@@ -26,11 +26,13 @@ export const TVMode = () => {
     // Get Screen ID from URL
     const searchParams = new URLSearchParams(window.location.search);
     const screenId = searchParams.get('screen') || '1';
+    const isDemo = searchParams.get('demo') === 'true';
 
     // Fetch upcoming events
     const { data: upcomingEvents, error: eventsError } = useQuery({
-        queryKey: ['events', 'upcoming'],
+        queryKey: ['events', 'upcoming', isDemo],
         queryFn: async () => {
+            if (isDemo) return [{ id: 999, name: "Evento de Exhibición", start_date: new Date(Date.now() + 1000 * 60 * 60).toISOString() }];
             const res = await getEvents('upcoming');
             return Array.isArray(res) ? res : [];
         },
@@ -44,8 +46,9 @@ export const TVMode = () => {
 
     // Fetch active event for Tournament View
     const { data: activeEvent } = useQuery({
-        queryKey: ['event_active'],
+        queryKey: ['event_active', isDemo],
         queryFn: async () => {
+            if (isDemo) return { id: 998, name: "Copa Demo 2026", description: "Torneo de Exhibición", track_name: "Monza", status: "active" };
             const res = await axios.get(`${API_URL}/events/active`);
             return res.data;
         },
@@ -94,7 +97,7 @@ export const TVMode = () => {
         }
     }
 
-    if (!hasLiveCars) {
+    if (!hasLiveCars && !isDemo) { // Keep Live Map in demo mode
         availableViews = availableViews.filter(v => v !== 'LIVE_MAP');
     }
 
@@ -126,23 +129,23 @@ export const TVMode = () => {
     const getCurrentComponent = () => {
         switch (activeView) {
             case 'LEADERBOARD':
-                // ... (existing Leaderboard case)
                 return (
                     <div className="h-full w-full overflow-hidden">
                         <Leaderboard />
+                        {isDemo && <DemoBadge />}
                     </div>
                 );
             case 'HALL_OF_FAME':
-                // ... (existing HallOfFame case)
                 return (
                     <div className="h-full w-full overflow-hidden">
                         <HallOfFame />
+                        {isDemo && <DemoBadge />}
                     </div>
                 );
             case 'LIVE_MAP':
-                // ... (existing LiveMap case)
                 return (
                     <div className="h-full w-full relative grid grid-cols-12 gap-4 p-8">
+                        {isDemo && <DemoBadge />}
                         {/* Left: Map */}
                         <div className="col-span-8 h-full">
                             <LiveMap drivers={Array.isArray(Object.values(liveCars)) ? Object.values(liveCars).map((c) => ({
@@ -194,17 +197,16 @@ export const TVMode = () => {
                     </div>
                 );
             case 'COUNTDOWN':
-                // ... (existing Countdown case)
                 return nextEvent ? (
                     <div className="h-full w-full">
                         <EventCountdown
                             eventName={nextEvent.name}
                             targetDate={nextEvent.start_date}
                         />
+                        {isDemo && <DemoBadge />}
                     </div>
                 ) : null;
             case 'TOURNAMENT':
-                // ... (existing Tournament case)
                 if (!activeEvent) {
                     return (
                         <div className="h-full w-full flex items-center justify-center bg-gray-900">
@@ -217,14 +219,16 @@ export const TVMode = () => {
                 }
 
                 return (
-                    <TournamentLeaderboard
-                        eventId={activeEvent.id}
-                        eventName={activeEvent.name}
-                        description={activeEvent.description}
-                    />
+                    <>
+                        <TournamentLeaderboard
+                            eventId={activeEvent.id}
+                            eventName={activeEvent.name}
+                            description={activeEvent.description}
+                        />
+                        {isDemo && <DemoBadge />}
+                    </>
                 );
             case 'BRACKET':
-                // ... (existing Bracket case)
                 if (!activeEvent) return null;
                 return (
                     <div className="h-full w-full p-8 flex flex-col">
@@ -234,13 +238,16 @@ export const TVMode = () => {
                         <div className="flex-1 bg-gray-900/50 rounded-2xl border border-white/10 overflow-hidden">
                             <TournamentBracket eventId={activeEvent.id} isAdmin={false} />
                         </div>
+                        {isDemo && <DemoBadge />}
                     </div>
                 );
             case 'VERSUS':
-                // ... (existing Versus case)
                 if (!activeEvent) return null;
                 return (
-                    <TournamentVersusWrapper eventId={activeEvent.id} track={activeEvent.track_name} />
+                    <>
+                        <TournamentVersusWrapper eventId={activeEvent.id} track={activeEvent.track_name} />
+                        {isDemo && <DemoBadge />}
+                    </>
                 );
 
             // --- NEW VIEWS ---
@@ -267,7 +274,12 @@ export const TVMode = () => {
                     );
                 }
                 const activeCar = carsArray[0];
-                return <SpyView data={activeCar} />;
+                return (
+                    <>
+                        <SpyView data={activeCar} />
+                        {isDemo && <DemoBadge />}
+                    </>
+                );
             }
 
             case 'BATTLE_VIEW': {
@@ -284,7 +296,12 @@ export const TVMode = () => {
                         </div>
                     );
                 }
-                return <BattleView drivers={carsArray} />;
+                return (
+                    <>
+                        <BattleView drivers={carsArray} />
+                        {isDemo && <DemoBadge />}
+                    </>
+                );
             }
 
             default:
@@ -333,6 +350,13 @@ export const TVMode = () => {
 };
 
 // --- HELPER COMPONENTS ---
+
+const DemoBadge = () => (
+    <div className="absolute top-4 left-4 z-50 bg-yellow-500 text-black px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest shadow-lg shadow-yellow-500/20 animate-pulse flex items-center gap-2">
+        <Sparkles size={12} />
+        DEMO MODE
+    </div>
+);
 
 function AdsView() {
     const { data: ads, isLoading } = useQuery({

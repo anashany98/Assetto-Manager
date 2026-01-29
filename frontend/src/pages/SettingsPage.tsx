@@ -12,7 +12,7 @@ import {
     Truck, Settings as SettingsIcon, Plus, FileText,
     Layout, Monitor, Wifi, WifiOff, Edit2, CheckCircle,
     Activity, Upload, QrCode, Gamepad2, Volume2, Zap,
-    MonitorPlay, Globe, Terminal, Megaphone, Database, Bell, BadgeDollarSign,
+    MonitorPlay, Globe, Terminal, Database, Bell, BadgeDollarSign, Megaphone,
     AlertTriangle, Power, RefreshCw, Link2, Copy, RotateCw, Lock, Unlock, Trash2
 } from 'lucide-react';
 import { LogViewer } from '../components/LogViewer';
@@ -21,6 +21,7 @@ import { usePushNotifications } from '../hooks/usePushNotifications';
 import ACSettingsEditor from '../components/ACSettingsEditor';
 import { Camera, Cloud, Bot } from 'lucide-react';
 import { calculatePrice, getPricingConfig, type PricingDiscount, type PricingRate } from '../utils/pricing';
+import { isFeatureEnabled } from '../config/features';
 
 type StationPresetDraft = {
     video?: string;
@@ -600,14 +601,14 @@ export default function SettingsPage() {
                 <div className="flex bg-gray-800 p-1.5 rounded-2xl border border-gray-700 shadow-sm">
                     {[
                         { id: 'branding', label: 'Marca y TV', icon: Layout },
-                        { id: 'ads', label: 'Promociones', icon: Megaphone },
+                        isFeatureEnabled('ads_tab') ? { id: 'ads', label: 'Promociones', icon: Megaphone } : null,
                         { id: 'pricing', label: 'Precios', icon: BadgeDollarSign },
                         { id: 'game', label: 'Editor AC', icon: Gamepad2 },
                         { id: 'sim', label: 'Simulador AC', icon: Zap },
                         { id: 'stations', label: 'Simuladores', icon: MonitorPlay },
                         { id: 'logs', label: 'Logs Sistema', icon: Terminal },
                         { id: 'database', label: 'Base de Datos', icon: Database }
-                    ].map(tab => (
+                    ].filter(Boolean).map((tab: any) => (
                         <button
                             key={tab.id}
                             onClick={() => handleTabChange(tab.id)}

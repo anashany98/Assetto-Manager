@@ -98,3 +98,62 @@ async def get_scenario_leaderboard(
     # We will just expose /top and use that.
     
     return []
+
+@router.get("/export/csv")
+async def export_leaderboard_csv(
+    track: Optional[str] = None,
+    car: Optional[str] = None,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    """
+    Export leaderboard times to CSV format for social media sharing.
+    """
+    from fastapi.responses import StreamingResponse
+    import io
+    import csv
+    
+    query = db.query(SessionResult).filter(SessionResult.best_lap > 0)
+    
+    if track:
+        query = query.filter(SessionResult.track_name == track)
+    if car:
+        query = query.filter(SessionResult.car_model == car)
+        
+    results = query.order_by(asc(SessionResult.best_lap)).limit(limit).all()
+    
+    # Create CSV in memory
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Header row
+    writer.writerow(["Posición", "Piloto", "Coche", "Circuito", "Tiempo", "Tiempo (ms)", "Fecha"])
+    
+    # Data rows
+    for idx, r in enumerate(results):
+        writer.writerow([
+            idx + 1,
+            r.driver_name,
+            r.car_model,
+            r.track_name,
+            format_lap_time(r.best_lap),
+            r.best_lap,
+            r.date.strftime("%Y-%m-%d %H:%M") if r.date else ""
+        ])
+    
+    output.seek(0)
+    
+    # Generate filename with track/car if specified
+    filename_parts = ["leaderboard"]
+    if track:
+        filename_parts.append(track.replace(" ", "_"))
+    if car:
+        filename_parts.append(car.replace(" ", "_"))
+    filename = "_".join(filename_parts) + ".csv"
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+

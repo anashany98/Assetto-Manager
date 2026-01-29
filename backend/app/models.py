@@ -556,3 +556,39 @@ class WheelProfile(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
+
+class Reservation(Base):
+    """Online booking system for simulator sessions"""
+    __tablename__ = "reservations"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    station_id = Column(Integer, ForeignKey("stations.id"), nullable=True)
+    
+    # Client info
+    client_name = Column(String, index=True)
+    client_email = Column(String, nullable=True)
+    client_phone = Column(String, nullable=True)
+    
+    # Timing
+    start_time = Column(DateTime(timezone=True), index=True)
+    end_time = Column(DateTime(timezone=True))
+    duration_minutes = Column(Integer, default=30)
+    
+    # Status: pending, confirmed, cancelled, completed
+    status = Column(String, default="pending", index=True)
+    
+    # Optional notes
+    notes = Column(String, nullable=True)
+    
+    # Pricing (optional)
+    price = Column(Float, nullable=True)
+    paid = Column(Boolean, default=False)
+    
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), onupdate=lambda: datetime.now(timezone.utc))
+    
+    station = relationship("Station")
+    
+    __table_args__ = (
+        Index('idx_reservation_time', 'station_id', 'start_time'),
+    )

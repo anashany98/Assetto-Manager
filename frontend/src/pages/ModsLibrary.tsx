@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getMods, uploadMod, getModMetadata, deleteMod, toggleMod, getDiskUsage, getTags, createTag, addTagToMod, removeTagFromMod, bulkDeleteMods, bulkToggleMods, deployToStations } from '../api/mods';
 import { useState } from 'react';
-import { UploadCloud, FileBox, CheckCircle2, AlertCircle, Car, Flag, Filter, X, Zap, Activity, Ruler, MapPin, Search, Trash2, Power, Eye, Plus, HardDrive, CheckSquare, Square, Rocket } from 'lucide-react';
+import { UploadCloud, FileBox, CheckCircle2, AlertCircle, Car, Flag, Filter, X, Zap, Activity, Ruler, MapPin, Search, Trash2, Power, Eye, Plus, HardDrive, CheckSquare, Square, Rocket, RefreshCw } from 'lucide-react';
 
 
 import { cn } from '../lib/utils';
@@ -169,6 +169,19 @@ export default function ModsLibrary() {
         onError: () => alert("Error al iniciar despliegue")
     });
 
+    // Sync All: Discover content from all stations, register in DB, and replicate
+    const syncAllMutation = useMutation({
+        mutationFn: async () => {
+            const res = await fetch(`${API_URL}/deploy/sync-all`, { method: 'POST' });
+            return res.json();
+        },
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ['mods'] });
+            alert(`Sincronización: ${data.message || 'Iniciada'}`);
+        },
+        onError: () => alert("Error al sincronizar estaciones")
+    });
+
     // Bulk Actions
     const bulkDeleteMutation = useMutation({
         mutationFn: bulkDeleteMods,
@@ -289,6 +302,19 @@ export default function ModsLibrary() {
                     >
                         <Rocket size={20} />
                         <span>Desplegar a Sala</span>
+                    </button>
+                    <button
+                        onClick={() => {
+                            if (confirm("¿Sincronizar contenido entre todos los simuladores?\n\nEsto descubrirá coches/circuitos de cada estación y los replicará a las demás.")) {
+                                syncAllMutation.mutate();
+                            }
+                        }}
+                        disabled={syncAllMutation.isPending}
+                        className="flex items-center space-x-2 bg-emerald-600 text-white px-5 py-2.5 rounded-lg hover:bg-emerald-700 shadow-md transition-all font-bold disabled:opacity-50"
+                        title="Detectar y sincronizar mods entre estaciones"
+                    >
+                        <RefreshCw size={20} className={syncAllMutation.isPending ? 'animate-spin' : ''} />
+                        <span>Sync Estaciones</span>
                     </button>
                     <button
                         onClick={() => setIsUploading(!isUploading)}

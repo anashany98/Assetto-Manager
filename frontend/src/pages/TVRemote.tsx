@@ -1,6 +1,7 @@
 
 import { useState } from 'react';
-import { MonitorPlay, Zap, Trophy, Crown, Map, List, Tv, Swords, GitMerge, Timer, ArrowLeft, Store, QrCode, Megaphone } from 'lucide-react';
+import { MonitorPlay, Zap, Trophy, Crown, Map, List, Tv, Timer, ArrowLeft, Megaphone, Eye, Swords, GitMerge, Store, QrCode } from 'lucide-react';
+import { isFeatureEnabled } from '../config/features';
 import Leaderboard from './Leaderboard';
 import { HallOfFame } from './HallOfFame';
 import { LiveMap } from '../components/LiveMap';
@@ -271,20 +272,24 @@ export default function TVRemote() {
                             label="Torneo"
                             color="green"
                         />
-                        <ControlButton
-                            active={tvView === 'VERSUS'}
-                            onClick={() => setView('VERSUS')}
-                            icon={Swords}
-                            label="Duelo"
-                            color="purple"
-                        />
-                        <ControlButton
-                            active={tvView === 'BRACKET'}
-                            onClick={() => setView('BRACKET')}
-                            icon={GitMerge}
-                            label="Eliminatoria"
-                            color="orange"
-                        />
+                        {isFeatureEnabled('tv_versus') && (
+                            <ControlButton
+                                active={tvView === 'VERSUS'}
+                                onClick={() => setView('VERSUS')}
+                                icon={Swords}
+                                label="Duelo"
+                                color="purple"
+                            />
+                        )}
+                        {isFeatureEnabled('tv_bracket') && (
+                            <ControlButton
+                                active={tvView === 'BRACKET'}
+                                onClick={() => setView('BRACKET')}
+                                icon={GitMerge}
+                                label="Eliminatoria"
+                                color="orange"
+                            />
+                        )}
                         <ControlButton
                             active={tvView === 'COUNTDOWN'}
                             onClick={() => setView('COUNTDOWN')}
@@ -292,19 +297,30 @@ export default function TVRemote() {
                             label="Cuenta Atrás"
                             color="cyan"
                         />
+                        {isFeatureEnabled('tv_sponsorship') && (
+                            <ControlButton
+                                active={tvView === 'SPONSORSHIP'}
+                                onClick={() => setView('SPONSORSHIP')}
+                                icon={Store}
+                                label="Publicidad"
+                                color="pink"
+                            />
+                        )}
+                        {isFeatureEnabled('tv_qr') && (
+                            <ControlButton
+                                active={tvView === 'JOIN_QR'}
+                                onClick={() => setView('JOIN_QR')}
+                                icon={QrCode}
+                                label="Portal QR"
+                                color="indigo"
+                            />
+                        )}
                         <ControlButton
-                            active={tvView === 'SPONSORSHIP'}
-                            onClick={() => setView('SPONSORSHIP')}
-                            icon={Store}
-                            label="Publicidad"
-                            color="pink"
-                        />
-                        <ControlButton
-                            active={tvView === 'JOIN_QR'}
-                            onClick={() => setView('JOIN_QR')}
-                            icon={QrCode}
-                            label="Portal QR"
-                            color="indigo"
+                            active={tvView === 'SPECTATOR'}
+                            onClick={() => navigate('/tv/spectator')}
+                            icon={Eye}
+                            label="Espectador"
+                            color="cyan"
                         />
                     </div>
                 </div>

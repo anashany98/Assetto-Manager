@@ -307,11 +307,27 @@ async def panic_station(station_id: int, db: Session = Depends(database.get_db),
         
     return {"status": "ok", "message": f"Panic command sent to {station.name}"}
 
-@router.post("/{station_id}/lock")
-async def lock_station(station_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(require_admin)):
+@router.post("/{station_id}/session-ending", dependencies=[Depends(require_agent_token)])
+async def notify_session_ending(station_id: int, db: Session = Depends(database.get_db)):
+    """Endpoint called by agent 30 seconds before session ends to notify Dashboard."""
     station = db.query(models.Station).filter(models.Station.id == station_id).first()
     if not station:
         raise HTTPException(status_code=404, detail="Station not found")
+    
+    # Broadcast to all Dashboard clients
+    import json
+    await ws_manager.broadcast(json.dumps({
+        "type": "session_ending_soon",
+        "station_id": station_id,
+        "station_name": station.name,
+        "message": f"La sesión en {station.name} termina en 30 segundos"
+    }))
+    
+    return {"status": "ok", "message": "Notification sent"}
+
+
+@router.post("/{station_id}/lock")
+async def lock_station(station_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(require_admin)):
         
     station.is_locked = True
     db.commit()

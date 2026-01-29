@@ -1,9 +1,9 @@
-
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { Trophy, Medal, Calendar, AlertTriangle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { API_URL } from '../config';
+import { DEMO_HALL_OF_FAME } from '../data/demoData';
 
 interface HallOfFameEntry {
     driver_name: string;
@@ -27,13 +27,17 @@ const formatTime = (ms: number) => {
 const formatDate = (iso: string) => new Date(iso).toLocaleDateString();
 
 export const HallOfFame = ({ embedded = false }: { embedded?: boolean }) => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const isDemo = searchParams.get('demo') === 'true';
+
     const { data: categories, isLoading, error } = useQuery({
-        queryKey: ['hallOfFame'],
+        queryKey: ['hallOfFame', isDemo],
         queryFn: async () => {
+            if (isDemo) return DEMO_HALL_OF_FAME as any;
             const res = await axios.get(`${API_URL}/telemetry/hall_of_fame`);
             return res.data as HallOfFameCategory[];
         },
-        refetchInterval: 60000 // Refresh every minute
+        refetchInterval: isDemo ? false : 60000 // Refresh every minute
     });
 
     if (isLoading) return (

@@ -89,6 +89,44 @@ def ensure_station_schema(db_engine):
                 )
             logger.info("Added missing column stations.%s", name)
 
+def ensure_table_schema(db_engine):
+    inspector = inspect(db_engine)
+    if "tables" not in inspector.get_table_names():
+        return
+
+    existing = {col["name"] for col in inspector.get_columns("tables")}
+    column_specs = {
+        "x": ("FLOAT", "0.0", "0.0"),
+        "y": ("FLOAT", "0.0", "0.0"),
+        "width": ("FLOAT", "50.0", "50.0"),
+        "height": ("FLOAT", "50.0", "50.0"),
+        "shape": ("VARCHAR(20)", "'rect'", "'rect'"),
+        "seats": ("INTEGER", "4", "4"),
+        "rotation": ("FLOAT", "0.0", "0.0"),
+        "zone": ("VARCHAR(20)", "'main'", "'main'"),
+        "fixed_notes": ("VARCHAR(255)", "NULL", "NULL"),
+        "is_active": ("BOOLEAN", "TRUE", "1"),
+        "status": ("VARCHAR(20)", "'free'", "'free'"),
+    }
+
+    is_postgres = db_engine.dialect.name == "postgresql"
+    missing = [name for name in column_specs if name not in existing]
+    
+    if not missing:
+        return
+
+    with db_engine.begin() as conn:
+        for name in missing:
+            col_type, default_pg, default_sqlite = column_specs[name]
+            default_value = default_pg if is_postgres else default_sqlite
+            
+            if is_postgres:
+                 conn.execute(text(f"ALTER TABLE tables ADD COLUMN IF NOT EXISTS {name} {col_type} DEFAULT {default_value}"))
+            else:
+                 conn.execute(text(f"ALTER TABLE tables ADD COLUMN {name} {col_type} DEFAULT {default_value}"))
+            
+            logger.info("Added missing column tables.%s", name)
+
 def get_db():
     db = SessionLocal()
     try:

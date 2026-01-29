@@ -1047,10 +1047,12 @@ TRACTION_CONTROL={assists.get('tc', 1)}
                         logger.info(f"Updated assist.ini with difficulty: {assists}")
 
                         # Stop any existing session timer
+                        global session_stop_event
                         session_stop_event.set()
                         session_stop_event = threading.Event()  # Reset for new session
                     except Exception as e:
                         logger.error(f"Failed to update assist.ini: {e}")
+
 
 
                     
@@ -1239,16 +1241,33 @@ CLOUD_SPEED=0.2
                             watchdog.start(session_config)
                             
                             # 6. Session Timer - Kill game after duration_minutes
-                            def session_timer(stop_event, duration):
+                            def session_timer(stop_event, duration, station_id_for_timer):
                                 buffer_seconds = 30
-                                logger.info(f"Session timer started: {duration_minutes} minutes + {buffer_seconds}s margin")
+                                warning_sent = False
+                                logger.info(f"Session timer started: {duration} minutes + {buffer_seconds}s margin")
                                 start_time = time.time()
                                 total_duration_sec = (duration * 60) + buffer_seconds
+                                warning_threshold = total_duration_sec - 30  # 30s before end
                                 
                                 while time.time() - start_time < total_duration_sec:
                                     if stop_event.is_set():
                                         logger.info("Session timer cancelled for new session")
                                         return
+                                    
+                                    # Send warning 30 seconds before session ends
+                                    elapsed = time.time() - start_time
+                                    if not warning_sent and elapsed >= warning_threshold:
+                                        warning_sent = True
+                                        logger.info("Session ending in 30 seconds! Sending notification...")
+                                        try:
+                                            requests.post(
+                                                f"{SERVER_URL}/stations/{station_id_for_timer}/session-ending",
+                                                headers=get_agent_headers(),
+                                                timeout=5
+                                            )
+                                        except Exception as e:
+                                            logger.error(f"Failed to send session ending notification: {e}")
+                                    
                                     time.sleep(1)
                                 logger.info("Session time expired! Closing game...")
                                 watchdog.stop()  # Stop watchdog so it doesn't restart
@@ -1257,7 +1276,7 @@ CLOUD_SPEED=0.2
                                 else:
                                     os.system("pkill -9 acs 2>/dev/null")
                             
-                            timer_thread = threading.Thread(target=session_timer, args=(session_stop_event, duration_minutes), daemon=True)
+                            timer_thread = threading.Thread(target=session_timer, args=(session_stop_event, duration_minutes, self.station_id), daemon=True)
                             timer_thread.start()
                         else:
                             logger.error("Failed to launch AC")
@@ -1321,6 +1340,53 @@ CLOUD_SPEED=0.2
                 elif command == "sync_content":
                     logger.info("Received SYNC_CONTENT command")
                     threading.Thread(target=synchronize_content, args=(self.station_id,)).start()
+
+                elif command == "copy_content":
+                    # Peer-to-peer content copy from another station
+                    content_type = data.get("type")  # "car" or "track"
+                    content_id = data.get("id")
+                    source_ip = data.get("source_ip")
+                    logger.info(f"Received COPY_CONTENT command: {content_type} '{content_id}' from {source_ip}")
+                    
+                    def do_copy():
+                        try:
+                            ac_path = get_system_info().get("ac_path")
+                            if not ac_path:
+                                logger.error("No AC path configured. Cannot copy content.")
+                                return
+                            
+                            # Determine source and destination paths
+                            subfolder = "cars" if content_type == "car" else "tracks"
+                            source_path = f"\\\\{source_ip}\\AssettoContent\\content\\{subfolder}\\{content_id}"
+                            dest_path = os.path.join(ac_path, "content", subfolder, content_id)
+                            
+                            logger.info(f"Copying from {source_path} to {dest_path}")
+                            
+                            # Use robocopy for efficient network copy
+                            cmd = [
+                                "robocopy",
+                                source_path,
+                                dest_path,
+                                "/E",       # Recurse into subdirectories
+                                "/Z",       # Restartable mode
+                                "/R:3",     # Retry 3 times
+                                "/W:5",     # Wait 5 seconds between retries
+                                "/MT:4",    # 4 threads
+                                "/NFL",     # No file list
+                                "/NDL"      # No directory list
+                            ]
+                            
+                            result = subprocess.run(cmd, capture_output=True, text=True)
+                            
+                            # Robocopy: exit codes 0-7 are success/info, 8+ are errors
+                            if result.returncode > 7:
+                                logger.error(f"Robocopy failed for {content_id}: {result.stderr}")
+                            else:
+                                logger.info(f"Successfully copied {content_type}: {content_id}")
+                        except Exception as e:
+                            logger.error(f"Failed to copy {content_type} {content_id}: {e}")
+                    
+                    threading.Thread(target=do_copy).start()
 
                 elif command == "restart_agent":
                     logger.info("Received RESTART_AGENT command")

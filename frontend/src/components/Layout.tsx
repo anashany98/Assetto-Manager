@@ -18,12 +18,16 @@ import {
     Moon,
     Gamepad2,
     AlertTriangle,
-    LayoutGrid
+    LayoutGrid,
+    CalendarPlus,
+    BarChart3,
+    Eye
 } from 'lucide-react';
 import { useTheme } from '../contexts/useTheme';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { API_URL } from '../config';
+import { FEATURES } from '../config/features';
 
 
 // NavItem Component
@@ -175,32 +179,36 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                         Gestión
                     </div>
                     <NavItem to="/admin" icon={LayoutDashboard} collapsed={!isSidebarOpen}>Panel Control</NavItem>
-                    <NavItem to="/drivers" icon={Users} collapsed={!isSidebarOpen}>Pilotos</NavItem>
-                    <NavItem to="/events" icon={Calendar} collapsed={!isSidebarOpen}>Torneos</NavItem>
-                    <NavItem to="/championships" icon={Trophy} collapsed={!isSidebarOpen}>Campeonatos</NavItem>
-                    <NavItem to="/history" icon={HistoryIcon} collapsed={!isSidebarOpen}>Historial</NavItem>
-                    <NavItem to="/bookings" icon={CalendarCheck} collapsed={!isSidebarOpen}>Reservas</NavItem>
-                    <NavItem to="/reservations" icon={LayoutGrid} collapsed={!isSidebarOpen}>Mesas</NavItem>
-                    <NavItem to="/analytics" icon={LayoutDashboard} collapsed={!isSidebarOpen}>Ingresos</NavItem>
-                    <NavItem to="/admin/scenarios" icon={Gamepad2} collapsed={!isSidebarOpen}>Sesiones Kiosk</NavItem>
-                    <NavItem to="/mods" icon={Library} collapsed={!isSidebarOpen}>Librería</NavItem>
+
+                    {FEATURES.drivers && <NavItem to="/drivers" icon={Users} collapsed={!isSidebarOpen}>Pilotos</NavItem>}
+                    {FEATURES.tournaments && <NavItem to="/events" icon={Calendar} collapsed={!isSidebarOpen}>Torneos</NavItem>}
+                    {FEATURES.championships && <NavItem to="/championships" icon={Trophy} collapsed={!isSidebarOpen}>Campeonatos</NavItem>}
+                    {FEATURES.history && <NavItem to="/history" icon={HistoryIcon} collapsed={!isSidebarOpen}>Historial</NavItem>}
+                    {FEATURES.bookings && <NavItem to="/bookings" icon={CalendarCheck} collapsed={!isSidebarOpen}>Reservas</NavItem>}
+                    {FEATURES.tables && <NavItem to="/reservations" icon={LayoutGrid} collapsed={!isSidebarOpen}>Mesas</NavItem>}
+                    {FEATURES.analytics && <NavItem to="/analytics" icon={LayoutDashboard} collapsed={!isSidebarOpen}>Ingresos</NavItem>}
+                    {FEATURES.kiosk && <NavItem to="/admin/scenarios" icon={Gamepad2} collapsed={!isSidebarOpen}>Sesiones Kiosk</NavItem>}
+                    {FEATURES.mods && <NavItem to="/mods" icon={Library} collapsed={!isSidebarOpen}>Librería</NavItem>}
+                    {FEATURES.online_reservations && <NavItem to="/online-reservations" icon={CalendarPlus} collapsed={!isSidebarOpen}>Reservas Online</NavItem>}
+                    {FEATURES.lap_comparison && <NavItem to="/compare" icon={BarChart3} collapsed={!isSidebarOpen}>Comparar Vueltas</NavItem>}
 
                     {/* CONFIGURACIÓN */}
                     <div className={`text-[10px] text-gray-500 dark:text-gray-500 font-bold uppercase mt-6 mb-2 px-2 tracking-wider ${!isSidebarOpen && 'hidden'}`}>
                         Sistema
                     </div>
-                    <NavItem to="/settings" icon={Settings} collapsed={!isSidebarOpen}>Configuración</NavItem>
-                    <NavItem to="/settings?tab=game" icon={Gamepad2} collapsed={!isSidebarOpen}>Editor AC</NavItem>
-                    <NavItem to="/profiles" icon={Users} collapsed={!isSidebarOpen}>Perfiles</NavItem>
+                    {FEATURES.settings && <NavItem to="/settings" icon={Settings} collapsed={!isSidebarOpen}>Configuración</NavItem>}
+                    {FEATURES.editor && <NavItem to="/settings?tab=game" icon={Gamepad2} collapsed={!isSidebarOpen}>Editor AC</NavItem>}
+                    {FEATURES.profiles && <NavItem to="/profiles" icon={Users} collapsed={!isSidebarOpen}>Perfiles</NavItem>}
 
                     {/* VISTA PÚBLICA */}
                     <div className={`text-[10px] text-gray-500 dark:text-gray-500 font-bold uppercase mt-6 mb-2 px-2 tracking-wider ${!isSidebarOpen && 'hidden'}`}>
                         Sala & TV
                     </div>
-                    <NavItem to="/remote" icon={MonitorPlay} collapsed={!isSidebarOpen}>Mando TV</NavItem>
-                    <NavItem to="/leaderboard" icon={List} collapsed={!isSidebarOpen}>Clasificación</NavItem>
-                    <NavItem to="/hall-of-fame" icon={Crown} collapsed={!isSidebarOpen}>Salón Fama</NavItem>
-                    <NavItem to="/kiosk" icon={MonitorPlay} collapsed={!isSidebarOpen}>Menú Pantallas</NavItem>
+                    {FEATURES.tv_remote && <NavItem to="/remote" icon={MonitorPlay} collapsed={!isSidebarOpen}>Mando TV</NavItem>}
+                    {FEATURES.tv_spectator && <NavItem to="/tv/spectator" icon={Eye} collapsed={!isSidebarOpen}>Espectador TV</NavItem>}
+                    {FEATURES.leaderboard && <NavItem to="/leaderboard" icon={List} collapsed={!isSidebarOpen}>Clasificación</NavItem>}
+                    {FEATURES.hall_of_fame && <NavItem to="/hall-of-fame" icon={Crown} collapsed={!isSidebarOpen}>Salón Fama</NavItem>}
+                    {FEATURES.kiosk_menu && <NavItem to="/kiosk" icon={MonitorPlay} collapsed={!isSidebarOpen}>Menú Pantallas</NavItem>}
                 </nav>
 
                 {/* User Profile / Status */}

@@ -5,6 +5,7 @@ import { API_URL } from '../config';
 import { Trophy, Users, AlertTriangle } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useMemo, useEffect } from 'react';
+import { DEMO_TOURNAMENT } from '../data/demoData';
 
 // Types for Bracket
 type Match = {
@@ -28,12 +29,13 @@ export default function TournamentTV() {
     const { id } = useParams<{ id: string }>();
     const eventId = parseInt(id || '0');
     const queryClient = useQueryClient();
-
+    const isDemo = new URLSearchParams(window.location.search).get('demo') === 'true';
 
     // Fetch Event Data
     const { data: event, isLoading, error: eventError } = useQuery({
-        queryKey: ['event', eventId],
+        queryKey: ['event', eventId, isDemo],
         queryFn: async () => {
+            if (isDemo) return { name: DEMO_TOURNAMENT.name, id: eventId, rules: "{}" };
             const res = await axios.get(`${API_URL}/events/${eventId}`);
             return res.data;
         }
@@ -41,34 +43,35 @@ export default function TournamentTV() {
 
     // Fetch Bracket Data (Backend)
     const { data: bracketData, refetch } = useQuery<BracketResponse>({
-        queryKey: ['bracket', eventId],
+        queryKey: ['bracket', eventId, isDemo],
         queryFn: async () => {
+            if (isDemo) return { rounds: DEMO_TOURNAMENT.matches } as BracketData;
             const res = await axios.get(`${API_URL}/tournaments/${eventId}/bracket`);
             return res.data;
         },
-        enabled: !!event, // Trigger if event exists
+        enabled: isDemo || !!event, // Trigger if event exists
     });
 
     // Real-Time Updates via WebSocket
     useEffect(() => {
-        if (!event) return;
+        if (!event || isDemo) return;
 
         // Use PUBLIC_WS_TOKEN or similar if auth is required, 
-        // but for TV we assume it might be on a trusted network or use a public readonly token.
-        // For now, we connect without a specialized token or use a default one.
-        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        // but for TV we assume it might be on a trusted network or use a default token.
+        // We dynamically build the WS URL based on API_URL configuration.
+        const wsProtocol = API_URL.startsWith('https') ? 'wss:' : 'ws:';
         const wsHost = API_URL.replace(/^http(s)?:\/\//, '');
         const socket = new WebSocket(`${wsProtocol}//${wsHost}/ws/telemetry/client?token=public_tv_access`);
 
         socket.onopen = () => {
-            console.log("📺 TV Connected to Live Updates");
+            // TV Connected to Live Updates
         };
 
         socket.onmessage = (event) => {
             try {
                 const msg = JSON.parse(event.data);
                 if (msg.type === 'tournament_update' && msg.event_id === eventId) {
-                    console.log("🔄 Update Received: Refreshing Bracket...");
+                    // Update received, refreshing bracket
                     // Option A: Refetch from API (Safest)
                     // refetch();
 
@@ -83,7 +86,7 @@ export default function TournamentTV() {
         return () => {
             socket.close();
         };
-    }, [event, eventId, queryClient, refetch]);
+    }, [event, eventId, queryClient, refetch, isDemo]);
 
     const bracket = useMemo(() => {
         if (bracketData && 'rounds' in bracketData) {
