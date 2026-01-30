@@ -45,8 +45,10 @@ const LapComparison = lazy(() => import('./pages/LapComparison'));
 const TVSpectator = lazy(() => import('./pages/TVSpectator'));
 const TVSpectatorFullscreen = lazy(() => import('./pages/TVSpectatorFullscreen'));
 const TVSpectatorMulti = lazy(() => import('./pages/TVSpectatorMulti'));
+const UserManagement = lazy(() => import('./pages/UserManagement'));
 
 import { useBranding } from './hooks/useBranding';
+import { LicenseProvider } from './context/LicenseContext';
 
 // Fallback Loading Component
 const PageLoader = () => (
@@ -61,72 +63,75 @@ function App() {
   return (
     <Router>
       <ErrorBoundary>
-        <Layout>
-          <Suspense fallback={<PageLoader />}>
-            <Routes>
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/admin" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-              <Route path="/admin/scenarios" element={<PrivateRoute><ScenariosManager /></PrivateRoute>} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/analysis/:id" element={<LapAnalysisPage />} />
+        <LicenseProvider>
+          <Layout>
+            <Suspense fallback={<PageLoader />}>
+              <Routes>
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/admin" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+                <Route path="/admin/scenarios" element={<PrivateRoute><ScenariosManager /></PrivateRoute>} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/analysis/:id" element={<LapAnalysisPage />} />
 
-              {/* Management */}
-              <Route path="/drivers" element={<PrivateRoute><DriversPage /></PrivateRoute>} />
-              <Route path="/drivers/:driverName" element={<PrivateRoute><DriverPassport /></PrivateRoute>} />
-              <Route path="/events" element={<PrivateRoute><EventsPage /></PrivateRoute>} />
-              <Route path="/events/:id" element={<PrivateRoute><EventDetails /></PrivateRoute>} />
-              <Route path="/championships" element={<PrivateRoute><ChampionshipsPage /></PrivateRoute>} />
-              <Route path="/championships/:id" element={<PrivateRoute><ChampionshipDetails /></PrivateRoute>} />
-              <Route path="/history" element={<PrivateRoute><HistoryPage /></PrivateRoute>} />
-              <Route path="/bookings" element={<PrivateRoute><BookingsPage /></PrivateRoute>} />
-              <Route path="/reservations" element={<PrivateRoute><TableReservations /></PrivateRoute>} />
-              <Route path="/mods" element={<PrivateRoute><ModsLibrary /></PrivateRoute>} />
-              <Route path="/online-reservations" element={<PrivateRoute><Reservations /></PrivateRoute>} />
-              <Route path="/compare" element={<PrivateRoute><LapComparison /></PrivateRoute>} />
+                {/* Management */}
+                <Route path="/drivers" element={<PrivateRoute><DriversPage /></PrivateRoute>} />
+                <Route path="/drivers/:driverName" element={<PrivateRoute><DriverPassport /></PrivateRoute>} />
+                <Route path="/events" element={<PrivateRoute><EventsPage /></PrivateRoute>} />
+                <Route path="/events/:id" element={<PrivateRoute><EventDetails /></PrivateRoute>} />
+                <Route path="/championships" element={<PrivateRoute><ChampionshipsPage /></PrivateRoute>} />
+                <Route path="/championships/:id" element={<PrivateRoute><ChampionshipDetails /></PrivateRoute>} />
+                <Route path="/history" element={<PrivateRoute><HistoryPage /></PrivateRoute>} />
+                <Route path="/bookings" element={<PrivateRoute><BookingsPage /></PrivateRoute>} />
+                <Route path="/reservations" element={<PrivateRoute><TableReservations /></PrivateRoute>} />
+                <Route path="/mods" element={<PrivateRoute><ModsLibrary /></PrivateRoute>} />
+                <Route path="/online-reservations" element={<PrivateRoute><Reservations /></PrivateRoute>} />
+                <Route path="/compare" element={<PrivateRoute><LapComparison /></PrivateRoute>} />
 
-              {/* System */}
-              <Route path="/settings" element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
-              <Route path="/profiles" element={<PrivateRoute><ProfilesPage /></PrivateRoute>} />
+                {/* System */}
+                <Route path="/settings" element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
+                <Route path="/profiles" element={<PrivateRoute><ProfilesPage /></PrivateRoute>} />
+                <Route path="/users" element={<PrivateRoute><UserManagement /></PrivateRoute>} />
 
-              {/* Public Views */}
-              <Route path="/remote" element={<PrivateRoute><TVRemote /></PrivateRoute>} />
-              <Route path="/leaderboard" element={<Leaderboard />} />
-              <Route path="/hall-of-fame" element={<HallOfFame />} />
-              <Route path="/kiosk" element={<KioskMode />} />
-              <Route path="/battle" element={<BattleMode />} />
-              <Route path="/live-map" element={<LiveMapPage />} />
-              <Route path="/tv" element={<TVMode />} />
-              <Route path="/telemetry/:id" element={<LapAnalysisPage />} />
-              <Route path="/reservar" element={<PublicBookingPage />} />
-              <Route path="/reserva/:token" element={<ManageBooking />} />
-              <Route path="/p/:driverName" element={<PilotPortal />} />
-              <Route path="/portal" element={<PilotPortal />} />
+                {/* Public Views */}
+                <Route path="/remote" element={<PrivateRoute><TVRemote /></PrivateRoute>} />
+                <Route path="/leaderboard" element={<Leaderboard />} />
+                <Route path="/hall-of-fame" element={<HallOfFame />} />
+                <Route path="/kiosk" element={<KioskMode />} />
+                <Route path="/battle" element={<BattleMode />} />
+                <Route path="/live-map" element={<LiveMapPage />} />
+                <Route path="/tv" element={<TVMode />} />
+                <Route path="/telemetry/:id" element={<LapAnalysisPage />} />
+                <Route path="/reservar" element={<PublicBookingPage />} />
+                <Route path="/reserva/:token" element={<ManageBooking />} />
+                <Route path="/p/:driverName" element={<PilotPortal />} />
+                <Route path="/portal" element={<PilotPortal />} />
 
-              {/* TV & Mobile (Handled by Layout to hide sidebar) */}
-              <Route path="/tv/leaderboard" element={<Leaderboard />} />
-              <Route path="/tv/bracket/:id" element={<TournamentTV />} />
-              <Route path="/tv/ads" element={<TVAds />} />
-              <Route path="/tv/spectator" element={<TVSpectator />} />
-              <Route path="/tv/spectator-fullscreen" element={<TVSpectatorFullscreen />} />
-              <Route path="/tv/spectator-multi" element={<TVSpectatorMulti />} />
-              <Route path="/mobile" element={<MobileLeaderboard />} />
-              <Route path="/passport-scanner" element={<MobilePassport />} />
-              <Route path="/tv-mode" element={<TVMode />} />
+                {/* TV & Mobile (Handled by Layout to hide sidebar) */}
+                <Route path="/tv/leaderboard" element={<Leaderboard />} />
+                <Route path="/tv/bracket/:id" element={<TournamentTV />} />
+                <Route path="/tv/ads" element={<TVAds />} />
+                <Route path="/tv/spectator" element={<TVSpectator />} />
+                <Route path="/tv/spectator-fullscreen" element={<TVSpectatorFullscreen />} />
+                <Route path="/tv/spectator-multi" element={<TVSpectatorMulti />} />
+                <Route path="/mobile" element={<MobileLeaderboard />} />
+                <Route path="/passport-scanner" element={<MobilePassport />} />
+                <Route path="/tv-mode" element={<TVMode />} />
 
-              {/* Elimination Mode */}
-              <Route path="/elimination" element={<PrivateRoute><EliminationAdmin /></PrivateRoute>} />
-              <Route path="/elimination-tv/:id" element={<EliminationTV />} />
-              <Route path="/hardware" element={<PrivateRoute><HardwareMonitor /></PrivateRoute>} />
-              <Route path="/analytics" element={<PrivateRoute><AnalyticsPage /></PrivateRoute>} />
+                {/* Elimination Mode */}
+                <Route path="/elimination" element={<PrivateRoute><EliminationAdmin /></PrivateRoute>} />
+                <Route path="/elimination-tv/:id" element={<EliminationTV />} />
+                <Route path="/hardware" element={<PrivateRoute><HardwareMonitor /></PrivateRoute>} />
+                <Route path="/analytics" element={<PrivateRoute><AnalyticsPage /></PrivateRoute>} />
 
-              {/* Security */}
-              <Route path="/lock-screen" element={<LockScreen />} />
+                {/* Security */}
+                <Route path="/lock-screen" element={<LockScreen />} />
 
-              {/* Fallback */}
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </Suspense>
-        </Layout>
+                {/* Fallback */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </Suspense>
+          </Layout>
+        </LicenseProvider>
       </ErrorBoundary>
     </Router>
   );

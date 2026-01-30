@@ -19,7 +19,8 @@ import { LogViewer } from '../components/LogViewer';
 import AdsSettings from '../components/AdsSettings';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import ACSettingsEditor from '../components/ACSettingsEditor';
-import { Camera, Cloud, Bot } from 'lucide-react';
+import { Camera, Cloud, Bot, Shield } from 'lucide-react';
+import { LicenseSettings } from '../components/LicenseSettings';
 import { calculatePrice, getPricingConfig, type PricingDiscount, type PricingRate } from '../utils/pricing';
 import { isFeatureEnabled } from '../config/features';
 
@@ -40,7 +41,7 @@ const AC_CATEGORIES = [
 
 export default function SettingsPage() {
     const queryClient = useQueryClient();
-    const [activeTab, setActiveTab] = useState<'branding' | 'stations' | 'game' | 'sim' | 'logs' | 'ads' | 'database' | 'pricing'>('branding');
+    const [activeTab, setActiveTab] = useState<'branding' | 'stations' | 'game' | 'sim' | 'logs' | 'ads' | 'database' | 'pricing' | 'license'>('branding');
     const [searchParams, setSearchParams] = useSearchParams();
     const pushNotifications = usePushNotifications();
     const [showInactiveStations, setShowInactiveStations] = useState(false);
@@ -600,6 +601,7 @@ export default function SettingsPage() {
                 {/* Tabs */}
                 <div className="flex bg-gray-800 p-1.5 rounded-2xl border border-gray-700 shadow-sm">
                     {[
+                        { id: 'license', label: 'Licencia', icon: Shield },
                         { id: 'branding', label: 'Marca y TV', icon: Layout },
                         isFeatureEnabled('ads_tab') ? { id: 'ads', label: 'Promociones', icon: Megaphone } : null,
                         { id: 'pricing', label: 'Precios', icon: BadgeDollarSign },
@@ -627,6 +629,20 @@ export default function SettingsPage() {
 
             {/* Content Area */}
             <div className="flex-1 overflow-y-auto p-8">
+
+                {/* --- TAB: LICENSE --- */}
+                {activeTab === 'license' && (
+                    <div className="max-w-5xl animate-in fade-in duration-300">
+                        <LicenseSettings />
+                    </div>
+                )}
+
+                {/* --- TAB: LICENSE --- */}
+                {activeTab === 'license' && (
+                    <div className="max-w-5xl animate-in fade-in duration-300">
+                        <LicenseSettings />
+                    </div>
+                )}
 
                 {/* --- TAB: BRANDING --- */}
                 {activeTab === 'branding' && (
