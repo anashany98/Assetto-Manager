@@ -4,6 +4,7 @@ import { API_URL as API_BASE_URL } from "../config";
 export interface User {
     username: string;
     role: string;
+    permissions?: string[];
 }
 
 export interface AuthResponse {

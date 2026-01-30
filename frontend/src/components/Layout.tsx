@@ -24,6 +24,8 @@ import {
     Eye
 } from 'lucide-react';
 import { useTheme } from '../contexts/useTheme';
+import { useAuth } from '../context/useAuth';
+import { useLicense } from '../context/LicenseContext';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { API_URL } from '../config';
@@ -33,7 +35,36 @@ import { FEATURES } from '../config/features';
 // NavItem Component
 const NavItem = ({ to, icon: Icon, children, collapsed }: { to: string, icon: React.ComponentType<{ size?: number }>, children: React.ReactNode, collapsed?: boolean }) => {
     const location = useLocation();
+    const { user } = useAuth();
+    const { isModuleEnabled } = useLicense();
     const isActive = location.pathname === to;
+
+    // Permission Check
+    // Map route paths to permission keys
+    const PERMISSION_MAP: Record<string, string> = {
+        '/': 'dashboard',
+        '/stations': 'stations',
+        '/mods': 'mods',
+        '/events': 'events',
+        '/leaderboard': 'leaderboard',
+        '/users': 'users',
+        '/reservations': 'reservations',
+        '/settings': 'settings',
+        '/tv-control': 'tv_control',
+        '/kiosk': 'kiosk'
+    };
+
+    const requiredPerm = Object.entries(PERMISSION_MAP).find(([path]) => to.startsWith(path))?.[1];
+
+    // User Permission Check
+    const hasUserPerm = !requiredPerm ||
+        user?.role === 'admin' ||
+        (user?.permissions && user.permissions.includes(requiredPerm));
+
+    // License Check
+    const hasLicense = !requiredPerm || isModuleEnabled(requiredPerm);
+
+    if (!hasUserPerm || !hasLicense) return null;
 
     return (
         <Link

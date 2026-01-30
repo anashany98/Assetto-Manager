@@ -277,6 +277,7 @@ class User(Base):
     hashed_password = Column(String)
     role = Column(String, default="admin")
     is_active = Column(Boolean, default=True)
+    permissions = Column(JSON, default=list) # List of allowed modules. Admin ignores this.
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
