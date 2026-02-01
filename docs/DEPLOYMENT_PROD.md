@@ -23,6 +23,9 @@ separate Windows stations running the Agent.
 ## 2) Create backend/.env
 Copy backend/.env.production.example to backend/.env and set real values.
 Example values are listed in the template.
+Or run the one-click script:
+  scripts/deploy_prod.ps1 -DatabaseUrl "postgresql://..." 
+  scripts/deploy_prod.ps1 -UseSqlite
 
 ## 3) First-time DB init
 Two options (pick ONE):
@@ -35,6 +38,8 @@ Two options (pick ONE):
 - Run start_server_prod.bat (foreground, shows logs)
   OR
 - Run start_system_prod.bat (minimized backend, builds frontend first)
+  OR
+- Run scripts/deploy_prod.ps1 (one-click)
 
 The production UI is served by the backend:
 - http://<server-ip>:8000

@@ -3,6 +3,7 @@
 Sistema de gestión centralizada de mods y perfiles para simuladores de conducción Assetto Corsa. Diseñado para entornos Arcade/Bar.
 
 ## 🚀 Inicio Rápido (Producción)
+*   **One-click prod:** `scripts/deploy_prod.ps1 -DatabaseUrl "postgresql://..."` (or `-UseSqlite`)
 
 ### 1. Servidor Central (El PC del Operador)
 *   **Instalación:** Ejecuta (como Admin) `server_setup.ps1` para configurar el Firewall.
