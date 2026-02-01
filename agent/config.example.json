@@ -1,0 +1,10 @@
+{
+  "server_url": "http://<server-ip>:8000",
+  "ac_content_dir": "D:/SteamLibrary/steamapps/common/assettocorsa/content",
+  "ac_path": "D:/SteamLibrary/steamapps/common/assettocorsa",
+  "station_name": "SIM 1",
+  "agent_token": "change-me",
+  "steam_exe": "C:/Program Files (x86)/Steam/Steam.exe",
+  "steam_app_id": "244210",
+  "launch_via_steam": false
+}
