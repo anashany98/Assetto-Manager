@@ -6,7 +6,7 @@ import platform
 import os
 import threading
 import time
-from config import AGENT_TOKEN, logger
+from config import AGENT_TOKEN, logger, OBS_HOST, OBS_PORT, OBS_PASSWORD, STREAM_URL
 from scanner import scan_ac_content
 from commands import (
     launch_session_logic, create_lobby_server, join_lobby_client, 
@@ -16,6 +16,7 @@ from commands import (
 from utils import get_system_info
 import ac_telemetry
 import telemetry # The existing telemetry module for saving results
+from obs_controller import handle_obs_command
 
 class AgentWSClient(threading.Thread):
     def __init__(self, station_id, server_url):
@@ -96,6 +97,28 @@ class AgentWSClient(threading.Thread):
                     
                 data = json.loads(msg)
                 command = data.get("command")
+
+                if data.get("type") == "obs_control":
+                    params = data.get("params") or {}
+                    if "host" not in params and OBS_HOST:
+                        params["host"] = OBS_HOST
+                    if "port" not in params and OBS_PORT:
+                        params["port"] = OBS_PORT
+                    if "password" not in params and OBS_PASSWORD:
+                        params["password"] = OBS_PASSWORD
+                    result = await handle_obs_command(command, params)
+                    response = {
+                        "type": "obs_status",
+                        "station_id": self.station_id,
+                        "command": command,
+                        "result": result,
+                    }
+                    if "streaming" in result:
+                        response["is_streaming"] = bool(result.get("streaming"))
+                    if STREAM_URL:
+                        response["stream_url"] = STREAM_URL
+                    await websocket.send(json.dumps(response))
+                    continue
                 
                 if command:
                     logger.info(f"Received command: {command}")

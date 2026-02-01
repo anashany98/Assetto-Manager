@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from .database import engine, Base, ensure_station_schema, ensure_table_schema
+from .database import engine, Base, ensure_station_schema, ensure_table_schema, ensure_user_schema
 from .routers import stations, mods, websockets, settings, profiles, events, config_manager, championships, integrations, tournament, logs, ads, auth, backup, exports, loyalty, bookings, analytics, push, elimination, elo, hardware, control, drivers, payments, tables, tracks, deploy_sync
 from .routers.telemetry import router as telemetry_router  # Modular telemetry package
 import logging
@@ -47,6 +47,7 @@ async def lifespan(app: FastAPI):
         Base.metadata.create_all(bind=engine)
         ensure_station_schema(engine)
         ensure_table_schema(engine)
+        ensure_user_schema(engine)
     else:
         logger.info("AUTO_SCHEMA disabled; skipping automatic schema sync")
     scheduler_enabled = os.getenv("ENABLE_SCHEDULER", "true").lower() in {"1", "true", "yes"}

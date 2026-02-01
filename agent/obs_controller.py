@@ -17,6 +17,7 @@ import base64
 import websockets
 from typing import Optional, Dict, Any
 import logging
+from config import OBS_HOST, OBS_PORT, OBS_PASSWORD
 
 logger = logging.getLogger(__name__)
 
@@ -179,11 +180,21 @@ class OBSController:
 obs_controller: Optional[OBSController] = None
 
 
-def get_obs_controller(password: str = "") -> OBSController:
+def get_obs_controller(host: Optional[str] = None, port: Optional[int] = None, password: Optional[str] = None) -> OBSController:
     """Get or create the OBS controller instance."""
     global obs_controller
-    if obs_controller is None:
-        obs_controller = OBSController(password=password)
+    target_host = host or OBS_HOST
+    target_port = port or OBS_PORT
+    target_password = password if password not in (None, "") else OBS_PASSWORD
+    if (
+        obs_controller is None
+        or obs_controller.host != target_host
+        or obs_controller.port != target_port
+        or (target_password and obs_controller.password != target_password)
+    ):
+        obs_controller = OBSController(host=target_host, port=target_port, password=target_password)
+    elif target_password and obs_controller.password != target_password:
+        obs_controller.password = target_password
     return obs_controller
 
 
@@ -198,9 +209,13 @@ async def handle_obs_command(command: str, params: Dict[str, Any] = None) -> Dic
     - status: Get stream status
     - set_scene: Switch scene
     """
-    controller = get_obs_controller(params.get("password", "") if params else "")
     params = params or {}
-    
+    controller = get_obs_controller(
+        host=params.get("host"),
+        port=params.get("port"),
+        password=params.get("password")
+    )
+
     if command == "connect":
         success = await controller.connect()
         return {"success": success, "connected": controller.connected}

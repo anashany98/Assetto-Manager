@@ -39,6 +39,13 @@ STEAM_APP_ID = os.getenv("STEAM_APP_ID", "244210")
 LAUNCH_VIA_STEAM = os.getenv("AC_LAUNCH_VIA_STEAM", "false").lower() in {"1", "true", "yes"}
 LOBBY_ADMIN_PASSWORD = os.getenv("LOBBY_ADMIN_PASSWORD", "")
 UPDATE_SIGNING_KEY = os.getenv("UPDATE_SIGNING_KEY", "")
+OBS_HOST = os.getenv("OBS_HOST", "localhost")
+try:
+    OBS_PORT = int(os.getenv("OBS_PORT", "4455"))
+except ValueError:
+    OBS_PORT = 4455
+OBS_PASSWORD = os.getenv("OBS_PASSWORD", "")
+STREAM_URL = os.getenv("STREAM_URL", "")
 
 def _is_truthy(value):
     if isinstance(value, bool):
@@ -84,6 +91,17 @@ for config_path in config_paths:
                 LOBBY_ADMIN_PASSWORD = config.get("lobby_admin_password", LOBBY_ADMIN_PASSWORD)
             if config.get("update_signing_key"):
                 UPDATE_SIGNING_KEY = config.get("update_signing_key", UPDATE_SIGNING_KEY)
+            if config.get("obs_host"):
+                OBS_HOST = config.get("obs_host", OBS_HOST)
+            if "obs_port" in config and config.get("obs_port") is not None:
+                try:
+                    OBS_PORT = int(config.get("obs_port"))
+                except (TypeError, ValueError):
+                    OBS_PORT = OBS_PORT
+            if "obs_password" in config:
+                OBS_PASSWORD = str(config.get("obs_password") or "")
+            if "stream_url" in config:
+                STREAM_URL = str(config.get("stream_url") or "")
             logger.info(f"Loaded config from {config_path}. Server URL: {SERVER_URL}")
         break
     except Exception as e:

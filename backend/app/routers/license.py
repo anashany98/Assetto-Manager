@@ -56,7 +56,7 @@ def verify_license_token(token: str) -> dict:
 @router.get("/", response_model=LicenseStatus)
 def get_license_status(db: Session = Depends(database.get_db)):
     # Fetch from DB setting
-    lic_setting = db.query(models.Setting).filter(models.Setting.key == "license_key").first()
+    lic_setting = db.query(models.GlobalSettings).filter(models.GlobalSettings.key == "license_key").first()
     
     if not lic_setting or not lic_setting.value:
         return {
@@ -98,9 +98,9 @@ def update_license(data: LicenseUpdate, db: Session = Depends(database.get_db)):
         raise HTTPException(status_code=400, detail=str(e))
 
     # Save to Settings
-    setting = db.query(models.Setting).filter(models.Setting.key == "license_key").first()
+    setting = db.query(models.GlobalSettings).filter(models.GlobalSettings.key == "license_key").first()
     if not setting:
-        setting = models.Setting(key="license_key", value=data.key)
+        setting = models.GlobalSettings(key="license_key", value=data.key)
         db.add(setting)
     else:
         setting.value = data.key

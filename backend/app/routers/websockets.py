@@ -79,6 +79,7 @@ class ConnectionManager:
                 station = db.query(models.Station).filter(models.Station.id == station_id).first()
                 if station:
                     station.is_online = False
+                    station.is_streaming = False
                     if station.status != "archived":
                         station.status = "offline"
                     db.commit()
@@ -255,6 +256,22 @@ async def websocket_agent_endpoint(websocket: WebSocket):
                                 for track in content_data.get("tracks", []):
                                     ensure_mod_exists(track, "track")
 
+                        finally:
+                            db.close()
+                    continue
+
+                if data.get("type") == "obs_status":
+                    station_id = data.get("station_id") or manager.ws_to_station.get(websocket)
+                    if station_id:
+                        db = SessionLocal()
+                        try:
+                            station = db.query(models.Station).filter(models.Station.id == station_id).first()
+                            if station:
+                                if "is_streaming" in data:
+                                    station.is_streaming = bool(data.get("is_streaming"))
+                                if data.get("stream_url"):
+                                    station.stream_url = data.get("stream_url")
+                                db.commit()
                         finally:
                             db.close()
                     continue

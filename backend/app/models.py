@@ -74,6 +74,8 @@ class Station(Base):
     kiosk_code = Column(String, unique=True, index=True, nullable=True)
     is_locked = Column(Boolean, default=False) # Cyber-Lock status
     is_tv_mode = Column(Boolean, default=False)
+    is_streaming = Column(Boolean, default=False)
+    stream_url = Column(String, nullable=True)
     is_vr = Column(Boolean, default=False)
     status = Column(String, default="offline")
     ac_path = Column(String, default="C:\\Program Files (x86)\\Steam\\steamapps\\common\\assettocorsa")

@@ -12,10 +12,11 @@ except ImportError:
     hashing = None
 
 from config import (
-    SERVER_URL, AC_CONTENT_DIR, STATION_NAME, AGENT_TOKEN, 
-    logger, NetworkLogHandler, ensure_directories, AGENT_VERSION
+    SERVER_URL, AC_CONTENT_DIR, STATION_NAME, AGENT_TOKEN,
+    logger, AGENT_VERSION
 )
-from utils import get_system_info
+from utils import get_system_info, ensure_directories
+from networking import NetworkLogHandler
 from watchdog import watchdog
 from proxy import image_proxy
 from sync import synchronize_content, send_heartbeat, register_agent

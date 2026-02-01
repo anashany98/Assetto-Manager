@@ -9,7 +9,7 @@ import re
 from pathlib import Path
 from config import SERVER_URL, AGENT_TOKEN, LOBBY_ADMIN_PASSWORD, logger
 from networking import get_agent_headers
-from utils import _launch_ac, get_system_info
+from utils import launch_ac, get_system_info
 from watchdog import watchdog
 
 # Use a global stop event for session timer
@@ -224,7 +224,7 @@ PASSWORD=
             f.write(race_ini)
             
         # Launch
-        if _launch_ac(ac_path):
+        if launch_ac(ac_path):
              # Start watchdog
              watchdog.start({"ac_path": ac_path})
              
@@ -339,7 +339,7 @@ TYPE=PRACTICE
         pass
 
     # 4. Launch
-    if _launch_ac(ac_path):
+    if launch_ac(ac_path):
         watchdog.start({"ac_path": ac_path, "car": car, "track": track})
         
         # Start Timer Thread (Inline or separate)

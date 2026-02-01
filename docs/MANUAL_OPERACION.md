@@ -36,6 +36,22 @@ El script imprime AGENT_TOKEN y UPDATE_SIGNING_KEY.
    scripts\deploy_station.ps1 -ServerUrl "http://<server-ip>:8000" -AgentToken "<AGENT_TOKEN>" -StationName "SIM 1" -ACPath "D:\\SteamLibrary\\steamapps\\common\\assettocorsa" -InstallTask -StartNow -UpdateSigningKey "<UPDATE_SIGNING_KEY>"
 3. Verifica en el panel que la estacion aparece Online.
 
+## 2.1) Transmision en vivo (OBS + Stream)
+Requisitos:
+- OBS Studio instalado en cada estacion
+- obs-websocket activo (OBS 28+ ya lo trae)
+- Un servidor de medios (RTMP/HLS/HTTP-FLV)
+
+Configurar en cada agente (agent/config.json):
+- obs_host (default: "localhost")
+- obs_port (default: 4455)
+- obs_password (si OBS tiene password)
+- stream_url (URL publica del stream, ej: "http://media.local/live/estacion1.m3u8" o ".flv")
+
+Notas:
+- El backend controla OBS via WebSocket y el frontend reproduce stream_url.
+- Si no pones stream_url, el frontend intenta http://<ip_estacion>:8080/stream.
+
 ## 3) Updates del agente
 1. Empaqueta el agente en el servidor:
    scripts\package_agent.ps1

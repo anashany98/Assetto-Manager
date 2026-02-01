@@ -3,7 +3,7 @@ import sys
 import os
 import logging
 from pathlib import Path
-from config import SERVER_URL, AC_CONTENT_DIR, REQUEST_TIMEOUT, logger
+from config import SERVER_URL, AC_CONTENT_DIR, REQUEST_TIMEOUT, logger, STREAM_URL
 from networking import get_agent_headers
 from watchdog import watchdog
 
@@ -141,6 +141,8 @@ def register_agent():
     from utils import get_system_info
     
     info = get_system_info()
+    if STREAM_URL:
+        info["stream_url"] = STREAM_URL
     try:
         logger.info(f"Attempting to register agent: {info}")
         response = requests.post(

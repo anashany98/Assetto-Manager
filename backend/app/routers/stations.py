@@ -53,6 +53,8 @@ def register_station(station: schemas.StationCreate, db: Session = Depends(datab
             db_station.hostname = station.hostname
         if station.ac_path and station.ac_path != db_station.ac_path:
             db_station.ac_path = station.ac_path
+        if station.stream_url and station.stream_url != db_station.stream_url:
+            db_station.stream_url = station.stream_url
         # Update name only if station still has a default/hostname name
         if station.name and (not db_station.name or db_station.name == db_station.hostname):
             db_station.name = station.name
