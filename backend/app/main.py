@@ -14,6 +14,7 @@ from .services.scheduler import start_scheduler, stop_scheduler
 
 from fastapi.staticfiles import StaticFiles
 import os
+from pathlib import Path
 from .paths import STORAGE_DIR, REPO_ROOT
 
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
@@ -116,10 +117,35 @@ app.add_middleware(SecurityHeadersMiddleware)
 from fastapi.responses import JSONResponse
 from fastapi import Request
 import logging
+from logging.handlers import RotatingFileHandler
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Persistent log file
+LOG_DIR = Path(os.getenv("LOG_DIR", str(REPO_ROOT / "logs")))
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+def _configure_file_logging():
+    log_path = LOG_DIR / "backend.log"
+    root_logger = logging.getLogger()
+    for handler in root_logger.handlers:
+        if isinstance(handler, RotatingFileHandler) and getattr(handler, "baseFilename", "") == str(log_path):
+            return
+    max_bytes = int(os.getenv("LOG_MAX_BYTES", str(10 * 1024 * 1024)))
+    backup_count = int(os.getenv("LOG_BACKUP_COUNT", "5"))
+    file_handler = RotatingFileHandler(
+        str(log_path),
+        maxBytes=max_bytes,
+        backupCount=backup_count,
+        encoding="utf-8"
+    )
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+    root_logger.addHandler(file_handler)
+
+_configure_file_logging()
 
 # Attach Memory Handler for UI Logs
 # Use protected handler to prevent crash

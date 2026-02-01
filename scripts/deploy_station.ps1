@@ -62,6 +62,10 @@ if ($ContentDir) {
 if ($UpdateSigningKey) { $config.update_signing_key = $UpdateSigningKey }
 if ($LobbyAdminPassword) { $config.lobby_admin_password = $LobbyAdminPassword }
 
+if (-not $UpdateSigningKey) {
+  Write-Host "WARNING: update_signing_key not set. Signed updates will be rejected."
+}
+
 # Defaults if still missing
 if (-not $config.steam_exe) { $config.steam_exe = "C:/Program Files (x86)/Steam/Steam.exe" }
 if (-not $config.steam_app_id) { $config.steam_app_id = "244210" }

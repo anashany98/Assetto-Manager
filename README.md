@@ -30,6 +30,9 @@ Sistema de gestión centralizada de mods y perfiles para simuladores de conducci
 *   [Reverse Proxy HTTPS](docs/REVERSE_PROXY.md): ejemplo con Caddy.
 *   [Agent Deploy](docs/AGENT_DEPLOY.md): despliegue rapido del agente en estaciones.
 *   [Manual de Lanzamientos](docs/RELEASE_MANUAL.md): proceso de releases.
+*   [Setup License Keys](scripts/setup_license_keys.ps1): genera claves de licencia.
+*   [Agent Packaging](docs/AGENT_PACKAGING.md): scripts para zip/exe del agente.
+*   [Backups Autom?ticos](scripts/schedule_backup.ps1): tarea programada para backups.
 
 *   [Guía de Despliegue Arcade](file:///C:/Users/Usuari/.gemini/antigravity/brain/4e86eebd-7c8d-4a1f-9dfc-0f399709b868/arcade_deployment_guide.md): Recomendaciones específicas para tu Bar (VMS, Red, etc.).
 *   [Roadmap de Futuro](file:///C:/Users/Usuari/.gemini/antigravity/brain/4e86eebd-7c8d-4a1f-9dfc-0f399709b868/future_roadmap.md): Ideas para expandir el sistema (Leaderboards, etc.).

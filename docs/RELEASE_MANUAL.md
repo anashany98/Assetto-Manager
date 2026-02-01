@@ -30,11 +30,14 @@ Este manual describe el flujo recomendado para publicar nuevas versiones del sis
 
 ## 4) Release del Agente
 1. Incrementa AGENT_VERSION en agent/config.py
-2. Genera el ZIP del agente (excluye .venv, logs, etc.).
-3. Sube el ZIP al backend:
+2. Genera el ZIP del agente:
+   - scripts/package_agent.ps1
+3. (Opcional) Genera el EXE:
+   - scripts/build_agent_exe.ps1
+4. Sube el ZIP al backend:
    - POST /system/update (requiere admin)
    - Usa versión exacta (ej: 1.4.2)
-4. Si UPDATE_SIGNING_KEY está configurado, el backend firmará el update y el agente lo verificará.
+5. Si UPDATE_SIGNING_KEY está configurado, el backend firmará el update y el agente lo verificará.
 
 ## 5) Despliegue a Producción
 1. Ejecuta backup:

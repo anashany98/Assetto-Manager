@@ -1,6 +1,7 @@
 param(
   [string]$EnvFile = "backend\.env",
-  [string]$BackupDir = "backups"
+  [string]$BackupDir = "backups",
+  [int]$RetentionDays = 7
 )
 
 if (!(Test-Path $EnvFile)) {
@@ -58,3 +59,10 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "Backup created: $outFile"
+
+if ($RetentionDays -gt 0) {
+  $cutoff = (Get-Date).AddDays(-$RetentionDays)
+  Get-ChildItem $BackupDir -File -ErrorAction SilentlyContinue |
+    Where-Object { $_.LastWriteTime -lt $cutoff } |
+    Remove-Item -Force -ErrorAction SilentlyContinue
+}

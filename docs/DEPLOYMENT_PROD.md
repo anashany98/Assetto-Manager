@@ -19,6 +19,7 @@ separate Windows stations running the Agent.
 - Set PUBLIC_API_TOKEN / PUBLIC_WS_TOKEN (public kiosk or display access).
 - If using push notifications: set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY.
 - If using license verification: set LICENSE_PUBLIC_KEY_PATH or LICENSE_PUBLIC_KEY.
+  - Helper: scripts/setup_license_keys.ps1
 
 ## 2) Create backend/.env
 Copy backend/.env.production.example to backend/.env and set real values.
@@ -67,6 +68,7 @@ The production UI is served by the backend:
 ## 8) Backups
 - Run scripts/backup_db.ps1 to create a DB backup.
 - Store backups in a safe location and set a retention policy.
+- Optional: scripts/schedule_backup.ps1 to create a daily backup task.
 
 ## 9) Windows service (optional)
 - Use NSSM or Task Scheduler to run the backend as a Windows service.

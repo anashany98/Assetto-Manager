@@ -98,6 +98,8 @@ Ensure-Value "AUTO_SCHEMA" "true"
 Write-EnvFile $EnvFile $envMap
 Write-Host "Wrote $EnvFile"
 Write-Host "NOTE: AUTO_SCHEMA is set to true for the first run. Set it to false after the DB is initialized."
+Write-Host ("AGENT_TOKEN: " + $envMap["AGENT_TOKEN"])
+Write-Host ("UPDATE_SIGNING_KEY: " + $envMap["UPDATE_SIGNING_KEY"])
 
 # 4) Optional service install
 if ($InstallService) {
