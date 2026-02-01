@@ -25,6 +25,8 @@ Sistema de gestión centralizada de mods y perfiles para simuladores de conducci
 
 ## 📚 Documentación Adjunta
 *   [Production Deployment Runbook](docs/DEPLOYMENT_PROD.md): pasos para despliegue en produccion.
+*   [Servicio Windows (NSSM)](docs/SERVICE_WINDOWS.md): instalacion del backend como servicio.
+*   [Reverse Proxy HTTPS](docs/REVERSE_PROXY.md): ejemplo con Caddy.
 
 *   [Guía de Despliegue Arcade](file:///C:/Users/Usuari/.gemini/antigravity/brain/4e86eebd-7c8d-4a1f-9dfc-0f399709b868/arcade_deployment_guide.md): Recomendaciones específicas para tu Bar (VMS, Red, etc.).
 *   [Roadmap de Futuro](file:///C:/Users/Usuari/.gemini/antigravity/brain/4e86eebd-7c8d-4a1f-9dfc-0f399709b868/future_roadmap.md): Ideas para expandir el sistema (Leaderboards, etc.).

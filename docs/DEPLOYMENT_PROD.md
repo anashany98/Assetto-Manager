@@ -63,13 +63,17 @@ The production UI is served by the backend:
 
 ## 9) Windows service (optional)
 - Use NSSM or Task Scheduler to run the backend as a Windows service.
+- See docs/SERVICE_WINDOWS.md for a ready script.
 
-## 10) If you rewrote git history (secret purge)
+## 10) Reverse proxy (optional)
+- See docs/REVERSE_PROXY.md and docs/Caddyfile.example for HTTPS setup.
+
+## 11) If you rewrote git history (secret purge)
 All clones must reset:
   git fetch --all
   git reset --hard origin/master
 
-## 11) Optional hardening
+## 12) Optional hardening
 - Put a reverse proxy in front (Nginx/Caddy) and use HTTPS.
 - Restrict ALLOWED_ORIGINS to your dashboard domain.
 - Disable ENABLE_VMS_INTEGRATION unless needed.
