@@ -157,6 +157,10 @@ app.include_router(ads.router)
 app.include_router(auth.router)
 app.include_router(backup.router)
 app.include_router(exports.router)
+
+from .routers import system
+app.include_router(system.router)
+
 from .routers import user_management, license
 app.include_router(user_management.router)
 app.include_router(license.router)
@@ -209,6 +213,9 @@ app.include_router(leaderboard.router)
 
 # Mod Sync Across Stations
 app.include_router(deploy_sync.router)
+
+from .routers import wallpapers
+app.include_router(wallpapers.router)
 
 
 # @app.get("/")

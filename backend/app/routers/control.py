@@ -358,6 +358,10 @@ async def stop_station_session(station_id: int):
         raise HTTPException(status_code=404, detail=f"Station {station_id} is not online")
 
 
+
+
+
+
 # --- WHEEL PROFILES ENDPOINTS ---
 
 @router.get("/profiles", response_model=list[dict], dependencies=[Depends(require_admin)])

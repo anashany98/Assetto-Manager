@@ -21,6 +21,7 @@ import { usePushNotifications } from '../hooks/usePushNotifications';
 import ACSettingsEditor from '../components/ACSettingsEditor';
 import { Camera, Cloud, Bot, Shield } from 'lucide-react';
 import { LicenseSettings } from '../components/LicenseSettings';
+import WallpaperSettings from '../components/WallpaperSettings';
 import { calculatePrice, getPricingConfig, type PricingDiscount, type PricingRate } from '../utils/pricing';
 import { isFeatureEnabled } from '../config/features';
 
@@ -744,6 +745,9 @@ export default function SettingsPage() {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Video Wallpapers */}
+                        <WallpaperSettings />
 
                         {/* Push Notifications */}
                         <div className="bg-gray-800 p-8 rounded-3xl border border-gray-700">

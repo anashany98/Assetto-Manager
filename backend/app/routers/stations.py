@@ -257,7 +257,7 @@ async def shutdown_station(station_id: int, db: Session = Depends(database.get_d
         raise HTTPException(status_code=404, detail="Station not found")
         
     # Send command via WebSocket
-    success = await ws_manager.send_command(station_id, {"command": "shutdown"})
+    success = await ws_manager.send_command(station_id, {"command": "system_shutdown"})
     
     if not success:
         raise HTTPException(status_code=503, detail="Station not connected or failed to receive command")
@@ -270,7 +270,7 @@ async def restart_station(station_id: int, db: Session = Depends(database.get_db
     if not station:
         raise HTTPException(status_code=404, detail="Station not found")
 
-    success = await ws_manager.send_command(station_id, {"command": "restart"})
+    success = await ws_manager.send_command(station_id, {"command": "system_reboot"})
     if not success:
         raise HTTPException(status_code=503, detail="Station not connected or failed to receive command")
 
@@ -379,7 +379,24 @@ async def mass_launch(
             })
         return {"status": "ok", "message": f"Practice launched on {len(online_stations)} stations"}
 
-    elif request.mode == "race":
+        # 0. Prepare Player List with Correct Names
+        players_list = []
+        for s in online_stations:
+            # Lookup active session for this station
+            active_session = db.query(models.Session).filter(
+                models.Session.station_id == s.id,
+                models.Session.status == "active"
+            ).first()
+            
+            # Use Driver Name if session exists, else Station Name
+            driver_name = active_session.driver_name if active_session and active_session.driver_name else s.name
+            
+            players_list.append({
+                "station_id": s.id,
+                "name": driver_name, 
+                "station_obj": s
+            })
+
         # Multi-player logic
         # 1. Pick host (first online station)
         host = online_stations[0]
@@ -417,12 +434,12 @@ async def mass_launch(
             "laps": request.laps,
             "max_players": lobby.max_players,
             "port": lobby.port,
-            "players": [{"name": s.name, "slot": idx} for idx, s in enumerate(online_stations)]
+            "players": [{"name": p["name"], "slot": idx} for idx, p in enumerate(players_list)]
         })
 
         # 4. Send join_lobby to everyone (including host for the client part)
-        for idx, station in enumerate(online_stations):
-            await ws_manager.send_command(station.id, {
+        for idx, p in enumerate(players_list):
+            await ws_manager.send_command(p["station_id"], {
                 "command": "join_lobby",
                 "lobby_id": lobby.id,
                 "server_ip": lobby.server_ip,
@@ -430,6 +447,7 @@ async def mass_launch(
                 "track": request.track,
                 "car": request.car,
                 "slot": idx,
+                "driver_name": p["name"],
                 "is_spectator": False
             })
 

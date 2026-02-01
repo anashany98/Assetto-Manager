@@ -8,7 +8,6 @@ import {
     Gauge,
     Activity,
     WifiOff,
-    ScanQrCode,
     Footprints,
     Disc,
     AlertCircle
@@ -19,6 +18,7 @@ import { getCars, getTracks } from '../api/content';
 import { getScenarios } from '../api/scenarios';
 import type { Scenario } from '../api/scenarios';
 import { type PaymentProvider, type PaymentStatus } from '../api/payments';
+
 // startSession removed
 
 import { calculatePrice, getPricingConfig } from '../utils/pricing';
@@ -40,16 +40,16 @@ import type { KioskSelection } from './KioskSteps';
 // Driver creation is handled inline for now. Backend may provide endpoint.
 const clientTokenHeaders: Record<string, string> = PUBLIC_API_TOKEN ? { 'X-Client-Token': PUBLIC_API_TOKEN } : {};
 
-
 import { ContentStep } from './KioskContentStep';
+import StationPairing, { getPairedStationId, clearPairedStationId } from '../components/StationPairing';
 
 export default function KioskMode() {
     // searchParams removed
 
-    const [stationId, setStationId] = useState<number>(0);
-    const [pairingCode, setPairingCode] = useState('');
-    const [pairingError, setPairingError] = useState<string | null>(null);
-    const [pairingBusy, setPairingBusy] = useState(false);
+    // Station Pairing State
+    const [stationId, setStationId] = useState<number>(() => getPairedStationId() || 0);
+    const [showPairing, setShowPairing] = useState<boolean>(() => !getPairedStationId());
+
     const [step, setStep] = useState<number>(1);
     const [driver, setDriver] = useState<{ id: number, name: string } | null>(null);
     const [driverName, setDriverName] = useState('');
@@ -114,6 +114,10 @@ export default function KioskMode() {
         refetchIntervalInBackground: true,
         refetchOnWindowFocus: true
     });
+
+    // --- WALLPAPER LOGIC ---
+    // (Video logic moved to AttractMode / KioskSteps to save resources when active)
+    // -----------------------
     const pricingConfig = useMemo(() => getPricingConfig(settings), [settings]);
     const sessionPrice = useMemo(() => calculatePrice(duration, false, pricingConfig), [duration, pricingConfig]);
     const paymentEnabled = useMemo(() => {
@@ -150,21 +154,7 @@ export default function KioskMode() {
         debounce: 500
     });
 
-    const resolveKioskCode = async (code: string) => {
-        try {
-            setPairingBusy(true);
-            const res = await axios.post(`${API_URL}/settings/kiosk/pair`, { code });
-            if (res.data.station_id) {
-                setStationId(res.data.station_id);
-                localStorage.setItem('kiosk_station_id', String(res.data.station_id));
-                localStorage.setItem('kiosk_code', code);
-            }
-        } catch (e) {
-            setPairingError("Codigo invalido");
-        } finally {
-            setPairingBusy(false);
-        }
-    };
+
 
     const { data: hardwareStatus, isLoading: hardwareFetching, refetch: refetchHardware, isError: isHardwareError } = useQuery({
         queryKey: ['hardware', stationId],
@@ -174,16 +164,7 @@ export default function KioskMode() {
         retry: false
     });
 
-    useEffect(() => {
-        const stored = localStorage.getItem('kiosk_station_id');
-        const storedCode = localStorage.getItem('kiosk_code');
-        if (stored && !isNaN(Number(stored)) && stationId === 0) {
-            setStationId(Number(stored));
-        }
-        if (storedCode && !pairingCode) {
-            setPairingCode(storedCode);
-        }
-    }, []);
+
 
     // handleUnpair removed (logic is inline)
 
@@ -280,6 +261,19 @@ export default function KioskMode() {
         queryFn: () => getScenarios(),
         enabled: !!stationId
     });
+
+
+    // --- RENDER PAIRING SCREEN ---
+    if (showPairing || !stationId) {
+        return (
+            <StationPairing
+                onPaired={(id) => {
+                    setStationId(id);
+                    setShowPairing(false);
+                }}
+            />
+        );
+    }
 
     const renderStep = () => {
         const content = (() => {
@@ -424,49 +418,7 @@ export default function KioskMode() {
         );
     };
 
-    if (!stationId) {
-        return (
-            <div className="h-screen w-screen bg-gray-950 text-white flex items-center justify-center">
-                <div className="w-full max-w-md bg-gray-900/60 border border-gray-800 rounded-3xl p-8 text-center">
-                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-500/20 text-blue-400 mb-5">
-                        <ScanQrCode size={28} />
-                    </div>
-                    <h1 className="text-2xl font-black uppercase mb-2">Emparejar kiosko</h1>
-                    <p className="text-gray-400 text-sm mb-6">
-                        Introduce el codigo de kiosko asignado a esta estacion.
-                    </p>
-                    <input
-                        value={pairingCode}
-                        onChange={(e) => setPairingCode(e.target.value.toUpperCase())}
-                        placeholder="CODIGO (ej. AB12CD)"
-                        className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-center text-lg font-black tracking-widest uppercase text-white focus:border-blue-500 outline-none"
-                    />
-                    {pairingError && (
-                        <p className="text-red-400 text-xs mt-3">{pairingError}</p>
-                    )}
-                    <button
-                        onClick={() => resolveKioskCode(pairingCode)}
-                        disabled={pairingBusy || pairingCode.trim().length < 4}
-                        className="w-full mt-6 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-black uppercase tracking-widest py-3 rounded-xl"
-                    >
-                        {pairingBusy ? 'Emparejando...' : 'Emparejar'}
-                    </button>
-                    <button
-                        onClick={() => {
-                            localStorage.removeItem('kiosk_code');
-                            localStorage.removeItem('kiosk_station_id');
-                            setPairingCode('');
-                            setPairingError(null);
-                            setStationId(0);
-                        }}
-                        className="w-full mt-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold uppercase tracking-widest py-2 rounded-xl text-xs"
-                    >
-                        Limpiar codigo guardado
-                    </button>
-                </div>
-            </div>
-        );
-    }
+
 
     if (isServerUnavailable) {
         return (
@@ -568,33 +520,51 @@ export default function KioskMode() {
 
     return (
         <div className="h-full w-full flex flex-col relative">
-            <AttractMode isIdle={isIdle()} scenarios={scenarios} t={t} />
+            <AttractMode
+                isIdle={isIdle()}
+                scenarios={scenarios}
+                t={t}
+                onUnpair={() => {
+                    if (window.confirm('¿Desvincular esta tablet del simulador?')) {
+                        clearPairedStationId();
+                        window.location.reload();
+                    }
+                }}
+            />
             {/* BACKGROUND VIDEO/IMAGE */}
             <div className="absolute inset-0 overflow-hidden">
                 {/* Dynamic Background Image (Bottom Layer) */}
                 {/* Dynamic Background Image (Bottom Layer) */}
+                {/* Dynamic Background Image (Bottom Layer) */}
                 {(() => {
-                    // Use CSS filters to simulate weather instead of relying on external URLs that might break
-                    const baseBG = '/bg-kiosk.jpg';
                     let filterClass = "filter-none";
-
                     if (step === 4) {
                         switch (weather) {
                             case 'rain': filterClass = "grayscale brightness-75 contrast-125 saturate-50"; break;
                             case 'cloud': filterClass = "grayscale brightness-90 contrast-75"; break;
                             case 'fog': filterClass = "grayscale brightness-90 contrast-50 blur-sm"; break;
-                            // case 'sun': default
                         }
                         if (timeOfDay === 'night' || timeOfDay === 'evening') {
-                            filterClass += " brightness-50"; // Add extra darkness if time of day matches
+                            filterClass += " brightness-50";
                         }
                     }
 
                     return (
-                        <div
-                            className={`absolute inset-0 bg-cover bg-center transition-all duration-1000 ease-in-out transform scale-105 z-0 ${filterClass}`}
-                            style={{ backgroundImage: `url('${baseBG}')` }}
-                        />
+                        <>
+                            <div
+                                className={`absolute inset-0 bg-cover bg-center transition-all duration-1000 ease-in-out transform scale-105 z-0 ${filterClass}`}
+                                style={{ backgroundImage: `url('/bg-kiosk.jpg')` }}
+                            />
+
+                            {/* LOGO DEL BAR OVERLAY */}
+                            <div className="absolute top-10 right-10 z-20 pointer-events-none animate-in fade-in slide-in-from-top-4 duration-1000">
+                                <img
+                                    src="/logo.png"
+                                    alt="Logo Bar"
+                                    className="w-48 h-auto drop-shadow-2xl opacity-90"
+                                />
+                            </div>
+                        </>
                     );
                 })()}
 
