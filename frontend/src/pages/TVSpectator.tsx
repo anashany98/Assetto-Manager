@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Monitor, Play, Square, RefreshCw, WifiOff, Tv, Settings, Gauge, Activity, Sparkles } from 'lucide-react';
 import axios from 'axios';
-import { API_URL } from '../config';
+import { API_URL, PUBLIC_API_TOKEN } from '../config';
 import { useTelemetry } from '../hooks/useTelemetry';
 import StreamPlayer from '../components/StreamPlayer';
 import { DEMO_STATIONS } from '../data/demoData';
@@ -45,7 +45,8 @@ export default function TVSpectator() {
             return;
         }
         try {
-            const res = await axios.get(`${API_URL}/spectator/stations`);
+            const headers = PUBLIC_API_TOKEN ? { 'X-Client-Token': PUBLIC_API_TOKEN } : {};
+            const res = await axios.get(`${API_URL}/spectator/stations`, { headers });
             setStations(res.data);
         } catch (err) {
             console.error('Error fetching stations:', err);
@@ -62,7 +63,8 @@ export default function TVSpectator() {
         setLoading(true);
         setError('');
         try {
-            await axios.post(`${API_URL}/spectator/${station.id}/start`);
+            const headers = PUBLIC_API_TOKEN ? { 'X-Client-Token': PUBLIC_API_TOKEN } : {};
+            await axios.post(`${API_URL}/spectator/${station.id}/start`, null, { headers });
             setSelectedStation(station);
             setStreaming(true);
         } catch (err: any) {
@@ -82,7 +84,8 @@ export default function TVSpectator() {
 
         setLoading(true);
         try {
-            await axios.post(`${API_URL}/spectator/${selectedStation.id}/stop`);
+            const headers = PUBLIC_API_TOKEN ? { 'X-Client-Token': PUBLIC_API_TOKEN } : {};
+            await axios.post(`${API_URL}/spectator/${selectedStation.id}/stop`, null, { headers });
             setStreaming(false);
         } catch (err: any) {
             setError(err.response?.data?.detail || 'Error al detener stream');
@@ -161,15 +164,7 @@ export default function TVSpectator() {
                     <div className="lg:col-span-3">
                         <div className="aspect-video bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden relative">
                             {streaming && selectedStation?.stream_url && !demoMode ? (
-                                selectedStation.stream_url.endsWith('.flv') || selectedStation.stream_url.endsWith('.mp4') ? (
-                                    <StreamPlayer url={selectedStation.stream_url} />
-                                ) : (
-                                    <iframe
-                                        src={selectedStation.stream_url}
-                                        className="w-full h-full"
-                                        allow="autoplay"
-                                    />
-                                )
+                                <StreamPlayer url={selectedStation.stream_url} />
                             ) : demoMode && streaming ? (
                                 // Demo Video Placeholder
                                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-800 text-yellow-500">

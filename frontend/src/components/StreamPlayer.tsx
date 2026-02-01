@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import flvjs from 'flv.js';
+import Hls from 'hls.js';
 
 interface StreamPlayerProps {
     url: string;
@@ -9,10 +10,10 @@ interface StreamPlayerProps {
 export default function StreamPlayer({ url, className }: StreamPlayerProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const playerRef = useRef<flvjs.Player | null>(null);
+    const hlsRef = useRef<Hls | null>(null);
+    const rtcRef = useRef<RTCPeerConnection | null>(null);
 
     useEffect(() => {
-        if (!flvjs.isSupported()) return;
-
         const videoElement = videoRef.current;
         if (!videoElement) return;
 
@@ -21,9 +22,21 @@ export default function StreamPlayer({ url, className }: StreamPlayerProps) {
             playerRef.current.destroy();
             playerRef.current = null;
         }
+        if (hlsRef.current) {
+            hlsRef.current.destroy();
+            hlsRef.current = null;
+        }
 
-        // Check if it's an FLV URL
-        if (url.endsWith('.flv')) {
+        const lowerUrl = url.toLowerCase();
+        // Improve FLV detection: .flv extension OR standard OBS/rtmp-to-http stream endpoint
+        const isFlv = lowerUrl.endsWith('.flv') || lowerUrl.endsWith('/stream');
+        const isHls = lowerUrl.includes('.m3u8');
+        const isWebRtc = !isFlv && !isHls && !lowerUrl.endsWith('.mp4') && (lowerUrl.includes(':8889/') || lowerUrl.endsWith('/whep'));
+
+        console.log(`StreamPlayer: Loading ${url} | Type: ${isFlv ? 'FLV' : isHls ? 'HLS' : isWebRtc ? 'WebRTC' : 'Native'}`);
+
+        // FLV playback (HTTP-FLV)
+        if (isFlv && flvjs.isSupported()) {
             const player = flvjs.createPlayer({
                 type: 'flv',
                 url: url,
@@ -50,8 +63,100 @@ export default function StreamPlayer({ url, className }: StreamPlayerProps) {
             player.on(flvjs.Events.ERROR, (type: any, details: any) => {
                 console.warn('FLV Player Warning:', type, details);
             });
+        } else if (isHls) {
+            // HLS playback
+            if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
+                videoElement.src = url;
+                videoElement.onloadedmetadata = () => {
+                    const playPromise = videoElement.play();
+                    if (playPromise !== undefined) {
+                        playPromise.catch((e: any) => console.warn("HLS autoplay prevented", e));
+                    }
+                };
+            } else if (Hls.isSupported()) {
+                const hls = new Hls({
+                    lowLatencyMode: true,
+                    backBufferLength: 5,
+                    maxBufferLength: 6,
+                    liveSyncDurationCount: 2,
+                    liveMaxLatencyDurationCount: 5,
+                    maxLiveSyncPlaybackRate: 1.5,
+                });
+                hls.loadSource(url);
+                hls.attachMedia(videoElement);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    const playPromise = videoElement.play();
+                    if (playPromise !== undefined) {
+                        playPromise.catch((e: any) => console.warn("HLS autoplay prevented", e));
+                    }
+                });
+                hls.on(Hls.Events.ERROR, (_event, data) => {
+                    console.warn("HLS error", data);
+                });
+                hlsRef.current = hls;
+            } else {
+                console.warn('HLS not supported in this browser');
+            }
+        } else if (isWebRtc) {
+            const pc = new RTCPeerConnection();
+            rtcRef.current = pc;
+            videoElement.srcObject = null;
+            pc.addTransceiver('video', { direction: 'recvonly' });
+            pc.addTransceiver('audio', { direction: 'recvonly' });
+            pc.ontrack = (event) => {
+                console.log("StreamPlayer: Stream track received", event.streams[0].id);
+                if (videoElement.srcObject !== event.streams[0]) {
+                    videoElement.srcObject = event.streams[0];
+                }
+            };
+
+            const waitIceGathering = () => new Promise<void>((resolve) => {
+                if (pc.iceGatheringState === 'complete') {
+                    resolve();
+                    return;
+                }
+                const onStateChange = () => {
+                    if (pc.iceGatheringState === 'complete') {
+                        pc.removeEventListener('icegatheringstatechange', onStateChange);
+                        resolve();
+                    }
+                };
+                pc.addEventListener('icegatheringstatechange', onStateChange);
+            });
+
+            const start = async () => {
+                console.log("StreamPlayer: Starting WebRTC negotiation...");
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                console.log("StreamPlayer: Waiting for ICE candidates...");
+                await waitIceGathering();
+
+                const whepUrl = lowerUrl.endsWith('/whep') ? url : `${url.replace(/\/+$/, '')}/whep`;
+                console.log(`StreamPlayer: POSTing SDP to ${whepUrl}`);
+
+                const res = await fetch(whepUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/sdp' },
+                    body: pc.localDescription?.sdp || '',
+                });
+
+                console.log(`StreamPlayer: WHEP Response Status: ${res.status}`);
+
+                if (!res.ok) {
+                    throw new Error(`WHEP failed: ${res.status} ${res.statusText}`);
+                }
+                const answer = await res.text();
+                await pc.setRemoteDescription({ type: 'answer', sdp: answer });
+
+                const playPromise = videoElement.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch((e: any) => console.warn("WebRTC autoplay prevented", e));
+                }
+            };
+
+            start().catch((e) => console.error("StreamPlayer: WebRTC start failed", e));
         } else {
-            // Native playback (HLS if supported by browser, or direct file)
+            // Native playback (direct file)
             videoElement.src = url;
         }
 
@@ -59,6 +164,17 @@ export default function StreamPlayer({ url, className }: StreamPlayerProps) {
             if (playerRef.current) {
                 playerRef.current.destroy();
                 playerRef.current = null;
+            }
+            if (hlsRef.current) {
+                hlsRef.current.destroy();
+                hlsRef.current = null;
+            }
+            if (rtcRef.current) {
+                rtcRef.current.close();
+                rtcRef.current = null;
+            }
+            if (videoElement.srcObject) {
+                videoElement.srcObject = null;
             }
         };
     }, [url]);
@@ -70,6 +186,8 @@ export default function StreamPlayer({ url, className }: StreamPlayerProps) {
             autoPlay
             muted
             playsInline
+            controls
         />
     );
 }
+
