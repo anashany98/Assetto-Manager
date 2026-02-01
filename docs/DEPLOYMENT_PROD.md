@@ -50,7 +50,9 @@ The production UI is served by the backend:
 
 ## 6) Agent install (per station)
 - Copy the agent build or folder.
-- Create agent/config.json from agent/config.example.json.
+- Use the one-click script (recommended):
+  scripts/deploy_station.ps1 -ServerUrl "http://<server-ip>:8000" -AgentToken "<AGENT_TOKEN>" -StationName "SIM 1" -ACPath "D:\\SteamLibrary\\steamapps\\common\\assettocorsa" -InstallTask -StartNow
+- Or create agent/config.json from agent/config.example.json manually.
 - Set server_url to the server IP (http://<server-ip>:8000)
 - Set agent_token to match backend AGENT_TOKEN.
 - Set update_signing_key to match UPDATE_SIGNING_KEY.
