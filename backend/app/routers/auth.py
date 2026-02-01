@@ -1,10 +1,11 @@
 
 from datetime import timedelta
 from typing import Annotated, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Header
+from fastapi import APIRouter, Depends, HTTPException, status, Header, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 import os
+from ..limiters import limiter
 
 from .. import database, models, auth
 from ..auth import create_access_token, get_password_hash, verify_password, decode_access_token
@@ -138,7 +139,9 @@ def require_admin_or_public_token(
     return "client"
 
 @router.post("/token")
+@limiter.limit("5/minute")
 async def login_for_access_token(
+    request: Request,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     db: Session = Depends(database.get_db)
 ):
@@ -170,7 +173,9 @@ class UserSetup(BaseModel):
     password: str
 
 @router.post("/users/setup")
+@limiter.limit("3/hour")
 def setup_admin(
+    request: Request,
     data: UserSetup,
     db: Session = Depends(database.get_db),
     setup_token: Optional[str] = Header(None, alias="X-Setup-Token")
@@ -191,7 +196,9 @@ def setup_admin(
     return {"status": "ok", "message": "Admin user created"}
 
 @router.post("/register")
+@limiter.limit("5/hour")
 def register_user(
+    request: Request,
     data: UserSetup,
     db: Session = Depends(database.get_db)
 ):

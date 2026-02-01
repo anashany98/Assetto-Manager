@@ -158,7 +158,7 @@ export default function KioskMode() {
 
     const { data: hardwareStatus, isLoading: hardwareFetching, refetch: refetchHardware, isError: isHardwareError } = useQuery({
         queryKey: ['hardware', stationId],
-        queryFn: () => axios.get(`${API_URL}/hardware/status/${stationId}`).then(r => r.data),
+        queryFn: () => axios.get(`${API_URL}/hardware/status/${stationId}`, { headers: clientTokenHeaders }).then(r => r.data),
         enabled: !!stationId,
         refetchInterval: 5000,
         retry: false
@@ -170,8 +170,8 @@ export default function KioskMode() {
 
 
     const isServerUnavailable = isHardwareError;
-    const isStationInactive = false; // TODO: Check via settings or status
-    const isKioskDisabled = false; // TODO: Check via settings
+    const isStationInactive = hardwareStatus?.is_active === false;
+    const isKioskDisabled = hardwareStatus?.is_kiosk_mode === false;
     const hardwareWarning = !hardwareStatus?.is_online;
 
     const selectedCarObj = useMemo(() => cars.find((c: any) => c.model === selection?.car), [cars, selection]);

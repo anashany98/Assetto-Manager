@@ -98,6 +98,20 @@ class CSPMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(CSPMiddleware)
 
+# Security headers (production hardening)
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
+        response.headers.setdefault("Permissions-Policy", "geolocation=(), camera=(), microphone=()")
+        if ENVIRONMENT == "production":
+            response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)
+
 # Global Exception Handler
 from fastapi.responses import JSONResponse
 from fastapi import Request
@@ -145,11 +159,10 @@ app.add_middleware(
 )
 
 # Rate Limiting
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from .limiters import limiter
 
-limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -237,10 +250,34 @@ app.include_router(wallpapers.router)
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok"}
+    status = "ok"
+    checks = {}
+
+    # DB check
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        checks["db"] = "ok"
+    except Exception:
+        checks["db"] = "error"
+        status = "degraded"
+
+    # Storage check
+    try:
+        test_path = STORAGE_DIR / ".healthcheck"
+        with open(test_path, "w", encoding="utf-8") as f:
+            f.write("ok")
+        test_path.unlink(missing_ok=True)
+        checks["storage"] = "ok"
+    except Exception:
+        checks["storage"] = "error"
+        status = "degraded"
+
+    return {"status": status, "checks": checks}
 
 # --- Serve Frontend (Production) ---
 from fastapi.responses import FileResponse
+from sqlalchemy import text
 
 # Calculate path to frontend/dist relative to this file
 # main.py is in backend/app/

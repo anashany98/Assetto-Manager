@@ -6,5 +6,7 @@
   "agent_token": "change-me",
   "steam_exe": "C:/Program Files (x86)/Steam/Steam.exe",
   "steam_app_id": "244210",
-  "launch_via_steam": false
+  "launch_via_steam": false,
+  "lobby_admin_password": "change-me",
+  "update_signing_key": "change-me"
 }

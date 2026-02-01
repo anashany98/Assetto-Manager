@@ -7,7 +7,7 @@ import json
 import requests
 import re
 from pathlib import Path
-from config import SERVER_URL, AGENT_TOKEN, logger
+from config import SERVER_URL, AGENT_TOKEN, LOBBY_ADMIN_PASSWORD, logger
 from networking import get_agent_headers
 from utils import _launch_ac, get_system_info
 from watchdog import watchdog
@@ -119,6 +119,7 @@ def create_lobby_server(data):
         os.makedirs(cfg_dir, exist_ok=True)
         
         # 1. Generate server_cfg.ini
+        admin_password = LOBBY_ADMIN_PASSWORD or ""
         server_cfg = f"""[SERVER]
 NAME=AC Manager Lobby {data.get('lobby_id')}
 CARS={data.get('car')};
@@ -131,7 +132,7 @@ HTTP_PORT={data.get('port') + 1}
 REGISTER_TO_LOBBY=0
 LOOP_MODE=1
 PASSWORD=
-ADMIN_PASSWORD=admin
+ADMIN_PASSWORD={admin_password}
 PICKUP_MODE_ENABLED=1
 Rating=100
 RatingTurbolence=100

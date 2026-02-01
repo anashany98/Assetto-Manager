@@ -37,6 +37,8 @@ AGENT_TOKEN = os.getenv("AGENT_TOKEN", "")
 STEAM_EXE = os.getenv("STEAM_EXE", "")
 STEAM_APP_ID = os.getenv("STEAM_APP_ID", "244210")
 LAUNCH_VIA_STEAM = os.getenv("AC_LAUNCH_VIA_STEAM", "false").lower() in {"1", "true", "yes"}
+LOBBY_ADMIN_PASSWORD = os.getenv("LOBBY_ADMIN_PASSWORD", "")
+UPDATE_SIGNING_KEY = os.getenv("UPDATE_SIGNING_KEY", "")
 
 def _is_truthy(value):
     if isinstance(value, bool):
@@ -78,6 +80,10 @@ for config_path in config_paths:
                 STEAM_APP_ID = str(config.get("steam_app_id"))
             if "launch_via_steam" in config:
                 LAUNCH_VIA_STEAM = _is_truthy(config.get("launch_via_steam"))
+            if config.get("lobby_admin_password"):
+                LOBBY_ADMIN_PASSWORD = config.get("lobby_admin_password", LOBBY_ADMIN_PASSWORD)
+            if config.get("update_signing_key"):
+                UPDATE_SIGNING_KEY = config.get("update_signing_key", UPDATE_SIGNING_KEY)
             logger.info(f"Loaded config from {config_path}. Server URL: {SERVER_URL}")
         break
     except Exception as e:

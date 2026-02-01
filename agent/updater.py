@@ -5,8 +5,10 @@ import zipfile
 import logging
 import subprocess
 import time
+import hashlib
+import hmac
 from pathlib import Path
-from config import SERVER_URL, AGENT_VERSION, logger
+from config import SERVER_URL, AGENT_VERSION, UPDATE_SIGNING_KEY, logger
 
 def check_for_updates():
     """
@@ -24,13 +26,15 @@ def check_for_updates():
         data = resp.json()
         remote_version = data.get("version")
         download_url = data.get("url")
+        expected_hash = data.get("sha256")
+        signature = data.get("signature")
         
         if not remote_version or not download_url:
             return
 
         if _is_newer(remote_version, AGENT_VERSION):
             logger.info(f"New version found: {remote_version}. Downloading...")
-            _perform_update(download_url)
+            _perform_update(download_url, expected_hash=expected_hash, signature=signature)
         else:
             logger.info("Agent is up to date.")
 
@@ -45,7 +49,7 @@ def _is_newer(remote, local):
     except:
         return False
 
-def _perform_update(relative_url):
+def _perform_update(relative_url, expected_hash=None, signature=None):
     """
     Downloads the zip, creates a batch script to replace files, and restarts.
     """
@@ -65,7 +69,41 @@ def _perform_update(relative_url):
         logger.error(f"Failed to download update: {e}")
         return
 
-    # 2. Extract to Temp Folder (to verify valid zip)
+    # 2. Verify hash/signature if provided
+    try:
+        if expected_hash:
+            sha256 = hashlib.sha256()
+            with open(zip_path, "rb") as f:
+                for chunk in iter(lambda: f.read(8192), b""):
+                    sha256.update(chunk)
+            actual_hash = sha256.hexdigest()
+            if actual_hash.lower() != str(expected_hash).lower():
+                logger.error("Update hash mismatch. Aborting.")
+                return
+
+        if signature:
+            if not expected_hash:
+                logger.error("Update signature provided without sha256. Aborting.")
+                return
+            if not UPDATE_SIGNING_KEY:
+                logger.error("Update signature present but UPDATE_SIGNING_KEY is not configured. Aborting.")
+                return
+            expected_sig = hmac.new(
+                UPDATE_SIGNING_KEY.encode("utf-8"),
+                expected_hash.encode("utf-8"),
+                hashlib.sha256
+            ).hexdigest()
+            if not hmac.compare_digest(signature, expected_sig):
+                logger.error("Update signature invalid. Aborting.")
+                return
+        elif UPDATE_SIGNING_KEY:
+            logger.error("UPDATE_SIGNING_KEY is set but update is unsigned. Aborting.")
+            return
+    except Exception as e:
+        logger.error(f"Update verification failed: {e}")
+        return
+
+    # 3. Extract to Temp Folder (to verify valid zip)
     extract_path = os.path.join(temp_dir, "extracted")
     try:
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
@@ -74,7 +112,7 @@ def _perform_update(relative_url):
         logger.error(f"Update zip is corrupt: {e}")
         return
 
-    # 3. Create Updater Script (Windows Only mainly)
+    # 4. Create Updater Script (Windows Only mainly)
     # We need a script that:
     # a) Waits for this process to die
     # b) Copies files from temp to current dir

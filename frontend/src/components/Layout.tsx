@@ -28,7 +28,7 @@ import { useAuth } from '../context/useAuth';
 import { useLicense } from '../context/LicenseContext';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
-import { API_URL } from '../config';
+import { API_URL, PUBLIC_API_TOKEN } from '../config';
 import { FEATURES } from '../config/features';
 
 
@@ -142,11 +142,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     });
 
     const isAdminView = location.pathname.startsWith('/admin');
+    const publicHeaders = PUBLIC_API_TOKEN ? { 'X-Client-Token': PUBLIC_API_TOKEN } : {};
     const { data: lockStatus } = useQuery({
         queryKey: ['lock-check', stationId],
         queryFn: async () => {
             try {
-                const res = await axios.get(`${API_URL}/hardware/status/${stationId}`);
+                const res = await axios.get(`${API_URL}/hardware/status/${stationId}`, { headers: publicHeaders });
                 if (!isAdminView) {
                     if (res.data?.is_locked) {
                         if (location.pathname !== '/lock-screen') {

@@ -15,6 +15,7 @@ separate Windows stations running the Agent.
 - Generate a new SECRET_KEY (32+ random bytes).
 - Set SETUP_TOKEN (one-time admin creation).
 - Set AGENT_TOKEN (Agent auth).
+- Set UPDATE_SIGNING_KEY (HMAC for agent update verification).
 - Set PUBLIC_API_TOKEN / PUBLIC_WS_TOKEN (public kiosk or display access).
 - If using push notifications: set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY.
 - If using license verification: set LICENSE_PUBLIC_KEY_PATH or LICENSE_PUBLIC_KEY.
@@ -47,6 +48,7 @@ The production UI is served by the backend:
 - Create agent/config.json from agent/config.example.json.
 - Set server_url to the server IP (http://<server-ip>:8000)
 - Set agent_token to match backend AGENT_TOKEN.
+- Set update_signing_key to match UPDATE_SIGNING_KEY.
 - Start the agent and confirm it registers in the dashboard.
 
 ## 7) Post-deploy checks
@@ -55,12 +57,19 @@ The production UI is served by the backend:
 - Station registration works (Agent online)
 - Kiosk pairing works (kiosk code)
 
-## 8) If you rewrote git history (secret purge)
+## 8) Backups
+- Run scripts/backup_db.ps1 to create a DB backup.
+- Store backups in a safe location and set a retention policy.
+
+## 9) Windows service (optional)
+- Use NSSM or Task Scheduler to run the backend as a Windows service.
+
+## 10) If you rewrote git history (secret purge)
 All clones must reset:
   git fetch --all
   git reset --hard origin/master
 
-## 9) Optional hardening
+## 11) Optional hardening
 - Put a reverse proxy in front (Nginx/Caddy) and use HTTPS.
 - Restrict ALLOWED_ORIGINS to your dashboard domain.
 - Disable ENABLE_VMS_INTEGRATION unless needed.

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import shutil
@@ -8,6 +8,9 @@ from pathlib import Path
 from ..paths import STORAGE_DIR
 from ..routers.auth import require_admin
 import re
+from ..limiters import limiter
+import hashlib
+import hmac
 
 router = APIRouter(
     prefix="/system",
@@ -23,6 +26,8 @@ class SystemVersion(BaseModel):
     version: str
     url: str
     mandatory: bool = False
+    sha256: str | None = None
+    signature: str | None = None
 
 @router.get("/version", response_model=SystemVersion)
 async def get_latest_version():
@@ -40,7 +45,8 @@ async def get_latest_version():
         raise HTTPException(status_code=500, detail=f"Failed to read version file: {str(e)}")
 
 @router.post("/update", dependencies=[Depends(require_admin)])
-async def upload_update(version: str, file: UploadFile = File(...), mandatory: bool = False):
+@limiter.limit("5/minute")
+async def upload_update(request: Request, version: str, file: UploadFile = File(...), mandatory: bool = False):
     """
     Upload a new Agent update (ZIP file).
     """
@@ -56,12 +62,30 @@ async def upload_update(version: str, file: UploadFile = File(...), mandatory: b
         
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
+
+        # Compute SHA256 for integrity
+        sha256 = hashlib.sha256()
+        with open(file_path, "rb") as f:
+            for chunk in iter(lambda: f.read(8192), b""):
+                sha256.update(chunk)
+        sha256_hex = sha256.hexdigest()
+
+        signature = None
+        signing_key = os.getenv("UPDATE_SIGNING_KEY")
+        if signing_key:
+            signature = hmac.new(
+                signing_key.encode("utf-8"),
+                sha256_hex.encode("utf-8"),
+                hashlib.sha256
+            ).hexdigest()
             
         # Update version manifest
         update_info = {
             "version": version,
             "url": f"/static/updates/agent_v{version}.zip",
-            "mandatory": mandatory
+            "mandatory": mandatory,
+            "sha256": sha256_hex,
+            "signature": signature
         }
         
         with open(VERSION_FILE, "w") as f:
