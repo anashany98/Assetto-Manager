@@ -6,8 +6,9 @@ Sistema de gestión centralizada de mods y perfiles para simuladores de conducci
 
 ### 1. Servidor Central (El PC del Operador)
 *   **Instalación:** Ejecuta (como Admin) `server_setup.ps1` para configurar el Firewall.
-*   **Uso Diario:** Haz doble clic en `start_server.bat`. Esto abrirá el Backend y el Panel de Control Web.
-*   **Panel Web:** Accesible en [http://localhost:3010](http://localhost:3010).
+*   **Uso Diario (Producción):** Haz doble clic en `start_server_prod.bat`. Esto compila el Frontend y arranca el Backend en modo producción.
+*   **Uso Diario (Desarrollo):** `start_server.bat` (Vite + Uvicorn con reload).
+*   **Panel Web (Producción):** [http://localhost:8000](http://localhost:8000).
 *   **Base de Datos:** Requiere PostgreSQL (o Supabase) configurado en el archivo `backend/.env`.
 
 ### 2. Simuladores (Los Puestos de Conducción)

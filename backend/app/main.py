@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from .database import engine, Base, ensure_station_schema, ensure_table_schema
 from .routers import stations, mods, websockets, settings, profiles, events, config_manager, championships, integrations, tournament, logs, ads, auth, backup, exports, loyalty, bookings, analytics, push, elimination, elo, hardware, control, drivers, payments, tables, tracks, deploy_sync
 from .routers.telemetry import router as telemetry_router  # Modular telemetry package
+import logging
 
 # ...
 
@@ -11,16 +12,13 @@ from .routers.telemetry import router as telemetry_router  # Modular telemetry p
 from .routers.logs import MemoryLogHandler
 from .services.scheduler import start_scheduler, stop_scheduler
 
-# Create Tables
-Base.metadata.create_all(bind=engine)
-ensure_station_schema(engine)
-ensure_table_schema(engine)
-
 from fastapi.staticfiles import StaticFiles
 import os
 from .paths import STORAGE_DIR, REPO_ROOT
 
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+AUTO_SCHEMA = os.getenv("AUTO_SCHEMA", "true" if ENVIRONMENT != "production" else "false").lower() in {"1", "true", "yes"}
+logger = logging.getLogger(__name__)
 
 def _validate_runtime_config():
     if ENVIRONMENT != "production":
@@ -34,12 +32,22 @@ def _validate_runtime_config():
         missing.append("ALLOWED_ORIGINS")
     if missing:
         raise RuntimeError(f"Missing required environment variables: {', '.join(missing)}")
+    allowed_raw = os.getenv("ALLOWED_ORIGINS", "")
+    allowed = [o.strip() for o in allowed_raw.split(",") if o.strip()]
+    if "*" in allowed:
+        raise RuntimeError("ALLOWED_ORIGINS cannot include '*' in production")
 
 # Lifecycle events
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     _validate_runtime_config()
+    if AUTO_SCHEMA:
+        Base.metadata.create_all(bind=engine)
+        ensure_station_schema(engine)
+        ensure_table_schema(engine)
+    else:
+        logger.info("AUTO_SCHEMA disabled; skipping automatic schema sync")
     scheduler_enabled = os.getenv("ENABLE_SCHEDULER", "true").lower() in {"1", "true", "yes"}
     if scheduler_enabled:
         start_scheduler()
@@ -67,12 +75,12 @@ class CSPMiddleware(BaseHTTPMiddleware):
         if ENVIRONMENT == "production":
             csp_policy = (
                 "default-src 'self'; "
-                "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
-                "worker-src 'self' blob: 'unsafe-inline' 'unsafe-eval'; "
+                "script-src 'self'; "
+                "worker-src 'self' blob:; "
                 "style-src 'self' 'unsafe-inline'; "
                 "img-src 'self' data: blob:; "
                 "font-src 'self' data:; "
-                "connect-src * https: http: wss: ws:;"
+                "connect-src 'self' https: http: wss: ws:;"
             )
         else:
             csp_policy = (
@@ -122,12 +130,16 @@ STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(STORAGE_DIR)), name="static")
 
 # CORS Configuration
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+allowed_origin_raw = os.getenv("ALLOWED_ORIGINS", "*")
+ALLOWED_ORIGINS = [o.strip() for o in allowed_origin_raw.split(",") if o.strip()]
+if not ALLOWED_ORIGINS:
+    ALLOWED_ORIGINS = ["*"]
+ALLOW_CREDENTIALS = "*" not in ALLOWED_ORIGINS
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Allow all for local dev ease
-    allow_credentials=True,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=ALLOW_CREDENTIALS,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )

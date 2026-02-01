@@ -6,6 +6,8 @@ import os
 import json
 from pathlib import Path
 from ..paths import STORAGE_DIR
+from ..routers.auth import require_admin
+import re
 
 router = APIRouter(
     prefix="/system",
@@ -37,7 +39,7 @@ async def get_latest_version():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read version file: {str(e)}")
 
-@router.post("/update")
+@router.post("/update", dependencies=[Depends(require_admin)])
 async def upload_update(version: str, file: UploadFile = File(...), mandatory: bool = False):
     """
     Upload a new Agent update (ZIP file).
@@ -45,6 +47,9 @@ async def upload_update(version: str, file: UploadFile = File(...), mandatory: b
     if not file.filename.endswith(".zip"):
         raise HTTPException(status_code=400, detail="Only .zip files are allowed")
     
+    if not re.fullmatch(r"[A-Za-z0-9._-]+", version or ""):
+        raise HTTPException(status_code=400, detail="Invalid version format")
+
     try:
         # Save the file
         file_path = UPDATES_DIR / f"agent_v{version}.zip"

@@ -47,17 +47,21 @@ async def upload_wallpaper(file: UploadFile = File(...), user: models.User = Dep
     # Validate file type
     if not file.filename.lower().endswith(('.mp4', '.webm', '.mkv', '.mov')):
         raise HTTPException(status_code=400, detail="Invalid file type. Only video files allowed.")
-    
-    file_path = WALLPAPERS_DIR / file.filename
+
+    safe_name = Path(file.filename).name
+    file_path = WALLPAPERS_DIR / safe_name
     
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
         
-    return {"filename": file.filename, "status": "uploaded"}
+    return {"filename": safe_name, "status": "uploaded"}
 
 @router.delete("/files/{filename}")
 def delete_wallpaper(filename: str, user: models.User = Depends(require_admin)):
-    file_path = WALLPAPERS_DIR / filename
+    safe_name = Path(filename).name
+    file_path = (WALLPAPERS_DIR / safe_name).resolve()
+    if file_path.parent != WALLPAPERS_DIR.resolve():
+        raise HTTPException(status_code=400, detail="Invalid filename")
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="File not found")
     

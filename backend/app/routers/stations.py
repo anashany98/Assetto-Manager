@@ -328,7 +328,10 @@ async def notify_session_ending(station_id: int, db: Session = Depends(database.
 
 @router.post("/{station_id}/lock")
 async def lock_station(station_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(require_admin)):
-        
+    station = db.query(models.Station).filter(models.Station.id == station_id).first()
+    if not station:
+        raise HTTPException(status_code=404, detail="Station not found")
+
     station.is_locked = True
     db.commit()
     
@@ -378,7 +381,7 @@ async def mass_launch(
                 "driver_name": f"Mass-{station.id}"
             })
         return {"status": "ok", "message": f"Practice launched on {len(online_stations)} stations"}
-
+    if request.mode == "race":
         # 0. Prepare Player List with Correct Names
         players_list = []
         for s in online_stations:
@@ -387,24 +390,24 @@ async def mass_launch(
                 models.Session.station_id == s.id,
                 models.Session.status == "active"
             ).first()
-            
+
             # Use Driver Name if session exists, else Station Name
             driver_name = active_session.driver_name if active_session and active_session.driver_name else s.name
-            
+
             players_list.append({
                 "station_id": s.id,
-                "name": driver_name, 
+                "name": driver_name,
                 "station_obj": s
             })
 
         # Multi-player logic
         # 1. Pick host (first online station)
         host = online_stations[0]
-        
+
         # 2. Create lobby entry in DB (simulating lobby/create logic)
         last_lobby = db.query(models.Lobby).order_by(models.Lobby.id.desc()).first()
         port = 9600 + ((last_lobby.id + 1) % 100 if last_lobby else 0)
-        
+
         lobby = models.Lobby(
             name=request.name or "Mass Launch Race",
             host_station_id=host.id,
@@ -419,7 +422,7 @@ async def mass_launch(
         db.add(lobby)
         db.commit()
         db.refresh(lobby)
-        
+
         # Add all online stations as players
         for s in online_stations:
             lobby.players.append(s)

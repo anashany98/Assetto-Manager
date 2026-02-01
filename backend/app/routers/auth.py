@@ -10,6 +10,7 @@ from .. import database, models, auth
 from ..auth import create_access_token, get_password_hash, verify_password, decode_access_token
 
 router = APIRouter(tags=["auth"])
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 oauth2_optional = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
@@ -178,6 +179,8 @@ def setup_admin(
          raise HTTPException(status_code=400, detail="Users already exist. Setup disabled.")
 
     expected_setup_token = os.getenv("SETUP_TOKEN")
+    if ENVIRONMENT == "production" and not expected_setup_token:
+        raise HTTPException(status_code=500, detail="SETUP_TOKEN not configured")
     if expected_setup_token and setup_token != expected_setup_token:
         raise HTTPException(status_code=403, detail="Invalid setup token")
     
@@ -192,6 +195,8 @@ def register_user(
     data: UserSetup,
     db: Session = Depends(database.get_db)
 ):
+    if ENVIRONMENT == "production":
+        raise HTTPException(status_code=403, detail="Registration disabled in production")
     existing_user = db.query(models.User).filter(models.User.username == data.username).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Username already exists")

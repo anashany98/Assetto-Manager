@@ -9,6 +9,8 @@ load_dotenv(dotenv_path=Path(__file__).resolve().parents[1] / ".env")
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy import event, inspect, text
 
+logger = logging.getLogger(__name__)
+
 # Supabase (PostgreSQL) by default; tests may override with SQLite.
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
@@ -49,7 +51,6 @@ if "sqlite" in SQLALCHEMY_DATABASE_URL:
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
-logger = logging.getLogger(__name__)
 
 def ensure_station_schema(db_engine):
     inspector = inspect(db_engine)

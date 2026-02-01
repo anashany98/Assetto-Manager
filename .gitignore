@@ -33,6 +33,8 @@ dist/
 
 # Backend Secrets
 backend/.env
+certs/*.pem
+certs/*.key
 
 # Local Config
 LOCAL
