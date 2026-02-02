@@ -26,10 +26,14 @@ export interface TelemetryPacket {
     steer?: number;
     g_lat?: number;
     g_lon?: number;
-    tyre_temp?: number;
+    tyre_temp?: number[];
     x?: number;
     y?: number;
     z?: number;
+    // Car Status
+    engine_temp?: number;
+    fuel?: number;
+    damage?: number[];
 }
 
 export const useTelemetry = () => {
@@ -37,6 +41,7 @@ export const useTelemetry = () => {
     const [isConnected, setIsConnected] = useState(false);
     const ws = useRef<WebSocket | null>(null);
     const reconnectTimeout = useRef<number | null>(null);
+    const latestDataRef = useRef<Record<string, TelemetryPacket>>({});
 
     // Global Demo Mode Check
     const isDemo = new URLSearchParams(window.location.search).get('demo') === 'true';
@@ -138,10 +143,11 @@ export const useTelemetry = () => {
                 try {
                     const data = JSON.parse(event.data);
                     if (data.type === 'telemetry' && data.station_id) {
-                        setLiveCars(prev => ({
-                            ...prev,
+                        // Update the ref immediately
+                        latestDataRef.current = {
+                            ...latestDataRef.current,
                             [data.station_id]: { ...data, timestamp: Date.now() }
-                        }));
+                        };
                     }
                 } catch {
                     // Silently ignore parse errors
@@ -151,8 +157,27 @@ export const useTelemetry = () => {
 
         connect();
 
+        // Animation Loop for batching state updates (approx 60fps or synced to monitor)
+        let animationFrameId: number;
+        const updateLoop = () => {
+            if (latestDataRef.current) {
+                setLiveCars(prev => {
+                    // Only update if there's actually new data to avoid wasted renders
+                    // (Simple check: referential equality check implies we won't update if we just pass the same object unless we clone. 
+                    // But here we want to capture the latest ref state).
+                    // To avoid *constant* setting even if nothing changed, checking timestamp or similar would be ideal.
+                    // However, we are mutating the ref content. 
+                    // Let's just clone the ref content into state.
+                    return { ...latestDataRef.current };
+                });
+            }
+            animationFrameId = requestAnimationFrame(updateLoop);
+        };
+        animationFrameId = requestAnimationFrame(updateLoop);
+
         return () => {
             if (reconnectTimeout.current) window.clearTimeout(reconnectTimeout.current);
+            cancelAnimationFrame(animationFrameId);
             if (ws.current) {
                 // Prevent "closed before established" warnings by ignoring the onclose handler if closing manually
                 ws.current.onclose = null;

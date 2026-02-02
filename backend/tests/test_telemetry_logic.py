@@ -1,5 +1,5 @@
 
-from app.routers.telemetry import calculate_consistency_score
+from app.routers.telemetry.base import calculate_consistency_score
 
 def test_calculate_consistency_score_empty():
     assert calculate_consistency_score([]) == 100.0

@@ -12,7 +12,7 @@ import { API_URL } from '../config';
 import { TournamentLeaderboard } from '../components/TournamentLeaderboard';
 import { TournamentVersusWrapper } from '../components/TournamentVersusWrapper';
 import TournamentBracket from '../components/TournamentBracket';
-import { Trophy, AlertTriangle, Sparkles } from 'lucide-react';
+import { Trophy, AlertTriangle, Sparkles, Wifi, WifiOff } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { TelemetryGauges } from '../components/TelemetryGauges';
 
@@ -20,7 +20,7 @@ const VIEWS = ['LEADERBOARD', 'HALL_OF_FAME', 'LIVE_MAP', 'COUNTDOWN', 'TOURNAME
 
 export const TVMode = () => {
     const [currentViewIndex, setCurrentViewIndex] = useState(0);
-    const { liveCars } = useTelemetry();
+    const { liveCars, isConnected } = useTelemetry();
     const hasLiveCars = Object.keys(liveCars).length > 0;
 
     // Get Screen ID from URL
@@ -341,8 +341,17 @@ export const TVMode = () => {
             </AnimatePresence>
 
             {/* Screen Identity Watermark */}
-            <div className="absolute top-4 right-4 z-50 opacity-30 text-[10px] uppercase font-bold text-white border border-white/30 px-2 py-0.5 rounded">
-                PANTALLA {screenId}
+            <div className="absolute top-4 right-4 z-50 flex items-center gap-4">
+                <div className={`flex items-center gap-2 px-3 py-1 rounded-full border backdrop-blur-md transition-colors duration-500 ${isConnected ? 'bg-black/20 border-white/10 text-white/50' : 'bg-red-500/20 border-red-500 text-red-500 animate-pulse'}`}>
+                    {isConnected ? <Wifi size={14} /> : <WifiOff size={14} />}
+                    <span className="text-[10px] font-bold uppercase tracking-widest hidden md:inline">
+                        {isConnected ? 'ONLINE' : 'RECONECTANDO...'}
+                    </span>
+                </div>
+
+                <div className="opacity-30 text-[10px] uppercase font-bold text-white border border-white/30 px-2 py-0.5 rounded">
+                    PANTALLA {screenId}
+                </div>
             </div>
 
         </div>

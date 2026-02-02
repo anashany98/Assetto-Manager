@@ -15,7 +15,7 @@ export interface TelemetryData {
     g_lon?: number;
     fuel?: number;
     engine_temp?: number;
-    tyre_temp?: number;
+    tyre_temp?: number[];
     damage?: number[];
     laps?: number;
     lap_time_ms?: number;

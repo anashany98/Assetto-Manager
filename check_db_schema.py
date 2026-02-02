@@ -1,7 +1,7 @@
 import sqlite3
 
 def check_db():
-    conn = sqlite3.connect('ac_manager.db')
+    conn = sqlite3.connect('ac_manager_local.db')
     cursor = conn.cursor()
     
     # List tables
