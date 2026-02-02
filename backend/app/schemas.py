@@ -34,6 +34,7 @@ class StationBase(BaseModel):
     mac_address: str
     hostname: str
     ac_path: Optional[str] = "C:\\Program Files (x86)\\Steam\\steamapps\\common\\assettocorsa"
+    stream_url: Optional[str] = None
 
 class StationCreate(StationBase):
     pass
@@ -46,11 +47,13 @@ class StationUpdate(BaseModel):
     is_vr: Optional[bool] = None
     is_locked: Optional[bool] = None
     is_tv_mode: Optional[bool] = None
+    is_streaming: Optional[bool] = None
     active_profile_id: Optional[int] = None
     ac_path: Optional[str] = None
     diagnostics: Optional[dict] = None
     kiosk_code: Optional[str] = None
     mac_address: Optional[str] = None
+    stream_url: Optional[str] = None
 
 # ...
 
@@ -62,6 +65,7 @@ class Station(StationBase):
     kiosk_code: Optional[str] = None
     is_locked: bool = False
     is_tv_mode: bool = False
+    is_streaming: bool = False
     is_vr: bool = False
     status: str
     ac_path: Optional[str]

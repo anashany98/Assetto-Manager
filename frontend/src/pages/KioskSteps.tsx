@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
+
 import axios from 'axios';
 import { soundManager } from '../utils/sound';
 import {
@@ -21,6 +22,8 @@ import { getPaymentStatus, createPaymentCheckout } from '../api/payments';
 import type { PaymentProvider } from '../api/payments';
 import { startSession } from '../api/sessions';
 
+// Wallpaper Background removed for Tablet Kiosk (now on StationDisplay)
+
 // --- SHARED TYPES ---
 export interface KioskSelection {
     car: string;
@@ -36,13 +39,15 @@ export interface KioskSelection {
 }
 
 // --- ATTRACT MODE ---
+// --- ATTRACT MODE ---
 interface AttractModeProps {
     isIdle: boolean;
     scenarios: Scenario[];
     t: any;
+    onUnpair?: () => void;
 }
 
-export const AttractMode: React.FC<AttractModeProps> = ({ isIdle, scenarios, t }) => {
+export const AttractMode: React.FC<AttractModeProps> = ({ isIdle, scenarios, t, onUnpair }) => {
     const [slide, setSlide] = useState(0);
 
     useEffect(() => {
@@ -61,13 +66,26 @@ export const AttractMode: React.FC<AttractModeProps> = ({ isIdle, scenarios, t }
             className="fixed inset-0 z-50 bg-black flex items-center justify-center overflow-hidden animate-in fade-in duration-1000 cursor-pointer"
         >
             <div className="absolute inset-0 opacity-60">
-                <video
-                    autoPlay
-                    loop
-                    muted
-                    className="w-full h-full object-cover"
-                    src="https://assets.mixkit.co/videos/preview/mixkit-asphalt-road-with-white-lines-loop-2273-large.mp4"
-                    poster="https://images.unsplash.com/photo-1594787318286-3d835c1d207f?q=80&w=2070&auto=format&fit=crop"
+                <div className="w-full h-full bg-cover bg-center" style={{ backgroundImage: "url('/bg-kiosk.jpg')" }} />
+            </div>
+
+            {/* UNPAIR BUTTON (Hidden/Discreet) */}
+            <div
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onUnpair?.();
+                }}
+                className="absolute top-0 left-0 p-8 z-50 opacity-0 active:opacity-100"
+            >
+                <div className="text-white text-xs bg-red-600 px-2 py-1 rounded">Desvincular</div>
+            </div>
+
+            {/* LOGO DEL BAR OVERLAY */}
+            <div className="absolute top-10 right-10 z-20 pointer-events-none animate-in fade-in duration-1000">
+                <img
+                    src="/logo.png"
+                    alt="Logo Bar"
+                    className="w-48 h-auto drop-shadow-2xl opacity-90"
                 />
             </div>
             <div className="relative z-10 text-center space-y-8 max-w-4xl mx-auto px-4">

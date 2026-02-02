@@ -7,7 +7,7 @@ from typing import Optional, List
 from sqlalchemy.orm import Session
 
 from .. import database, models
-from .auth import get_current_active_user
+from .auth import get_current_active_user, require_admin_or_public_token
 from .websockets import manager
 
 router = APIRouter(prefix="/spectator", tags=["Spectator"])
@@ -30,7 +30,7 @@ class SpectatorStation(BaseModel):
 @router.get("/stations", response_model=List[SpectatorStation])
 def get_spectator_stations(
     db: Session = Depends(database.get_db),
-    user: models.User = Depends(get_current_active_user)
+    user_or_client: models.User | str = Depends(require_admin_or_public_token)
 ):
     """Get all online stations available for spectating."""
     stations = db.query(models.Station).filter(
@@ -43,8 +43,8 @@ def get_spectator_stations(
             id=s.id,
             name=s.name,
             ip_address=s.ip_address or "",
-            is_streaming=getattr(s, 'is_streaming', False),
-            stream_url=f"http://{s.ip_address}:8080/stream" if s.ip_address else None
+            is_streaming=s.is_streaming,
+            stream_url=s.stream_url or (f"http://{s.ip_address}:8080/stream" if s.ip_address else None)
         )
         for s in stations
     ]
@@ -55,7 +55,7 @@ async def control_obs(
     station_id: int,
     request: OBSCommandRequest,
     db: Session = Depends(database.get_db),
-    user: models.User = Depends(get_current_active_user)
+    user_or_client: models.User | str = Depends(require_admin_or_public_token)
 ):
     """
     Send OBS control command to a specific station.
@@ -102,14 +102,14 @@ async def control_obs(
 async def start_spectating(
     station_id: int,
     db: Session = Depends(database.get_db),
-    user: models.User = Depends(get_current_active_user)
+    user_or_client: models.User | str = Depends(require_admin_or_public_token)
 ):
     """Start streaming from a specific station (convenience endpoint)."""
     return await control_obs(
         station_id,
         OBSCommandRequest(command="start_stream"),
         db,
-        user
+        user_or_client
     )
 
 
@@ -117,14 +117,14 @@ async def start_spectating(
 async def stop_spectating(
     station_id: int,
     db: Session = Depends(database.get_db),
-    user: models.User = Depends(get_current_active_user)
+    user_or_client: models.User | str = Depends(require_admin_or_public_token)
 ):
     """Stop streaming from a specific station (convenience endpoint)."""
     return await control_obs(
         station_id,
         OBSCommandRequest(command="stop_stream"),
         db,
-        user
+        user_or_client
     )
 
 
@@ -132,12 +132,12 @@ async def stop_spectating(
 async def get_stream_status(
     station_id: int,
     db: Session = Depends(database.get_db),
-    user: models.User = Depends(get_current_active_user)
+    user_or_client: models.User | str = Depends(require_admin_or_public_token)
 ):
     """Get streaming status from a specific station."""
     return await control_obs(
         station_id,
         OBSCommandRequest(command="status"),
         db,
-        user
+        user_or_client
     )

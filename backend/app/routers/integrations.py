@@ -4,6 +4,8 @@ from typing import List, Optional
 from pydantic import BaseModel
 from .. import models, schemas, database
 import logging
+import os
+from .auth import require_admin
 
 # Configure Logging
 logger = logging.getLogger("AC-Manager-Integrations")
@@ -12,6 +14,13 @@ router = APIRouter(
     prefix="/integrations",
     tags=["integrations"]
 )
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+
+def _ensure_enabled():
+    if ENVIRONMENT == "production":
+        enabled = os.getenv("ENABLE_VMS_INTEGRATION", "false").lower() in {"1", "true", "yes"}
+        if not enabled:
+            raise HTTPException(status_code=404, detail="Integration disabled")
 
 # --- Mock VMS 5.0 API Client ---
 # In a real scenario, this would import 'requests' and call the external VMS API.
@@ -40,17 +49,19 @@ class VMSSyncResult(BaseModel):
 
 # --- Endpoints ---
 
-@router.get("/vms/users")
+@router.get("/vms/users", dependencies=[Depends(require_admin)])
 def get_vms_users():
     """Proxy endpoint to see what VMS returns (for debugging)"""
+    _ensure_enabled()
     return vms_client.get_users()
 
-@router.post("/vms/sync", response_model=VMSSyncResult)
+@router.post("/vms/sync", response_model=VMSSyncResult, dependencies=[Depends(require_admin)])
 def sync_vms_users(payload: VMSSyncRequest, db: Session = Depends(database.get_db)):
     """
     Synchronize users from VMS 5.0 to local Drivers table.
     Matches primarily by VMS_ID, secondarily by Name.
     """
+    _ensure_enabled()
     vms_users = vms_client.get_users()
     
     result = {

@@ -1,5 +1,9 @@
 {
     "server_url": "http://localhost:8000",
     "ac_content_dir": "D:/SteamLibrary/steamapps/common/assettocorsa/content",
-    "agent_token": "local-agent"
+    "agent_token": "local-agent",
+    "obs_host": "localhost",
+    "obs_port": 4455,
+    "obs_password": "123123123",
+    "stream_url": "http://localhost:8889/live/sim1/"
 }

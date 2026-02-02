@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTelemetry } from '../hooks/useTelemetry';
 import StreamPlayer from '../components/StreamPlayer';
 import axios from 'axios';
-import { API_URL } from '../config';
+import { API_URL, PUBLIC_API_TOKEN } from '../config';
 
 // Demo telemetry data that animates
 const useDemoTelemetry = (enabled: boolean) => {
@@ -68,7 +68,8 @@ export default function TVSpectatorFullscreen() {
         // Fetch station details to get stream URL
         const fetchStation = async () => {
             try {
-                const res = await axios.get(`${API_URL}/spectator/stations`);
+                const headers = PUBLIC_API_TOKEN ? { 'X-Client-Token': PUBLIC_API_TOKEN } : {};
+                const res = await axios.get(`${API_URL}/spectator/stations`, { headers });
                 const station = res.data.find((s: any) => String(s.id) === stationId);
                 if (station && station.is_streaming) {
                     setStreamUrl(station.stream_url);
@@ -103,10 +104,15 @@ export default function TVSpectatorFullscreen() {
             {/* Background - Video Stream */}
             <div className="absolute inset-0 bg-gray-900">
                 {streamUrl ? (
-                    (streamUrl.endsWith('.flv') || streamUrl.endsWith('.mp4')) ? (
-                        <StreamPlayer url={streamUrl} />
+                    streamUrl.toLowerCase().includes(':8889/') ? (
+                        <iframe
+                            src={`${streamUrl}${streamUrl.includes('?') ? '&' : '?'}autoplay=1&muted=1&playsinline=1`}
+                            className="w-full h-full border-0"
+                            allow="autoplay; fullscreen; camera; microphone"
+                            allowFullScreen
+                        />
                     ) : (
-                        <iframe src={streamUrl} className="w-full h-full border-0" allow="autoplay" />
+                        <StreamPlayer url={streamUrl} />
                     )
                 ) : (
                     <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-black to-gray-800" />

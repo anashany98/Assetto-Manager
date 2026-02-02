@@ -25,6 +25,12 @@ VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY")
 VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY")
 VAPID_SUBJECT = os.getenv("VAPID_SUBJECT", "mailto:admin@example.com")
 
+try:
+    from pywebpush import webpush, WebPushException
+except Exception:  # ImportError or other missing deps
+    webpush = None
+    WebPushException = Exception
+
 # --- Pydantic Schemas ---
 
 class PushSubscriptionCreate(BaseModel):
@@ -124,12 +130,36 @@ def send_notification(
             "sent": 0
         }
 
-    # TODO: Integrate pywebpush for actual delivery in production.
-    logger.info(f"Would send notification '{payload.title}' to {len(subscriptions)} subscribers")
-    
+    if ENVIRONMENT == "production" and webpush is None:
+        raise HTTPException(status_code=501, detail="pywebpush not installed on server")
+
+    sent = 0
+    errors = 0
+    for sub in subscriptions:
+        if webpush is None:
+            break
+        try:
+            webpush(
+                subscription_info={
+                    "endpoint": sub.endpoint,
+                    "keys": {"p256dh": sub.p256dh_key, "auth": sub.auth_key},
+                },
+                data=json.dumps(payload.model_dump()),
+                vapid_private_key=VAPID_PRIVATE_KEY,
+                vapid_claims={"sub": VAPID_SUBJECT},
+            )
+            sent += 1
+        except WebPushException as exc:
+            errors += 1
+            logger.warning(f"Push send failed: {exc}")
+        except Exception as exc:
+            errors += 1
+            logger.warning(f"Push send failed: {exc}")
+
     return {
-        "message": f"Notification queued for {len(subscriptions)} subscribers",
-        "sent": len(subscriptions),
+        "message": f"Notification send attempted for {len(subscriptions)} subscribers",
+        "sent": sent,
+        "errors": errors,
         "payload": payload.model_dump()
     }
 

@@ -46,6 +46,8 @@ const TVSpectator = lazy(() => import('./pages/TVSpectator'));
 const TVSpectatorFullscreen = lazy(() => import('./pages/TVSpectatorFullscreen'));
 const TVSpectatorMulti = lazy(() => import('./pages/TVSpectatorMulti'));
 const UserManagement = lazy(() => import('./pages/UserManagement'));
+const StationDisplay = lazy(() => import('./pages/StationDisplay'));
+
 
 import { useBranding } from './hooks/useBranding';
 import { LicenseProvider } from './context/LicenseContext';
@@ -105,6 +107,8 @@ function App() {
                 <Route path="/reserva/:token" element={<ManageBooking />} />
                 <Route path="/p/:driverName" element={<PilotPortal />} />
                 <Route path="/portal" element={<PilotPortal />} />
+                <Route path="/station-display" element={<StationDisplay />} />
+
 
                 {/* TV & Mobile (Handled by Layout to hide sidebar) */}
                 <Route path="/tv/leaderboard" element={<Leaderboard />} />

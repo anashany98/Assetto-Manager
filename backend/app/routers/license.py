@@ -7,6 +7,7 @@ import datetime
 from typing import List, Optional
 
 from .. import database, models
+from ..paths import REPO_ROOT
 from .auth import require_admin
 
 router = APIRouter(
@@ -14,7 +15,22 @@ router = APIRouter(
     tags=["license"]
 )
 
-PUBLIC_KEY_PATH = os.path.join(os.path.dirname(__file__), "../certs/public_key.pem")
+DEFAULT_PUBLIC_KEY_PATH = REPO_ROOT / "certs" / "public_key.pem"
+
+def _load_public_key() -> bytes:
+    env_key = os.getenv("LICENSE_PUBLIC_KEY")
+    if env_key:
+        return env_key.encode("utf-8")
+    env_path = os.getenv("LICENSE_PUBLIC_KEY_PATH")
+    if env_path:
+        key_path = os.path.expanduser(env_path)
+        if os.path.exists(key_path):
+            with open(key_path, "rb") as f:
+                return f.read()
+    if DEFAULT_PUBLIC_KEY_PATH.exists():
+        with open(DEFAULT_PUBLIC_KEY_PATH, "rb") as f:
+            return f.read()
+    raise Exception("Public Key not found on server")
 
 class LicenseUpdate(BaseModel):
     key: str
@@ -27,13 +43,7 @@ class LicenseStatus(BaseModel):
     days_remaining: int
 
 def verify_license_token(token: str) -> dict:
-    if not os.path.exists(PUBLIC_KEY_PATH):
-        # Fail safe if no key exists (development mode or broken install)
-        # In strict mode, verify should fail. For now, let's return error.
-        raise Exception("Public Key not found on server")
-
-    with open(PUBLIC_KEY_PATH, "rb") as f:
-        public_key = f.read()
+    public_key = _load_public_key()
 
     try:
         payload = jwt.decode(token, public_key, algorithms=["RS256"], issuer="VRacing Sim Center")
@@ -46,7 +56,7 @@ def verify_license_token(token: str) -> dict:
 @router.get("/", response_model=LicenseStatus)
 def get_license_status(db: Session = Depends(database.get_db)):
     # Fetch from DB setting
-    lic_setting = db.query(models.Setting).filter(models.Setting.key == "license_key").first()
+    lic_setting = db.query(models.GlobalSettings).filter(models.GlobalSettings.key == "license_key").first()
     
     if not lic_setting or not lic_setting.value:
         return {
@@ -88,9 +98,9 @@ def update_license(data: LicenseUpdate, db: Session = Depends(database.get_db)):
         raise HTTPException(status_code=400, detail=str(e))
 
     # Save to Settings
-    setting = db.query(models.Setting).filter(models.Setting.key == "license_key").first()
+    setting = db.query(models.GlobalSettings).filter(models.GlobalSettings.key == "license_key").first()
     if not setting:
-        setting = models.Setting(key="license_key", value=data.key)
+        setting = models.GlobalSettings(key="license_key", value=data.key)
         db.add(setting)
     else:
         setting.value = data.key

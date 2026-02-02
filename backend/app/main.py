@@ -1,9 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from .database import engine, Base, ensure_station_schema, ensure_table_schema
+from .database import engine, Base, ensure_station_schema, ensure_table_schema, ensure_user_schema
 from .routers import stations, mods, websockets, settings, profiles, events, config_manager, championships, integrations, tournament, logs, ads, auth, backup, exports, loyalty, bookings, analytics, push, elimination, elo, hardware, control, drivers, payments, tables, tracks, deploy_sync
 from .routers.telemetry import router as telemetry_router  # Modular telemetry package
+import logging
 
 # ...
 
@@ -11,16 +12,14 @@ from .routers.telemetry import router as telemetry_router  # Modular telemetry p
 from .routers.logs import MemoryLogHandler
 from .services.scheduler import start_scheduler, stop_scheduler
 
-# Create Tables
-Base.metadata.create_all(bind=engine)
-ensure_station_schema(engine)
-ensure_table_schema(engine)
-
 from fastapi.staticfiles import StaticFiles
 import os
+from pathlib import Path
 from .paths import STORAGE_DIR, REPO_ROOT
 
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+AUTO_SCHEMA = os.getenv("AUTO_SCHEMA", "true" if ENVIRONMENT != "production" else "false").lower() in {"1", "true", "yes"}
+logger = logging.getLogger(__name__)
 
 def _validate_runtime_config():
     if ENVIRONMENT != "production":
@@ -34,12 +33,23 @@ def _validate_runtime_config():
         missing.append("ALLOWED_ORIGINS")
     if missing:
         raise RuntimeError(f"Missing required environment variables: {', '.join(missing)}")
+    allowed_raw = os.getenv("ALLOWED_ORIGINS", "")
+    allowed = [o.strip() for o in allowed_raw.split(",") if o.strip()]
+    if "*" in allowed:
+        raise RuntimeError("ALLOWED_ORIGINS cannot include '*' in production")
 
 # Lifecycle events
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     _validate_runtime_config()
+    if AUTO_SCHEMA:
+        Base.metadata.create_all(bind=engine)
+        ensure_station_schema(engine)
+        ensure_table_schema(engine)
+        ensure_user_schema(engine)
+    else:
+        logger.info("AUTO_SCHEMA disabled; skipping automatic schema sync")
     scheduler_enabled = os.getenv("ENABLE_SCHEDULER", "true").lower() in {"1", "true", "yes"}
     if scheduler_enabled:
         start_scheduler()
@@ -67,12 +77,12 @@ class CSPMiddleware(BaseHTTPMiddleware):
         if ENVIRONMENT == "production":
             csp_policy = (
                 "default-src 'self'; "
-                "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
-                "worker-src 'self' blob: 'unsafe-inline' 'unsafe-eval'; "
+                "script-src 'self'; "
+                "worker-src 'self' blob:; "
                 "style-src 'self' 'unsafe-inline'; "
                 "img-src 'self' data: blob:; "
                 "font-src 'self' data:; "
-                "connect-src * https: http: wss: ws:;"
+                "connect-src 'self' https: http: wss: ws:;"
             )
         else:
             csp_policy = (
@@ -90,14 +100,53 @@ class CSPMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(CSPMiddleware)
 
+# Security headers (production hardening)
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
+        response.headers.setdefault("Permissions-Policy", "geolocation=(), camera=(), microphone=()")
+        if ENVIRONMENT == "production":
+            response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)
+
 # Global Exception Handler
 from fastapi.responses import JSONResponse
 from fastapi import Request
 import logging
+from logging.handlers import RotatingFileHandler
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Persistent log file
+LOG_DIR = Path(os.getenv("LOG_DIR", str(REPO_ROOT / "logs")))
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+def _configure_file_logging():
+    log_path = LOG_DIR / "backend.log"
+    root_logger = logging.getLogger()
+    for handler in root_logger.handlers:
+        if isinstance(handler, RotatingFileHandler) and getattr(handler, "baseFilename", "") == str(log_path):
+            return
+    max_bytes = int(os.getenv("LOG_MAX_BYTES", str(10 * 1024 * 1024)))
+    backup_count = int(os.getenv("LOG_BACKUP_COUNT", "5"))
+    file_handler = RotatingFileHandler(
+        str(log_path),
+        maxBytes=max_bytes,
+        backupCount=backup_count,
+        encoding="utf-8"
+    )
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+    root_logger.addHandler(file_handler)
+
+_configure_file_logging()
 
 # Attach Memory Handler for UI Logs
 # Use protected handler to prevent crash
@@ -122,22 +171,25 @@ STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(STORAGE_DIR)), name="static")
 
 # CORS Configuration
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+allowed_origin_raw = os.getenv("ALLOWED_ORIGINS", "*")
+ALLOWED_ORIGINS = [o.strip() for o in allowed_origin_raw.split(",") if o.strip()]
+if not ALLOWED_ORIGINS:
+    ALLOWED_ORIGINS = ["*"]
+ALLOW_CREDENTIALS = "*" not in ALLOWED_ORIGINS
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Allow all for local dev ease
-    allow_credentials=True,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=ALLOW_CREDENTIALS,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
 # Rate Limiting
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from .limiters import limiter
 
-limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -157,6 +209,10 @@ app.include_router(ads.router)
 app.include_router(auth.router)
 app.include_router(backup.router)
 app.include_router(exports.router)
+
+from .routers import system
+app.include_router(system.router)
+
 from .routers import user_management, license
 app.include_router(user_management.router)
 app.include_router(license.router)
@@ -210,6 +266,9 @@ app.include_router(leaderboard.router)
 # Mod Sync Across Stations
 app.include_router(deploy_sync.router)
 
+from .routers import wallpapers
+app.include_router(wallpapers.router)
+
 
 # @app.get("/")
 # async def root():
@@ -218,10 +277,34 @@ app.include_router(deploy_sync.router)
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok"}
+    status = "ok"
+    checks = {}
+
+    # DB check
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        checks["db"] = "ok"
+    except Exception:
+        checks["db"] = "error"
+        status = "degraded"
+
+    # Storage check
+    try:
+        test_path = STORAGE_DIR / ".healthcheck"
+        with open(test_path, "w", encoding="utf-8") as f:
+            f.write("ok")
+        test_path.unlink(missing_ok=True)
+        checks["storage"] = "ok"
+    except Exception:
+        checks["storage"] = "error"
+        status = "degraded"
+
+    return {"status": status, "checks": checks}
 
 # --- Serve Frontend (Production) ---
 from fastapi.responses import FileResponse
+from sqlalchemy import text
 
 # Calculate path to frontend/dist relative to this file
 # main.py is in backend/app/

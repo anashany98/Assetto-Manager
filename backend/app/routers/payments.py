@@ -6,6 +6,7 @@ from ..database import get_db
 from .. import models, schemas
 from ..services.pricing import calculate_price
 from ..routers.auth import require_admin, require_admin_or_public_token
+from ..limiters import limiter
 
 router = APIRouter(
     prefix="/payments",
@@ -23,7 +24,8 @@ def _get_config_value(db: Session, env_key: str, setting_key: str, default: str 
 
 
 @router.post("/checkout", response_model=schemas.PaymentResponse, dependencies=[Depends(require_admin_or_public_token)])
-def create_checkout(payload: schemas.PaymentCreate, db: Session = Depends(get_db)):
+@limiter.limit("30/minute")
+def create_checkout(request: Request, payload: schemas.PaymentCreate, db: Session = Depends(get_db)):
     amount = calculate_price(db, payload.duration_minutes, payload.is_vr)
     currency = _get_config_value(db, "PAYMENT_CURRENCY", "payment_currency", "EUR")
     if amount <= 0:

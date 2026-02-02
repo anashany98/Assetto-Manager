@@ -164,11 +164,7 @@ async def launch_station_session(station_id: int, cmd: LaunchSessionCommand, db:
         "ac_path": ac_path,
         "transmission": cmd.transmission,
         "time_of_day": cmd.time_of_day,
-        "transmission": cmd.transmission,
-        "time_of_day": cmd.time_of_day,
         "weather": cmd.weather,
-        "session_type": cmd.session_type,
-        "ai_count": cmd.ai_count,
         "session_type": cmd.session_type,
         "ai_count": cmd.ai_count,
         "tyre_compound": cmd.tyre_compound,
@@ -356,6 +352,10 @@ async def stop_station_session(station_id: int):
             raise HTTPException(status_code=500, detail="Failed to communicate with Agent")
     else:
         raise HTTPException(status_code=404, detail=f"Station {station_id} is not online")
+
+
+
+
 
 
 # --- WHEEL PROFILES ENDPOINTS ---

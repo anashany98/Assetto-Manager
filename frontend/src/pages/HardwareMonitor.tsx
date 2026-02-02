@@ -220,8 +220,20 @@ function StationHealthCard({ station }: { station: StationHealth }) {
             )}
 
             {/* Alerts */}
-            {hasAlerts && (
-                <div className="space-y-1">
+            {(hasAlerts || (station.is_online && (!station.wheel_connected || !station.pedals_connected))) && (
+                <div className="space-y-1 mt-3 pt-3 border-t border-red-500/20">
+                    {station.is_online && !station.wheel_connected && (
+                        <div className="flex items-center gap-2 text-xs text-red-400 font-bold bg-red-900/30 p-1.5 rounded animate-pulse">
+                            <AlertTriangle className="w-3 h-3" />
+                            VOLANTE DESCONECTADO
+                        </div>
+                    )}
+                    {station.is_online && !station.pedals_connected && (
+                        <div className="flex items-center gap-2 text-xs text-orange-400 font-bold bg-orange-900/30 p-1.5 rounded">
+                            <AlertTriangle className="w-3 h-3" />
+                            PEDALES DESCONECTADOS
+                        </div>
+                    )}
                     {station.alerts.map((alert, i) => (
                         <div key={i} className="flex items-center gap-2 text-xs text-yellow-400">
                             <AlertTriangle className="w-3 h-3" />

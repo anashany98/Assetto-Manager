@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 from ..database import get_db
 from ..models import Station
+from ..routers.auth import require_agent_token, require_admin, require_admin_or_public_token
 
 router = APIRouter(
     prefix="/hardware",
@@ -77,7 +78,7 @@ def _ensure_aware(value: Optional[datetime]) -> Optional[datetime]:
     return value
 
 
-@router.post("/report")
+@router.post("/report", dependencies=[Depends(require_agent_token)])
 async def report_health(report: StationHealthReport, db: Session = Depends(get_db)):
     """
     Endpoint for agents to report station health.
@@ -111,7 +112,7 @@ async def report_health(report: StationHealthReport, db: Session = Depends(get_d
     return {"status": "ok"}
 
 
-@router.get("/status", response_model=List[StationHealthStatus])
+@router.get("/status", response_model=List[StationHealthStatus], dependencies=[Depends(require_admin)])
 async def get_all_health(db: Session = Depends(get_db)):
     """Get health status of all stations."""
     stations = db.query(Station).order_by(Station.id).all()
@@ -201,7 +202,7 @@ async def get_all_health(db: Session = Depends(get_db)):
     return result
 
 
-@router.get("/status/{station_id}", response_model=StationHealthStatus)
+@router.get("/status/{station_id}", response_model=StationHealthStatus, dependencies=[Depends(require_admin_or_public_token)])
 async def get_station_health(station_id: int, db: Session = Depends(get_db)):
     """Get health status of a specific station."""
     station = db.query(Station).filter(Station.id == station_id).first()
@@ -242,7 +243,7 @@ async def get_station_health(station_id: int, db: Session = Depends(get_db)):
     )
 
 
-@router.get("/summary")
+@router.get("/summary", dependencies=[Depends(require_admin)])
 async def get_health_summary(db: Session = Depends(get_db)):
     """Get summary of all stations health."""
     stations = db.query(Station).all()

@@ -6,7 +6,10 @@ const inferApiUrl = () => {
     if (envApiUrl) return envApiUrl;
     if (typeof window === 'undefined') return '';
     if (import.meta.env.PROD) return window.location.origin;
-    return `${window.location.protocol}//${window.location.hostname}:8000`;
+
+    // Fallback to 127.0.0.1 for localhost to avoid IPv6 resolution issues on Windows
+    const hostname = window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname;
+    return `${window.location.protocol}//${hostname}:8000`;
 };
 
 export const API_URL = inferApiUrl();
