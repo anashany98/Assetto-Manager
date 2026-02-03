@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime, timedelta, timezone
@@ -199,7 +199,11 @@ class BookingCreate(BaseModel):
     status: str = "confirmed"
 
 @router.post("/bookings")
-def create_booking(booking: BookingCreate, db: Session = Depends(get_db)):
+def create_booking(
+    booking: BookingCreate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
     start_time = _ensure_aware(booking.start_time)
     end_time = _ensure_aware(booking.end_time)
     if end_time <= start_time:
@@ -265,7 +269,8 @@ def create_booking(booking: BookingCreate, db: Session = Depends(get_db)):
         table_labels = ", ".join([t.label for t in tables])
         
         public_base_url = _resolve_public_base_url(db)
-        send_table_confirmation(
+        background_tasks.add_task(
+            send_table_confirmation,
             customer_email=booking.customer_email,
             customer_name=booking.customer_name,
             date=booking.start_time.strftime('%d/%m/%Y'),
@@ -312,7 +317,12 @@ class BookingUpdate(BaseModel):
     allergies: Optional[List[str]] = None
 
 @router.put("/bookings/manage/{token}")
-def update_booking_by_token(token: str, update: BookingUpdate, db: Session = Depends(get_db)):
+def update_booking_by_token(
+    token: str,
+    update: BookingUpdate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
     booking = db.query(models.TableBooking).filter(models.TableBooking.manage_token == token).first()
     if not booking:
         raise HTTPException(status_code=404, detail="Reserva no encontrada")
@@ -333,7 +343,8 @@ def update_booking_by_token(token: str, update: BookingUpdate, db: Session = Dep
     
     # Send status update email if status changed
     if update.status and update.status != old_status and booking.customer_email:
-        send_booking_status_update(
+        background_tasks.add_task(
+            send_booking_status_update,
             customer_email=booking.customer_email,
             customer_name=booking.customer_name,
             date=booking.start_time.strftime('%d/%m/%Y'),

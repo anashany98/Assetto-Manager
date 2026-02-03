@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Header, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 import os
+import logging
 from ..limiters import limiter
 
 from .. import database, models, auth
@@ -12,11 +13,12 @@ from ..auth import create_access_token, get_password_hash, verify_password, deco
 
 router = APIRouter(tags=["auth"])
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+logger = logging.getLogger(__name__)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 oauth2_optional = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 
-async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db: Session = Depends(database.get_db)):
+def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db: Session = Depends(database.get_db)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -35,7 +37,7 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db: Se
         raise credentials_exception
     return user
 
-async def get_current_user_optional(
+def get_current_user_optional(
     token: Annotated[Optional[str], Depends(oauth2_optional)],
     db: Session = Depends(database.get_db)
 ):
@@ -66,81 +68,76 @@ async def get_current_user_optional(
         )
     return user
 
-async def get_current_active_user(current_user: Annotated[models.User, Depends(get_current_user)]):
+def get_current_active_user(current_user: Annotated[models.User, Depends(get_current_user)]):
     if not current_user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
 
-def require_admin(current_user: Annotated[models.User, Depends(get_current_active_user)]):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
-    return current_user
-
-def require_agent_token(agent_token: Optional[str] = Header(None, alias="X-Agent-Token")):
-    env = os.getenv("ENVIRONMENT", "development")
-    expected = os.getenv("AGENT_TOKEN")
-    if env == "production":
+def _is_public_token_allowed(token: Optional[str]) -> bool:
+    expected = os.getenv("PUBLIC_API_TOKEN") or os.getenv("PUBLIC_WS_TOKEN")
+    if ENVIRONMENT == "production":
         if not expected:
-            raise HTTPException(status_code=500, detail="AGENT_TOKEN not configured")
-        if agent_token != expected:
-            raise HTTPException(status_code=403, detail="Unauthorized")
-    else:
-        if expected and agent_token != expected:
-            raise HTTPException(status_code=403, detail="Unauthorized")
+            logger.error("PUBLIC_API_TOKEN not configured for production API access")
+            return False
+        return token == expected
+    if expected and token != expected:
+        return False
     return True
 
-def require_admin_or_agent(
-    agent_token: Optional[str] = Header(None, alias="X-Agent-Token"),
-    current_user: Optional[models.User] = Depends(get_current_user_optional)
+def _is_agent_token_allowed(token: Optional[str]) -> bool:
+    expected = os.getenv("AGENT_TOKEN")
+    if ENVIRONMENT == "production":
+        if not expected:
+            logger.error("AGENT_TOKEN not configured for production agent access")
+            return False
+        return token == expected
+    if expected and token != expected:
+        return False
+    return True
+
+def require_admin(current_user: Annotated[models.User, Depends(get_current_active_user)]):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    return current_user
+
+def require_agent_token(
+    token: Annotated[Optional[str], Header(None, alias="X-Agent-Token")]
 ):
-    if agent_token:
-        env = os.getenv("ENVIRONMENT", "development")
-        expected = os.getenv("AGENT_TOKEN")
-        if env == "production":
-            if not expected or agent_token != expected:
-                raise HTTPException(status_code=403, detail="Unauthorized")
-        else:
-            if expected and agent_token != expected:
-                raise HTTPException(status_code=403, detail="Unauthorized")
-        return "agent"
-
-    if current_user:
-        return current_user
-
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Not authenticated",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+    if not _is_agent_token_allowed(token):
+        raise HTTPException(status_code=403, detail="Invalid agent token")
+    return token or "agent"
 
 def require_admin_or_public_token(
-    client_token: Optional[str] = Header(None, alias="X-Client-Token"),
-    current_user: Optional[models.User] = Depends(get_current_user_optional)
+    token: Annotated[Optional[str], Header(None, alias="X-Client-Token")],
+    current_user: Annotated[Optional[models.User], Depends(get_current_user_optional)]
 ):
     if current_user:
         if not current_user.is_active:
             raise HTTPException(status_code=400, detail="Inactive user")
-        if current_user.role != "admin":
-            raise HTTPException(status_code=403, detail="Admin access required")
-        return current_user
+        if current_user.role == "admin":
+            return current_user
+    if _is_public_token_allowed(token):
+        return token or "public"
+    raise HTTPException(status_code=403, detail="Not authenticated")
 
-    env = os.getenv("ENVIRONMENT", "development")
-    expected = os.getenv("PUBLIC_API_TOKEN") or os.getenv("PUBLIC_WS_TOKEN")
+def require_admin_or_agent(
+    token: Annotated[Optional[str], Header(None, alias="X-Agent-Token")],
+    current_user: Annotated[Optional[models.User], Depends(get_current_user_optional)]
+):
+    if current_user:
+        if not current_user.is_active:
+            raise HTTPException(status_code=400, detail="Inactive user")
+        if current_user.role == "admin":
+            return current_user
+    if _is_agent_token_allowed(token):
+        return token or "agent"
+    raise HTTPException(status_code=403, detail="Not authenticated")
 
-    if env == "production":
-        if not expected:
-            raise HTTPException(status_code=500, detail="PUBLIC_API_TOKEN not configured")
-        if client_token != expected:
-            raise HTTPException(status_code=403, detail="Unauthorized")
-        return "client"
-
-    if expected and client_token != expected:
-        raise HTTPException(status_code=403, detail="Unauthorized")
-    return "client"
+# ... (Helpers remain sync)
 
 @router.post("/token")
 @limiter.limit("5/minute")
-async def login_for_access_token(
+def login_for_access_token(
     request: Request,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     db: Session = Depends(database.get_db)
@@ -163,7 +160,7 @@ async def login_for_access_token(
     return {"access_token": access_token, "token_type": "bearer"}
 
 @router.get("/users/me")
-async def read_users_me(current_user: Annotated[models.User, Depends(get_current_active_user)]):
+def read_users_me(current_user: Annotated[models.User, Depends(get_current_active_user)]):
     return {"username": current_user.username, "role": current_user.role}
 
 # Initial Setup Endpoint (Only works if no users exist)

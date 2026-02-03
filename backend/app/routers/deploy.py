@@ -19,6 +19,7 @@ logger = logging.getLogger("api.deploy")
 # Configuration (In a real app, from Settings DB)
 # Assuming typical Steam path, but this should be configurable
 DEFAULT_AC_CONTENT_PATH = r"C:\Program Files (x86)\Steam\steamapps\common\assettocorsa\content"
+ROBOCOPY_TIMEOUT_SECONDS = int(os.getenv("ROBOCOPY_TIMEOUT_SECONDS", "3600"))
 
 @router.post("/push", response_model=dict)
 def push_content_to_all(
@@ -118,7 +119,11 @@ def _sync_station_content(station: models.Station, sources: List[Path]) -> str:
                 "/NDL"    # No Dir List
             ]
             
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            try:
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=ROBOCOPY_TIMEOUT_SECONDS)
+            except subprocess.TimeoutExpired:
+                logger.error(f"[{station.name}] Robocopy timed out after {ROBOCOPY_TIMEOUT_SECONDS}s")
+                return "sync_error"
             if result.returncode > 7:
                 logger.error(f"[{station.name}] Robocopy Failed: {result.stderr}")
                 return "sync_error"

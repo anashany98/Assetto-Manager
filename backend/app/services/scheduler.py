@@ -182,7 +182,7 @@ async def sync_station_content():
     logger.info("Triggering hourly content sync for active stations...")
     try:
         active_count = 0
-        for station_id, ws in ws_manager.active_agents.items():
+        for station_id, ws in list(ws_manager.active_agents.items()):
             db = None
             try:
                 # We need to get the AC path for this station to send it back?

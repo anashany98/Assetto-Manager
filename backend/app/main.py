@@ -43,13 +43,14 @@ def _validate_runtime_config():
 async def lifespan(app: FastAPI):
     # Startup
     _validate_runtime_config()
-    if AUTO_SCHEMA:
+    if AUTO_SCHEMA and ENVIRONMENT != "production":
+        logger.info("AUTO_SCHEMA enabled (Dev Only): Checking schema...")
         Base.metadata.create_all(bind=engine)
-        ensure_station_schema(engine)
-        ensure_table_schema(engine)
-        ensure_user_schema(engine)
+        # ensure_station_schema(engine) # DEPRECATED: Use Alembic
+        # ensure_table_schema(engine) # DEPRECATED: Use Alembic
+        # ensure_user_schema(engine) # DEPRECATED: Use Alembic
     else:
-        logger.info("AUTO_SCHEMA disabled; skipping automatic schema sync")
+        logger.info("AUTO_SCHEMA disabled or Production Mode; skipping runtime schema changes")
     scheduler_enabled = os.getenv("ENABLE_SCHEDULER", "true").lower() in {"1", "true", "yes"}
     if scheduler_enabled:
         start_scheduler()
@@ -259,10 +260,6 @@ app.include_router(scenarios.router)
 from .routers import spectator
 app.include_router(spectator.router)
 
-# Leaderboard
-from .routers import leaderboard
-app.include_router(leaderboard.router)
-
 # Mod Sync Across Stations
 app.include_router(deploy_sync.router)
 
@@ -276,7 +273,7 @@ app.include_router(wallpapers.router)
 #     return {"message": "Assetto Corsa Manager API"}
 
 @app.get("/health")
-async def health_check():
+def health_check():
     status = "ok"
     checks = {}
 

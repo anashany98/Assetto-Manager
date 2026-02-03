@@ -190,7 +190,7 @@ async def list_available_tracks():
 
 
 @router.get("/{track_id}/outline")
-async def get_track_outline(
+def get_track_outline(
     track_id: str,
     width: int = Query(1000, ge=100, le=4000),
     height: int = Query(800, ge=100, le=3000),

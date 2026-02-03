@@ -61,7 +61,7 @@ def read_driver(driver_id: int, db: Session = Depends(get_db)):
     }
 
 @router.post("/{driver_id}/photo")
-async def upload_driver_photo(
+def upload_driver_photo(
     driver_id: int, 
     file: UploadFile = File(...), 
     db: Session = Depends(get_db)

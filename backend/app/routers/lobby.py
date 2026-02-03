@@ -251,7 +251,7 @@ async def join_lobby(
                 # We need to ensure we give a valid slot index.
                 slot_idx = len(lobby.players) - 1
                 
-                await ws.send(json.dumps({
+                await ws.send_text(json.dumps({
                     "command": "join_lobby",
                     "lobby_id": lobby.id,
                     "server_ip": lobby.server_ip,
@@ -303,7 +303,7 @@ async def start_lobby(
     if host_ws:
         try:
             import json
-            await host_ws.send(json.dumps({
+            await host_ws.send_text(json.dumps({
                 "command": "create_lobby",
                 "lobby_id": lobby.id,
                 "track": lobby.track,
@@ -326,7 +326,7 @@ async def start_lobby(
         if ws:
             try:
                 import json
-                await ws.send(json.dumps({
+                await ws.send_text(json.dumps({
                     "command": "join_lobby",
                     "lobby_id": lobby.id,
                     "server_ip": lobby.server_ip,
@@ -355,7 +355,7 @@ async def start_lobby(
         if ws:
             try:
                 import json
-                await ws.send(json.dumps({
+                await ws.send_text(json.dumps({
                     "command": "join_lobby",
                     "lobby_id": lobby.id,
                     "server_ip": lobby.server_ip,
@@ -395,7 +395,7 @@ async def cancel_lobby(
         if ws:
             try:
                 import json
-                await ws.send(json.dumps({"command": "stop_lobby"}))
+                await ws.send_text(json.dumps({"command": "stop_lobby"}))
             except Exception:
                 pass
     

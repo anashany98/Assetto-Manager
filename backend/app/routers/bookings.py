@@ -1,7 +1,7 @@
 """
 Bookings Router - Manage simulator time slot reservations
 """
-from fastapi import APIRouter, HTTPException, Query, Depends
+from fastapi import APIRouter, HTTPException, Query, Depends, BackgroundTasks
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime, date, timedelta
@@ -141,7 +141,7 @@ async def get_available_slots(
 
 
 @router.post("/")
-async def create_booking(data: BookingCreate, db: Session = Depends(get_db)):
+async def create_booking(data: BookingCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """Create a new booking"""
     try:
         # Validate time slot
@@ -198,7 +198,8 @@ async def create_booking(data: BookingCreate, db: Session = Depends(get_db)):
         
         # Send confirmation email
         if data.customer_email:
-            send_booking_confirmation(
+            background_tasks.add_task(
+                send_booking_confirmation,
                 customer_email=data.customer_email,
                 customer_name=data.customer_name,
                 date=data.date.strftime('%d/%m/%Y'),
@@ -249,6 +250,7 @@ async def get_booking(booking_id: int, db: Session = Depends(get_db)):
 async def update_booking_status(
     booking_id: int,
     data: BookingUpdate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
     """Update a booking's status"""
@@ -269,7 +271,8 @@ async def update_booking_status(
         
         # Send status update email
         if booking.customer_email and data.status in ["confirmed", "cancelled", "completed"]:
-            send_booking_status_update(
+            background_tasks.add_task(
+                send_booking_status_update,
                 customer_email=booking.customer_email,
                 customer_name=booking.customer_name,
                 date=booking.date.strftime('%d/%m/%Y') if booking.date else '',

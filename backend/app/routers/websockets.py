@@ -314,9 +314,9 @@ async def websocket_agent_endpoint(websocket: WebSocket):
                             
             except json.JSONDecodeError:
                 pass # Ignore invalid JSON
-            except Exception as e:
-                # logger.error(f"Error processing stats: {e}")
-                pass
+            except Exception:
+                logger.exception("Error processing agent message")
+                continue
                 
     except WebSocketDisconnect:
         manager.disconnect_agent(websocket)

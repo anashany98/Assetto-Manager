@@ -43,7 +43,7 @@ def list_wallpapers():
     return files
 
 @router.post("/files")
-async def upload_wallpaper(file: UploadFile = File(...), user: models.User = Depends(require_admin)):
+def upload_wallpaper(file: UploadFile = File(...), user: models.User = Depends(require_admin)):
     # Validate file type
     if not file.filename.lower().endswith(('.mp4', '.webm', '.mkv', '.mov')):
         raise HTTPException(status_code=400, detail="Invalid file type. Only video files allowed.")

@@ -56,12 +56,13 @@ async def sync_all_stations(
     stats = _register_discovered_mods(db, union_cars, union_tracks)
     
     # Schedule background task for content sync between stations
-    background_tasks.add_task(
-        _sync_missing_content_task, 
-        [s.id for s in stations], 
-        all_content, 
-        union_cars, 
-        union_tracks
+    asyncio.create_task(
+        _sync_missing_content_task(
+            [s.id for s in stations],
+            all_content,
+            union_cars,
+            union_tracks
+        )
     )
     
     return {
@@ -124,64 +125,63 @@ def _register_discovered_mods(db: Session, union_cars: dict, union_tracks: dict)
     Registers any NEW mods in the database that don't already exist.
     """
     stats = {"new_mods": 0, "cars_registered": 0, "tracks_registered": 0}
-    
+
+    existing_cars = db.query(models.Mod).filter(models.Mod.type == "car").all()
+    existing_car_folders = {
+        (m.manifest or {}).get("folder_name")
+        for m in existing_cars
+        if (m.manifest or {}).get("folder_name")
+    }
+
     for car_id, car_info in union_cars.items():
-        # Check by folder_name in manifest or name
-        existing = db.query(models.Mod).filter(
-            models.Mod.type == "car"
-        ).all()
-        
-        folder_exists = any(
-            (m.manifest or {}).get("folder_name") == car_id 
-            for m in existing
+        if car_id in existing_car_folders:
+            continue
+        source_ip = car_info.get("source_ip", "")
+        new_mod = models.Mod(
+            name=car_info.get("name", car_id),
+            version="discovered",
+            type="car",
+            status="installed",
+            source_path=f"\\\\{source_ip}\\AssettoContent\\content\\cars\\{car_id}" if source_ip else None,
+            is_active=True,
+            manifest={"folder_name": car_id, "brand": car_info.get("brand", "")}
         )
-        
-        if not folder_exists:
-            source_ip = car_info.get("source_ip", "")
-            new_mod = models.Mod(
-                name=car_info.get("name", car_id),
-                version="discovered",
-                type="car",
-                status="installed",
-                source_path=f"\\\\{source_ip}\\AssettoContent\\content\\cars\\{car_id}" if source_ip else None,
-                is_active=True,
-                manifest={"folder_name": car_id, "brand": car_info.get("brand", "")}
-            )
-            db.add(new_mod)
-            stats["new_mods"] += 1
-            stats["cars_registered"] += 1
+        db.add(new_mod)
+        existing_car_folders.add(car_id)
+        stats["new_mods"] += 1
+        stats["cars_registered"] += 1
+
+    existing_tracks = db.query(models.Mod).filter(models.Mod.type == "track").all()
+    existing_track_folders = {
+        (m.manifest or {}).get("folder_name")
+        for m in existing_tracks
+        if (m.manifest or {}).get("folder_name")
+    }
     
     for track_id, track_info in union_tracks.items():
-        existing = db.query(models.Mod).filter(
-            models.Mod.type == "track"
-        ).all()
-        
-        folder_exists = any(
-            (m.manifest or {}).get("folder_name") == track_id 
-            for m in existing
+        if track_id in existing_track_folders:
+            continue
+        source_ip = track_info.get("source_ip", "")
+        new_mod = models.Mod(
+            name=track_info.get("name", track_id),
+            version="discovered",
+            type="track",
+            status="installed",
+            source_path=f"\\\\{source_ip}\\AssettoContent\\content\\tracks\\{track_id}" if source_ip else None,
+            is_active=True,
+            manifest={"folder_name": track_id}
         )
-        
-        if not folder_exists:
-            source_ip = track_info.get("source_ip", "")
-            new_mod = models.Mod(
-                name=track_info.get("name", track_id),
-                version="discovered",
-                type="track",
-                status="installed",
-                source_path=f"\\\\{source_ip}\\AssettoContent\\content\\tracks\\{track_id}" if source_ip else None,
-                is_active=True,
-                manifest={"folder_name": track_id}
-            )
-            db.add(new_mod)
-            stats["new_mods"] += 1
-            stats["tracks_registered"] += 1
+        db.add(new_mod)
+        existing_track_folders.add(track_id)
+        stats["new_mods"] += 1
+        stats["tracks_registered"] += 1
     
     db.commit()
     logger.info(f"Registered {stats['new_mods']} new mods ({stats['cars_registered']} cars, {stats['tracks_registered']} tracks)")
     return stats
 
 
-def _sync_missing_content_task(station_ids: List[int], all_content: dict, union_cars: dict, union_tracks: dict):
+async def _sync_missing_content_task(station_ids: List[int], all_content: dict, union_cars: dict, union_tracks: dict):
     """
     Background task to send copy commands to agents for missing content.
     """
@@ -208,18 +208,13 @@ def _sync_missing_content_task(station_ids: List[int], all_content: dict, union_
                 continue
             
             try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                
                 for car_id in missing_cars:
                     car_info = union_cars[car_id]
-                    loop.run_until_complete(_send_copy_command(ws, "car", car_id, car_info["source_ip"]))
+                    await _send_copy_command(ws, "car", car_id, car_info["source_ip"])
                 
                 for track_id in missing_tracks:
                     track_info = union_tracks[track_id]
-                    loop.run_until_complete(_send_copy_command(ws, "track", track_id, track_info["source_ip"]))
-                
-                loop.close()
+                    await _send_copy_command(ws, "track", track_id, track_info["source_ip"])
                 logger.info(f"[{station.name}] Sent {len(missing_cars) + len(missing_tracks)} copy commands.")
             except Exception as e:
                 logger.error(f"[{station.name}] Failed to send copy commands: {e}")
@@ -227,7 +222,7 @@ def _sync_missing_content_task(station_ids: List[int], all_content: dict, union_
 
 async def _send_copy_command(ws, content_type: str, content_id: str, source_ip: str):
     """Send a copy_content command to an agent via WebSocket."""
-    await ws.send(json.dumps({
+    await ws.send_text(json.dumps({
         "command": "copy_content",
         "type": content_type,
         "id": content_id,

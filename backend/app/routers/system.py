@@ -30,7 +30,7 @@ class SystemVersion(BaseModel):
     signature: str | None = None
 
 @router.get("/version", response_model=SystemVersion)
-async def get_latest_version():
+def get_latest_version():
     """
     Returns the latest available Agent version.
     """
@@ -46,7 +46,7 @@ async def get_latest_version():
 
 @router.post("/update", dependencies=[Depends(require_admin)])
 @limiter.limit("5/minute")
-async def upload_update(request: Request, version: str, file: UploadFile = File(...), mandatory: bool = False):
+def upload_update(request: Request, version: str, file: UploadFile = File(...), mandatory: bool = False):
     """
     Upload a new Agent update (ZIP file).
     """

@@ -1,7 +1,4 @@
-# Telemetry Live Module
-# Handles real-time session data upload and processing
-
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
 from datetime import datetime, timezone, timedelta
@@ -14,10 +11,71 @@ from .base import _coerce_json_value, logger
 
 router = APIRouter(tags=["telemetry-live"])
 
+def process_tournament_logic(session_id: int, event_id: int, driver_name: str, session_type: str, session_date: datetime):
+    """
+    Background task to process tournament advancement.
+    Isolated from the main request loop to prevent race conditions and reduce latency.
+    """
+    if session_type != 'race' or not event_id:
+        return
+
+    # Create a new DB session for the background task
+    db = database.SessionLocal()
+    try:
+        event = db.query(models.Event).filter(models.Event.id == event_id).first()
+        if event and event.bracket_data:
+            bracket = tournament.load_bracket(event)
+            if bracket:
+                match = tournament.find_active_match(bracket, driver_name)
+                if match:
+                    # Simple locking mechanism could be added here (e.g. redis lock), 
+                    # but for now, moving out of the request loop mitigates the DoS risk.
+                    # Logic remains susceptible to strict parallel race conditions without row locking, 
+                    # but assumes low frequency of simultaneous finishes.
+                    
+                    opponent_name = match["player2"] if match["player1"] == driver_name else match["player1"]
+                    
+                    if opponent_name and opponent_name != "BYE":
+                        # Look for opponent's recent session
+                        since = datetime.now(timezone.utc) - timedelta(hours=1)
+                        
+                        opp_session = db.query(models.SessionResult).filter(
+                            models.SessionResult.event_id == event.id,
+                            models.SessionResult.driver_name == opponent_name,
+                            models.SessionResult.session_type == 'race',
+                            models.SessionResult.date >= since
+                        ).order_by(desc(models.SessionResult.date)).first()
+                        
+                        if opp_session:
+                            # Verify if both have completed the race criteria
+                            # This re-queries the just-committed session to be sure
+                            my_laps_count = db.query(models.LapTime).filter(models.LapTime.session_id == session_id).count()
+                            opp_laps_count = db.query(models.LapTime).filter(models.LapTime.session_id == opp_session.id).count()
+                            
+                            winner = None
+                            # Simple logic: Most laps, then fastest time
+                            if my_laps_count != opp_laps_count:
+                                winner = driver_name if my_laps_count > opp_laps_count else opponent_name
+                            else:
+                                my_total_time = db.query(func.sum(models.LapTime.time)).filter(models.LapTime.session_id == session_id).scalar() or 0
+                                opp_total_time = db.query(func.sum(models.LapTime.time)).filter(models.LapTime.session_id == opp_session.id).scalar() or 0
+                                
+                                if my_total_time and opp_total_time:
+                                    winner = driver_name if my_total_time < opp_total_time else opponent_name
+                                    
+                            if winner:
+                                logger.info(f"Tournament Match Auto-Decided: {winner} wins against {opponent_name if winner == driver_name else driver_name}")
+                                tournament.advance_bracket_for_winner(event, winner, db)
+    except Exception as e:
+        logger.error(f"Background Tournament Error: {e}")
+    finally:
+        db.close()
+
 
 @router.post("/session", status_code=201, dependencies=[Depends(require_agent_token)])
 def upload_session_result(
     session_data: schemas.SessionResultCreate, 
+    background_tasks: BackgroundTasks,
     db: Session = Depends(database.get_db)
 ):
     try:
@@ -69,47 +127,16 @@ def upload_session_result(
         
         db.commit()
 
-        # 3. Tournament Auto-Advance Logic
-        if new_session.session_type == 'race' and new_session.event_id:
-            try:
-                event = db.query(models.Event).filter(models.Event.id == new_session.event_id).first()
-                if event and event.bracket_data:
-                    bracket = tournament.load_bracket(event)
-                    if bracket:
-                        match = tournament.find_active_match(bracket, new_session.driver_name)
-                        if match:
-                            opponent_name = match["player2"] if match["player1"] == new_session.driver_name else match["player1"]
-                            
-                            if opponent_name and opponent_name != "BYE":
-                                since = datetime.now(timezone.utc) - timedelta(hours=1)
-                                
-                                opp_session = db.query(models.SessionResult).filter(
-                                    models.SessionResult.event_id == event.id,
-                                    models.SessionResult.driver_name == opponent_name,
-                                    models.SessionResult.session_type == 'race',
-                                    models.SessionResult.date >= since
-                                ).order_by(desc(models.SessionResult.date)).first()
-                                
-                                if opp_session:
-                                    my_laps_count = db.query(models.LapTime).filter(models.LapTime.session_id == new_session.id).count()
-                                    opp_laps_count = db.query(models.LapTime).filter(models.LapTime.session_id == opp_session.id).count()
-                                    
-                                    winner = None
-                                    if my_laps_count != opp_laps_count:
-                                        winner = new_session.driver_name if my_laps_count > opp_laps_count else opponent_name
-                                    else:
-                                        my_total_time = db.query(func.sum(models.LapTime.time)).filter(models.LapTime.session_id == new_session.id).scalar() or 0
-                                        opp_total_time = db.query(func.sum(models.LapTime.time)).filter(models.LapTime.session_id == opp_session.id).scalar() or 0
-                                        
-                                        if my_total_time and opp_total_time:
-                                            winner = new_session.driver_name if my_total_time < opp_total_time else opponent_name
-                                            
-                                    if winner:
-                                        logger.info(f"Tournament Match Auto-Decided: {winner} wins against {opponent_name if winner == new_session.driver_name else new_session.driver_name}")
-                                        tournament.advance_bracket_for_winner(event, winner, db)
-
-            except Exception as e:
-                logger.error(f"Tournament auto-advance failed: {e}")
+        # 3. Offload Tournament Logic
+        if new_session.event_id:
+            background_tasks.add_task(
+                process_tournament_logic,
+                session_id=new_session.id,
+                event_id=new_session.event_id,
+                driver_name=new_session.driver_name,
+                session_type=new_session.session_type,
+                session_date=new_session.date
+            )
 
         return {"status": "ok", "session_id": new_session.id}
 

@@ -7,7 +7,10 @@ import { QRCodeSVG } from 'qrcode.react';
 import ManualEntryModal from '../components/ManualEntryModal';
 import { TelemetryChart } from '../components/TelemetryChart';
 import { EloBadge } from '../components/EloBadge';
-import { DEMO_LEADERBOARD } from '../data/demoData'; // New Import
+import { DEMO_LEADERBOARD } from '../data/demoData';
+import { DynamicBackground } from '../components/DynamicBackground'; // NEW
+import { CarBrandLogo } from '../components/CarBrandLogo'; // NEW
+import { motion, AnimatePresence } from 'framer-motion'; // NEW
 
 import { API_URL } from '../config';
 
@@ -21,6 +24,9 @@ interface LeaderboardEntry {
     gap: number;
     lap_id: number;
 }
+// ... (keep getLeaderboard, getCombinations, formatTime, formatGap helpers unchanged) ...
+// (I will assume I need to keep the helpers if I don't replace the whole file. 
+//  Since I'm doing a partial replace, I'll match the top part.)
 
 const getLeaderboard = async (track: string, car: string | null, period: string) => {
     const params = new URLSearchParams();
@@ -256,9 +262,15 @@ export default function LeaderboardPage() {
 
     return (
         <div
-            className="h-full flex flex-col bg-gray-900 text-white overflow-hidden"
+            className="h-full flex flex-col bg-gray-900 text-white overflow-hidden relative"
             style={{ '--marquee-duration': `${tickerSpeed}s` } as React.CSSProperties}
         >
+            {/* Dynamic Background Only if TV Mode */}
+            {isTVMode && <DynamicBackground />}
+
+            {/* Standard Background fallback or overlay */}
+            <div className={`absolute inset-0 pointer-events-none ${isTVMode ? 'bg-black/20' : 'bg-gray-900'}`} />
+
             {/* ERROR STATE */}
             {error && (
                 <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-6">
@@ -426,83 +438,93 @@ export default function LeaderboardPage() {
                                             <p className="text-sm">Sé el primero en marcar una vuelta rápida en esta categoría.</p>
                                         </td>
                                     </tr>
-                                ) : (Array.isArray(leaderboard) && leaderboard.map((entry: LeaderboardEntry, index: number) => (
-                                    <tr
-                                        key={index}
-                                        className={cn(
-                                            "group transition-colors border-l-4 border-transparent hover:bg-gray-800/50",
-                                            index === 0 ? "bg-yellow-500/5 border-yellow-500" :
-                                                index === 1 ? "bg-gray-400/5 border-gray-400" :
-                                                    index === 2 ? "bg-orange-700/5 border-orange-700" : ""
-                                        )}
-                                    >
-                                        <td className="px-6 py-5">
-                                            <div className={cn(
-                                                "w-10 h-10 flex items-center justify-center rounded-xl font-black font-mono text-lg transition-transform hover:scale-110",
-                                                index === 0 ? "bg-gradient-to-br from-yellow-400 to-amber-600 text-black shadow-lg shadow-yellow-500/40 ring-2 ring-yellow-400/50" :
-                                                    index === 1 ? "bg-gradient-to-br from-gray-300 to-gray-500 text-black shadow-lg shadow-gray-400/30 ring-2 ring-gray-400/30" :
-                                                        index === 2 ? "bg-gradient-to-br from-orange-400 to-orange-700 text-white shadow-lg shadow-orange-500/30 ring-2 ring-orange-400/30" : "text-gray-400 bg-gray-800/80 border border-gray-700"
-                                            )}>
-                                                {entry.rank}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-5">
-                                            <div className="flex items-center space-x-4">
-                                                <div className="relative shrink-0">
-                                                    <img
-                                                        src={`https://api.dicebear.com/7.x/bottts-neutral/svg?seed=${encodeURIComponent(entry.driver_name)}`}
-                                                        className="w-10 h-10 rounded-lg bg-gray-800 border border-gray-700 shadow-inner"
-                                                        alt="Avatar"
-                                                    />
-                                                    {index === 0 && (
-                                                        <div className="absolute -top-1 -right-1 bg-yellow-500 text-black p-0.5 rounded-full border border-gray-900">
-                                                            <Trophy size={8} />
+                                ) : (
+                                    // Use AnimatePresence for smooth transitions if list reorders
+                                    <AnimatePresence mode="popLayout">
+                                        {Array.isArray(leaderboard) && leaderboard.map((entry: LeaderboardEntry, index: number) => (
+                                            <motion.tr
+                                                key={`${entry.driver_name}-${entry.lap_time}`} // Unique key for animation stability
+                                                initial={{ opacity: 0, x: -20, scale: 0.98 }}
+                                                animate={{ opacity: 1, x: 0, scale: 1 }}
+                                                exit={{ opacity: 0, scale: 0.95 }}
+                                                transition={{ duration: 0.3, delay: index * 0.05 }} // Stagger delay
+                                                className={cn(
+                                                    "group transition-colors border-l-4 border-transparent hover:bg-gray-800/50",
+                                                    index === 0 ? "bg-yellow-500/5 border-yellow-500" :
+                                                        index === 1 ? "bg-gray-400/5 border-gray-400" :
+                                                            index === 2 ? "bg-orange-700/5 border-orange-700" : ""
+                                                )}
+                                            >
+                                                <td className="px-6 py-5">
+                                                    <div className={cn(
+                                                        "w-10 h-10 flex items-center justify-center rounded-xl font-black font-orbitron text-lg transition-transform hover:scale-110", // Added font-orbitron
+                                                        index === 0 ? "bg-gradient-to-br from-yellow-400 to-amber-600 text-black shadow-lg shadow-yellow-500/40 ring-2 ring-yellow-400/50" :
+                                                            index === 1 ? "bg-gradient-to-br from-gray-300 to-gray-500 text-black shadow-lg shadow-gray-400/30 ring-2 ring-gray-400/30" :
+                                                                index === 2 ? "bg-gradient-to-br from-orange-400 to-orange-700 text-white shadow-lg shadow-orange-500/30 ring-2 ring-orange-400/30" : "text-gray-400 bg-gray-800/80 border border-gray-700"
+                                                    )}>
+                                                        {entry.rank}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-5">
+                                                    <div className="flex items-center space-x-4">
+                                                        <div className="relative shrink-0">
+                                                            <img
+                                                                src={`https://api.dicebear.com/7.x/bottts-neutral/svg?seed=${encodeURIComponent(entry.driver_name)}`}
+                                                                className="w-10 h-10 rounded-lg bg-gray-800 border border-gray-700 shadow-inner"
+                                                                alt="Avatar"
+                                                            />
+                                                            {index === 0 && (
+                                                                <div className="absolute -top-1 -right-1 bg-yellow-500 text-black p-0.5 rounded-full border border-gray-900">
+                                                                    <Trophy size={8} />
+                                                                </div>
+                                                            )}
                                                         </div>
-                                                    )}
-                                                </div>
-                                                <div>
+                                                        <div>
 
-                                                    <div className="font-bold text-gray-200 text-lg group-hover:text-white transition-all uppercase italic flex items-center gap-3">
-                                                        {entry.driver_name}
-                                                        {!isTVMode && <EloBadge driverName={entry.driver_name} size="sm" />}
-                                                    </div>
-                                                    <div className="text-xs text-gray-500 font-mono mt-0.5">
-                                                        {new Date(entry.timestamp).toLocaleDateString()}
-                                                    </div>
+                                                            <div className="font-bold text-gray-200 text-lg group-hover:text-white transition-all uppercase italic flex items-center gap-3 font-orbitron">
+                                                                {entry.driver_name}
+                                                                {!isTVMode && <EloBadge driverName={entry.driver_name} size="sm" />}
+                                                            </div>
+                                                            <div className="text-xs text-gray-500 font-mono mt-0.5">
+                                                                {new Date(entry.timestamp).toLocaleDateString()}
+                                                            </div>
 
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-5">
-                                            <div className="flex items-center text-gray-400 group-hover:text-blue-400 transition-colors">
-                                                <Car size={16} className="mr-2" />
-                                                <span className="font-medium text-sm">{entry.car_model.replace(/_/g, ' ')}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-5 text-right">
-                                            <div className="font-mono font-bold text-2xl text-white tracking-tight tabular-nums">
-                                                {formatTime(entry.lap_time)}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-5 text-right">
-                                            <div className="flex items-center justify-end space-x-3">
-                                                <div className={cn(
-                                                    "font-mono font-bold text-sm tabular-nums px-2 py-1 rounded inline-block",
-                                                    index === 0 ? "text-yellow-500 bg-yellow-500/10" : "text-red-400 bg-red-400/10"
-                                                )}>
-                                                    {formatGap(entry.lap_time - leaderboard[0].lap_time)}
-                                                </div>
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); setSelectedLapId(entry.lap_id); }}
-                                                    className="p-2 bg-gray-700 hover:bg-blue-600 rounded text-gray-400 hover:text-white transition-colors group/btn"
-                                                    title="Ver Telemetría"
-                                                >
-                                                    <BarChart2 size={16} />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                )))}
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-5">
+                                                    <div className="flex items-center text-gray-400 group-hover:text-blue-400 transition-colors">
+                                                        {/* CarBrandLogo Replaces Text */}
+                                                        <CarBrandLogo carModel={entry.car_model} className="w-8 h-8 mr-3" />
+                                                        <span className="font-medium text-sm font-orbitron">{entry.car_model.replace(/_/g, ' ')}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-5 text-right">
+                                                    <div className="font-mono font-bold text-2xl text-white tracking-tight tabular-nums font-russo">
+                                                        {formatTime(entry.lap_time)}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-5 text-right">
+                                                    <div className="flex items-center justify-end space-x-3">
+                                                        <div className={cn(
+                                                            "font-mono font-bold text-sm tabular-nums px-2 py-1 rounded inline-block",
+                                                            index === 0 ? "text-yellow-500 bg-yellow-500/10" : "text-red-400 bg-red-400/10"
+                                                        )}>
+                                                            {formatGap(entry.lap_time - leaderboard[0].lap_time)}
+                                                        </div>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); setSelectedLapId(entry.lap_id); }}
+                                                            className="p-2 bg-gray-700 hover:bg-blue-600 rounded text-gray-400 hover:text-white transition-colors group/btn"
+                                                            title="Ver Telemetría"
+                                                        >
+                                                            <BarChart2 size={16} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </motion.tr>
+                                        ))}
+                                    </AnimatePresence>
+                                )}
                             </tbody>
                         </table>
                     </div>

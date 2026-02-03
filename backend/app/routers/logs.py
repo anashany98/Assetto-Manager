@@ -4,6 +4,7 @@ from typing import List, Optional
 import time
 from collections import deque
 import logging
+logger = logging.getLogger(__name__)
 from .auth import require_agent_token, require_admin
 
 # In-memory Circular Buffer (Max 1000 logs)
@@ -37,6 +38,8 @@ async def submit_log(log: LogCreate):
         message=log.message,
         details=log.details
     )
+    # Persist to disk/stdout via standard logger
+    logger.info(f"CLIENT LOG [{log.level}] {log.source}: {log.message} ({log.details or ''})")
     log_buffer.append(entry)
     return {"status": "ok"}
 

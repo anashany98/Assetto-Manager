@@ -65,7 +65,7 @@ def update_setting(setting_data: schemas.GlobalSettingsBase, db: Session = Depen
     return new_setting
 
 @router.post("/upload-logo")
-async def upload_logo(file: UploadFile = File(...), db: Session = Depends(database.get_db), current_user: models.User = Depends(require_admin)):
+def upload_logo(file: UploadFile = File(...), db: Session = Depends(database.get_db), current_user: models.User = Depends(require_admin)):
     # Create branding directory if it doesn't exist
     upload_dir = STORAGE_DIR / "branding"
     upload_dir.mkdir(parents=True, exist_ok=True)

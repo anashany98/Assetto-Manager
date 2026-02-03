@@ -15,6 +15,8 @@ import TournamentBracket from '../components/TournamentBracket';
 import { Trophy, AlertTriangle, Sparkles, Wifi, WifiOff } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { TelemetryGauges } from '../components/TelemetryGauges';
+import { CarBrandLogo } from '../components/CarBrandLogo'; // NEW
+import { DynamicBackground } from '../components/DynamicBackground'; // NEW
 
 const VIEWS = ['LEADERBOARD', 'HALL_OF_FAME', 'LIVE_MAP', 'COUNTDOWN', 'TOURNAMENT', 'BRACKET', 'SPONSORSHIP', 'JOIN_QR', 'SPY_VIEW', 'BATTLE_VIEW'];
 
@@ -171,7 +173,7 @@ export const TVMode = () => {
                                     <div className="grid grid-cols-3 gap-2 text-[8px] uppercase font-bold text-gray-400">
                                         <div className="bg-white/5 p-1 px-2 rounded">
                                             <div className="text-gray-500">Motor</div>
-                                            <div className={car.engine_temp > 100 ? 'text-red-500' : 'text-white'}>{Math.round(car.engine_temp || 0)}°C</div>
+                                            <div className={(car.engine_temp || 0) > 100 ? 'text-red-500' : 'text-white'}>{Math.round(car.engine_temp || 0)}°C</div>
                                         </div>
                                         <div className="bg-white/5 p-1 px-2 rounded">
                                             <div className="text-gray-500">Combustible</div>
@@ -344,12 +346,12 @@ export const TVMode = () => {
             <div className="absolute top-4 right-4 z-50 flex items-center gap-4">
                 <div className={`flex items-center gap-2 px-3 py-1 rounded-full border backdrop-blur-md transition-colors duration-500 ${isConnected ? 'bg-black/20 border-white/10 text-white/50' : 'bg-red-500/20 border-red-500 text-red-500 animate-pulse'}`}>
                     {isConnected ? <Wifi size={14} /> : <WifiOff size={14} />}
-                    <span className="text-[10px] font-bold uppercase tracking-widest hidden md:inline">
+                    <span className="text-[10px] font-bold uppercase tracking-widest hidden md:inline font-orbitron">
                         {isConnected ? 'ONLINE' : 'RECONECTANDO...'}
                     </span>
                 </div>
 
-                <div className="opacity-30 text-[10px] uppercase font-bold text-white border border-white/30 px-2 py-0.5 rounded">
+                <div className="opacity-30 text-[10px] uppercase font-bold text-white border border-white/30 px-2 py-0.5 rounded font-orbitron">
                     PANTALLA {screenId}
                 </div>
             </div>
@@ -509,16 +511,18 @@ function BattleView({ drivers }: { drivers: TelemetryPacket[] }) {
 
     return (
         <div className="h-full w-full bg-gray-950 text-white relative overflow-hidden">
-            {/* Background */}
-            <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]" />
+            {/* Dynamic Background */}
+            <div className="absolute inset-0 opacity-50">
+                <DynamicBackground />
+            </div>
 
             {/* Header */}
             <header className="absolute top-0 left-0 right-0 z-30 p-4 flex justify-between items-center bg-black/50 backdrop-blur-sm border-b border-white/10">
                 <div className="flex items-center gap-3">
                     <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
-                    <h1 className="text-2xl font-black uppercase tracking-tighter italic">Battle Mode</h1>
+                    <h1 className="text-2xl font-black uppercase tracking-tighter italic font-orbitron">Battle Mode</h1>
                 </div>
-                <div className="text-sm font-mono text-gray-400 uppercase tracking-widest">
+                <div className="text-sm font-mono text-gray-400 uppercase tracking-widest font-orbitron">
                     {drivers.length} PILOTOS ACTIVOS
                 </div>
             </header>
@@ -536,27 +540,31 @@ function BattleView({ drivers }: { drivers: TelemetryPacket[] }) {
                             animate={{ opacity: 1, scale: 1 }}
                             transition={{ delay: idx * 0.1 }}
                             className={`relative bg-gradient-to-br ${color.bg} border-l-4 ${color.border} p-6 flex flex-col justify-between overflow-hidden`}
+                            style={{ fontFamily: 'Orbitron, sans-serif' }}
                         >
                             {/* Corner Label */}
-                            <div className={`absolute top-4 right-4 text-6xl font-black italic opacity-20 ${color.text}`}>
+                            <div className={`absolute top-4 right-4 text-6xl font-black italic opacity-20 ${color.text} font-russo`}>
                                 {idx + 1}
                             </div>
 
                             {/* Driver Info */}
-                            <div>
+                            <div className="relative z-10">
                                 <div className={`text-xs font-bold uppercase tracking-widest ${color.text} mb-1`}>
                                     {color.label} CORNER
                                 </div>
-                                <h2 className="text-3xl font-black uppercase tracking-tighter text-white truncate">
+                                <h2 className="text-3xl font-black uppercase tracking-tighter text-white truncate drop-shadow-lg">
                                     {driver.driver || 'PILOTO'}
                                 </h2>
-                                <p className="text-sm text-gray-500 font-mono truncate">{driver.car || '-'}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <CarBrandLogo carModel={driver.car} className="w-6 h-6 grayscale opacity-80" />
+                                    <p className="text-sm text-gray-400 font-mono truncate uppercase">{driver.car.replace(/_/g, ' ') || '-'}</p>
+                                </div>
                             </div>
 
                             {/* Speed */}
-                            <div className="flex-1 flex items-center justify-center">
+                            <div className="flex-1 flex items-center justify-center relative z-10">
                                 <div className="text-center">
-                                    <div className={`text-7xl font-black tabular-nums ${isFastest ? 'text-yellow-400' : 'text-white'}`}>
+                                    <div className={`text-8xl font-black tabular-nums font-russo ${isFastest ? 'text-yellow-400 drop-shadow-[0_0_15px_rgba(250,204,21,0.5)]' : 'text-white drop-shadow-lg'}`}>
                                         {Math.round(driver.speed_kmh || 0)}
                                     </div>
                                     <div className="text-sm font-bold text-gray-500 uppercase tracking-widest">KM/H</div>
@@ -564,24 +572,24 @@ function BattleView({ drivers }: { drivers: TelemetryPacket[] }) {
                             </div>
 
                             {/* Stats Row */}
-                            <div className="grid grid-cols-3 gap-2 text-center">
-                                <div className="bg-black/30 p-2 rounded-lg">
-                                    <div className="text-[10px] text-gray-500 uppercase">RPM</div>
-                                    <div className="text-lg font-bold font-mono">{Math.round(driver.rpm || 0)}</div>
+                            <div className="grid grid-cols-3 gap-2 text-center relative z-10">
+                                <div className="bg-black/40 backdrop-blur-md p-2 rounded-lg border border-white/5">
+                                    <div className="text-[10px] text-gray-400 uppercase">RPM</div>
+                                    <div className="text-lg font-bold font-mono text-white">{Math.round(driver.rpm || 0)}</div>
                                 </div>
-                                <div className="bg-black/30 p-2 rounded-lg">
-                                    <div className="text-[10px] text-gray-500 uppercase">Marcha</div>
-                                    <div className="text-lg font-bold">{driver.gear === 0 ? 'N' : driver.gear === -1 ? 'R' : driver.gear}</div>
+                                <div className="bg-black/40 backdrop-blur-md p-2 rounded-lg border border-white/5">
+                                    <div className="text-[10px] text-gray-400 uppercase">Marcha</div>
+                                    <div className="text-lg font-bold font-orbitron text-white">{driver.gear === 0 ? 'N' : driver.gear === -1 ? 'R' : driver.gear}</div>
                                 </div>
-                                <div className="bg-black/30 p-2 rounded-lg">
-                                    <div className="text-[10px] text-gray-500 uppercase">Vuelta</div>
-                                    <div className="text-lg font-bold">{driver.laps || 0}</div>
+                                <div className="bg-black/40 backdrop-blur-md p-2 rounded-lg border border-white/5">
+                                    <div className="text-[10px] text-gray-400 uppercase">Vuelta</div>
+                                    <div className="text-lg font-bold font-mono text-white">{driver.laps || 0}</div>
                                 </div>
                             </div>
 
                             {/* Fastest Indicator */}
                             {isFastest && (
-                                <div className="absolute bottom-4 right-4 bg-yellow-500 text-black px-3 py-1 rounded-full text-xs font-black uppercase">
+                                <div className="absolute bottom-4 right-4 bg-yellow-500 text-black px-3 py-1 rounded-full text-xs font-black uppercase animate-pulse shadow-lg shadow-yellow-500/50 z-20">
                                     LÍDER
                                 </div>
                             )}
