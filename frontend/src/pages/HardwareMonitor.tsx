@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import {
-    Monitor, Cpu, Thermometer,
+    Monitor, Cpu,
     AlertTriangle, CheckCircle, XCircle,
-    Gamepad2, RefreshCw, Car, MapPin, User, Power, PowerOff
+    RefreshCw, Power, PowerOff
 } from 'lucide-react';
 import { API_URL } from '../config';
 import { cn } from '../lib/utils';
@@ -249,7 +249,7 @@ function StationHealthCard({ station }: { station: StationHealth }) {
 export default function HardwareMonitor() {
     const [autoRefresh, setAutoRefresh] = useState(true);
 
-    const { data: stations, isLoading, refetch } = useQuery<StationHealth[]>({
+    const { data: stations, refetch } = useQuery<StationHealth[]>({
         queryKey: ['hardware-status'],
         queryFn: async () => {
             const res = await axios.get(`${API_URL}/hardware/status`);

@@ -14,7 +14,7 @@ router = APIRouter(
     prefix="/integrations",
     tags=["integrations"]
 )
-ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+ENVIRONMENT = (os.getenv("ENVIRONMENT", "development") or "development").lower().strip()
 
 def _ensure_enabled():
     if ENVIRONMENT == "production":

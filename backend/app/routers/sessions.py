@@ -8,10 +8,12 @@ from ..database import get_db
 from ..models import Session, Station
 from .. import schemas
 from ..services.pricing import calculate_price
+from ..routers.auth import require_admin
 
 router = APIRouter(
     prefix="/sessions",
-    tags=["sessions"]
+    tags=["sessions"],
+    dependencies=[Depends(require_admin)]
 )
 
 @router.post("/start", response_model=schemas.SessionResponse)

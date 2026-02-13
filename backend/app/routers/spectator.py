@@ -5,12 +5,18 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional, List
 from sqlalchemy.orm import Session
+import os
 
 from .. import database, models
 from .auth import get_current_active_user, require_admin_or_public_token
 from .websockets import manager
+from ..security.license import require_license_module
 
-router = APIRouter(prefix="/spectator", tags=["Spectator"])
+router = APIRouter(
+    prefix="/spectator",
+    tags=["Spectator"],
+    dependencies=[Depends(require_license_module("tv_spectator"))],
+)
 
 
 class OBSCommandRequest(BaseModel):
@@ -25,6 +31,31 @@ class SpectatorStation(BaseModel):
     ip_address: str
     is_streaming: bool = False
     stream_url: Optional[str] = None
+
+
+def _default_stream_url(station: models.Station) -> Optional[str]:
+    """Build a sensible low-latency fallback URL when station.stream_url is unset."""
+    mode = (os.getenv("STREAM_FALLBACK_MODE", "webrtc") or "webrtc").strip().lower()
+    station_suffix = f"station{station.id}"
+    base_url = (os.getenv("STREAM_BASE_URL") or "").strip().rstrip("/")
+
+    if base_url:
+        if mode == "flv":
+            return f"{base_url}/{station_suffix}.flv"
+        if mode == "hls":
+            return f"{base_url}/{station_suffix}.m3u8"
+        # Default: WebRTC/WHEP base endpoint consumed by StreamPlayer
+        return f"{base_url}/{station_suffix}"
+
+    host = (station.ip_address or "").strip()
+    if not host:
+        return None
+
+    if mode == "flv":
+        return f"http://{host}:8888/live/{station_suffix}.flv"
+    if mode == "hls":
+        return f"http://{host}:8888/live/{station_suffix}.m3u8"
+    return f"http://{host}:8889/live/{station_suffix}"
 
 
 @router.get("/stations", response_model=List[SpectatorStation])
@@ -44,7 +75,7 @@ def get_spectator_stations(
             name=s.name,
             ip_address=s.ip_address or "",
             is_streaming=s.is_streaming,
-            stream_url=s.stream_url or (f"http://{s.ip_address}:8080/stream" if s.ip_address else None)
+            stream_url=s.stream_url or _default_stream_url(s)
         )
         for s in stations
     ]

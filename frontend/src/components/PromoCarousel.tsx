@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { API_URL } from '../config';
+import { getAuthHeaders } from '../api/authHeaders';
 
 interface AdCampaign {
     id: number;
@@ -18,7 +19,7 @@ const PromoCarousel: React.FC = () => {
         queryKey: ['active-ads'],
         queryFn: async () => {
             // Using the specific endpoint for active active ads
-            const res = await fetch(`${API_URL}/ads/active`);
+            const res = await fetch(`${API_URL}/ads/active`, { headers: getAuthHeaders() });
             if (!res.ok) throw new Error("Failed to fetch ads");
             return res.json() as Promise<AdCampaign[]>;
         },

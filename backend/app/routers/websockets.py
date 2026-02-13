@@ -3,10 +3,14 @@ from typing import List, Dict, Any
 import json
 import logging
 import os
+import asyncio
+from uuid import uuid4
 from sqlalchemy.orm import Session
 from ..database import SessionLocal
 from .. import models
 from datetime import datetime, timezone
+
+from ..security.api_keys import is_agent_token_allowed, is_client_token_allowed
 
 
 router = APIRouter()
@@ -14,29 +18,59 @@ logger = logging.getLogger(__name__)
 
 
 def _is_public_ws_allowed(token: str | None) -> bool:
-    env = os.getenv("ENVIRONMENT", "development")
-    expected = os.getenv("PUBLIC_WS_TOKEN") or os.getenv("PUBLIC_API_TOKEN")
-    if env == "production":
-        if not expected:
-            logger.error("PUBLIC_WS_TOKEN not configured for production WebSocket access")
-            return False
-        return token == expected
-    if expected and token != expected:
-        return False
-    return True
+    # Require a dedicated WS scope when tokens are configured; dev remains open by default.
+    return is_client_token_allowed(token=token, required_scopes=("ws:public",))
 
 
 def _is_agent_ws_allowed(token: str | None) -> bool:
-    env = os.getenv("ENVIRONMENT", "development")
-    expected = os.getenv("AGENT_TOKEN")
-    if env == "production":
-        if not expected:
-            logger.error("AGENT_TOKEN not configured for production agent WebSocket access")
-            return False
-        return token == expected
-    if expected and token != expected:
+    return is_agent_token_allowed(token=token, required_scopes=("agent:ws",))
+
+
+def _is_truthy(raw: str | None) -> bool:
+    return (raw or "").strip().lower() in {"1", "true", "yes"}
+
+
+def _allow_ws_query_token() -> bool:
+    environment = (os.getenv("ENVIRONMENT", "development") or "development").lower().strip()
+    default = "false" if environment == "production" else "true"
+    return _is_truthy(os.getenv("ALLOW_WS_TOKEN_QUERY", default))
+
+
+async def _authenticate_public_client(websocket: WebSocket) -> bool:
+    query_token = websocket.query_params.get("token")
+    if query_token and _allow_ws_query_token() and _is_public_ws_allowed(query_token):
+        return True
+
+    identify_timeout = int(os.getenv("WS_CLIENT_IDENTIFY_TIMEOUT", "8"))
+    try:
+        raw_data = await asyncio.wait_for(websocket.receive_text(), timeout=identify_timeout)
+    except asyncio.TimeoutError:
+        return _is_public_ws_allowed(None)
+    except WebSocketDisconnect:
+        # Client closed before identify; treat as unauthenticated without noisy stack traces.
         return False
-    return True
+
+    try:
+        data = json.loads(raw_data)
+    except json.JSONDecodeError:
+        return _is_public_ws_allowed(None)
+
+    if not isinstance(data, dict) or data.get("type") != "identify":
+        return _is_public_ws_allowed(None)
+
+    token = data.get("token")
+    if token is not None and not isinstance(token, str):
+        return False
+
+    normalized = token.strip() if isinstance(token, str) else None
+    normalized = normalized or None
+    return _is_public_ws_allowed(normalized)
+
+
+WS_CHANNEL_CLIENT_BROADCAST = "acmanager:ws:broadcast:clients"
+WS_CHANNEL_AGENT_BROADCAST = "acmanager:ws:broadcast:agents"
+WS_CHANNEL_COMMAND = "acmanager:ws:command"
+WS_CHANNEL_AGENT_OWNERSHIP = "acmanager:ws:agent:ownership"
 
 class ConnectionManager:
     def __init__(self):
@@ -49,16 +83,165 @@ class ConnectionManager:
         # Last known state per agent (keyed by car/station ID usually, but here we might just store by agent WS)
         self.agent_states: Dict[WebSocket, Any] = {}
 
+        # Optional cross-worker pubsub (Redis). Enabled via WS_PUBSUB=redis + REDIS_URL.
+        self.instance_id = uuid4().hex
+        self._pubsub_enabled = False
+        self._redis = None
+        self._redis_pubsub = None
+        self._pubsub_task: asyncio.Task | None = None
+
+    def stats(self) -> dict[str, Any]:
+        return {
+            "instance_id": self.instance_id,
+            "pubsub_enabled": self._pubsub_enabled,
+            "clients": len(self.active_clients),
+            "agents": len(self.active_agents),
+            "agent_station_ids": sorted([int(sid) for sid in self.active_agents.keys()]),
+        }
+
+    async def start_pubsub(self) -> None:
+        mode = (os.getenv("WS_PUBSUB", "none") or "none").lower().strip()
+        if mode not in {"redis", "none"}:
+            logger.warning("Unknown WS_PUBSUB=%s; defaulting to none", mode)
+            mode = "none"
+        if mode != "redis":
+            return
+
+        url = (os.getenv("REDIS_URL") or "").strip()
+        if not url:
+            logger.error("WS_PUBSUB=redis requires REDIS_URL")
+            return
+
+        try:
+            import redis.asyncio as redis_async  # type: ignore
+        except Exception:
+            logger.error("Redis pubsub requested but dependency 'redis' is not installed")
+            return
+
+        try:
+            self._redis = redis_async.from_url(url, decode_responses=True)
+            self._redis_pubsub = self._redis.pubsub(ignore_subscribe_messages=True)
+            await self._redis_pubsub.subscribe(
+                WS_CHANNEL_CLIENT_BROADCAST,
+                WS_CHANNEL_AGENT_BROADCAST,
+                WS_CHANNEL_COMMAND,
+                WS_CHANNEL_AGENT_OWNERSHIP,
+            )
+            self._pubsub_task = asyncio.create_task(self._pubsub_loop())
+            self._pubsub_enabled = True
+            logger.info("WS pubsub enabled (redis) instance_id=%s", self.instance_id)
+        except Exception as exc:
+            logger.error("Failed to start WS redis pubsub: %s", exc)
+            self._pubsub_enabled = False
+
+    async def stop_pubsub(self) -> None:
+        task = self._pubsub_task
+        self._pubsub_task = None
+        if task:
+            task.cancel()
+            try:
+                await task
+            except Exception:
+                pass
+        try:
+            if self._redis_pubsub:
+                await self._redis_pubsub.close()
+        except Exception:
+            pass
+        try:
+            if self._redis:
+                await self._redis.close()
+        except Exception:
+            pass
+        self._redis_pubsub = None
+        self._redis = None
+        if self._pubsub_enabled:
+            logger.info("WS pubsub stopped instance_id=%s", self.instance_id)
+        self._pubsub_enabled = False
+
+    async def _publish(self, channel: str, event: dict[str, Any]) -> None:
+        if not self._pubsub_enabled or not self._redis:
+            return
+        try:
+            await self._redis.publish(channel, json.dumps(event))
+        except Exception as exc:
+            logger.warning("WS pubsub publish failed channel=%s err=%s", channel, exc)
+
+    async def _pubsub_loop(self) -> None:
+        if not self._redis_pubsub:
+            return
+        try:
+            async for msg in self._redis_pubsub.listen():
+                if not msg or msg.get("type") != "message":
+                    continue
+                channel = msg.get("channel")
+                data = msg.get("data")
+                if not channel or not data:
+                    continue
+                try:
+                    event = json.loads(data) if isinstance(data, str) else None
+                except Exception:
+                    event = None
+                if not isinstance(event, dict):
+                    continue
+                if event.get("origin") == self.instance_id:
+                    continue
+
+                if channel == WS_CHANNEL_CLIENT_BROADCAST:
+                    payload = event.get("payload")
+                    if isinstance(payload, str):
+                        await self._broadcast_local_clients(payload)
+                elif channel == WS_CHANNEL_AGENT_BROADCAST:
+                    payload = event.get("payload")
+                    if isinstance(payload, dict):
+                        await self._broadcast_local_agents(payload)
+                elif channel == WS_CHANNEL_COMMAND:
+                    station_id = event.get("station_id")
+                    payload = event.get("payload")
+                    try:
+                        station_id_int = int(station_id)
+                    except Exception:
+                        continue
+                    if isinstance(payload, dict):
+                        await self._send_local_command(station_id_int, payload)
+                elif channel == WS_CHANNEL_AGENT_OWNERSHIP:
+                    station_id = event.get("station_id")
+                    try:
+                        station_id_int = int(station_id)
+                    except Exception:
+                        continue
+                    ws = self.active_agents.get(station_id_int)
+                    if ws:
+                        try:
+                            await ws.close(code=1012)
+                        except Exception:
+                            pass
+                        self.disconnect_agent(ws)
+        except asyncio.CancelledError:
+            return
+        except Exception as exc:
+            logger.error("WS pubsub loop crashed: %s", exc)
+
     async def connect_client(self, websocket: WebSocket):
-        await websocket.accept()
         self.active_clients.append(websocket)
         logger.info(f"Client connected. Total clients: {len(self.active_clients)}")
 
     async def register_agent(self, websocket: WebSocket, station_id: int):
         # Register authenticated/identified agent
+        # If station already connected, drop the old connection
+        existing_ws = self.active_agents.get(station_id)
+        if existing_ws and existing_ws is not websocket:
+            try:
+                await existing_ws.close(code=1012)
+            except Exception:
+                pass
+            self.disconnect_agent(existing_ws)
         self.active_agents[station_id] = websocket
         self.ws_to_station[websocket] = station_id
         logger.info(f"Agent Registered: Station {station_id}. Total registered agents: {len(self.active_agents)}")
+        if self._pubsub_enabled:
+            # Ensure only one worker keeps a station connection in multi-worker mode.
+            await self._publish(WS_CHANNEL_AGENT_OWNERSHIP, {"origin": self.instance_id, "station_id": station_id})
 
     def disconnect_client(self, websocket: WebSocket):
         if websocket in self.active_clients:
@@ -89,8 +272,12 @@ class ConnectionManager:
                 db.close()
 
     async def broadcast(self, message: str):
-        # Broadcast message from Agent to all Clients
-        # Use a copy of the list to avoid modification issues during iteration if Disconnect happens
+        if self._pubsub_enabled:
+            await self._publish(WS_CHANNEL_CLIENT_BROADCAST, {"origin": self.instance_id, "payload": message})
+        await self._broadcast_local_clients(message)
+
+    async def _broadcast_local_clients(self, message: str) -> None:
+        # Broadcast message from Agent to local Clients
         for connection in list(self.active_clients):
             try:
                 await connection.send_text(message)
@@ -98,7 +285,11 @@ class ConnectionManager:
                 self.disconnect_client(connection)
 
     async def broadcast_to_agents(self, message: dict):
-        # Broadcast command to all active Agents
+        if self._pubsub_enabled:
+            await self._publish(WS_CHANNEL_AGENT_BROADCAST, {"origin": self.instance_id, "payload": message})
+        await self._broadcast_local_agents(message)
+
+    async def _broadcast_local_agents(self, message: dict) -> None:
         payload = json.dumps(message)
         for station_id, ws in list(self.active_agents.items()):
             try:
@@ -106,24 +297,32 @@ class ConnectionManager:
                 logger.info(f"Sent command to Station {station_id}: {message.get('command')}")
             except Exception as e:
                 logger.error(f"Failed to send to Station {station_id}: {e}")
-                # We let the receive loop handle invalidation/disconnect
 
 
 
 
     async def send_command(self, station_id: int, message: dict):
-        # Send targeted command to a specific Agent
-        ws = self.active_agents.get(station_id)
-        if ws:
-            try:
-                await ws.send_text(json.dumps(message))
-                logger.info(f"Command '{message.get('command')}' sent to Station {station_id}")
-                return True
-            except Exception as e:
-                logger.error(f"Failed to send command to Station {station_id}: {e}")
-                self.disconnect_agent(ws)
-                return False
+        # Send targeted command to a specific Agent (local worker if possible; otherwise pubsub).
+        ok = await self._send_local_command(station_id, message)
+        if ok:
+            return True
+        if self._pubsub_enabled:
+            await self._publish(WS_CHANNEL_COMMAND, {"origin": self.instance_id, "station_id": station_id, "payload": message})
+            return True
         return False
+
+    async def _send_local_command(self, station_id: int, message: dict) -> bool:
+        ws = self.active_agents.get(station_id)
+        if not ws:
+            return False
+        try:
+            await ws.send_text(json.dumps(message))
+            logger.info(f"Command '{message.get('command')}' sent to Station {station_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to send command to Station {station_id}: {e}")
+            self.disconnect_agent(ws)
+            return False
 
 
 manager = ConnectionManager()
@@ -131,15 +330,19 @@ manager = ConnectionManager()
 @router.websocket("/ws/telemetry/client")
 async def websocket_client_endpoint(websocket: WebSocket):
     logger.info("Attempting to connect a new client...")
-    token = websocket.query_params.get("token")
-    if not _is_public_ws_allowed(token):
-        await websocket.close(code=1008)
+    await websocket.accept()
+    if not await _authenticate_public_client(websocket):
+        try:
+            await websocket.close(code=1008)
+        except Exception:
+            pass
         return
+    await websocket.send_text(json.dumps({"type": "identify_ack"}))
     await manager.connect_client(websocket)
     try:
         while True:
             # Wait for any message from the client (e.g. keepalives or commands)
-            data = await websocket.receive_text()
+            await websocket.receive_text()
             # logger.info(f"Received from client: {data}")
     except WebSocketDisconnect:
         logger.info("Client disconnected gracefully.")
@@ -151,64 +354,75 @@ async def websocket_client_endpoint(websocket: WebSocket):
 @router.websocket("/ws/telemetry/agent")
 async def websocket_agent_endpoint(websocket: WebSocket):
     await websocket.accept()
-    # Note: We don't register immediately. We wait for 'identify' message.
-    
+    # Enforce identification before accepting any telemetry
+    identify_timeout = int(os.getenv("WS_IDENTIFY_TIMEOUT", "10"))
     try:
+        try:
+            raw_data = await asyncio.wait_for(websocket.receive_text(), timeout=identify_timeout)
+        except asyncio.TimeoutError:
+            await websocket.close(code=1008)
+            return
+
+        data = json.loads(raw_data)
+        if data.get("type") != "identify":
+            await websocket.close(code=1008)
+            return
+
+        token = data.get("token")
+        if not _is_agent_ws_allowed(token):
+            await websocket.close(code=1008)
+            return
+        station_id = data.get("station_id")
+        if not station_id:
+            await websocket.close(code=1008)
+            return
+        try:
+            station_id = int(station_id)
+        except Exception:
+            await websocket.close(code=1008)
+            return
+
+        await manager.register_agent(websocket, station_id)
+
+        # Post-identify actions
+        db = SessionLocal()
+        try:
+            station = db.query(models.Station).filter(models.Station.id == station_id).first()
+            if station:
+                station.is_active = True
+                station.is_online = True
+                station.status = "online"
+                station.last_seen = datetime.now(timezone.utc)
+                station.archived_at = None
+                db.commit()
+            if station and station.is_tv_mode:
+                active_lobby = db.query(models.Lobby).filter(models.Lobby.status == "running").first()
+                if active_lobby:
+                    logger.info(f"Auto-joining TV Station {station_id} to running lobby {active_lobby.id}")
+                    await websocket.send_text(json.dumps({
+                        "command": "join_lobby",
+                        "lobby_id": active_lobby.id,
+                        "server_ip": active_lobby.server_ip,
+                        "port": active_lobby.port,
+                        "track": active_lobby.track,
+                        "car": active_lobby.car,
+                        "is_spectator": True
+                    }))
+            if station and station.ac_path:
+                logger.info(f"Auto-triggering content scan for Station {station_id}")
+                await websocket.send_text(json.dumps({
+                    "command": "scan_content",
+                    "ac_path": station.ac_path,
+                    "station_ip": station.ip_address
+                }))
+        finally:
+            db.close()
+
         while True:
             # Agents stream JSON data
             raw_data = await websocket.receive_text()
-            
-            # 1. Parse JSON
             try:
                 data = json.loads(raw_data)
-                
-                # Handle Identification
-                if data.get("type") == "identify":
-                    token = data.get("token")
-                    if not _is_agent_ws_allowed(token):
-                        await websocket.close(code=1008)
-                        return
-                    station_id = data.get("station_id")
-                    if station_id:
-                        await manager.register_agent(websocket, station_id)
-                        
-                        # NEW: Check if this is a TV Mode station and if there's an active race to join
-                        db = SessionLocal()
-                        try:
-                            station = db.query(models.Station).filter(models.Station.id == station_id).first()
-                            if station:
-                                station.is_active = True
-                                station.is_online = True
-                                station.status = "online"
-                                station.last_seen = datetime.now(timezone.utc)
-                                station.archived_at = None
-                                db.commit()
-                            if station and station.is_tv_mode:
-                                # Look for running lobbies
-                                active_lobby = db.query(models.Lobby).filter(models.Lobby.status == "running").first()
-                                if active_lobby:
-                                    logger.info(f"Auto-joining TV Station {station_id} to running lobby {active_lobby.id}")
-                                    await websocket.send_text(json.dumps({
-                                        "command": "join_lobby",
-                                        "lobby_id": active_lobby.id,
-                                        "server_ip": active_lobby.server_ip,
-                                        "port": active_lobby.port,
-                                        "track": active_lobby.track,
-                                        "car": active_lobby.car,
-                                        "is_spectator": True
-                                    }))
-                            
-                            # AUTO CONTENT SCAN: Trigger scan on Agent connect
-                            if station and station.ac_path:
-                                logger.info(f"Auto-triggering content scan for Station {station_id}")
-                                await websocket.send_text(json.dumps({
-                                    "command": "scan_content",
-                                    "ac_path": station.ac_path,
-                                    "station_ip": station.ip_address
-                                }))
-                        finally:
-                            db.close()
-                    continue
 
                 # Handle Content Scan Result from Agent
                 if data.get("type") == "content_scan_result":
@@ -262,10 +476,14 @@ async def websocket_agent_endpoint(websocket: WebSocket):
 
                 if data.get("type") == "obs_status":
                     station_id = data.get("station_id") or manager.ws_to_station.get(websocket)
-                    if station_id:
+                    try:
+                        station_id_int = int(station_id) if station_id is not None else None
+                    except Exception:
+                        station_id_int = None
+                    if station_id_int:
                         db = SessionLocal()
                         try:
-                            station = db.query(models.Station).filter(models.Station.id == station_id).first()
+                            station = db.query(models.Station).filter(models.Station.id == station_id_int).first()
                             if station:
                                 if "is_streaming" in data:
                                     station.is_streaming = bool(data.get("is_streaming"))
@@ -317,7 +535,6 @@ async def websocket_agent_endpoint(websocket: WebSocket):
             except Exception:
                 logger.exception("Error processing agent message")
                 continue
-                
     except WebSocketDisconnect:
         manager.disconnect_agent(websocket)
     except Exception as e:

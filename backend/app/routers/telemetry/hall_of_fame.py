@@ -7,9 +7,13 @@ from sqlalchemy import func, asc
 from typing import List
 
 from ... import models, schemas, database
+from ...security.license import require_license_module
 from .base import _classify_car_category
 
-router = APIRouter(tags=["telemetry-hall-of-fame"])
+router = APIRouter(
+    tags=["telemetry-hall-of-fame"],
+    dependencies=[Depends(require_license_module("hall_of_fame"))],
+)
 
 
 @router.get("/hall_of_fame", response_model=List[schemas.HallOfFameCategory])

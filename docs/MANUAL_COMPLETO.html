@@ -1,0 +1,644 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AC-MANAGER | Manual Completo Produccion</title>
+  <style>
+    :root {
+      --bg: #0b1b25;
+      --panel: #112b3a;
+      --line: #2d4f63;
+      --txt: #e7f2f9;
+      --muted: #a8c3d2;
+      --ok: #6fe0a1;
+      --warn: #ffd27a;
+      --bad: #ff8989;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: radial-gradient(circle at 85% -20%, #23495f 0%, var(--bg) 45%); color: var(--txt); font-family: "Segoe UI", Tahoma, sans-serif; }
+    a { color: #96d6ff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 16px; display: grid; grid-template-columns: 280px 1fr; gap: 14px; }
+    .toc, .card, .hero { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+    .toc { position: sticky; top: 12px; align-self: start; padding: 12px; max-height: calc(100vh - 24px); overflow: auto; }
+    .toc h2 { margin: 0 0 8px; font-size: 16px; }
+    .tools { margin: 0 0 10px; }
+    .search { width: 100%; padding: 7px 9px; border-radius: 7px; border: 1px solid #476b80; background: #0d2330; color: var(--txt); }
+    .toolrow { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+    .btn { border: 1px solid #4a6f84; border-radius: 7px; background: #173546; color: #d7ecf9; padding: 6px 8px; font-size: 12px; cursor: pointer; }
+    .btn:hover { background: #1e4257; }
+    .meta { margin-top: 6px; font-size: 12px; color: var(--muted); }
+    .toc ul { margin: 0; padding-left: 18px; }
+    .toc li { margin: 6px 0; color: var(--muted); font-size: 14px; }
+    .main { display: grid; gap: 12px; }
+    .hero { padding: 16px; }
+    .hero h1 { margin: 0 0 8px; font-size: 30px; }
+    .hero p { margin: 8px 0; color: #c9dfea; }
+    .pill { display: inline-block; margin: 3px 6px 3px 0; padding: 4px 10px; border-radius: 999px; border: 1px solid #4c7186; background: #183646; font-size: 12px; }
+    .card { padding: 14px; }
+    h2 { margin: 0 0 8px; font-size: 24px; }
+    h3 { margin: 12px 0 6px; font-size: 18px; }
+    h4 { margin: 10px 0 6px; font-size: 15px; }
+    p, li { color: #d1e5f1; }
+    ul, ol { margin: 8px 0 8px 20px; }
+    table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 13px; }
+    th, td { border: 1px solid #36576a; padding: 8px; text-align: left; vertical-align: top; }
+    th { background: #173a4e; }
+    code, pre { font-family: Consolas, "Courier New", monospace; }
+    pre { margin: 8px 0; padding: 10px; border: 1px solid #335266; border-radius: 8px; background: #0b202c; overflow: auto; color: #d7f3ff; font-size: 12px; }
+    .kpis { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; }
+    .kpi { border: 1px solid #33566a; border-radius: 8px; background: #0f2633; padding: 8px; }
+    .kpi .label { color: var(--muted); font-size: 12px; }
+    .kpi .value { font-size: 22px; font-weight: 700; }
+    .tag { display: inline-block; margin-right: 5px; margin-top: 3px; padding: 1px 7px; border-radius: 999px; border: 1px solid #4c7288; font-size: 12px; }
+    .ok { color: #d5ffe8; border-color: #5a9371; background: #153628; }
+    .warn { color: #ffeac0; border-color: #9a7b3f; background: #3a301c; }
+    .bad { color: #ffd3d3; border-color: #944a4a; background: #3f1f1f; }
+    .foot { color: var(--muted); text-align: center; font-size: 12px; padding: 8px 0 20px; }
+    .hidden-by-search { display: none !important; }
+    @media (max-width: 980px) {
+      .wrap { grid-template-columns: 1fr; }
+      .toc { position: static; max-height: none; }
+      .kpis { grid-template-columns: 1fr; }
+    }
+    @media print {
+      html, body { background: #fff; color: #000; }
+      .wrap { display: block; max-width: none; padding: 0; }
+      .toc, .toolrow, .search, .meta { display: none !important; }
+      .hero, .card { border: 1px solid #ccc; background: #fff; color: #000; box-shadow: none; break-inside: avoid; }
+      a { color: #000; text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <aside class="toc">
+      <h2>Indice</h2>
+      <div class="tools">
+        <input class="search" id="docSearch" type="search" placeholder="Buscar en el manual..." aria-label="Buscar en el manual">
+        <div class="toolrow">
+          <button class="btn" id="clearSearch" type="button">Limpiar</button>
+          <button class="btn" id="printDoc" type="button">Exportar PDF</button>
+        </div>
+        <div class="meta" id="searchMeta">Mostrando todo</div>
+      </div>
+      <ul>
+        <li><a href="#resumen">1. Resumen Ejecutivo</a></li>
+        <li><a href="#stack">2. Tecnologia Usada</a></li>
+        <li><a href="#arquitectura">3. Arquitectura</a></li>
+        <li><a href="#flujos">4. Flujos de Funcion</a></li>
+        <li><a href="#api">5. Mapa API y Modulos</a></li>
+        <li><a href="#datos">6. Modelo de Datos</a></li>
+        <li><a href="#seguridad">7. Seguridad y Licencias</a></li>
+        <li><a href="#streaming">8. Streaming y Latencia</a></li>
+        <li><a href="#despliegue">9. Despliegue</a></li>
+        <li><a href="#operacion">10. Operacion y Alertas</a></li>
+        <li><a href="#backup">11. Backup y Restore</a></li>
+        <li><a href="#automatizacion">12. Automatizacion para venta</a></li>
+        <li><a href="#mejoras">13. Mejoras recomendadas</a></li>
+        <li><a href="#riesgos">14. Riesgos futuros</a></li>
+        <li><a href="#roadmap">15. Roadmap</a></li>
+        <li><a href="#anexos">16. Anexos</a></li>
+      </ul>
+    </aside>
+    <main class="main">
+      <section class="hero">
+        <h1>AC-MANAGER | Manual Completo Produccion</h1>
+        <p>Manual tecnico-operativo integral para dejar la plataforma lista para produccion, robusta contra fallos y preparada para despliegues comerciales repetibles.</p>
+        <div>
+          <span class="pill">Topologia objetivo: 4 estaciones + 1 PC Master</span>
+          <span class="pill">LAN cableada</span>
+          <span class="pill">Kiosko por tablets</span>
+          <span class="pill">Licencias por modulos</span>
+        </div>
+        <p>Fuente: codigo real del repositorio (<code>backend/</code>, <code>frontend/</code>, <code>agent/</code>, <code>tools/license-manager/</code>) y runbooks de <code>docs/</code>.</p>
+      </section>
+
+      <section class="card" id="resumen">
+        <h2>1) Resumen Ejecutivo</h2>
+        <div class="kpis">
+          <div class="kpi">
+            <div class="label">Superficie backend</div>
+            <div class="value">249</div>
+            <div>Rutas HTTP/WS detectadas en routers.</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Modelo de datos</div>
+            <div class="value">28</div>
+            <div>Entidades SQLAlchemy en <code>models.py</code>.</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Escenario base</div>
+            <div class="value">4 + 1</div>
+            <div>4 simuladores + 1 operador.</div>
+          </div>
+        </div>
+        <h3>Objetivo de produccion</h3>
+        <ul>
+          <li>Operacion fluida en sesiones, kiosko y streaming.</li>
+          <li>Resistencia ante caidas de agentes, red o procesos.</li>
+          <li>Despliegue repetible para multiples clientes.</li>
+          <li>Control de licencias por modulos y seguridad por scopes.</li>
+        </ul>
+        <h3>Estado real actual</h3>
+        <ul>
+          <li>Stack completo en produccion: backend + frontend + agente + portal de licencias.</li>
+          <li>Observabilidad integrada: <code>/health</code>, <code>/health/live</code>, <code>/health/ready</code>, <code>/system/metrics</code>, <code>/system/alerts</code>.</li>
+          <li>Hardening implementado en arranque de backend para variables criticas.</li>
+          <li>Punto clave de arquitectura: WS usa estado en memoria, por defecto se trabaja con <code>UVICORN_WORKERS=1</code>.</li>
+        </ul>
+      </section>
+
+      <section class="card" id="stack">
+        <h2>2) Tecnologia Usada</h2>
+        <h3>Backend</h3>
+        <p>
+          <span class="tag">FastAPI 0.115.0</span>
+          <span class="tag">Uvicorn 0.31.0</span>
+          <span class="tag">SQLAlchemy 2.0.25</span>
+          <span class="tag">Pydantic 2.9.0</span>
+          <span class="tag">APScheduler</span>
+          <span class="tag">SlowAPI</span>
+          <span class="tag">Stripe 10.11.0</span>
+          <span class="tag">Redis (opcional)</span>
+          <span class="tag">Alembic</span>
+        </p>
+        <h3>Frontend</h3>
+        <p>
+          <span class="tag">React 19.2</span>
+          <span class="tag">Vite 7.2</span>
+          <span class="tag">TypeScript 5.9</span>
+          <span class="tag">React Router 7.12</span>
+          <span class="tag">@tanstack/react-query</span>
+          <span class="tag">TailwindCSS 4.1</span>
+          <span class="tag">Framer Motion</span>
+          <span class="tag">hls.js / flv.js</span>
+        </p>
+        <h3>Agente</h3>
+        <p>
+          <span class="tag">requests</span>
+          <span class="tag">websockets</span>
+          <span class="tag">psutil</span>
+          <span class="tag">getmac</span>
+          <span class="tag">watchdog</span>
+          <span class="tag">OBS websocket control</span>
+        </p>
+        <h3>Portal de licencias (separado)</h3>
+        <ul>
+          <li>Ubicacion: <code>tools/license-manager/</code>.</li>
+          <li>Modelo multi-tenant con roles: superadmin, tenant_admin, tenant_user.</li>
+          <li>Licencias JWT RS256 con <code>modules: []</code> y expiracion.</li>
+          <li>Validacion en AC-MANAGER por clave publica.</li>
+        </ul>
+      </section>
+
+      <section class="card" id="arquitectura">
+        <h2>3) Arquitectura de Referencia</h2>
+        <h3>Topologia recomendada</h3>
+        <ul>
+          <li><strong>PC Master</strong>: backend + frontend build + DB + backups.</li>
+          <li><strong>SIM 1..4</strong>: agente + Assetto Corsa + OBS.</li>
+          <li><strong>Tablets kiosko</strong>: acceso web <code>/kiosk</code> + codigo de estacion.</li>
+          <li><strong>TV y publico</strong>: vistas <code>/tv/*</code>, spectator y ranking.</li>
+        </ul>
+        <h3>Canales en tiempo real</h3>
+        <ul>
+          <li>WS agente: <code>/ws/telemetry/agent</code>.</li>
+          <li>WS cliente: <code>/ws/telemetry/client</code>.</li>
+          <li>Multi-worker solo si se activa Redis pubsub (<code>WS_PUBSUB=redis</code> + <code>REDIS_URL</code>).</li>
+        </ul>
+        <h3>Decisiones tecnicas que afectan estabilidad</h3>
+        <ul>
+          <li><span class="tag ok">Single worker por defecto</span> evita inconsistencias WS/in-memory.</li>
+          <li><span class="tag ok">Scheduler</span> corrige estados stale y lobbies huerfanos.</li>
+          <li><span class="tag ok">Frontend servido por backend en prod</span> reduce complejidad de despliegue.</li>
+        </ul>
+      </section>
+
+      <section class="card" id="flujos">
+        <h2>4) Flujo de Funcion End-to-End</h2>
+        <h3>4.1 Arranque del sistema</h3>
+        <ol>
+          <li>Backend inicia y valida config de runtime estricta en produccion.</li>
+          <li>Scheduler activa jobs de mantenimiento y sincronizacion.</li>
+          <li>Agentes se registran por <code>POST /stations/</code> y abren WS con <code>identify</code>.</li>
+          <li>Dashboard detecta estaciones online y estado de servicios.</li>
+        </ol>
+
+        <h3>4.2 Flujo de estacion</h3>
+        <ol>
+          <li>Agent envia heartbeat/hardware y telemetria.</li>
+          <li>Backend puede enviar comandos de launch/stop/scan/mod sync.</li>
+          <li>Si la estacion cae, sweep de stale la pasa a offline automaticamente.</li>
+        </ol>
+
+        <h3>4.3 Sesiones de juego</h3>
+        <ol>
+          <li>Inicio: <code>/sessions/start</code> o <code>/control/station/{id}/launch</code>.</li>
+          <li>Lobby multiplayer: create/join/ready/start en <code>/lobby</code>.</li>
+          <li>Fin: <code>/sessions/{id}/stop</code> y persistencia de resultados.</li>
+        </ol>
+
+        <h3>4.4 Kiosko y reservas</h3>
+        <ol>
+          <li>Tablet entra en <code>/kiosk</code> y se empareja por codigo de estacion.</li>
+          <li>Reserva en <code>/bookings</code> con control de solapamientos.</li>
+          <li>Si hay pagos habilitados, checkout en <code>/payments/checkout</code>.</li>
+        </ol>
+
+        <h3>4.5 Telemetria y TV</h3>
+        <ol>
+          <li>Agente emite eventos por WS y backend los reenvia a clientes.</li>
+          <li>Laps pueden guardarse desde eventos live y/o upload de session completa.</li>
+          <li>TV spectator usa stream_url de estacion o fallback por <code>STREAM_BASE_URL</code>.</li>
+        </ol>
+
+        <h3>4.6 Update de agentes</h3>
+        <ol>
+          <li>Admin sube ZIP por <code>POST /system/update</code>.</li>
+          <li>Backend guarda manifiesto de version + hash + firma opcional.</li>
+          <li>Agente consulta <code>/system/version</code>, descarga y actualiza.</li>
+        </ol>
+      </section>
+
+      <section class="card" id="api">
+        <h2>5) Mapa API y Modulos</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Modulo</th>
+              <th>Prefijo</th>
+              <th>Uso</th>
+              <th>Control de acceso</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Auth</td><td><code>/auth</code></td><td>Login, setup, perfil usuario</td><td>JWT admin</td></tr>
+            <tr><td>Stations</td><td><code>/stations</code></td><td>Registro, estado, energia</td><td>Agent/admin scopes</td></tr>
+            <tr><td>Control</td><td><code>/control</code></td><td>Lanzar/parar/control remoto</td><td>Admin o token publico segun ruta</td></tr>
+            <tr><td>Sessions</td><td><code>/sessions</code></td><td>Gestion de sesiones activas</td><td>Admin</td></tr>
+            <tr><td>Lobby</td><td><code>/lobby</code></td><td>Multiplayer coordinado</td><td>Admin/public segun endpoint</td></tr>
+            <tr><td>Telemetry</td><td><code>/telemetry</code></td><td>Live, history, export, comparacion</td><td>Mixto por endpoint</td></tr>
+            <tr><td>Bookings</td><td><code>/bookings</code></td><td>Reservas simuladores</td><td>Admin/public con scopes + licencia</td></tr>
+            <tr><td>Tables</td><td><code>/tables</code></td><td>Reservas mesas local</td><td>Admin/public</td></tr>
+            <tr><td>Payments</td><td><code>/payments</code></td><td>Checkout, confirmacion, webhook</td><td>Admin/public</td></tr>
+            <tr><td>Mods/Tracks</td><td><code>/mods</code>, <code>/tracks</code></td><td>Contenido y mapas</td><td>Permisos modulares</td></tr>
+            <tr><td>Spectator</td><td><code>/spectator</code></td><td>OBS y estado stream</td><td>Admin/public</td></tr>
+            <tr><td>System</td><td><code>/system</code></td><td>Update agente, metrics, alerts</td><td>Admin / agent:update</td></tr>
+            <tr><td>License</td><td><code>/license</code></td><td>Estado y activacion</td><td>Public/admin</td></tr>
+            <tr><td>Portal</td><td><code>/portal</code></td><td>Perfil piloto publico</td><td>Public</td></tr>
+          </tbody>
+        </table>
+        <p>Canales WS: <code>/ws/telemetry/agent</code> y <code>/ws/telemetry/client</code>.</p>
+      </section>
+
+      <section class="card" id="datos">
+        <h2>6) Modelo de Datos</h2>
+        <h3>Entidades clave de operacion</h3>
+        <ul>
+          <li><code>Station</code>, <code>Session</code>, <code>Lobby</code>, <code>SessionResult</code>, <code>LapTime</code>.</li>
+          <li><code>Scenario</code>, <code>Profile</code>, <code>WheelProfile</code>, <code>Mod</code>, <code>Tag</code>.</li>
+        </ul>
+        <h3>Entidades de negocio</h3>
+        <ul>
+          <li><code>Booking</code>, <code>Payment</code>, <code>RestaurantTable</code>, <code>TableBooking</code>.</li>
+          <li><code>User</code>, <code>Driver</code>, <code>GlobalSettings</code>.</li>
+        </ul>
+        <h3>Entidades de competicion y engagement</h3>
+        <ul>
+          <li><code>Event</code>, <code>Championship</code>, <code>TournamentMatch</code>, <code>EliminationRace</code>.</li>
+          <li><code>PointsTransaction</code>, <code>Reward</code>, <code>RewardRedemption</code>.</li>
+          <li><code>AdCampaign</code>, <code>PushSubscription</code>.</li>
+        </ul>
+      </section>
+
+      <section class="card" id="seguridad">
+        <h2>7) Seguridad y Licencias</h2>
+        <h3>Capas de seguridad</h3>
+        <ul>
+          <li>JWT admin para panel privado y operaciones administrativas.</li>
+          <li>Client token por header <code>X-Client-Token</code> para kiosko/public.</li>
+          <li>Agent token por header <code>X-Agent-Token</code> para estaciones.</li>
+          <li>Scopes finos para clientes y agentes (<code>CLIENT_TOKENS*</code>, <code>AGENT_TOKENS*</code>).</li>
+        </ul>
+        <h3>Hardening activo en backend</h3>
+        <ul>
+          <li>Validacion de secretos obligatorios en produccion.</li>
+          <li>Bloqueo de placeholders en claves sensibles.</li>
+          <li>Bloqueo de CORS wildcard en produccion.</li>
+          <li>Query-token desactivado por defecto en produccion.</li>
+          <li>Headers de seguridad + rate limiting.</li>
+        </ul>
+        <h3>Licencia por modulos</h3>
+        <ol>
+          <li>Portal emite JWT RS256 con issuer <code>VRacing Sim Center</code>.</li>
+          <li>AC-MANAGER valida con clave publica configurada.</li>
+          <li>Backend habilita modulos segun <code>modules</code> de la licencia.</li>
+        </ol>
+        <p><span class="tag warn">Importante:</span> la revocacion actual es administrativa (portal). Para revocacion efectiva inmediata se recomienda validacion online o TTL corto.</p>
+      </section>
+
+      <section class="card" id="streaming">
+        <h2>8) Streaming LAN y Latencia</h2>
+        <h3>Que es razonable esperar</h3>
+        <ul>
+          <li><span class="tag ok">Muy fluido:</span> 120-250 ms e2e en perfil WebRTC LAN.</li>
+          <li><span class="tag warn">Aceptable:</span> 250-450 ms.</li>
+          <li><span class="tag bad">Problema:</span> mayor de 450 ms o stutter.</li>
+        </ul>
+        <h3>Referencia perceptual</h3>
+        <ul>
+          <li>Interaccion UI: ideal debajo de 50 ms.</li>
+          <li>Streaming spectator: debajo de 200 ms se siente fluido para publico.</li>
+          <li>Latencia de monitor directo (&lt;20 ms) no es realista en pipeline encode/red/decode.</li>
+        </ul>
+        <h3>Perfil recomendado para 4 estaciones cableadas</h3>
+        <pre><code>backend/.env
+STREAM_BASE_URL=http://&lt;MEDIA_SERVER_IP&gt;:8889/live
+STREAM_FALLBACK_MODE=webrtc
+
+agent/config.json (cada estacion)
+"stream_url": "http://&lt;MEDIA_SERVER_IP&gt;:8889/live/station1"
+
+OBS encoder (cada estacion)
+- 1280x720 @ 60fps
+- CBR 4500-6000 kbps
+- keyframe 1s
+- preset low latency</code></pre>
+      </section>
+
+      <section class="card" id="despliegue">
+        <h2>9) Despliegue Produccion</h2>
+        <h3>9.1 Master PC (recomendado 1 comando)</h3>
+        <pre><code>powershell -ExecutionPolicy Bypass -File .\scripts\setup_master_pc.ps1 `
+  -ServerIp "192.168.1.50" `
+  -DatabasePassword "PASSWORD_FUERTE" `
+  -AdminUsername "admin" `
+  -AdminPassword "PASSWORD_ADMIN"</code></pre>
+        <h3>9.2 Flujo manual</h3>
+        <ol>
+          <li><code>scripts/deploy_prod.ps1 -DatabaseUrl "postgresql://..."</code></li>
+          <li>Verificar <code>/health</code>, <code>/health/live</code>, <code>/health/ready</code>.</li>
+          <li>Abrir dashboard en <code>http://server-ip:8000</code>.</li>
+          <li>Crear primer admin con <code>/auth/users/setup</code>.</li>
+        </ol>
+        <h3>9.3 Cada SIM PC</h3>
+        <pre><code>powershell -ExecutionPolicy Bypass -File .\scripts\setup_simulator_pc.ps1 `
+  -ServerIp "192.168.1.50" `
+  -AgentToken "&lt;AGENT_TOKEN&gt;" `
+  -UpdateSigningKey "&lt;UPDATE_SIGNING_KEY&gt;" `
+  -StationName "SIM 1"</code></pre>
+        <h3>9.4 Tablets kiosko</h3>
+        <pre><code>powershell -ExecutionPolicy Bypass -File .\scripts\get_kiosk_links.ps1 `
+  -ServerUrl "http://192.168.1.50:8000" `
+  -Username "admin" `
+  -Password "&lt;PASS&gt;"</code></pre>
+      </section>
+
+      <section class="card" id="operacion">
+        <h2>10) Operacion y Monitoreo Anti-Caidas</h2>
+        <h3>Endpoints operativos clave</h3>
+        <ul>
+          <li><code>/health</code>, <code>/health/live</code>, <code>/health/ready</code>.</li>
+          <li><code>/system/metrics</code> para SLO, latencia y resumen de estaciones.</li>
+          <li><code>/system/alerts</code> para warnings/critical accionables.</li>
+        </ul>
+        <h3>Automatismos de resiliencia</h3>
+        <ul>
+          <li>Sweep de estaciones stale a offline.</li>
+          <li>Cleanup de lobbies huerfanos.</li>
+          <li>Archivado de estaciones fantasma.</li>
+          <li>Sync de contenido periodico.</li>
+        </ul>
+        <h3>Umbrales de alerta recomendados</h3>
+        <pre><code>ALERT_MIN_REQUESTS=50
+ALERT_ERROR_RATE_WARN=0.10
+ALERT_ERROR_RATE_CRIT=0.20
+ALERT_SERVER_ERROR_RATE_WARN=0.02
+ALERT_SERVER_ERROR_RATE_CRIT=0.05
+ALERT_P95_WARN_MS=800
+ALERT_P95_CRIT_MS=2000
+ALERT_STATION_OFFLINE_WARN_RATIO=0.20
+ALERT_STATION_OFFLINE_CRIT_RATIO=0.50</code></pre>
+      </section>
+
+      <section class="card" id="backup">
+        <h2>11) Backup y Recuperacion</h2>
+        <h3>Backup diario programado</h3>
+        <pre><code>powershell -ExecutionPolicy Bypass -File .\scripts\schedule_backup.ps1 `
+  -EnvFile "backend\.env" `
+  -BackupDir "D:\AC-BACKUPS" `
+  -RetentionDays 30 `
+  -StartTime "03:00"</code></pre>
+        <h3>Backup manual</h3>
+        <pre><code>powershell -ExecutionPolicy Bypass -File .\scripts\backup_db.ps1 `
+  -EnvFile "backend\.env" `
+  -BackupDir "backups" `
+  -RetentionDays 7</code></pre>
+        <h3>Restore PostgreSQL</h3>
+        <pre><code>pg_restore --clean --if-exists --no-owner --no-privileges `
+  -d "postgresql://user:pass@host:5432/ac_manager" `
+  "C:\ruta\ac_manager_YYYYMMDD_HHMMSS.dump"</code></pre>
+        <h3>Politica recomendada</h3>
+        <ul>
+          <li>Regla 3-2-1 y prueba de restore mensual.</li>
+          <li>Backup obligatorio antes de release/migracion.</li>
+        </ul>
+      </section>
+
+      <section class="card" id="automatizacion">
+        <h2>12) Automatizacion para venta a clientes</h2>
+        <h3>Objetivo comercial</h3>
+        <p>Estandarizar el despliegue para que cada nuevo cliente se entregue con un procedimiento repetible, rapido y de bajo riesgo operativo.</p>
+        <h3>Pipeline recomendado</h3>
+        <ol>
+          <li>Onboarding master con <code>setup_master_pc.ps1</code>.</li>
+          <li>Onboarding de cada simulador con <code>setup_simulator_pc.ps1</code>.</li>
+          <li>Generacion de enlaces kiosko con <code>get_kiosk_links.ps1</code>.</li>
+          <li>Licenciamiento por tenant/modulos desde portal separado.</li>
+          <li>Actualizacion remota de agentes por <code>/system/update</code>.</li>
+        </ol>
+        <table>
+          <thead>
+            <tr><th>Equipo</th><th>Debe tener</th><th>No debe tener</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Master</td><td>Backend, frontend build, DB, backup, tokens</td><td>Clave privada de licencias (si portal centralizado)</td></tr>
+            <tr><td>SIM PC</td><td>Agent, AC, OBS, tarea de inicio</td><td>Credenciales admin backend</td></tr>
+            <tr><td>Tablet</td><td>Solo URL kiosko por estacion</td><td>Acceso interno al sistema</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="card" id="mejoras">
+        <h2>13) Mejoras recomendadas (competencia vs tu app)</h2>
+        <h3>P0 - impacto inmediato</h3>
+        <ul>
+          <li>Servicio Windows obligatorio para backend en todos los clientes.</li>
+          <li>Smoke tests post-deploy automatizados (login, station online, launch, stop).</li>
+          <li>Simulacro de restore mensual documentado.</li>
+        </ul>
+        <h3>P1 - valor diferencial</h3>
+        <ul>
+          <li>Canary rollout de updates de agente (1 estacion antes de lote).</li>
+          <li>Control plane central multi-sede para soporte remoto.</li>
+          <li>Revocacion de licencias efectiva (online check opcional o TTL corto).</li>
+          <li>Paneles por rol (operador, tecnico, gerente).</li>
+        </ul>
+        <h3>P2 - escalado SaaS</h3>
+        <ul>
+          <li>Observabilidad centralizada (Prometheus/Grafana/ELK).</li>
+          <li>Facturacion y renovacion de licencias automatica por tenant.</li>
+          <li>Matriz de producto (Lite/Pro/Enterprise) sobre feature flags.</li>
+        </ul>
+      </section>
+
+      <section class="card" id="riesgos">
+        <h2>14) Posibles problemas en el futuro</h2>
+        <table>
+          <thead>
+            <tr><th>Riesgo</th><th>Impacto</th><th>Mitigacion</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Multi-worker sin Redis WS</td>
+              <td>Inconsistencia de comandos y estados</td>
+              <td>Forzar <code>UVICORN_WORKERS=1</code> o habilitar Redis pubsub completo.</td>
+            </tr>
+            <tr>
+              <td>Dependencia de un solo master PC</td>
+              <td>Parada total del local</td>
+              <td>Imagen de recuperacion + backup + equipo de reemplazo.</td>
+            </tr>
+            <tr>
+              <td>Revocacion de licencia offline limitada</td>
+              <td>Control comercial parcial</td>
+              <td>Validacion online opcional + vencimientos mas cortos.</td>
+            </tr>
+            <tr>
+              <td>Crecimiento de carga sin tuning DB</td>
+              <td>Latencia alta y timeouts</td>
+              <td>Indices, ajustes de pool y pruebas de carga periodicas.</td>
+            </tr>
+            <tr>
+              <td>Streaming inestable por red no aislada</td>
+              <td>Mala experiencia TV</td>
+              <td>Switch/VLAN dedicados, bitrate adecuado y cableado total.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="card" id="roadmap">
+        <h2>15) Roadmap sugerido (30/90/180 dias)</h2>
+        <h3>30 dias</h3>
+        <ul>
+          <li>Estandar de despliegue 4+1 estable y documentado.</li>
+          <li>Checklist de salida a produccion y rollback.</li>
+          <li>Backups diarios + prueba de restore.</li>
+        </ul>
+        <h3>90 dias</h3>
+        <ul>
+          <li>Canary updates de agente.</li>
+          <li>Alertas externas a Slack/Telegram/email.</li>
+          <li>Paquetes comerciales por modulo/licencia.</li>
+        </ul>
+        <h3>180 dias</h3>
+        <ul>
+          <li>Control plane multi-sede.</li>
+          <li>Revocacion de licencia online.</li>
+          <li>Suite E2E completa kiosko-sesion-stream.</li>
+        </ul>
+      </section>
+
+      <section class="card" id="anexos">
+        <h2>16) Anexos operativos</h2>
+        <h3>A) Variables backend criticas</h3>
+        <pre><code>ENVIRONMENT=production
+REQUIRE_SECRETS=true
+DATABASE_URL=postgresql://...
+SECRET_KEY=...
+SETUP_TOKEN=...
+UPDATE_SIGNING_KEY=...
+ALLOWED_ORIGINS=http://server-ip:8000
+UVICORN_WORKERS=1
+ALLOW_PUBLIC_TOKEN_QUERY=false
+ALLOW_WS_TOKEN_QUERY=false
+ALLOW_INSECURE_QUERY_TOKENS=false
+LICENSE_PUBLIC_KEY_PATH=C:\path\public_key.pem</code></pre>
+        <h3>B) Variables frontend para kiosko/public</h3>
+        <pre><code>frontend/.env.production
+VITE_PUBLIC_API_TOKEN=&lt;TOKEN&gt;
+VITE_PUBLIC_WS_TOKEN=&lt;TOKEN&gt;
+VITE_USE_WS_QUERY_TOKEN=false</code></pre>
+        <h3>C) Comandos de verificacion rapida</h3>
+        <pre><code>curl http://localhost:8000/health
+curl http://localhost:8000/health/live
+curl http://localhost:8000/health/ready
+curl -H "Authorization: Bearer &lt;JWT&gt;" http://localhost:8000/system/alerts</code></pre>
+      </section>
+
+      <div class="foot">
+        Manual tecnico-operativo AC-MANAGER | Version 1.0
+      </div>
+    </main>
+  </div>
+  <script>
+    (function () {
+      const search = document.getElementById('docSearch');
+      const clear = document.getElementById('clearSearch');
+      const printBtn = document.getElementById('printDoc');
+      const meta = document.getElementById('searchMeta');
+      const cards = Array.from(document.querySelectorAll('section.card'));
+      const links = Array.from(document.querySelectorAll('.toc a[href^="#"]'));
+
+      function applySearch() {
+        const q = (search.value || '').trim().toLowerCase();
+        let visible = 0;
+        for (const card of cards) {
+          const text = (card.textContent || '').toLowerCase();
+          const match = q === '' || text.includes(q);
+          card.classList.toggle('hidden-by-search', !match);
+          if (match) visible++;
+        }
+        for (const link of links) {
+          const id = link.getAttribute('href');
+          const target = id ? document.querySelector(id) : null;
+          const li = link.closest('li');
+          if (!li || !target) continue;
+          const hidden = target.classList.contains('hidden-by-search');
+          li.classList.toggle('hidden-by-search', hidden);
+        }
+        if (q === '') {
+          meta.textContent = 'Mostrando todo';
+        } else {
+          meta.textContent = 'Coincidencias en secciones: ' + visible + ' / ' + cards.length;
+        }
+      }
+
+      clear.addEventListener('click', function () {
+        search.value = '';
+        applySearch();
+        search.focus();
+      });
+
+      printBtn.addEventListener('click', function () {
+        window.print();
+      });
+
+      search.addEventListener('input', applySearch);
+
+      document.addEventListener('keydown', function (e) {
+        if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          const tag = (document.activeElement && document.activeElement.tagName) || '';
+          if (tag !== 'INPUT' && tag !== 'TEXTAREA') {
+            e.preventDefault();
+            search.focus();
+          }
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

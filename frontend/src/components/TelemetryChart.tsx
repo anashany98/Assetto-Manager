@@ -217,11 +217,13 @@ export function TelemetryChart({ lapId, compareLapId }: TelemetryChartProps) {
                                 contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px', fontSize: '12px' }}
                                 itemStyle={{ color: '#F3F4F6' }}
                                 labelFormatter={(v) => `Posición: ${v}%`}
-                                formatter={(value: number | string, name: string) => {
-                                    if (name === 'Velocidad' || name === 'Rival') return [`${Math.round(Number(value))} km/h`, name];
-                                    if (name === 'RPM') return [Math.round(Number(value)), name];
-                                    if (name === 'Marcha') return [`G${value}`, name];
-                                    return [String(value), name];
+                                formatter={(value: number | string | undefined, name?: string) => {
+                                    const safeName = name ?? '';
+                                    if (value === undefined) return ['', safeName];
+                                    if (safeName === 'Velocidad' || safeName === 'Rival') return [`${Math.round(Number(value))} km/h`, safeName];
+                                    if (safeName === 'RPM') return [Math.round(Number(value)), safeName];
+                                    if (safeName === 'Marcha') return [`G${value}`, safeName];
+                                    return [String(value), safeName];
                                 }}
                             />
                             <Legend iconSize={8} wrapperStyle={{ fontSize: '10px' }} />

@@ -8,8 +8,8 @@ import re
 from datetime import datetime, timezone, timedelta
 from pydantic import BaseModel
 from .. import models, schemas, database
-from ..routers.auth import require_admin, require_agent_token, require_admin_or_agent, require_admin_or_public_token
-from ..paths import STORAGE_DIR
+from ..routers.auth import require_admin, require_agent_token_scoped, require_admin_or_agent, require_admin_or_public_token
+from ..paths import PUBLIC_STORAGE_DIR
 from ..utils.wol import send_magic_packet
 from .websockets import manager as ws_manager
 
@@ -36,12 +36,21 @@ def _next_sim_name(db: Session) -> str:
             max_num = max(max_num, int(match.group(1)))
     return f"SIM {max_num + 1}"
 
+def _ensure_station_commandable(station: models.Station) -> None:
+    if not station.is_online:
+        raise HTTPException(status_code=400, detail="Station is offline")
+    max_age = int(os.getenv("STATION_COMMAND_MAX_AGE_SECONDS", "120"))
+    if station.last_seen is None:
+        raise HTTPException(status_code=400, detail="Station has no recent heartbeat")
+    if station.last_seen < datetime.now(timezone.utc) - timedelta(seconds=max_age):
+        raise HTTPException(status_code=400, detail="Station heartbeat is stale")
+
 class ArchiveGhostsRequest(BaseModel):
     older_than_hours: int = 24
     include_never_seen: bool = True
     dry_run: bool = False
 
-@router.post("/", response_model=schemas.Station, dependencies=[Depends(require_agent_token)])
+@router.post("/", response_model=schemas.Station, dependencies=[Depends(require_agent_token_scoped("agent:register"))])
 def register_station(station: schemas.StationCreate, db: Session = Depends(database.get_db)):
     now = datetime.now(timezone.utc)
     db_station = db.query(models.Station).filter(models.Station.mac_address == station.mac_address).first()
@@ -60,10 +69,11 @@ def register_station(station: schemas.StationCreate, db: Session = Depends(datab
             db_station.name = station.name
         if not db_station.kiosk_code:
             db_station.kiosk_code = _generate_kiosk_code(db)
-        # Reset status to online on fresh register
+        # Registration does not imply online presence; only WS identify or health report should.
         db_station.is_active = True
-        db_station.is_online = True
-        db_station.status = "online"
+        db_station.is_online = False
+        if db_station.status != "archived":
+            db_station.status = "offline"
         db_station.last_seen = now
         db_station.archived_at = None
         db.commit()
@@ -77,8 +87,8 @@ def register_station(station: schemas.StationCreate, db: Session = Depends(datab
     if not station_data.get("name") or station_data.get("name") == station_data.get("hostname"):
         station_data["name"] = _next_sim_name(db)
     station_data["is_active"] = True
-    station_data["is_online"] = True
-    station_data["status"] = "online"
+    station_data["is_online"] = False
+    station_data["status"] = "offline"
     station_data["last_seen"] = now
     new_station = models.Station(**station_data)
     db.add(new_station)
@@ -100,7 +110,7 @@ def get_station_by_kiosk(kiosk_code: str, db: Session = Depends(database.get_db)
         "status": station.status
     }
 
-@router.get("/", response_model=List[schemas.Station], dependencies=[Depends(require_admin)])
+@router.get("/", response_model=List[schemas.Station], dependencies=[Depends(require_admin_or_public_token)])
 def read_stations(skip: int = 0, limit: int = 100, db: Session = Depends(database.get_db)):
     stations = db.query(models.Station).offset(skip).limit(limit).all()
     return stations
@@ -108,12 +118,30 @@ def read_stations(skip: int = 0, limit: int = 100, db: Session = Depends(databas
 import json
 
 @router.put("/{station_id}", response_model=schemas.Station, dependencies=[Depends(require_admin_or_agent)])
-def update_station(station_id: int, station_update: schemas.StationUpdate, db: Session = Depends(database.get_db)):
+def update_station(
+    station_id: int,
+    station_update: schemas.StationUpdate,
+    db: Session = Depends(database.get_db),
+    user_or_client: models.User | str = Depends(require_admin_or_agent)
+):
     db_station = db.query(models.Station).filter(models.Station.id == station_id).first()
     if not db_station:
         raise HTTPException(status_code=404, detail="Station not found")
     
     update_data = station_update.model_dump(exclude_unset=True)
+
+    # Restrict agent updates to a safe subset of fields
+    if not (hasattr(user_or_client, "role") and user_or_client.role == "admin"):
+        allowed_fields = {
+            "status",
+            "is_active",
+            "is_online",
+            "diagnostics",
+            "stream_url",
+            "ac_path",
+        }
+        update_data = {k: v for k, v in update_data.items() if k in allowed_fields}
+
     for key, value in update_data.items():
         setattr(db_station, key, value)
     if update_data.get("is_active") is True:
@@ -210,7 +238,7 @@ def get_station_stats(db: Session = Depends(database.get_db)):
         "active_profile": active_profile
     }
 
-@router.get("/{station_id}/target-manifest", dependencies=[Depends(require_agent_token)])
+@router.get("/{station_id}/target-manifest", dependencies=[Depends(require_agent_token_scoped("agent:manifest"))])
 def get_target_manifest(station_id: int, db: Session = Depends(database.get_db)):
     station = db.query(models.Station).filter(models.Station.id == station_id).first()
     if not station:
@@ -220,7 +248,7 @@ def get_target_manifest(station_id: int, db: Session = Depends(database.get_db))
         return {}
     
     master_manifest = {}
-    storage_root = STORAGE_DIR.resolve()
+    storage_root = PUBLIC_STORAGE_DIR.resolve()
     for mod in station.active_profile.mods:
         if not mod.manifest:
             continue
@@ -257,9 +285,10 @@ async def shutdown_station(station_id: int, db: Session = Depends(database.get_d
     station = db.query(models.Station).filter(models.Station.id == station_id).first()
     if not station:
         raise HTTPException(status_code=404, detail="Station not found")
+    _ensure_station_commandable(station)
         
     # Send command via WebSocket
-    success = await ws_manager.send_command(station_id, {"command": "system_shutdown"})
+    success = await ws_manager.send_command(station_id, {"command": "shutdown"})
     
     if not success:
         raise HTTPException(status_code=503, detail="Station not connected or failed to receive command")
@@ -271,8 +300,9 @@ async def restart_station(station_id: int, db: Session = Depends(database.get_db
     station = db.query(models.Station).filter(models.Station.id == station_id).first()
     if not station:
         raise HTTPException(status_code=404, detail="Station not found")
+    _ensure_station_commandable(station)
 
-    success = await ws_manager.send_command(station_id, {"command": "system_reboot"})
+    success = await ws_manager.send_command(station_id, {"command": "restart"})
     if not success:
         raise HTTPException(status_code=503, detail="Station not connected or failed to receive command")
 
@@ -300,6 +330,7 @@ async def panic_station(station_id: int, db: Session = Depends(database.get_db),
     station = db.query(models.Station).filter(models.Station.id == station_id).first()
     if not station:
         raise HTTPException(status_code=404, detail="Station not found")
+    _ensure_station_commandable(station)
         
     # Send PARNIC command via WebSocket
     success = await ws_manager.send_command(station_id, {"command": "panic"})
@@ -309,7 +340,7 @@ async def panic_station(station_id: int, db: Session = Depends(database.get_db),
         
     return {"status": "ok", "message": f"Panic command sent to {station.name}"}
 
-@router.post("/{station_id}/session-ending", dependencies=[Depends(require_agent_token)])
+@router.post("/{station_id}/session-ending", dependencies=[Depends(require_agent_token_scoped("agent:session"))])
 async def notify_session_ending(station_id: int, db: Session = Depends(database.get_db)):
     """Endpoint called by agent 30 seconds before session ends to notify Dashboard."""
     station = db.query(models.Station).filter(models.Station.id == station_id).first()

@@ -1,0 +1,19 @@
+{
+  "url": "http://localhost:3010/settings",
+  "title": "Assetto Manager",
+  "consoleErrors": [],
+  "networkErrors": [],
+  "tabCandidates": [
+    "Licencia",
+    "Marca y TV",
+    "Precios",
+    "Editor AC",
+    "Simulador AC",
+    "Simuladores",
+    "Logs Sistema",
+    "Base de Datos",
+    "Subir Archivo",
+    "Usar IP Local Detectada"
+  ],
+  "capturedAt": "2026-02-13T10:34:25.373Z"
+}

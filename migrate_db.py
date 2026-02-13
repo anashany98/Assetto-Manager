@@ -7,7 +7,13 @@ from dotenv import load_dotenv
 # Explicitly load .env from backend folder
 load_dotenv("backend/.env")
 
-DB_URL = os.getenv("SUPABASE_DB_URL") or os.getenv("DATABASE_URL") or os.getenv("DB_URL") or "postgresql://postgres.qwnckkraoxncjhmvdtih:OjELaIFdYjNA9bLZ@aws-1-eu-west-1.pooler.supabase.com:6543/postgres"
+DB_URL = os.getenv("SUPABASE_DB_URL") or os.getenv("DATABASE_URL") or os.getenv("DB_URL")
+DROP_LEGACY_RESERVATIONS = os.getenv("DROP_LEGACY_RESERVATIONS", "false").lower() in {"1", "true", "yes"}
+
+if not DB_URL:
+    raise SystemExit(
+        "DATABASE_URL is not set. Provide SUPABASE_DB_URL, DATABASE_URL, or DB_URL before running migrations."
+    )
 
 def migrate():
     try:
@@ -39,6 +45,12 @@ def migrate():
 
             "ALTER TABLE events ADD COLUMN IF NOT EXISTS bracket_data JSONB",
             "ALTER TABLE events ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT FALSE",
+
+            # Simulator bookings (unified reservations)
+            "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS start_time TIMESTAMPTZ",
+            "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS end_time TIMESTAMPTZ",
+            "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS price FLOAT",
+            "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS paid BOOLEAN DEFAULT FALSE",
 
             "ALTER TABLE scenarios ADD COLUMN IF NOT EXISTS session_type VARCHAR(50) DEFAULT 'practice'",
             "ALTER TABLE scenarios ADD COLUMN IF NOT EXISTS allowed_cars JSONB DEFAULT '[]'::jsonb",
@@ -136,6 +148,9 @@ def migrate():
             "CREATE INDEX IF NOT EXISTS ix_tournament_matches_id ON tournament_matches (id)",
             "CREATE INDEX IF NOT EXISTS ix_tournament_matches_event_id ON tournament_matches (event_id)"
         ]
+
+        if DROP_LEGACY_RESERVATIONS:
+            commands.append("DROP TABLE IF EXISTS reservations")
         
         for cmd in commands:
             print(f"Executing: {cmd}")

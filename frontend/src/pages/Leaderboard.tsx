@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Car, MapPin, Activity, RefreshCw, PlusCircle, X, BarChart2, AlertTriangle, Trophy } from 'lucide-react';
+import { Car, MapPin, Activity, RefreshCw, PlusCircle, X, BarChart2, AlertTriangle, Trophy, Share2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
@@ -11,8 +11,10 @@ import { DEMO_LEADERBOARD } from '../data/demoData';
 import { DynamicBackground } from '../components/DynamicBackground'; // NEW
 import { CarBrandLogo } from '../components/CarBrandLogo'; // NEW
 import { motion, AnimatePresence } from 'framer-motion'; // NEW
+import html2canvas from 'html2canvas';
 
 import { API_URL } from '../config';
+import { getAuthHeaders } from '../api/authHeaders';
 
 interface LeaderboardEntry {
     rank: number;
@@ -106,6 +108,8 @@ export default function LeaderboardPage() {
     // Telemetry State
     const [selectedLapId, setSelectedLapId] = useState<number | null>(null);
     const [compareLapId, setCompareLapId] = useState<number | null>(null);
+    const [shareImage, setShareImage] = useState<string | null>(null);
+    const [isSharing, setIsSharing] = useState(false);
 
     // Fetch Active Combos for Rotation
     const { data: combinations } = useQuery({
@@ -260,6 +264,63 @@ export default function LeaderboardPage() {
     if (getSetting('show_promo', 'true') === 'true')
         newsItems.push(`📢 PRÓXIMO EVENTO: ${(promoText || '').toUpperCase()}`);
 
+    const handleShare = async () => {
+        if (!leaderboard || leaderboard.length === 0) return;
+        const top = leaderboard[0];
+        const shareText = `🏁 Nuevo récord en ${activeTrack}: ${top.driver_name} con ${formatTime(top.lap_time)}. ¿Puedes superarlo?`;
+        const cardElement = document.getElementById('leaderboard-share-card');
+
+        setIsSharing(true);
+        try {
+            const params = new URLSearchParams();
+            if (activeTrack && activeTrack !== 'all') params.append('track_name', activeTrack);
+            if (selectedCar) params.append('car_model', selectedCar);
+            if (selectedPeriod) params.append('period', selectedPeriod);
+            params.append('format', 'png');
+
+            const res = await fetch(`${API_URL}/telemetry/leaderboard/share-card?${params.toString()}`, { headers: getAuthHeaders() });
+            const contentType = res.headers.get('content-type') || '';
+
+            if (contentType.includes('image/png')) {
+                const pngBlob = await res.blob();
+                const file = new File([pngBlob], 'leaderboard.png', { type: 'image/png' });
+                const nav = navigator as any;
+                const canShare = nav.canShare ? nav.canShare({ files: [file] }) : false;
+
+                if (nav.share && canShare) {
+                    await nav.share({ title: 'Leaderboard', text: shareText, files: [file] });
+                } else {
+                    setShareImage(URL.createObjectURL(pngBlob));
+                }
+            } else if (cardElement) {
+                const canvas = await html2canvas(cardElement, {
+                    backgroundColor: '#0f172a',
+                    scale: 2,
+                    useCORS: true
+                });
+                const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+                if (blob) {
+                    const file = new File([blob], 'leaderboard.png', { type: 'image/png' });
+                    const nav = navigator as any;
+                    const canShare = nav.canShare ? nav.canShare({ files: [file] }) : false;
+                    if (nav.share && canShare) {
+                        await nav.share({ title: 'Leaderboard', text: shareText, files: [file] });
+                    } else {
+                        setShareImage(canvas.toDataURL('image/png'));
+                    }
+                }
+            }
+
+            if (navigator.clipboard) {
+                await navigator.clipboard.writeText(shareText);
+            }
+        } catch (err) {
+            console.error('Share failed', err);
+        } finally {
+            setIsSharing(false);
+        }
+    };
+
     return (
         <div
             className="h-full flex flex-col bg-gray-900 text-white overflow-hidden relative"
@@ -317,6 +378,15 @@ export default function LeaderboardPage() {
                             >
                                 <PlusCircle size={16} className="mr-2" />
                                 Registrar Tiempo
+                            </button>
+
+                            <button
+                                onClick={handleShare}
+                                disabled={!leaderboard || leaderboard.length === 0 || isSharing}
+                                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-lg text-xs font-bold uppercase tracking-wide flex items-center transition-colors"
+                            >
+                                <Share2 size={16} className="mr-2" />
+                                {isSharing ? 'Compartiendo...' : 'Compartir'}
                             </button>
 
                             <div className="w-px h-6 bg-gray-700 mx-2"></div>
@@ -443,7 +513,7 @@ export default function LeaderboardPage() {
                                     <AnimatePresence mode="popLayout">
                                         {Array.isArray(leaderboard) && leaderboard.map((entry: LeaderboardEntry, index: number) => (
                                             <motion.tr
-                                                key={`${entry.driver_name}-${entry.lap_time}`} // Unique key for animation stability
+                                                key={entry.lap_id ? `lap-${entry.lap_id}` : `${entry.driver_name}-${entry.lap_time}-${index}`}
                                                 initial={{ opacity: 0, x: -20, scale: 0.98 }}
                                                 animate={{ opacity: 1, x: 0, scale: 1 }}
                                                 exit={{ opacity: 0, scale: 0.95 }}
@@ -537,6 +607,53 @@ export default function LeaderboardPage() {
                 onClose={() => setIsManualModalOpen(false)}
                 preselectedTrack={selectedTrack}
             />
+
+            {Array.isArray(leaderboard) && leaderboard.length > 0 && (
+                <div
+                    id="leaderboard-share-card"
+                    style={{ position: 'fixed', left: '-10000px', top: 0, width: '600px', padding: '24px', background: '#0f172a', color: '#fff' }}
+                >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.2em', color: '#94a3b8' }}>
+                                {getSetting('bar_name', 'VRacing Bar')}
+                            </div>
+                            <div style={{ fontSize: '24px', fontWeight: 800 }}>Leaderboard</div>
+                            <div style={{ fontSize: '14px', color: '#cbd5f5' }}>{activeTrack}</div>
+                        </div>
+                        <div style={{ fontSize: '32px' }}>🏁</div>
+                    </div>
+                    <div style={{ marginTop: '16px', padding: '16px', background: '#111827', borderRadius: '12px' }}>
+                        <div style={{ fontSize: '12px', color: '#94a3b8' }}>Record actual</div>
+                        <div style={{ fontSize: '20px', fontWeight: 800 }}>{leaderboard[0].driver_name}</div>
+                        <div style={{ fontSize: '18px', color: '#38bdf8' }}>{formatTime(leaderboard[0].lap_time)}</div>
+                    </div>
+                    <div style={{ marginTop: '12px', fontSize: '12px', color: '#94a3b8' }}>
+                        ¿Puedes superarlo? Visítanos y compite.
+                    </div>
+                </div>
+            )}
+
+            {shareImage && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-6 backdrop-blur-sm" onClick={() => setShareImage(null)}>
+                    <div className="bg-gray-900 border border-gray-700 rounded-2xl p-4 max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-between mb-3">
+                            <h3 className="text-white font-bold">Compartir ranking</h3>
+                            <button onClick={() => setShareImage(null)} className="text-gray-400 hover:text-white">
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <img src={shareImage} alt="Share" className="w-full rounded-lg shadow-lg mb-4 border border-gray-800" />
+                        <a
+                            href={shareImage}
+                            download={shareImage.startsWith('data:image/svg') ? 'leaderboard.svg' : 'leaderboard.png'}
+                            className="inline-flex items-center justify-center w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold"
+                        >
+                            Descargar imagen
+                        </a>
+                    </div>
+                </div>
+            )}
 
             {/* TELEMETRY MODAL */}
             {selectedLapId && (

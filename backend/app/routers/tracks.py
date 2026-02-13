@@ -5,12 +5,14 @@ This module provides endpoints to extract track layouts from Assetto Corsa track
 It parses the fast_lane.ai binary file to generate SVG path data for visualization.
 """
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 import struct
 import os
 import logging
+import re
+from .auth import require_admin_or_public_token
 
 logger = logging.getLogger("api.tracks")
 
@@ -22,6 +24,27 @@ router = APIRouter(
 # Assetto Corsa content path - typically C:\Program Files (x86)\Steam\steamapps\common\assettocorsa\content\tracks
 # This should be configurable via environment variable
 AC_TRACKS_PATH = Path(os.environ.get("AC_TRACKS_PATH", r"C:\Program Files (x86)\Steam\steamapps\common\assettocorsa\content\tracks"))
+
+_TRACK_PART_RE = re.compile(r"^[A-Za-z0-9._-]+$")
+
+def _safe_track_part(value: str, label: str) -> str:
+    if not value:
+        raise HTTPException(status_code=400, detail=f"Missing {label}")
+    if Path(value).name != value or not _TRACK_PART_RE.match(value):
+        raise HTTPException(status_code=400, detail=f"Invalid {label}")
+    return value
+
+def _resolve_track_path(track_id: str) -> Path:
+    safe_id = _safe_track_part(track_id, "track_id")
+    root = AC_TRACKS_PATH.resolve()
+    track_path = (AC_TRACKS_PATH / safe_id).resolve()
+    try:
+        if not track_path.is_relative_to(root):
+            raise HTTPException(status_code=400, detail="Invalid track path")
+    except AttributeError:
+        if not str(track_path).startswith(str(root)):
+            raise HTTPException(status_code=400, detail="Invalid track path")
+    return track_path
 
 
 def parse_fast_lane_ai(file_path: Path) -> List[Dict[str, float]]:
@@ -204,14 +227,15 @@ def get_track_outline(
     - **height**: Output SVG height
     - **layout**: Optional layout variant (e.g., "gp", "oval")
     """
-    track_path = AC_TRACKS_PATH / track_id
+    track_path = _resolve_track_path(track_id)
     
     if not track_path.exists():
         raise HTTPException(status_code=404, detail=f"Track not found: {track_id}")
     
     # Check for layout-specific ai file
     if layout:
-        ai_file = track_path / layout / "ai" / "fast_lane.ai"
+        safe_layout = _safe_track_part(layout, "layout")
+        ai_file = track_path / safe_layout / "ai" / "fast_lane.ai"
         if not ai_file.exists():
             ai_file = track_path / "ai" / "fast_lane.ai"
     else:
@@ -250,7 +274,7 @@ async def get_track_map_image(track_id: str, layout: Optional[str] = None):
     """
     from fastapi.responses import FileResponse
     
-    track_path = AC_TRACKS_PATH / track_id
+    track_path = _resolve_track_path(track_id)
     
     if not track_path.exists():
         raise HTTPException(status_code=404, detail=f"Track not found: {track_id}")
@@ -262,9 +286,10 @@ async def get_track_map_image(track_id: str, layout: Optional[str] = None):
     ]
     
     if layout:
+        safe_layout = _safe_track_part(layout, "layout")
         possible_paths = [
-            track_path / layout / "ui" / "outline.png",
-            track_path / layout / "ui" / "map.png",
+            track_path / safe_layout / "ui" / "outline.png",
+            track_path / safe_layout / "ui" / "map.png",
         ] + possible_paths
     
     for img_path in possible_paths:

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, Medal, Calendar, Clock, AlertTriangle } from 'lucide-react';
+import { Trophy, Medal, Calendar, AlertTriangle } from 'lucide-react';
 import { API_URL } from '../config';
 
 // Reuse types or define locally for independence

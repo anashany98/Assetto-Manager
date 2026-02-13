@@ -1,13 +1,15 @@
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, Depends, Header, Request
+from pydantic import BaseModel, Field
 from typing import Optional
 from sqlalchemy.orm import Session
 from .websockets import manager
 from ..database import get_db
 from ..models import Station as StationModel
 from ..routers.auth import require_admin, require_admin_or_public_token
+from .. import models
 import logging
 import json
+from ..security.api_keys import is_client_token_allowed
 
 router = APIRouter(
     prefix="/control",
@@ -16,6 +18,28 @@ router = APIRouter(
 )
 
 logger = logging.getLogger(__name__)
+
+def _is_admin(user_or_client: object) -> bool:
+    return hasattr(user_or_client, "role") and getattr(user_or_client, "role") == "admin"
+
+def _require_kiosk_access(station: StationModel, kiosk_code: Optional[str], user_or_client: object):
+    if _is_admin(user_or_client):
+        return
+    if not station:
+        raise HTTPException(status_code=404, detail="Station not found")
+    if not station.is_kiosk_mode:
+        raise HTTPException(status_code=403, detail="Kiosk mode disabled for station")
+    if not kiosk_code or station.kiosk_code != kiosk_code:
+        raise HTTPException(status_code=403, detail="Invalid kiosk code")
+
+
+def _require_client_scope(user_or_client: object, required_scope: str) -> None:
+    # Admin bypass.
+    if _is_admin(user_or_client):
+        return
+    token = None if user_or_client in (None, "public") else str(user_or_client)
+    if not is_client_token_allowed(token=token, required_scopes=(required_scope,)):
+        raise HTTPException(status_code=403, detail="Client token missing required scope")
 
 class WeatherCommand(BaseModel):
     weather_type: str # solar, windy, rainy, storm, fog, clear
@@ -68,20 +92,13 @@ async def set_station_kiosk(station_id: int, cmd: KioskCommand, db: Session = De
     station.is_kiosk_mode = cmd.enabled
     db.commit()
     
-    # Send Command
-    agent_ws = manager.active_agents.get(station_id)
-    if agent_ws:
-        try:
-            payload = {"command": "set_kiosk", "enabled": cmd.enabled}
-            await agent_ws.send_text(json.dumps(payload))
-            logger.info(f"Kiosk mode {'ENABLED' if cmd.enabled else 'DISABLED'} for Station {station_id}")
-            return {"status": "ok", "kiosk_mode": cmd.enabled}
-        except Exception as e:
-            logger.error(f"Failed to send Kiosk command: {e}")
-            raise HTTPException(status_code=500, detail="Failed to communicate with Agent")
-    else:
-        logger.warning(f"Station {station_id} offline, but DB updated.")
-        return {"status": "offline_updated", "message": "Station updated in DB but is offline."}
+    payload = {"command": "set_kiosk", "enabled": cmd.enabled}
+    ok = await manager.send_command(station_id, payload)
+    if ok:
+        logger.info(f"Kiosk mode {'ENABLED' if cmd.enabled else 'DISABLED'} for Station {station_id}")
+        return {"status": "ok", "kiosk_mode": cmd.enabled}
+    logger.warning(f"Station {station_id} offline, but DB updated.")
+    return {"status": "offline_updated", "message": "Station updated in DB but is offline."}
 
 
 @router.post("/station/{station_id}/config", dependencies=[Depends(require_admin)])
@@ -103,13 +120,13 @@ class LaunchSessionCommand(BaseModel):
     driver_name: Optional[str] = None
     car: str
     track: str
-    difficulty: str  # novice, amateur, pro
-    duration_minutes: int = 15
-    transmission: Optional[str] = "automatic"
-    time_of_day: Optional[str] = "noon"
-    weather: Optional[str] = "sun"
-    session_type: Optional[str] = "practice"
-    ai_count: Optional[int] = 0
+    difficulty: str = "amateur"  # novice, amateur, pro
+    duration_minutes: int = Field(default=15, ge=1, le=300)
+    transmission: str = "automatic"
+    time_of_day: str = "noon"
+    weather: str = "sun"
+    session_type: str = "practice"
+    ai_count: Optional[int] = Field(default=0, ge=0, le=23)
     tyre_compound: Optional[str] = "semislicks"
 
 
@@ -131,8 +148,14 @@ def resolve_asset_name(db: Session, asset_id_or_name: str, asset_type: str) -> s
                  return Path(mod.source_path).name
     return asset_id_or_name
 
-@router.post("/station/{station_id}/launch", dependencies=[Depends(require_admin_or_public_token)])
-async def launch_station_session(station_id: int, cmd: LaunchSessionCommand, db: Session = Depends(get_db)):
+@router.post("/station/{station_id}/launch")
+async def launch_station_session(
+    station_id: int,
+    cmd: LaunchSessionCommand,
+    db: Session = Depends(get_db),
+    user_or_client: models.User | str = Depends(require_admin_or_public_token),
+    kiosk_code: Optional[str] = Header(None, alias="X-Kiosk-Code")
+):
     """
     Send launch command to a specific station Agent.
     The Agent will configure assists based on difficulty and start the game.
@@ -147,6 +170,10 @@ async def launch_station_session(station_id: int, cmd: LaunchSessionCommand, db:
     station = db.query(StationModel).filter(StationModel.id == station_id).first()
     ac_path = station.ac_path if station else None
 
+    # Enforce kiosk access for public clients
+    _require_client_scope(user_or_client, "kiosk:control")
+    _require_kiosk_access(station, kiosk_code, user_or_client)
+
     # Map difficulty to assist settings
     assists = {
         "novice": {"abs": 1, "tc": 1, "auto_shifter": 1, "stability_aid": 0.5},
@@ -154,36 +181,30 @@ async def launch_station_session(station_id: int, cmd: LaunchSessionCommand, db:
         "pro": {"abs": 0, "tc": 0, "auto_shifter": 0, "stability_aid": 0},
     }
 
+    difficulty_key = (cmd.difficulty or "amateur").lower()
+
     payload = {
         "command": "launch_session",
         "car": car_model,
         "track": track_name,
-        "assists": assists.get(cmd.difficulty, assists["amateur"]),
+        "assists": assists.get(difficulty_key, assists["amateur"]),
         "duration_minutes": cmd.duration_minutes,
         "driver_name": cmd.driver_name or f"Driver_{cmd.driver_id or 'Guest'}",
         "ac_path": ac_path,
-        "transmission": cmd.transmission,
-        "time_of_day": cmd.time_of_day,
-        "weather": cmd.weather,
-        "session_type": cmd.session_type,
-        "ai_count": cmd.ai_count,
+        "transmission": (cmd.transmission or "automatic").lower(),
+        "time_of_day": (cmd.time_of_day or "noon").lower(),
+        "weather": (cmd.weather or "sun").lower(),
+        "session_type": (cmd.session_type or "practice").lower(),
+        "ai_count": int(cmd.ai_count or 0),
         "tyre_compound": cmd.tyre_compound,
         "is_vr": station.is_vr if station else False
     }
 
-    # Send to specific station
-    logger.info(f"[DEBUG] Active agents: {list(manager.active_agents.keys())}")
-    agent_ws = manager.active_agents.get(station_id)
-    if agent_ws:
-        try:
-            await agent_ws.send_text(json.dumps(payload))
-            logger.info(f"Launch command sent to Station {station_id}")
-            return {"status": "launched", "station_id": station_id, "config": payload}
-        except Exception as e:
-            logger.error(f"Failed to send to Station {station_id}: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to reach agent: {e}")
-    else:
+    ok = await manager.send_command(station_id, payload)
+    if not ok:
         raise HTTPException(status_code=404, detail="Station Agent not connected")
+    logger.info("Launch command sent to Station %s", station_id)
+    return {"status": "launched", "station_id": station_id, "config": payload}
 
 @router.post("/station/{station_id}/install_mod/{mod_id}", dependencies=[Depends(require_admin)])
 async def install_mod(station_id: int, mod_id: int, db: Session = Depends(get_db)):
@@ -217,18 +238,18 @@ async def install_mod(station_id: int, mod_id: int, db: Session = Depends(get_db
     # We'll send a RELATIVE path, and the Agent (which knows SERVER_URL) will append it.
     # The download endpoint is typically served via static or a specific download route.
     # We don't have a specific "download mod zip" endpoint exposed yet?
-    # `backend/app/routers/mods.py` uses STORAGE_DIR.
-    # We should confirm if `STORAGE_DIR` is mounted as static.
+    # `backend/app/routers/mods.py` uses PUBLIC_STORAGE_DIR for public assets.
+    # `/static` points to PUBLIC_STORAGE_DIR.
     # In `main.py` (backend), usually storage is mounted.
     
     # Let's check `backend/app/main.py` first to see static mounts?
     # Assuming it is mounted at /static or similar.
     # Wait, looking at `mods.py`: 
     # `base_url = f"/static/{str(rel_path).replace(os.sep, '/')}"`
-    # So yes, `/static` points to `STORAGE_DIR`.
+    # So yes, `/static` points to `PUBLIC_STORAGE_DIR`.
     
     from pathlib import Path
-    from ..paths import STORAGE_DIR
+    from ..paths import PUBLIC_STORAGE_DIR
     import os
     
     mod_path = Path(mod.source_path).resolve()
@@ -249,7 +270,7 @@ async def install_mod(station_id: int, mod_id: int, db: Session = Depends(get_db
     if not archive_file:
          raise HTTPException(status_code=500, detail="Original archive not found for this mod")
          
-    rel_path = (mod_dir / archive_file).resolve().relative_to(STORAGE_DIR.resolve())
+    rel_path = (mod_dir / archive_file).resolve().relative_to(PUBLIC_STORAGE_DIR.resolve())
     download_url_path = f"/static/{str(rel_path).replace(os.sep, '/')}"
     
     payload = {
@@ -260,13 +281,11 @@ async def install_mod(station_id: int, mod_id: int, db: Session = Depends(get_db
         "file_name": archive_file
     }
     
-    agent_ws = manager.active_agents.get(station_id)
-    if agent_ws:
-        await agent_ws.send_text(json.dumps(payload))
-        return {"status": "installing", "payload": payload}
-    else:
+    ok = await manager.send_command(station_id, payload)
+    if not ok:
         logger.warning(f"Station {station_id} not connected")
         raise HTTPException(status_code=404, detail=f"Station {station_id} is not online")
+    return {"status": "installing", "payload": payload}
 
 
 @router.get("/station/{station_id}/content", dependencies=[Depends(require_admin)])
@@ -280,26 +299,19 @@ async def get_station_content(station_id: int, db: Session = Depends(get_db)):
     if not station:
         raise HTTPException(status_code=404, detail=f"Station {station_id} not found")
     
-    # Send scan command to Agent
-    agent_ws = manager.active_agents.get(station_id)
-    if agent_ws:
-        try:
-            await agent_ws.send_text(json.dumps({
-                "command": "scan_content",
-                "ac_path": station.ac_path,
-                "station_ip": station.ip_address
-            }))
-            # For now, return a pending status. Real implementation would wait for response.
-            return {
-                "status": "scan_requested",
-                "station_id": station_id,
-                "message": "Content scan triggered. Query /mods/cars and /mods/tracks for cached results."
-            }
-        except Exception as e:
-            logger.error(f"Failed to send scan command: {e}")
-            raise HTTPException(status_code=500, detail="Failed to communicate with Agent")
-    else:
+    ok = await manager.send_command(station_id, {
+        "command": "scan_content",
+        "ac_path": station.ac_path,
+        "station_ip": station.ip_address
+    })
+    if not ok:
         raise HTTPException(status_code=404, detail=f"Station {station_id} is not online")
+
+    return {
+        "status": "scan_requested",
+        "station_id": station_id,
+        "message": "Content scan triggered. Query /mods/cars and /mods/tracks for cached results."
+    }
 
 
 @router.post("/station/{station_id}/sync", dependencies=[Depends(require_admin)])
@@ -307,15 +319,10 @@ async def sync_station_content(station_id: int):
     """
     Force a content sync on a specific station agent.
     """
-    agent_ws = manager.active_agents.get(station_id)
-    if agent_ws:
-        try:
-            await agent_ws.send_text(json.dumps({"command": "sync_content"}))
-            return {"status": "sync_requested", "station_id": station_id}
-        except Exception as e:
-            logger.error(f"Failed to send sync command: {e}")
-            raise HTTPException(status_code=500, detail="Failed to communicate with Agent")
-    raise HTTPException(status_code=404, detail=f"Station {station_id} is not online")
+    ok = await manager.send_command(station_id, {"command": "sync_content"})
+    if not ok:
+        raise HTTPException(status_code=404, detail=f"Station {station_id} is not online")
+    return {"status": "sync_requested", "station_id": station_id}
 
 
 @router.post("/station/{station_id}/restart-agent", dependencies=[Depends(require_admin)])
@@ -323,35 +330,35 @@ async def restart_station_agent(station_id: int):
     """
     Restart the agent process on a station.
     """
-    agent_ws = manager.active_agents.get(station_id)
-    if agent_ws:
-        try:
-            await agent_ws.send_text(json.dumps({"command": "restart_agent"}))
-            return {"status": "restart_requested", "station_id": station_id}
-        except Exception as e:
-            logger.error(f"Failed to send restart_agent command: {e}")
-            raise HTTPException(status_code=500, detail="Failed to communicate with Agent")
-    raise HTTPException(status_code=404, detail=f"Station {station_id} is not online")
+    ok = await manager.send_command(station_id, {"command": "restart_agent"})
+    if not ok:
+        raise HTTPException(status_code=404, detail=f"Station {station_id} is not online")
+    return {"status": "restart_requested", "station_id": station_id}
 
 
-@router.post("/station/{station_id}/stop", dependencies=[Depends(require_admin_or_public_token)])
-@router.post("/station/{station_id}/panic", dependencies=[Depends(require_admin_or_public_token)])
-async def stop_station_session(station_id: int):
+@router.post("/station/{station_id}/stop")
+@router.post("/station/{station_id}/panic")
+async def stop_station_session(
+    request: Request,
+    station_id: int,
+    db: Session = Depends(get_db),
+    user_or_client: models.User | str = Depends(require_admin_or_public_token),
+    kiosk_code: Optional[str] = Header(None, alias="X-Kiosk-Code")
+):
     """
     Stop the current session on a station (kills the game).
     """
     logger.info(f"Stopping session on Station {station_id}")
     
-    agent_ws = manager.active_agents.get(station_id)
-    if agent_ws:
-        try:
-            await agent_ws.send_text(json.dumps({"command": "stop_session"}))
-            return {"status": "stopped", "station_id": station_id}
-        except Exception as e:
-            logger.error(f"Failed to send stop command: {e}")
-            raise HTTPException(status_code=500, detail="Failed to communicate with Agent")
-    else:
+    station = db.query(StationModel).filter(StationModel.id == station_id).first()
+    _require_client_scope(user_or_client, "kiosk:control")
+    _require_kiosk_access(station, kiosk_code, user_or_client)
+
+    command = "panic" if request.url.path.endswith("/panic") else "stop_session"
+    ok = await manager.send_command(station_id, {"command": command})
+    if not ok:
         raise HTTPException(status_code=404, detail=f"Station {station_id} is not online")
+    return {"status": "stopped" if command == "stop_session" else "panic_sent", "station_id": station_id}
 
 
 
@@ -397,10 +404,7 @@ async def apply_wheel_profile(station_id: int, profile_id: int, db: Session = De
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
         
-    # 2. Get Agent
-    agent_ws = manager.active_agents.get(station_id)
-    if not agent_ws:
-        raise HTTPException(status_code=404, detail="Station not online")
+    # 2. Ensure Agent is reachable (may be on another worker via WS pubsub)
         
     # 3. Send Command
     payload = {
@@ -409,10 +413,8 @@ async def apply_wheel_profile(station_id: int, profile_id: int, db: Session = De
         "ini_content": profile.config_ini
     }
     
-    try:
-        await agent_ws.send_text(json.dumps(payload))
-        logger.info(f"Sent profile '{profile.name}' to Station {station_id}")
-        return {"status": "sent", "profile": profile.name}
-    except Exception as e:
-        logger.error(f"Failed to send profile: {e}")
-        raise HTTPException(status_code=500, detail="Failed to send command to agent")
+    ok = await manager.send_command(station_id, payload)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Station not online")
+    logger.info(f"Sent profile '{profile.name}' to Station {station_id}")
+    return {"status": "sent", "profile": profile.name}

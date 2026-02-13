@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { PUBLIC_WS_TOKEN, WS_BASE_URL } from '../config';
+import { PUBLIC_WS_TOKEN, USE_WS_QUERY_TOKEN, WS_BASE_URL } from '../config';
 // import { getEvents, createEvent } from '../api/events';     
 // import type { Event } from '../types';
 
 
 export interface TelemetryPacket {
-    station_id: string;
+    station_id: number;
+    timestamp?: number;
     speed_kmh: number;
     rpm: number;
     gear: number;
@@ -56,15 +57,17 @@ export const useTelemetry = () => {
             // Using a hardcoded list here to avoid circular dependencies or import issues if simple
             // But ideally import DEMO_DRIVERS. For now, I'll generate on the fly or just use a few hardcoded ones.
             const drivers = [
-                { name: "Max Verstappen", car: "Red Bull RB19", station: "1" },
-                { name: "Lando Norris", car: "McLaren MCL60", station: "2" },
-                { name: "Fernando Alonso", car: "Aston Martin AMR23", station: "3" },
-                { name: "Lewis Hamilton", car: "Mercedes W14", station: "4" }
+                { name: "Max Verstappen", car: "Red Bull RB19", station: 1 },
+                { name: "Lando Norris", car: "McLaren MCL60", station: 2 },
+                { name: "Fernando Alonso", car: "Aston Martin AMR23", station: 3 },
+                { name: "Lewis Hamilton", car: "Mercedes W14", station: 4 }
             ];
 
             drivers.forEach((d, i) => {
-                demoCars[d.station || String(i + 1)] = {
-                    station_id: d.station || String(i + 1),
+                const stationId = d.station ?? (i + 1);
+                demoCars[String(stationId)] = {
+                    station_id: stationId,
+                    timestamp: Date.now(),
                     speed_kmh: 200 + Math.random() * 100,
                     rpm: 10000,
                     gear: 7,
@@ -96,6 +99,7 @@ export const useTelemetry = () => {
 
                         next[key] = {
                             ...car,
+                            timestamp: Date.now(),
                             normalized_pos: newPos,
                             speed_kmh: newSpeed,
                             rpm: 8000 + (newSpeed * 20),
@@ -111,8 +115,10 @@ export const useTelemetry = () => {
 
         // Live WebSocket Logic (Original)
         const token = localStorage.getItem('token') || PUBLIC_WS_TOKEN;
-        const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
-        const wsUrl = `${WS_BASE_URL || `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`}/ws/telemetry/client${tokenParam}`;
+        const baseWsUrl = `${WS_BASE_URL || `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`}/ws/telemetry/client`;
+        const wsUrl = USE_WS_QUERY_TOKEN && token
+            ? `${baseWsUrl}?token=${encodeURIComponent(token)}`
+            : baseWsUrl;
 
         const connect = () => {
             if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current);
@@ -122,6 +128,12 @@ export const useTelemetry = () => {
             ws.current = socket;
 
             socket.onopen = () => {
+                // Auth handshake (token in first frame; avoids query-string leakage in production).
+                try {
+                    socket.send(JSON.stringify({ type: 'identify', token: token || null }));
+                } catch {
+                    // If send fails, onclose/onerror will drive reconnection.
+                }
                 // Connected
                 setIsConnected(true);
             };
@@ -143,10 +155,14 @@ export const useTelemetry = () => {
                 try {
                     const data = JSON.parse(event.data);
                     if (data.type === 'telemetry' && data.station_id) {
+                        const stationId = typeof data.station_id === 'string'
+                            ? Number.parseInt(data.station_id, 10)
+                            : data.station_id;
+                        if (!Number.isFinite(stationId)) return;
                         // Update the ref immediately
                         latestDataRef.current = {
                             ...latestDataRef.current,
-                            [data.station_id]: { ...data, timestamp: Date.now() }
+                            [String(stationId)]: { ...data, station_id: stationId, timestamp: Date.now() }
                         };
                     }
                 } catch {
@@ -161,7 +177,7 @@ export const useTelemetry = () => {
         let animationFrameId: number;
         const updateLoop = () => {
             if (latestDataRef.current) {
-                setLiveCars(prev => {
+                setLiveCars(() => {
                     // Only update if there's actually new data to avoid wasted renders
                     // (Simple check: referential equality check implies we won't update if we just pass the same object unless we clone. 
                     // But here we want to capture the latest ref state).

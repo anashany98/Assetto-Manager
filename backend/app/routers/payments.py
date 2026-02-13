@@ -7,11 +7,24 @@ from .. import models, schemas
 from ..services.pricing import calculate_price
 from ..routers.auth import require_admin, require_admin_or_public_token
 from ..limiters import limiter
+from ..security.api_keys import is_client_token_allowed
 
 router = APIRouter(
     prefix="/payments",
     tags=["payments"]
 )
+
+
+def _is_admin(user_or_client: object) -> bool:
+    return hasattr(user_or_client, "role") and getattr(user_or_client, "role") == "admin"
+
+
+def _require_client_scope(user_or_client: object, required_scope: str) -> None:
+    if _is_admin(user_or_client):
+        return
+    token = None if user_or_client in (None, "public") else str(user_or_client)
+    if not is_client_token_allowed(token=token, required_scopes=(required_scope,)):
+        raise HTTPException(status_code=403, detail="Client token missing required scope")
 
 def _get_config_value(db: Session, env_key: str, setting_key: str, default: str | None = None):
     value = os.getenv(env_key)
@@ -23,9 +36,15 @@ def _get_config_value(db: Session, env_key: str, setting_key: str, default: str 
     return default
 
 
-@router.post("/checkout", response_model=schemas.PaymentResponse, dependencies=[Depends(require_admin_or_public_token)])
+@router.post("/checkout", response_model=schemas.PaymentResponse)
 @limiter.limit("30/minute")
-def create_checkout(request: Request, payload: schemas.PaymentCreate, db: Session = Depends(get_db)):
+def create_checkout(
+    request: Request,
+    payload: schemas.PaymentCreate,
+    user_or_client: models.User | str = Depends(require_admin_or_public_token),
+    db: Session = Depends(get_db),
+):
+    _require_client_scope(user_or_client, "payments:write")
     amount = calculate_price(db, payload.duration_minutes, payload.is_vr)
     currency = _get_config_value(db, "PAYMENT_CURRENCY", "payment_currency", "EUR")
     if amount <= 0:
@@ -114,8 +133,13 @@ def create_checkout(request: Request, payload: schemas.PaymentCreate, db: Sessio
     raise HTTPException(status_code=400, detail="Unsupported provider")
 
 
-@router.get("/{payment_id}", response_model=schemas.PaymentResponse, dependencies=[Depends(require_admin_or_public_token)])
-def get_payment(payment_id: int, db: Session = Depends(get_db)):
+@router.get("/{payment_id}", response_model=schemas.PaymentResponse)
+def get_payment(
+    payment_id: int,
+    user_or_client: models.User | str = Depends(require_admin_or_public_token),
+    db: Session = Depends(get_db),
+):
+    _require_client_scope(user_or_client, "payments:read")
     payment = db.query(models.Payment).filter(models.Payment.id == payment_id).first()
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")

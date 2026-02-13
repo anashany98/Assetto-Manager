@@ -7,6 +7,7 @@ import { UploadCloud, FileBox, CheckCircle2, AlertCircle, Car, Flag, Filter, X, 
 import { cn } from '../lib/utils';
 import JSZip from 'jszip';
 import { API_URL } from '../config';
+import { getAuthHeaders } from '../api/authHeaders';
 
 export default function ModsLibrary() {
     // Filtering state
@@ -172,7 +173,7 @@ export default function ModsLibrary() {
     // Sync All: Discover content from all stations, register in DB, and replicate
     const syncAllMutation = useMutation({
         mutationFn: async () => {
-            const res = await fetch(`${API_URL}/deploy/sync-all`, { method: 'POST' });
+            const res = await fetch(`${API_URL}/deploy/sync-all`, { method: 'POST', headers: getAuthHeaders() });
             return res.json();
         },
         onSuccess: (data) => {

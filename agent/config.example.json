@@ -7,6 +7,10 @@
   "steam_exe": "C:/Program Files (x86)/Steam/Steam.exe",
   "steam_app_id": "244210",
   "launch_via_steam": false,
+  "obs_host": "localhost",
+  "obs_port": 4455,
+  "obs_password": "",
+  "stream_url": "http://<media-server-ip>:8889/live/station1",
   "lobby_admin_password": "change-me",
   "update_signing_key": "change-me"
 }

@@ -13,12 +13,14 @@ from .websockets import manager
 import logging
 import json
 import asyncio
+from .auth import require_admin
 
 logger = logging.getLogger("api.deploy.sync")
 
 router = APIRouter(
     prefix="/deploy",
-    tags=["deploy"]
+    tags=["deploy"],
+    dependencies=[Depends(require_admin)]
 )
 
 
@@ -126,11 +128,22 @@ def _register_discovered_mods(db: Session, union_cars: dict, union_tracks: dict)
     """
     stats = {"new_mods": 0, "cars_registered": 0, "tracks_registered": 0}
 
+    def _manifest_folder_name(mod: models.Mod) -> str | None:
+        value = mod.manifest
+        if value is None:
+            return None
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except Exception:
+                return None
+        if isinstance(value, dict):
+            return value.get("folder_name")
+        return None
+
     existing_cars = db.query(models.Mod).filter(models.Mod.type == "car").all()
     existing_car_folders = {
-        (m.manifest or {}).get("folder_name")
-        for m in existing_cars
-        if (m.manifest or {}).get("folder_name")
+        name for name in (_manifest_folder_name(m) for m in existing_cars) if name
     }
 
     for car_id, car_info in union_cars.items():
@@ -153,9 +166,7 @@ def _register_discovered_mods(db: Session, union_cars: dict, union_tracks: dict)
 
     existing_tracks = db.query(models.Mod).filter(models.Mod.type == "track").all()
     existing_track_folders = {
-        (m.manifest or {}).get("folder_name")
-        for m in existing_tracks
-        if (m.manifest or {}).get("folder_name")
+        name for name in (_manifest_folder_name(m) for m in existing_tracks) if name
     }
     
     for track_id, track_info in union_tracks.items():
@@ -202,29 +213,30 @@ async def _sync_missing_content_task(station_ids: List[int], all_content: dict, 
             
             logger.info(f"[{station.name}] Missing {len(missing_cars)} cars, {len(missing_tracks)} tracks. Syncing...")
             
-            ws = manager.active_agents.get(station.id)
-            if not ws:
-                logger.warning(f"[{station.name}] No WebSocket connection. Cannot sync.")
-                continue
-            
             try:
                 for car_id in missing_cars:
                     car_info = union_cars[car_id]
-                    await _send_copy_command(ws, "car", car_id, car_info["source_ip"])
+                    ok = await _send_copy_command(station.id, "car", car_id, car_info["source_ip"])
+                    if not ok:
+                        logger.warning(f"[{station.name}] Agent not connected. Cannot sync.")
+                        break
                 
                 for track_id in missing_tracks:
                     track_info = union_tracks[track_id]
-                    await _send_copy_command(ws, "track", track_id, track_info["source_ip"])
+                    ok = await _send_copy_command(station.id, "track", track_id, track_info["source_ip"])
+                    if not ok:
+                        logger.warning(f"[{station.name}] Agent not connected. Cannot sync.")
+                        break
                 logger.info(f"[{station.name}] Sent {len(missing_cars) + len(missing_tracks)} copy commands.")
             except Exception as e:
                 logger.error(f"[{station.name}] Failed to send copy commands: {e}")
 
 
-async def _send_copy_command(ws, content_type: str, content_id: str, source_ip: str):
+async def _send_copy_command(station_id: int, content_type: str, content_id: str, source_ip: str) -> bool:
     """Send a copy_content command to an agent via WebSocket."""
-    await ws.send_text(json.dumps({
+    return await manager.send_command(station_id, {
         "command": "copy_content",
         "type": content_type,
         "id": content_id,
         "source_ip": source_ip
-    }))
+    })

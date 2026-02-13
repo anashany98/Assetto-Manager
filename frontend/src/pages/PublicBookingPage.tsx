@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Calendar, Clock, User, Phone, Mail, Users, Timer, Check, ChevronRight, Loader2, MapPin, AlertCircle } from 'lucide-react';
 import axios from 'axios';
@@ -46,7 +46,7 @@ export default function PublicBookingPage() {
     const barLogo = settings?.find((s: { key: string; value: string }) => s.key === 'bar_logo')?.value || '/logo.png';
 
     // Fetch available slots
-    const { data: availability, isLoading: loadingSlots } = useQuery({
+    const { data: availability, isLoading: loadingSlots, isError: slotsError } = useQuery({
         queryKey: ['public-slots', selectedDate.toISOString().split('T')[0]],
         queryFn: async () => {
             const res = await axios.get(`${API_URL}/bookings/available`, {
@@ -68,11 +68,36 @@ export default function PublicBookingPage() {
         }
     });
 
+    const isPastDay = (value: Date) => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const check = new Date(value);
+        check.setHours(0, 0, 0, 0);
+        return check < today;
+    };
+
     const handleSubmit = () => {
-        if (!selectedSlot || !formData.customer_name) return;
+        const trimmedName = formData.customer_name.trim();
+        if (!trimmedName) {
+            alert('El nombre es obligatorio.');
+            return;
+        }
+        if (!selectedSlot) {
+            alert('Selecciona un horario disponible.');
+            return;
+        }
+        if (isPastDay(selectedDate)) {
+            alert('La fecha no puede estar en el pasado.');
+            return;
+        }
+        if (formData.duration_minutes < 15) {
+            alert('La duración mínima es de 15 minutos.');
+            return;
+        }
 
         createBooking.mutate({
             ...formData,
+            customer_name: trimmedName,
             date: selectedDate.toISOString().split('T')[0],
             time_slot: selectedSlot
         });
@@ -207,6 +232,10 @@ export default function PublicBookingPage() {
                             {loadingSlots ? (
                                 <div className="flex justify-center py-8">
                                     <Loader2 className="animate-spin text-blue-500" size={32} />
+                                </div>
+                            ) : slotsError ? (
+                                <div className="bg-red-900/30 border border-red-500/50 rounded-xl p-3 text-red-400 text-sm">
+                                    Error cargando horarios disponibles. Inténtalo más tarde.
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-4 gap-2">
@@ -390,3 +419,4 @@ export default function PublicBookingPage() {
         </div>
     );
 }
+

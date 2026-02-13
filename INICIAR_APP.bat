@@ -13,11 +13,18 @@ set "ROOT_DIR=%~dp0"
 set "VENV_DIR=%ROOT_DIR%.venv"
 cd /d "%ROOT_DIR%"
 
+set "PY_EXE=py -3.11"
+%PY_EXE% -c "import sys" >nul 2>&1
+if errorlevel 1 set "PY_EXE=py"
+%PY_EXE% -c "import sys" >nul 2>&1
+if errorlevel 1 set "PY_EXE=python"
+
+
 :: =========================================
 :: 1. VERIFICAR PYTHON
 :: =========================================
 echo [1/4] Verificando Python...
-python --version >nul 2>&1
+%PY_EXE% --version >nul 2>&1
 if %errorlevel% neq 0 (
     color 0C
     echo.
@@ -56,7 +63,7 @@ cd /d "%ROOT_DIR%backend"
 :: Crear venv si no existe
 if not exist "%VENV_DIR%\Scripts\python.exe" (
     echo       - Creando entorno virtual...
-    python -m venv "%VENV_DIR%"
+    %PY_EXE% -m venv "%VENV_DIR%"
     if %errorlevel% neq 0 (
         echo [ERROR] No se pudo crear el entorno virtual.
         pause

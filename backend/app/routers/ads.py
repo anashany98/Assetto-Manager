@@ -2,11 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from .. import models, database
-from ..paths import STORAGE_DIR
-from ..routers.auth import require_admin
+from ..paths import PUBLIC_STORAGE_DIR
+from ..routers.auth import require_admin, require_admin_or_public_token
+from ..utils.uploads import sanitize_filename, ensure_allowed_extension, save_upload_file
 import shutil
 import os
 import uuid
+from pathlib import Path
 from pydantic import BaseModel, ConfigDict
 
 router = APIRouter(
@@ -36,7 +38,7 @@ def list_ads(db: Session = Depends(database.get_db)):
     return db.query(models.AdCampaign).all()
 
 @router.get("/active", response_model=List[AdCampaignOut])
-def list_active_ads(db: Session = Depends(database.get_db)):
+def list_active_ads(db: Session = Depends(database.get_db), _auth: object = Depends(require_admin_or_public_token)):
     return db.query(models.AdCampaign).filter(models.AdCampaign.is_active == True).all()
 
 @router.post("/", response_model=AdCampaignOut, dependencies=[Depends(require_admin)])
@@ -48,17 +50,18 @@ def create_ad(
     db: Session = Depends(database.get_db)
 ):
     # Ensure storage directory exists
-    ads_dir = STORAGE_DIR / "ads"
+    ads_dir = PUBLIC_STORAGE_DIR / "ads"
     ads_dir.mkdir(parents=True, exist_ok=True)
     
-    # Generate unique filename
-    ext = file.filename.split(".")[-1]
-    filename = f"{uuid.uuid4()}.{ext}"
+    # Validate and generate unique filename
+    ensure_allowed_extension(file.filename, {".jpg", ".jpeg", ".png", ".webp", ".gif"})
+    ext = Path(file.filename).suffix.lower()
+    filename = f"{uuid.uuid4()}{ext}"
     file_path = ads_dir / filename
     
-    # Save file
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    # Save file with size limit
+    max_bytes = int(os.getenv("MAX_AD_UPLOAD_MB", "10")) * 1024 * 1024
+    save_upload_file(file, file_path, max_bytes)
         
     # Create DB Entry
     new_ad = models.AdCampaign(
@@ -83,7 +86,7 @@ def delete_ad(ad_id: int, db: Session = Depends(database.get_db)):
     try:
         # Construct absolute path from relative image_path
         # models.AdCampaign.image_path is usually "ads/filename.png"
-        full_path = STORAGE_DIR / ad.image_path
+        full_path = PUBLIC_STORAGE_DIR / ad.image_path
         if full_path.exists():
             os.remove(full_path)
     except Exception as e:

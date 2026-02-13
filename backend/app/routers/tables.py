@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime, timedelta, timezone
@@ -9,11 +9,15 @@ from pydantic import BaseModel
 import uuid
 from sqlalchemy.exc import IntegrityError
 import os
+from ..routers.auth import require_admin, require_admin_or_public_token
+from ..limiters import limiter
+from ..security.license import require_license_module
 
 router = APIRouter(
     prefix="/tables",
     tags=["tables"],
     responses={404: {"description": "Not found"}},
+    dependencies=[Depends(require_license_module("tables"))],
 )
 
 BLOCKING_STATUSES = {"confirmed", "seated", "reserved"}
@@ -80,7 +84,7 @@ class TableSync(BaseModel):
     fixed_notes: Optional[str] = None
     is_active: bool = True
 
-@router.post("/layout")
+@router.post("/layout", dependencies=[Depends(require_admin)])
 def update_layout(tables: List[TableSync], db: Session = Depends(get_db)):
     """
     Sync layout: Update existing, Create new, Deactivate missing.
@@ -128,7 +132,7 @@ def update_layout(tables: List[TableSync], db: Session = Depends(get_db)):
         
     return result
 
-@router.get("/")
+@router.get("/", dependencies=[Depends(require_admin)])
 def get_tables(db: Session = Depends(get_db)):
     return db.query(models.RestaurantTable).filter(models.RestaurantTable.is_active == True).all()
 
@@ -145,7 +149,7 @@ class TableUpdate(BaseModel):
     fixed_notes: Optional[str] = None
     is_active: Optional[bool] = None
 
-@router.put("/{table_id}")
+@router.put("/{table_id}", dependencies=[Depends(require_admin)])
 def update_table(table_id: int, table: TableUpdate, db: Session = Depends(get_db)):
     db_table = db.query(models.RestaurantTable).filter(models.RestaurantTable.id == table_id).first()
     if not db_table:
@@ -158,7 +162,7 @@ def update_table(table_id: int, table: TableUpdate, db: Session = Depends(get_db
     db.refresh(db_table)
     return db_table
 
-@router.delete("/{table_id}")
+@router.delete("/{table_id}", dependencies=[Depends(require_admin)])
 def delete_table(table_id: int, db: Session = Depends(get_db)):
     db_table = db.query(models.RestaurantTable).filter(models.RestaurantTable.id == table_id).first()
     if not db_table:
@@ -168,8 +172,10 @@ def delete_table(table_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"status": "success"}
 
-@router.get("/bookings")
+@router.get("/bookings", dependencies=[Depends(require_admin)])
+@limiter.limit("300/minute")
 def get_bookings(
+    request: Request,
     start_date: datetime, 
     end_date: Optional[datetime] = None, 
     db: Session = Depends(get_db)
@@ -198,8 +204,10 @@ class BookingCreate(BaseModel):
     notes: Optional[str] = None
     status: str = "confirmed"
 
-@router.post("/bookings")
+@router.post("/bookings", dependencies=[Depends(require_admin_or_public_token)])
+@limiter.limit("30/minute")
 def create_booking(
+    request: Request,
     booking: BookingCreate,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
@@ -284,8 +292,9 @@ def create_booking(
         
     return db_booking
 
-@router.get("/bookings/manage/{token}")
-def get_booking_by_token(token: str, db: Session = Depends(get_db)):
+@router.get("/bookings/manage/{token}", dependencies=[Depends(require_admin_or_public_token)])
+@limiter.limit("60/minute")
+def get_booking_by_token(request: Request, token: str, db: Session = Depends(get_db)):
     booking = db.query(models.TableBooking).filter(models.TableBooking.manage_token == token).first()
     if not booking:
         raise HTTPException(status_code=404, detail="Reserva no encontrada")
@@ -316,8 +325,10 @@ class BookingUpdate(BaseModel):
     notes: Optional[str] = None
     allergies: Optional[List[str]] = None
 
-@router.put("/bookings/manage/{token}")
+@router.put("/bookings/manage/{token}", dependencies=[Depends(require_admin_or_public_token)])
+@limiter.limit("30/minute")
 def update_booking_by_token(
+    request: Request,
     token: str,
     update: BookingUpdate,
     background_tasks: BackgroundTasks,
@@ -358,7 +369,7 @@ def update_booking_by_token(
 class TableStatusUpdate(BaseModel):
     status: str
 
-@router.put("/{table_id}/status")
+@router.put("/{table_id}/status", dependencies=[Depends(require_admin)])
 def set_table_status(table_id: int, status_update: TableStatusUpdate, db: Session = Depends(get_db)):
     """Update live status of a table (for staff)"""
     table = db.query(models.RestaurantTable).filter(models.RestaurantTable.id == table_id).first()
@@ -378,11 +389,12 @@ class SmartAssignRequest(BaseModel):
     date: str # ISO Date
     time: str # "HH:MM"
 
-@router.post("/find-best-fit")
-def find_best_fit(request: SmartAssignRequest, db: Session = Depends(get_db)):
+@router.post("/find-best-fit", dependencies=[Depends(require_admin_or_public_token)])
+@limiter.limit("60/minute")
+def find_best_fit(request: Request, payload: SmartAssignRequest, db: Session = Depends(get_db)):
     """Suggest best tables for a group"""
     # 1. Parse date/time
-    start_dt = _ensure_aware(datetime.strptime(f"{request.date} {request.time}", "%Y-%m-%d %H:%M"))
+    start_dt = _ensure_aware(datetime.strptime(f"{payload.date} {payload.time}", "%Y-%m-%d %H:%M"))
     end_dt = start_dt + timedelta(minutes=90) # Assume 1.5h default
     
     # 2. Get all tables
@@ -407,7 +419,7 @@ def find_best_fit(request: SmartAssignRequest, db: Session = Depends(get_db)):
     # Find smallest table that fits all
     candidates = []
     for t in available_tables:
-        if t.seats >= request.pax:
+        if t.seats >= payload.pax:
             candidates.append(t)
             
     if candidates:
@@ -440,7 +452,7 @@ def find_best_fit(request: SmartAssignRequest, db: Session = Depends(get_db)):
             for j in range(i+1, len(tables)):
                 t1 = tables[i]
                 t2 = tables[j]
-                if t1.seats + t2.seats >= request.pax:
+            if t1.seats + t2.seats >= payload.pax:
                      return {
                         "strategy": "combination",
                         "table_ids": [t1.id, t2.id],
@@ -450,7 +462,7 @@ def find_best_fit(request: SmartAssignRequest, db: Session = Depends(get_db)):
     raise HTTPException(status_code=404, detail="No hay mesas disponibles para este grupo")
 
 
-@router.get("/customers/search", response_model=List[str])
+@router.get("/customers/search", response_model=List[str], dependencies=[Depends(require_admin)])
 def search_customers(
     q: str,
     db: Session = Depends(get_db)

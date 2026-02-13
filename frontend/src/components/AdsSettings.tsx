@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { API_URL } from '../config';
+import { getAuthHeaders } from '../api/authHeaders';
 
 interface AdCampaign {
     id: number;
@@ -16,11 +17,6 @@ const AdsSettings: React.FC = () => {
     const [newAdTitle, setNewAdTitle] = useState("");
     const [newAdDuration, setNewAdDuration] = useState(15);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
-
-    const getAuthHeaders = () => {
-        const token = localStorage.getItem('token');
-        return token ? { Authorization: `Bearer ${token}` } : {};
-    };
 
     // FIX: Using full URL for fetching
     const { data: ads, isLoading, error } = useQuery({

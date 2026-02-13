@@ -20,14 +20,23 @@ if not exist .venv (
 
 call .venv\Scripts\activate.bat || echo Venv not found, trying system python...
 
+set "PY_EXE=python"
+%PY_EXE% -c "import sys" >nul 2>&1
+if errorlevel 1 set "PY_EXE=py -3.11"
+%PY_EXE% -c "import sys" >nul 2>&1
+if errorlevel 1 set "PY_EXE=py"
+
 echo.
 echo Starting Frontend...
 cd frontend
+if not exist node_modules (
+    call npm install
+)
 start "AC Frontend" npm run dev -- --host
 cd ..
 
 echo Starting Backend...
-start "AC Backend" cmd /k "python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload"
+start "AC Backend" cmd /k "%PY_EXE% -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload"
 
 echo.
 echo SYSTEM RUNNING.

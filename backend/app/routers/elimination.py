@@ -13,8 +13,10 @@ from typing import List, Optional
 from datetime import datetime
 import logging
 import json
+import os
 
 from .. import database, models
+from .auth import require_admin, require_admin_or_public_token
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +64,18 @@ class RaceStatus(BaseModel):
 # --- WebSocket connections for real-time updates ---
 active_connections: dict[int, list[WebSocket]] = {}
 
+def _is_public_token_allowed(token: Optional[str]) -> bool:
+    env = os.getenv("ENVIRONMENT", "development")
+    expected = os.getenv("PUBLIC_API_TOKEN") or os.getenv("PUBLIC_WS_TOKEN")
+    if env == "production":
+        if not expected:
+            logger.error("PUBLIC_API_TOKEN not configured for production WebSocket access")
+            return False
+        return token == expected
+    if expected and token != expected:
+        return False
+    return True
+
 async def broadcast_race_update(race_id: int, data: dict):
     """Send update to all connected clients for this race"""
     if race_id in active_connections:
@@ -74,7 +88,7 @@ async def broadcast_race_update(race_id: int, data: dict):
 # --- Endpoints ---
 
 @router.post("/create", response_model=dict)
-def create_race(race_data: RaceCreate, db: Session = Depends(database.get_db)):
+def create_race(race_data: RaceCreate, db: Session = Depends(database.get_db), _auth: object = Depends(require_admin)):
     """Create a new elimination race"""
     race = models.EliminationRace(
         name=race_data.name,
@@ -90,13 +104,13 @@ def create_race(race_data: RaceCreate, db: Session = Depends(database.get_db)):
     return {"id": race.id, "name": race.name, "status": race.status}
 
 @router.get("/list")
-def list_races(db: Session = Depends(database.get_db)):
+def list_races(db: Session = Depends(database.get_db), _auth: object = Depends(require_admin)):
     """List all elimination races"""
     races = db.query(models.EliminationRace).order_by(desc(models.EliminationRace.created_at)).limit(20).all()
     return [{"id": r.id, "name": r.name, "status": r.status, "current_lap": r.current_lap} for r in races]
 
 @router.post("/{race_id}/register")
-def register_participant(race_id: int, participant: ParticipantRegister, db: Session = Depends(database.get_db)):
+def register_participant(race_id: int, participant: ParticipantRegister, db: Session = Depends(database.get_db), _auth: object = Depends(require_admin)):
     """Register a driver for the race"""
     race = db.query(models.EliminationRace).filter(models.EliminationRace.id == race_id).first()
     if not race:
@@ -123,7 +137,7 @@ def register_participant(race_id: int, participant: ParticipantRegister, db: Ses
     return {"message": f"{participant.driver_name} registered"}
 
 @router.post("/{race_id}/start")
-def start_race(race_id: int, db: Session = Depends(database.get_db)):
+def start_race(race_id: int, db: Session = Depends(database.get_db), _auth: object = Depends(require_admin)):
     """Start the elimination race"""
     race = db.query(models.EliminationRace).filter(models.EliminationRace.id == race_id).first()
     if not race:
@@ -144,7 +158,7 @@ def start_race(race_id: int, db: Session = Depends(database.get_db)):
     return {"message": "Race started", "current_lap": 1}
 
 @router.post("/{race_id}/lap")
-async def report_lap(race_id: int, lap_data: LapComplete, db: Session = Depends(database.get_db)):
+async def report_lap(race_id: int, lap_data: LapComplete, db: Session = Depends(database.get_db), _auth: object = Depends(require_admin)):
     """Report a completed lap for a driver"""
     race = db.query(models.EliminationRace).filter(models.EliminationRace.id == race_id).first()
     if not race or race.status != "racing":
@@ -219,7 +233,7 @@ async def report_lap(race_id: int, lap_data: LapComplete, db: Session = Depends(
     return result
 
 @router.get("/{race_id}/status", response_model=RaceStatus)
-def get_race_status(race_id: int, db: Session = Depends(database.get_db)):
+def get_race_status(race_id: int, db: Session = Depends(database.get_db), _auth: object = Depends(require_admin_or_public_token)):
     """Get current race status for TV display"""
     race = db.query(models.EliminationRace).filter(models.EliminationRace.id == race_id).first()
     if not race:
@@ -261,7 +275,7 @@ def get_race_status(race_id: int, db: Session = Depends(database.get_db)):
     )
 
 @router.delete("/{race_id}")
-def delete_race(race_id: int, db: Session = Depends(database.get_db)):
+def delete_race(race_id: int, db: Session = Depends(database.get_db), _auth: object = Depends(require_admin)):
     """Delete a race"""
     race = db.query(models.EliminationRace).filter(models.EliminationRace.id == race_id).first()
     if not race:
@@ -274,6 +288,10 @@ def delete_race(race_id: int, db: Session = Depends(database.get_db)):
 @router.websocket("/{race_id}/ws")
 async def websocket_endpoint(websocket: WebSocket, race_id: int):
     """WebSocket for real-time race updates"""
+    token = websocket.query_params.get("token")
+    if not _is_public_token_allowed(token):
+        await websocket.close(code=1008)
+        return
     await websocket.accept()
     
     if race_id not in active_connections:

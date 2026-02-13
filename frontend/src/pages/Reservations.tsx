@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Clock, User, Phone, Mail, Plus, Trash2, Check, X, RefreshCw } from 'lucide-react';
+import { Calendar, User, Phone, Mail, Plus, Trash2, Check, X, RefreshCw } from 'lucide-react';
 import api from '../api/client';
 
 interface Reservation {
     id: number;
     station_id: number | null;
     station_name: string | null;
-    client_name: string;
-    client_email: string | null;
-    client_phone: string | null;
+    customer_name: string;
+    customer_email: string | null;
+    customer_phone: string | null;
     start_time: string;
     end_time: string;
     duration_minutes: number;
@@ -31,9 +31,9 @@ export default function Reservations() {
     const [showForm, setShowForm] = useState(false);
     const [formData, setFormData] = useState({
         station_id: '',
-        client_name: '',
-        client_email: '',
-        client_phone: '',
+        customer_name: '',
+        customer_email: '',
+        customer_phone: '',
         start_time: '',
         duration_minutes: 30,
         notes: '',
@@ -47,7 +47,7 @@ export default function Reservations() {
 
     const fetchReservations = async () => {
         try {
-            const res = await api.get(`/reservations/?date=${selectedDate}`);
+            const res = await api.get(`/bookings/?date=${selectedDate}`);
             setReservations(res.data);
         } catch (err) {
             console.error('Error fetching reservations:', err);
@@ -65,17 +65,37 @@ export default function Reservations() {
         }
     };
 
+    const isPastDateTime = (value: string) => {
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.getTime())) return true;
+        return parsed < new Date();
+    };
+
     const createReservation = async (e: React.FormEvent) => {
         e.preventDefault();
+        const trimmedName = formData.customer_name.trim();
+        if (!trimmedName) {
+            alert('El nombre del cliente es obligatorio.');
+            return;
+        }
+        if (!formData.start_time || isPastDateTime(formData.start_time)) {
+            alert('La fecha y hora no pueden estar en el pasado.');
+            return;
+        }
+        if (formData.price && parseFloat(formData.price) < 0) {
+            alert('El precio no puede ser negativo.');
+            return;
+        }
         try {
-            await api.post('/reservations/', {
+            await api.post('/bookings/', {
                 ...formData,
+                customer_name: trimmedName,
                 station_id: formData.station_id ? parseInt(formData.station_id) : null,
                 start_time: new Date(formData.start_time).toISOString(),
                 price: formData.price ? parseFloat(formData.price) : null
             });
             setShowForm(false);
-            setFormData({ station_id: '', client_name: '', client_email: '', client_phone: '', start_time: '', duration_minutes: 30, notes: '', price: '' });
+            setFormData({ station_id: '', customer_name: '', customer_email: '', customer_phone: '', start_time: '', duration_minutes: 30, notes: '', price: '' });
             fetchReservations();
         } catch (err: any) {
             alert(err.response?.data?.detail || 'Error al crear reserva');
@@ -84,7 +104,7 @@ export default function Reservations() {
 
     const updateStatus = async (id: number, status: string) => {
         try {
-            await api.put(`/reservations/${id}`, { status });
+            await api.put(`/bookings/${id}/status`, { status });
             fetchReservations();
         } catch (err) {
             console.error('Error updating reservation:', err);
@@ -94,7 +114,7 @@ export default function Reservations() {
     const cancelReservation = async (id: number) => {
         if (!confirm('¿Cancelar esta reserva?')) return;
         try {
-            await api.delete(`/reservations/${id}`);
+            await api.delete(`/bookings/${id}`);
             fetchReservations();
         } catch (err) {
             console.error('Error cancelling reservation:', err);
@@ -160,11 +180,11 @@ export default function Reservations() {
                                 </div>
                                 <div className="border-l border-gray-600 pl-4">
                                     <div className="flex items-center gap-2 text-white font-medium">
-                                        <User size={16} /> {r.client_name}
+                                        <User size={16} /> {r.customer_name}
                                     </div>
                                     <div className="flex gap-4 text-sm text-gray-400 mt-1">
-                                        {r.client_phone && <span className="flex items-center gap-1"><Phone size={12} /> {r.client_phone}</span>}
-                                        {r.client_email && <span className="flex items-center gap-1"><Mail size={12} /> {r.client_email}</span>}
+                                        {r.customer_phone && <span className="flex items-center gap-1"><Phone size={12} /> {r.customer_phone}</span>}
+                                        {r.customer_email && <span className="flex items-center gap-1"><Mail size={12} /> {r.customer_email}</span>}
                                     </div>
                                     {r.station_name && <div className="text-xs text-blue-400 mt-1">📍 {r.station_name}</div>}
                                 </div>
@@ -201,8 +221,8 @@ export default function Reservations() {
                             <input
                                 type="text"
                                 placeholder="Nombre del cliente *"
-                                value={formData.client_name}
-                                onChange={(e) => setFormData({ ...formData, client_name: e.target.value })}
+                                value={formData.customer_name}
+                                onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
                                 required
                                 className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400"
                             />
@@ -210,15 +230,15 @@ export default function Reservations() {
                                 <input
                                     type="email"
                                     placeholder="Email"
-                                    value={formData.client_email}
-                                    onChange={(e) => setFormData({ ...formData, client_email: e.target.value })}
+                                    value={formData.customer_email}
+                                    onChange={(e) => setFormData({ ...formData, customer_email: e.target.value })}
                                     className="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400"
                                 />
                                 <input
                                     type="tel"
                                     placeholder="Teléfono"
-                                    value={formData.client_phone}
-                                    onChange={(e) => setFormData({ ...formData, client_phone: e.target.value })}
+                                    value={formData.customer_phone}
+                                    onChange={(e) => setFormData({ ...formData, customer_phone: e.target.value })}
                                     className="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400"
                                 />
                             </div>
@@ -266,3 +286,4 @@ export default function Reservations() {
         </div>
     );
 }
+

@@ -67,6 +67,7 @@ export function VersusCard({ drivers, track }: Props) {
                     const isP1 = driver.best_lap === bestTime;
                     const gap = driver.best_lap - bestTime;
                     const rank = sortedByTime.findIndex((d: { driver_name: string }) => d.driver_name === driver.driver_name) + 1;
+                    const winCount = driver.win_count ?? 0;
 
                     return (
                         <motion.div
@@ -139,9 +140,9 @@ export function VersusCard({ drivers, track }: Props) {
                             </div>
 
                             {/* Win Counters (Optional, from API) */}
-                            {driver.win_count > 0 && (
+                            {winCount > 0 && (
                                 <div className="bg-white/5 p-2 flex justify-center space-x-1">
-                                    {[...Array(driver.win_count)].map((_, i) => (
+                                    {[...Array(winCount)].map((_, i) => (
                                         <div key={i} className="w-2 h-2 rounded-full bg-yellow-500" />
                                     ))}
                                 </div>

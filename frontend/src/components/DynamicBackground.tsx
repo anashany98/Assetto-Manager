@@ -1,5 +1,40 @@
 import { useEffect, useRef } from 'react';
 
+class Particle {
+    x: number;
+    y: number;
+    size: number;
+    speedX: number;
+    speedY: number;
+    opacity: number;
+
+    constructor(width: number, height: number) {
+        this.x = Math.random() * width;
+        this.y = Math.random() * height;
+        this.size = Math.random() * 2;
+        this.speedX = (Math.random() - 0.5) * 0.5;
+        this.speedY = (Math.random() - 0.5) * 0.5;
+        this.opacity = Math.random() * 0.5;
+    }
+
+    update(width: number, height: number) {
+        this.x += this.speedX;
+        this.y += this.speedY;
+
+        if (this.x < 0) this.x = width;
+        if (this.x > width) this.x = 0;
+        if (this.y < 0) this.y = height;
+        if (this.y > height) this.y = 0;
+    }
+
+    draw(ctx: CanvasRenderingContext2D) {
+        ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity * 0.1})`; // Very subtle
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
 export const DynamicBackground = () => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -18,46 +53,10 @@ export const DynamicBackground = () => {
             canvas.height = window.innerHeight;
         };
 
-        class Particle {
-            x: number;
-            y: number;
-            size: number;
-            speedX: number;
-            speedY: number;
-            opacity: number;
-
-            constructor() {
-                this.x = Math.random() * canvas!.width;
-                this.y = Math.random() * canvas!.height;
-                this.size = Math.random() * 2;
-                this.speedX = (Math.random() - 0.5) * 0.5;
-                this.speedY = (Math.random() - 0.5) * 0.5;
-                this.opacity = Math.random() * 0.5;
-            }
-
-            update() {
-                this.x += this.speedX;
-                this.y += this.speedY;
-
-                if (this.x < 0) this.x = canvas!.width;
-                if (this.x > canvas!.width) this.x = 0;
-                if (this.y < 0) this.y = canvas!.height;
-                if (this.y > canvas!.height) this.y = 0;
-            }
-
-            draw() {
-                if (!ctx) return;
-                ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity * 0.1})`; // Very subtle
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                ctx.fill();
-            }
-        }
-
         const init = () => {
             particles = [];
             for (let i = 0; i < 100; i++) {
-                particles.push(new Particle());
+                particles.push(new Particle(canvas.width, canvas.height));
             }
         };
 
@@ -69,8 +68,8 @@ export const DynamicBackground = () => {
             // This canvas adds the "life" (particles/dust)
 
             particles.forEach(p => {
-                p.update();
-                p.draw();
+                p.update(canvas.width, canvas.height);
+                p.draw(ctx);
             });
 
             animationFrameId = requestAnimationFrame(animate);

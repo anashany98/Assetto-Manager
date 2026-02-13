@@ -13,7 +13,7 @@ import {
     Layout, Monitor, Wifi, WifiOff, Edit2, CheckCircle,
     Activity, Upload, QrCode, Gamepad2, Volume2, Zap,
     MonitorPlay, Globe, Terminal, Database, Bell, BadgeDollarSign, Megaphone,
-    AlertTriangle, Power, RefreshCw, Link2, Copy, RotateCw, Lock, Unlock, Trash2
+    AlertTriangle, Power, RefreshCw, Link2, Copy, RotateCw, Lock, Unlock, Trash2, History, ShieldCheck
 } from 'lucide-react';
 import { LogViewer } from '../components/LogViewer';
 import AdsSettings from '../components/AdsSettings';
@@ -22,6 +22,7 @@ import ACSettingsEditor from '../components/ACSettingsEditor';
 import { Camera, Cloud, Bot, Shield } from 'lucide-react';
 import { LicenseSettings } from '../components/LicenseSettings';
 import WallpaperSettings from '../components/WallpaperSettings';
+import SystemUpdatePanel from '../components/SystemUpdatePanel';
 
 import { calculatePrice, getPricingConfig, type PricingDiscount, type PricingRate } from '../utils/pricing';
 import { isFeatureEnabled } from '../config/features';
@@ -29,6 +30,43 @@ import { isFeatureEnabled } from '../config/features';
 type StationPresetDraft = {
     video?: string;
     race?: string;
+};
+
+type DeployJobSummary = {
+    job_id: string;
+    status: string;
+    created_at?: string | null;
+    started_at?: string | null;
+    finished_at?: string | null;
+    requested_by?: string;
+    summary?: {
+        total?: number;
+        queued?: number;
+        running?: number;
+        success?: number;
+        failed?: number;
+        preflight_failed?: number;
+    };
+};
+
+type DeployJobDetail = DeployJobSummary & {
+    station_results?: Record<string, {
+        station_id: number;
+        station_name: string;
+        status: string;
+        error?: string | null;
+        preflight?: { errors?: string[]; warnings?: string[] };
+    }>;
+};
+
+type StationGroup = {
+    name: string;
+    station_ids: number[];
+};
+
+type HardwarePresets = {
+    vr: Record<string, string>;
+    flat: Record<string, string>;
 };
 
 const AC_CATEGORIES = [
@@ -61,7 +99,7 @@ export default function SettingsPage() {
     // Sync tab with URL
     useEffect(() => {
         const tab = searchParams.get('tab');
-        if (tab && ['branding', 'stations', 'game', 'sim', 'logs', 'ads', 'database', 'pricing'].includes(tab)) {
+        if (tab && ['branding', 'stations', 'game', 'sim', 'logs', 'ads', 'database', 'pricing', 'license'].includes(tab)) {
             setActiveTab(tab as any);
         }
     }, [searchParams]);
@@ -389,7 +427,7 @@ export default function SettingsPage() {
                 station_ids: [stationId]
             });
         },
-        onSuccess: () => alert("Presets enviados a la estaciÃ³n.")
+        onSuccess: () => alert("Presets enviados a la estación.")
     });
 
     // --- GAME CONFIG STATE ---
@@ -398,6 +436,18 @@ export default function SettingsPage() {
     const [newProfileName, setNewProfileName] = useState('');
     const [selectedProfiles, setSelectedProfiles] = useState<Record<string, string>>({});
     const [selectedStationIds, setSelectedStationIds] = useState<number[]>([]);
+    const [editorDirty, setEditorDirty] = useState(false);
+    const [strictDeploy, setStrictDeploy] = useState(false);
+    const [selectedGroupName, setSelectedGroupName] = useState('');
+    const [newGroupName, setNewGroupName] = useState('');
+    const [activeDeployJobId, setActiveDeployJobId] = useState<string | null>(null);
+    const [hardwarePresetDrafts, setHardwarePresetDrafts] = useState<HardwarePresets>({ vr: {}, flat: {} });
+    const [safeModeEnabled, setSafeModeEnabled] = useState(true);
+
+    const confirmDiscardEditorChanges = () => {
+        if (!editorDirty) return true;
+        return confirm("Hay cambios sin guardar en el editor. ¿Quieres descartarlos?");
+    };
 
     const { data: profiles } = useQuery({
         queryKey: ['config_profiles'],
@@ -410,27 +460,188 @@ export default function SettingsPage() {
             return Array.isArray(res.data) ? res.data : [];
         }
     });
+    const { data: stationGroupsData } = useQuery<{ groups: StationGroup[] }>({
+        queryKey: ['config-station-groups'],
+        queryFn: async () => (await axios.get(`${API_URL}/configs/groups`)).data,
+        enabled: activeTab === 'game'
+    });
+    const { data: hardwarePresetsData } = useQuery<HardwarePresets>({
+        queryKey: ['config-hardware-presets'],
+        queryFn: async () => (await axios.get(`${API_URL}/configs/hardware-presets`)).data,
+        enabled: activeTab === 'game'
+    });
+    const { data: safeModeData } = useQuery<{ enabled: boolean }>({
+        queryKey: ['config-safe-mode'],
+        queryFn: async () => (await axios.get(`${API_URL}/configs/safe-mode`)).data,
+        enabled: activeTab === 'game'
+    });
+    const { data: deployJobs = [] } = useQuery<DeployJobSummary[]>({
+        queryKey: ['deploy-jobs'],
+        queryFn: async () => (await axios.get(`${API_URL}/configs/deploy/jobs?limit=20`)).data,
+        enabled: activeTab === 'game',
+        refetchInterval: activeTab === 'game' ? 3000 : false
+    });
+    const { data: deployJobDetail } = useQuery<DeployJobDetail>({
+        queryKey: ['deploy-job-detail', activeDeployJobId],
+        queryFn: async () => (await axios.get(`${API_URL}/configs/deploy/jobs/${activeDeployJobId}`)).data,
+        enabled: !!activeDeployJobId && activeTab === 'game',
+        refetchInterval: activeTab === 'game' ? 3000 : false
+    });
+    const { data: deployAudit = [] } = useQuery<any[]>({
+        queryKey: ['deploy-audit'],
+        queryFn: async () => (await axios.get(`${API_URL}/configs/deploy/audit?limit=15`)).data,
+        enabled: activeTab === 'game',
+        refetchInterval: activeTab === 'game' ? 5000 : false
+    });
+
+    useEffect(() => {
+        if (hardwarePresetsData) {
+            setHardwarePresetDrafts({
+                vr: hardwarePresetsData.vr || {},
+                flat: hardwarePresetsData.flat || {},
+            });
+        }
+    }, [hardwarePresetsData]);
+
+    useEffect(() => {
+        if (safeModeData && typeof safeModeData.enabled === 'boolean') {
+            setSafeModeEnabled(safeModeData.enabled);
+        }
+    }, [safeModeData]);
+
+    useEffect(() => {
+        if (!isEditorOpen) {
+            setEditorDirty(false);
+        }
+    }, [isEditorOpen]);
+
+    const saveGroupMutation = useMutation({
+        mutationFn: async (payload: { name: string; station_ids: number[] }) => {
+            return await axios.post(`${API_URL}/configs/groups`, payload);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['config-station-groups'] });
+            alert("Grupo guardado.");
+        },
+        onError: () => alert("No se pudo guardar el grupo.")
+    });
+
+    const deleteGroupMutation = useMutation({
+        mutationFn: async (name: string) => {
+            return await axios.delete(`${API_URL}/configs/groups/${encodeURIComponent(name)}`);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['config-station-groups'] });
+            setSelectedGroupName('');
+            alert("Grupo eliminado.");
+        },
+        onError: () => alert("No se pudo eliminar el grupo.")
+    });
+
+    const saveHardwarePresetsMutation = useMutation({
+        mutationFn: async (payload: HardwarePresets) => {
+            return await axios.post(`${API_URL}/configs/hardware-presets`, payload);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['config-hardware-presets'] });
+            alert("Presets de hardware guardados.");
+        },
+        onError: (error: any) => {
+            const detail = error?.response?.data?.detail;
+            if (detail?.errors && Array.isArray(detail.errors)) {
+                alert(`No se pudo guardar presets:\n- ${detail.errors.join('\n- ')}`);
+                return;
+            }
+            alert("No se pudieron guardar los presets de hardware.");
+        }
+    });
+
+    const safeModeMutation = useMutation({
+        mutationFn: async (enabled: boolean) => {
+            await axios.post(`${API_URL}/configs/safe-mode`, { enabled });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['config-safe-mode'] });
+        },
+        onError: () => alert("No se pudo cambiar el modo seguro.")
+    });
 
     const deployMutation = useMutation({
         mutationFn: async () => {
             if (Object.keys(selectedProfiles).length === 0) {
                 throw new Error("Selecciona perfiles");
             }
-            await axios.post(`${API_URL}/configs/deploy`, {
+            const res = await axios.post(`${API_URL}/configs/deploy`, {
                 deploy_map: selectedProfiles,
-                station_ids: selectedStationIds.length > 0 ? selectedStationIds : null
+                station_ids: selectedStationIds.length > 0 ? selectedStationIds : null,
+                strict: strictDeploy
             });
+            return res.data as { job_id?: string; preflight?: Array<{ ok: boolean }> };
         },
-        onSuccess: () => {
+        onSuccess: (data) => {
+            if (data?.job_id) {
+                setActiveDeployJobId(data.job_id);
+            }
+            queryClient.invalidateQueries({ queryKey: ['deploy-jobs'] });
+            const preflight = Array.isArray(data?.preflight) ? data.preflight : [];
+            const failed = preflight.filter((p) => !p.ok).length;
             const msg = selectedStationIds.length > 0
-                ? `Despliegue iniciado a ${selectedStationIds.length} estación(es)`
-                : "Despliegue iniciado a TODAS las estaciones";
-            alert(msg);
+                ? `Despliegue en cola para ${selectedStationIds.length} estación(es).`
+                : "Despliegue en cola para todas las estaciones activas.";
+            alert(failed > 0 ? `${msg}\nPreflight falló en ${failed} estación(es).` : msg);
         },
-        onError: (error) => alert(error instanceof Error ? error.message : "Error en despliegue")
+        onError: (error: any) => {
+            const detail = error?.response?.data?.detail;
+            if (detail?.job_id) {
+                setActiveDeployJobId(detail.job_id);
+            }
+            if (detail?.message) {
+                alert(`${detail.message}${detail.job_id ? ` (job: ${detail.job_id})` : ''}`);
+                return;
+            }
+            alert(error instanceof Error ? error.message : "Error en despliegue");
+        }
     });
 
+    const retryDeployMutation = useMutation({
+        mutationFn: async (jobId: string) => {
+            const res = await axios.post(`${API_URL}/configs/deploy/jobs/${jobId}/retry`, {});
+            return res.data as { job_id?: string };
+        },
+        onSuccess: (data) => {
+            if (data?.job_id) {
+                setActiveDeployJobId(data.job_id);
+            }
+            queryClient.invalidateQueries({ queryKey: ['deploy-jobs'] });
+            alert("Reintento de despliegue en cola.");
+        },
+        onError: () => alert("No se pudo reintentar el despliegue.")
+    });
+
+    const stationGroups = Array.isArray(stationGroupsData?.groups) ? stationGroupsData.groups : [];
+
+    const applyGroupSelection = (groupName: string) => {
+        const match = stationGroups.find((g) => g.name === groupName);
+        if (!match) return;
+        setSelectedStationIds(match.station_ids);
+        setSelectedGroupName(groupName);
+    };
+
+    const applyHardwarePreset = (target: 'vr' | 'flat') => {
+        const presetMap = target === 'vr' ? hardwarePresetDrafts.vr : hardwarePresetDrafts.flat;
+        if (!presetMap || Object.keys(presetMap).length === 0) {
+            alert(`No hay preset guardado para ${target.toUpperCase()}.`);
+            return;
+        }
+        const targetIds = (stations || [])
+            .filter((s: any) => target === 'vr' ? !!s.is_vr : !s.is_vr)
+            .map((s: any) => s.id);
+        setSelectedProfiles((prev) => ({ ...prev, ...presetMap }));
+        setSelectedStationIds(targetIds);
+    };
+
     const handleEditProfile = (filename: string) => {
+        if (!confirmDiscardEditorChanges()) return;
         setNewProfileName(filename.replace('.ini', ''));
         setIsEditorOpen(true);
     };
@@ -591,9 +802,9 @@ export default function SettingsPage() {
     return (
         <div className="h-full flex flex-col bg-gray-950 text-white font-sans overflow-hidden">
             {/* Header */}
-            <div className="flex-none p-8 pb-4 flex justify-between items-center border-b border-gray-800 bg-gray-900/50 backdrop-blur-sm">
+            <div className="flex-none px-4 py-6 md:px-8 md:py-8 md:pb-4 flex flex-col gap-4 border-b border-gray-800 bg-gray-900/50 backdrop-blur-sm">
                 <div>
-                    <h1 className="text-3xl font-black uppercase tracking-tight flex items-center">
+                    <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight flex items-center">
                         <SettingsIcon className="mr-3 text-blue-500" />
                         Configuración
                     </h1>
@@ -601,7 +812,7 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Tabs */}
-                <div className="flex bg-gray-800 p-1.5 rounded-2xl border border-gray-700 shadow-sm">
+                <div className="flex flex-wrap items-center gap-1.5 w-full bg-gray-800 p-1.5 rounded-2xl border border-gray-700 shadow-sm">
                     {[
                         { id: 'license', label: 'Licencia', icon: Shield },
                         { id: 'branding', label: 'Marca y TV', icon: Layout },
@@ -617,7 +828,7 @@ export default function SettingsPage() {
                             key={tab.id}
                             onClick={() => handleTabChange(tab.id)}
                             className={cn(
-                                "flex items-center space-x-2 px-5 py-2.5 rounded-xl text-sm font-black transition-all uppercase tracking-wide",
+                                "shrink-0 whitespace-nowrap flex items-center gap-2 px-3 md:px-4 py-2 rounded-xl text-xs md:text-sm font-black transition-all uppercase tracking-wide",
                                 activeTab === tab.id
                                     ? "bg-gray-700 shadow-lg text-blue-400 border border-gray-600"
                                     : "text-gray-500 hover:text-gray-300"
@@ -630,14 +841,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Content Area */}
-            <div className="flex-1 overflow-y-auto p-8">
-
-                {/* --- TAB: LICENSE --- */}
-                {activeTab === 'license' && (
-                    <div className="max-w-5xl animate-in fade-in duration-300">
-                        <LicenseSettings />
-                    </div>
-                )}
+            <div className="flex-1 overflow-y-auto px-4 pt-6 pb-8 md:px-8">
 
                 {/* --- TAB: LICENSE --- */}
                 {activeTab === 'license' && (
@@ -1304,9 +1508,9 @@ export default function SettingsPage() {
                 {activeTab === 'stations' && (
                     <div className="space-y-4 max-w-5xl animate-in fade-in duration-300">
                         <div className="flex flex-col gap-3">
-                            <div className="flex items-center justify-between">
+                            <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
                                 <h2 className="text-lg font-black text-white uppercase tracking-wide">Simuladores</h2>
-                                <div className="flex items-center gap-2">
+                                <div className="flex flex-wrap items-center gap-2 xl:justify-end">
                                     <button
                                         onClick={() => queryClient.invalidateQueries({ queryKey: ['stations'] })}
                                         className="px-3 py-2 rounded-lg bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700 transition-all text-xs font-bold uppercase tracking-widest flex items-center gap-2"
@@ -1360,7 +1564,7 @@ export default function SettingsPage() {
                                     </button>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest">
+                            <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-widest">
                                 <span className="px-3 py-1 rounded-full bg-gray-800 text-gray-300">Total: {healthSummary.total}</span>
                                 <span className="px-3 py-1 rounded-full bg-green-500/20 text-green-400">Online: {healthSummary.online}</span>
                                 <span className="px-3 py-1 rounded-full bg-red-500/20 text-red-400">Offline: {healthSummary.offline}</span>
@@ -1368,7 +1572,7 @@ export default function SettingsPage() {
                                 <span className="px-3 py-1 rounded-full bg-yellow-500/10 text-yellow-300">Fantasma: {ghostStations.length}</span>
                             </div>
                             <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-4 flex flex-col gap-4">
-                                <div className="flex items-center justify-between">
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                                     <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">Auto-archivado de fantasmas</h3>
                                     <button
                                         onClick={saveGhostArchiveConfig}
@@ -1378,7 +1582,7 @@ export default function SettingsPage() {
                                         {savingGhostArchive ? 'Guardando...' : 'Guardar'}
                                     </button>
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 text-xs">
                                     <label className="flex flex-col gap-2 text-gray-400 font-bold uppercase tracking-widest">
                                         Horas sin ver
                                         <input
@@ -1411,7 +1615,7 @@ export default function SettingsPage() {
                                             className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white font-bold"
                                         />
                                     </label>
-                                    <label className="flex items-center gap-2 text-gray-400 font-bold uppercase tracking-widest">
+                                    <label className="flex items-center gap-2 text-gray-400 font-bold uppercase tracking-widest sm:col-span-2 xl:col-span-1">
                                         <input
                                             type="checkbox"
                                             checked={ghostArchiveIncludeNeverSeen}
@@ -1457,8 +1661,8 @@ export default function SettingsPage() {
                                         : (isGhost ? 'bg-yellow-500/20 text-yellow-400' : 'bg-gray-700 text-gray-500')
                                 );
                                 return (
-                                    <div key={station.id} className="bg-gray-800 p-6 rounded-2xl border border-gray-700 flex justify-between items-center">
-                                        <div className="flex items-center space-x-6">
+                                    <div key={station.id} className="bg-gray-800 p-6 rounded-2xl border border-gray-700 flex flex-col xl:flex-row gap-4 xl:justify-between xl:items-center">
+                                        <div className="flex items-start gap-4 md:gap-6 min-w-0">
                                             <div className={cn("p-4 rounded-xl", isHealthOnline ? "bg-green-500/10 text-green-400" : "bg-gray-700/50 text-gray-500")}>
                                                 {isHealthOnline ? <Wifi size={24} /> : <WifiOff size={24} />}
                                             </div>
@@ -1588,7 +1792,7 @@ export default function SettingsPage() {
                                                                 <Edit2 size={14} />
                                                             </button>
                                                         </div>
-                                                        <div className="flex items-center space-x-4 mt-1 text-[10px] font-mono text-gray-500 uppercase font-black tracking-widest">
+                                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-[10px] font-mono text-gray-500 uppercase font-black tracking-widest">
                                                             <span>{station.hostname}</span>
                                                             <span>•</span>
                                                             <span>{station.ip_address}</span>
@@ -1599,9 +1803,9 @@ export default function SettingsPage() {
                                                         <div className="text-[9px] text-gray-600 font-mono mt-1 opacity-60">
                                                             Visto: {formatLastSeen(station.last_seen)}
                                                         </div>
-                                                        <div className="text-[9px] text-gray-400 font-mono mt-2 flex items-center gap-2 bg-gray-900/50 p-1.5 rounded w-fit border border-gray-700/50">
+                                                        <div className="text-[9px] text-gray-400 font-mono mt-2 flex flex-wrap items-center gap-2 bg-gray-900/50 p-1.5 rounded w-full sm:w-fit border border-gray-700/50">
                                                             <span className="font-bold text-gray-500">KIOSK CODE:</span>
-                                                            <span className="text-white font-black tracking-widest text-xs select-all cursor-text">{station.kiosk_code || '---'}</span>
+                                                            <span className="text-white font-black tracking-widest text-xs select-all cursor-text break-all">{station.kiosk_code || '---'}</span>
                                                             <div className="h-3 w-[1px] bg-gray-700 mx-1"></div>
                                                             <button
                                                                 onClick={() => copyToClipboard(buildKioskLink(station.kiosk_code))}
@@ -1665,12 +1869,12 @@ export default function SettingsPage() {
                                                 )}
                                             </div>
                                         </div>
-                                        <div className="flex items-center space-x-4">
-                                            <div className="flex flex-col items-end gap-2">
+                                        <div className="flex items-center gap-3 self-start xl:self-auto">
+                                            <div className="flex flex-col items-start xl:items-end gap-2">
                                                 <span className={statusClass}>
                                                     {statusLabel}
                                                 </span>
-                                                <div className="flex flex-wrap items-center justify-end gap-2 max-w-[260px]">
+                                                <div className="flex flex-wrap items-center justify-start xl:justify-end gap-2 max-w-full xl:max-w-[260px]">
                                                     <button
                                                         onClick={() => testConnectionMutation.mutate(station.id)}
                                                         className="p-2 bg-gray-700/60 text-gray-300 rounded-lg hover:bg-gray-600 hover:text-white transition-all"
@@ -1819,7 +2023,10 @@ export default function SettingsPage() {
                                     {AC_CATEGORIES.map(cat => (
                                         <button
                                             key={cat.id}
-                                            onClick={() => setSelectedCategory(cat.id)}
+                                            onClick={() => {
+                                                if (!confirmDiscardEditorChanges()) return;
+                                                setSelectedCategory(cat.id);
+                                            }}
                                             className={cn(
                                                 "w-full flex items-center justify-between p-4 rounded-2xl border transition-all font-bold",
                                                 selectedCategory === cat.id
@@ -1843,7 +2050,11 @@ export default function SettingsPage() {
                                                 <FileText className="text-blue-400" /> Perfiles Disponibles
                                             </h3>
                                             <button
-                                                onClick={() => { setNewProfileName(''); setIsEditorOpen(true); }}
+                                                onClick={() => {
+                                                    if (!confirmDiscardEditorChanges()) return;
+                                                    setNewProfileName('');
+                                                    setIsEditorOpen(true);
+                                                }}
                                                 className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-black uppercase flex items-center gap-2 transition-all shadow-lg"
                                             >
                                                 <Plus size={16} /> Crear Nuevo
@@ -1879,16 +2090,36 @@ export default function SettingsPage() {
                                         </div>
                                     </div>
 
-                                    {/* Deployment Footer */}
-                                    <div className="bg-blue-900/10 border border-blue-500/20 p-8 rounded-3xl flex flex-col md:flex-row justify-between items-center gap-6">
-                                        <div className="flex-1">
-                                            <h4 className="text-lg font-black text-white uppercase mb-2">Lanzar Configuración</h4>
-                                            <p className="text-sm text-gray-400">
-                                                Se enviarán {Object.keys(selectedProfiles).length} perfiles a
-                                                {selectedStationIds.length > 0 ? ` ${selectedStationIds.length} estación(es)` : ' TODAS las estaciones'}.
-                                            </p>
-                                            <div className="flex flex-wrap gap-2 mt-4">
-                                                {Array.isArray(stations) && stations.filter((s: any) => s.is_online).map((s: any) => (
+                                    {/* Deployment & Reliability */}
+                                    <div className="space-y-6">
+                                        <div className="bg-blue-900/10 border border-blue-500/20 p-8 rounded-3xl flex flex-col gap-6">
+                                            <div className="flex items-center justify-between gap-4 flex-wrap">
+                                                <div>
+                                                    <h4 className="text-lg font-black text-white uppercase">Lanzar Configuración</h4>
+                                                    <p className="text-sm text-gray-400">
+                                                        Se enviarán {Object.keys(selectedProfiles).length} perfiles a
+                                                        {selectedStationIds.length > 0 ? ` ${selectedStationIds.length} estación(es)` : ' TODAS las estaciones activas'}.
+                                                    </p>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-xs font-bold text-gray-400">Preflight estricto</span>
+                                                    <button
+                                                        onClick={() => setStrictDeploy((prev) => !prev)}
+                                                        className={cn(
+                                                            "relative w-14 h-7 rounded-full transition-colors",
+                                                            strictDeploy ? "bg-blue-500" : "bg-gray-600"
+                                                        )}
+                                                    >
+                                                        <div className={cn(
+                                                            "absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-transform",
+                                                            strictDeploy && "translate-x-7"
+                                                        )} />
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex flex-wrap gap-2">
+                                                {Array.isArray(stations) && stations.filter((s: any) => s.is_active !== false).map((s: any) => (
                                                     <button
                                                         key={s.id}
                                                         onClick={() => setSelectedStationIds(prev => prev.includes(s.id) ? prev.filter(id => id !== s.id) : [...prev, s.id])}
@@ -1899,19 +2130,243 @@ export default function SettingsPage() {
                                                                 : "bg-gray-800 border-gray-700 text-gray-500"
                                                         )}
                                                     >
-                                                        {s.name}
+                                                        {s.name}{s.is_online ? '' : ' (offline)'}
                                                     </button>
                                                 ))}
                                             </div>
+
+                                            <div className="flex flex-wrap items-center gap-3">
+                                                <button
+                                                    onClick={() => {
+                                                        const ids = (stations || [])
+                                                            .filter((s: any) => s.is_active !== false)
+                                                            .map((s: any) => s.id);
+                                                        setSelectedStationIds(ids);
+                                                    }}
+                                                    className="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-xs font-bold text-gray-300 hover:bg-gray-700"
+                                                >
+                                                    Seleccionar todas
+                                                </button>
+                                                <button
+                                                    onClick={() => setSelectedStationIds([])}
+                                                    className="px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 text-xs font-bold text-gray-400 hover:text-white"
+                                                >
+                                                    Limpiar selección
+                                                </button>
+                                                <button
+                                                    disabled={deployMutation.isPending || Object.keys(selectedProfiles).length === 0}
+                                                    onClick={() => deployMutation.mutate()}
+                                                    className="ml-auto bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest transition-all shadow-[0_0_30px_rgba(37,99,235,0.3)] flex items-center gap-3"
+                                                >
+                                                    <Upload size={20} />
+                                                    {deployMutation.isPending ? 'DESPLEGANDO...' : 'DESPLEGAR AHORA'}
+                                                </button>
+                                            </div>
                                         </div>
-                                        <button
-                                            disabled={deployMutation.isPending || Object.keys(selectedProfiles).length === 0}
-                                            onClick={() => deployMutation.mutate()}
-                                            className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest transition-all shadow-[0_0_30px_rgba(37,99,235,0.3)] flex items-center gap-3"
-                                        >
-                                            <Upload size={20} />
-                                            {deployMutation.isPending ? 'DESPLEGANDO...' : 'DESPLEGAR AHORA'}
-                                        </button>
+
+                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                            <div className="bg-gray-800 p-6 rounded-3xl border border-gray-700 space-y-4">
+                                                <h4 className="text-sm font-black uppercase tracking-wider text-gray-300 flex items-center gap-2">
+                                                    <Layout size={16} className="text-blue-400" /> Grupos De Estaciones
+                                                </h4>
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        value={newGroupName}
+                                                        onChange={(e) => setNewGroupName(e.target.value)}
+                                                        placeholder="Nombre del grupo"
+                                                        className="flex-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white"
+                                                    />
+                                                    <button
+                                                        onClick={() => {
+                                                            const name = newGroupName.trim();
+                                                            if (!name) return;
+                                                            if (selectedStationIds.length === 0) {
+                                                                alert("Selecciona estaciones para guardar el grupo.");
+                                                                return;
+                                                            }
+                                                            saveGroupMutation.mutate({ name, station_ids: selectedStationIds });
+                                                        }}
+                                                        className="px-3 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-500"
+                                                    >
+                                                        Guardar
+                                                    </button>
+                                                </div>
+
+                                                <div className="flex gap-2">
+                                                    <select
+                                                        value={selectedGroupName}
+                                                        onChange={(e) => setSelectedGroupName(e.target.value)}
+                                                        className="flex-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white"
+                                                    >
+                                                        <option value="">Selecciona grupo</option>
+                                                        {stationGroups.map((group) => (
+                                                            <option key={group.name} value={group.name}>
+                                                                {group.name} ({group.station_ids.length})
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    <button
+                                                        onClick={() => {
+                                                            if (!selectedGroupName) return;
+                                                            applyGroupSelection(selectedGroupName);
+                                                        }}
+                                                        className="px-3 py-2 rounded-xl bg-gray-700 text-white text-xs font-bold hover:bg-gray-600"
+                                                    >
+                                                        Cargar
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            if (!selectedGroupName) return;
+                                                            if (confirm(`¿Eliminar grupo "${selectedGroupName}"?`)) {
+                                                                deleteGroupMutation.mutate(selectedGroupName);
+                                                            }
+                                                        }}
+                                                        className="px-3 py-2 rounded-xl bg-red-500/20 border border-red-500/30 text-red-300 text-xs font-bold hover:bg-red-500 hover:text-white"
+                                                    >
+                                                        Borrar
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div className="bg-gray-800 p-6 rounded-3xl border border-gray-700 space-y-4">
+                                                <h4 className="text-sm font-black uppercase tracking-wider text-gray-300 flex items-center gap-2">
+                                                    <ShieldCheck size={16} className="text-green-400" /> Presets Hardware y Modo Seguro
+                                                </h4>
+                                                <div className="grid grid-cols-1 gap-3">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-xs text-gray-400">Modo seguro de validación</span>
+                                                        <button
+                                                            onClick={() => {
+                                                                const next = !safeModeEnabled;
+                                                                setSafeModeEnabled(next);
+                                                                safeModeMutation.mutate(next);
+                                                            }}
+                                                            className={cn(
+                                                                "relative w-14 h-7 rounded-full transition-colors",
+                                                                safeModeEnabled ? "bg-green-500" : "bg-gray-600"
+                                                            )}
+                                                        >
+                                                            <div className={cn(
+                                                                "absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-transform",
+                                                                safeModeEnabled && "translate-x-7"
+                                                            )} />
+                                                        </button>
+                                                    </div>
+
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        <button
+                                                            onClick={() => setHardwarePresetDrafts((prev) => ({ ...prev, vr: { ...selectedProfiles } }))}
+                                                            className="px-3 py-2 rounded-xl bg-gray-900 border border-gray-700 text-xs font-bold text-gray-300 hover:border-blue-500"
+                                                        >
+                                                            Guardar desde selección -&gt; VR
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setHardwarePresetDrafts((prev) => ({ ...prev, flat: { ...selectedProfiles } }))}
+                                                            className="px-3 py-2 rounded-xl bg-gray-900 border border-gray-700 text-xs font-bold text-gray-300 hover:border-blue-500"
+                                                        >
+                                                            Guardar desde selección -&gt; FLAT
+                                                        </button>
+                                                        <button
+                                                            onClick={() => applyHardwarePreset('vr')}
+                                                            className="px-3 py-2 rounded-xl bg-blue-600/20 border border-blue-500/30 text-xs font-bold text-blue-300 hover:bg-blue-600 hover:text-white"
+                                                        >
+                                                            Aplicar preset VR
+                                                        </button>
+                                                        <button
+                                                            onClick={() => applyHardwarePreset('flat')}
+                                                            className="px-3 py-2 rounded-xl bg-blue-600/20 border border-blue-500/30 text-xs font-bold text-blue-300 hover:bg-blue-600 hover:text-white"
+                                                        >
+                                                            Aplicar preset FLAT
+                                                        </button>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => saveHardwarePresetsMutation.mutate(hardwarePresetDrafts)}
+                                                        className="px-3 py-2 rounded-xl bg-green-600/20 border border-green-500/30 text-xs font-bold text-green-300 hover:bg-green-600 hover:text-white"
+                                                    >
+                                                        Guardar presets de hardware
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-gray-800 p-6 rounded-3xl border border-gray-700 space-y-4">
+                                            <h4 className="text-sm font-black uppercase tracking-wider text-gray-300 flex items-center gap-2">
+                                                <History size={16} className="text-cyan-400" /> Historial De Despliegues
+                                            </h4>
+                                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                                <div className="space-y-2 max-h-64 overflow-auto pr-1">
+                                                    {deployJobs.length === 0 && (
+                                                        <p className="text-xs text-gray-500">No hay trabajos de despliegue todavía.</p>
+                                                    )}
+                                                    {deployJobs.map((job) => (
+                                                        <button
+                                                            key={job.job_id}
+                                                            onClick={() => setActiveDeployJobId(job.job_id)}
+                                                            className={cn(
+                                                                "w-full text-left p-3 rounded-xl border transition-all",
+                                                                activeDeployJobId === job.job_id
+                                                                    ? "bg-blue-600/20 border-blue-500/40"
+                                                                    : "bg-gray-900/40 border-gray-700 hover:border-gray-500"
+                                                            )}
+                                                        >
+                                                            <div className="flex items-center justify-between gap-2">
+                                                                <span className="text-xs font-bold text-white">{job.job_id.slice(0, 8)}</span>
+                                                                <span className="text-[10px] font-bold uppercase text-gray-400">{job.status}</span>
+                                                            </div>
+                                                            <p className="text-[11px] text-gray-500 mt-1">
+                                                                ok:{job.summary?.success ?? 0} fail:{job.summary?.failed ?? 0} running:{job.summary?.running ?? 0}
+                                                            </p>
+                                                            {(job.summary?.failed || 0) > 0 && (
+                                                                <div className="mt-2">
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            retryDeployMutation.mutate(job.job_id);
+                                                                        }}
+                                                                        className="px-2 py-1 rounded-md bg-yellow-500/10 border border-yellow-500/30 text-yellow-300 text-[10px] font-bold hover:bg-yellow-500 hover:text-black"
+                                                                    >
+                                                                        Reintentar fallidas
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                                <div className="bg-gray-900/40 border border-gray-700 rounded-xl p-3 max-h-64 overflow-auto">
+                                                    {!deployJobDetail && (
+                                                        <p className="text-xs text-gray-500">Selecciona un trabajo para ver detalle.</p>
+                                                    )}
+                                                    {deployJobDetail && (
+                                                        <div className="space-y-2">
+                                                            {Object.values(deployJobDetail.station_results || {}).map((station) => (
+                                                                <div key={station.station_id} className="p-2 rounded-lg border border-gray-700 bg-gray-900/60">
+                                                                    <div className="flex justify-between">
+                                                                        <span className="text-xs font-bold text-white">{station.station_name}</span>
+                                                                        <span className="text-[10px] uppercase text-gray-400">{station.status}</span>
+                                                                    </div>
+                                                                    {station.error && <p className="text-[11px] text-red-400 mt-1">{station.error}</p>}
+                                                                    {(station.preflight?.errors || []).length > 0 && (
+                                                                        <p className="text-[11px] text-orange-400 mt-1">
+                                                                            Preflight: {(station.preflight?.errors || []).slice(0, 2).join(' | ')}
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="pt-2 border-t border-gray-700">
+                                                <p className="text-[11px] text-gray-500 mb-2">Auditoría reciente</p>
+                                                <div className="max-h-32 overflow-auto space-y-1">
+                                                    {deployAudit.slice(0, 8).map((entry, idx) => (
+                                                        <p key={idx} className="text-[10px] text-gray-400">
+                                                            [{entry?.event}] {entry?.payload?.job_id || ''} {entry?.payload?.status || ''}
+                                                        </p>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1944,6 +2399,7 @@ export default function SettingsPage() {
                 {
                     activeTab === 'database' && (
                         <div className="max-w-5xl animate-in fade-in duration-300">
+                            <SystemUpdatePanel />
                             <div className="bg-gray-800 p-8 rounded-3xl border border-gray-700">
                                 <h2 className="text-xl font-black text-white uppercase mb-6 flex items-center"><Database className="mr-2 text-blue-500" /> Copia de Seguridad</h2>
                                 <p className="text-gray-400 mb-8 font-medium">Gestiona la integridad de tus datos. Descarga copias de seguridad regularmente.</p>
@@ -1987,7 +2443,14 @@ export default function SettingsPage() {
                                 <h3 className="text-xl font-black text-white uppercase">
                                     Editor de {AC_CATEGORIES.find(c => c.id === selectedCategory)?.name}
                                 </h3>
-                                <button onClick={() => setIsEditorOpen(false)}><Plus className="rotate-45 text-gray-500 hover:text-white" size={28} /></button>
+                                <button
+                                    onClick={() => {
+                                        if (!confirmDiscardEditorChanges()) return;
+                                        setIsEditorOpen(false);
+                                    }}
+                                >
+                                    <Plus className="rotate-45 text-gray-500 hover:text-white" size={28} />
+                                </button>
                             </div>
                             <div className="p-8 overflow-y-auto flex-1 bg-gray-950">
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Nombre del perfil</label>
@@ -1995,8 +2458,9 @@ export default function SettingsPage() {
 
                                 {newProfileName && (
                                     <ACSettingsEditor
-                                        category={selectedCategory as 'controls' | 'gameplay' | 'video' | 'audio'}
+                                        category={selectedCategory as 'controls' | 'gameplay' | 'video' | 'audio' | 'camera' | 'race' | 'weather'}
                                         profileName={`${newProfileName}.ini`}
+                                        onDirtyChange={setEditorDirty}
                                     />
                                 )}
                             </div>

@@ -9,7 +9,7 @@ import logging
 from typing import Optional
 
 logger = logging.getLogger(__name__)
-ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+ENVIRONMENT = (os.getenv("ENVIRONMENT", "development") or "development").lower().strip()
 
 # Email Configuration (from environment variables)
 SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")

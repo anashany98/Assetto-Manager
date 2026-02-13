@@ -11,7 +11,6 @@ import {
 import { Link } from 'react-router-dom';
 import { getDashboardStats, type DashboardStats } from '../api/dashboard';
 import { getActiveSessions, type Session } from '../api/sessions';
-import { API_URL } from '../config';
 import AnalyticsPanel from '../components/AnalyticsPanel';
 import SessionTimer from '../components/SessionTimer';
 import StartSessionModal from '../components/StartSessionModal';
@@ -37,9 +36,9 @@ export default function Dashboard() {
     });
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 pb-6">
             {/* STATS GRID */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-6 pt-0">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 px-4 md:px-6 pt-0">
                 <StatCard
                     label="Total Simuladores"
                     value={stats?.total_stations || 0}
@@ -72,7 +71,7 @@ export default function Dashboard() {
             </div>
 
             {/* QUICK ACTIONS */}
-            <div className="px-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="px-4 md:px-6 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                 <button
                     onClick={() => setShowLaunchModal(true)}
                     className="block p-5 rounded-xl border border-gray-200 dark:border-white/5 bg-white dark:bg-white/5 backdrop-blur-sm shadow-sm dark:shadow-lg transition-all duration-300 group hover:-translate-y-1 hover:shadow-md dark:hover:shadow-xl hover:border-red-500/50 hover:bg-red-50 dark:hover:bg-red-500/10 hover:shadow-red-500/10 text-left"
@@ -112,9 +111,9 @@ export default function Dashboard() {
             </div>
 
             {/* MAIN CONTENT AREA */}
-            <div className="px-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="px-4 md:px-6 grid grid-cols-1 xl:grid-cols-3 gap-6">
                 {/* ACTIVE SESSIONS LIST */}
-                <div className="lg:col-span-2 space-y-4">
+                <div className="xl:col-span-2 space-y-4 min-w-0">
                     <h2 className="text-xl font-bold flex items-center gap-2">
                         <Play size={20} className="text-green-500" /> Sesiones en Curso
                     </h2>
@@ -160,7 +159,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* SIDEBAR ANALYTICS */}
-                <div className="space-y-6">
+                <div className="space-y-6 min-w-0">
                     <AnalyticsPanel />
                 </div>
             </div>
@@ -238,50 +237,5 @@ function QuickAction({ to, title, desc, color }: { to: string; title: string; de
             <p className="text-sm text-gray-500 dark:text-gray-400">{desc}</p>
         </Link>
     )
-}
-
-function WeatherBtn({ icon: Icon, label, color, onClick }: any) {
-    const colors: any = {
-        yellow: "hover:bg-yellow-500 hover:text-white border-yellow-200 dark:border-yellow-500/50 text-yellow-600 dark:text-yellow-400",
-        gray: "hover:bg-gray-500 hover:text-white border-gray-200 dark:border-gray-500/50 text-gray-500 dark:text-gray-400",
-        blue: "hover:bg-blue-500 hover:text-white border-blue-200 dark:border-blue-500/50 text-blue-600 dark:text-blue-400",
-        indigo: "hover:bg-indigo-500 hover:text-white border-indigo-200 dark:border-indigo-500/50 text-indigo-600 dark:text-indigo-400",
-        purple: "hover:bg-purple-500 hover:text-white border-purple-200 dark:border-purple-500/50 text-purple-600 dark:text-purple-400",
-    }
-    return (
-        <button
-            onClick={onClick}
-            className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl border bg-gray-50 dark:bg-black/40 transition-all active:scale-95 ${colors[color]}`}
-        >
-            <Icon size={20} />
-            <span className="text-[10px] font-bold">{label}</span>
-        </button>
-    )
-}
-
-function DiagnosticBar({ label, value, suffix, color }: { label: string; value: number; suffix?: string; color: string }) {
-    const colors: Record<string, { bg: string; fill: string }> = {
-        blue: { bg: "bg-blue-100 dark:bg-blue-500/20", fill: "bg-blue-500" },
-        green: { bg: "bg-green-100 dark:bg-green-500/20", fill: "bg-green-500" },
-        purple: { bg: "bg-purple-100 dark:bg-purple-500/20", fill: "bg-purple-500" },
-        red: { bg: "bg-red-100 dark:bg-red-500/20", fill: "bg-red-500" },
-    };
-    const c = colors[color] || colors.blue;
-    const isHigh = value > 80;
-
-    return (
-        <div className="flex items-center gap-2 text-xs">
-            <span className="text-gray-500 dark:text-gray-400 w-10">{label}</span>
-            <div className={`flex-1 h-2 rounded-full ${c.bg} overflow-hidden`}>
-                <div
-                    className={`h-full rounded-full transition-all ${isHigh ? 'bg-red-500' : c.fill}`}
-                    style={{ width: `${Math.min(value, 100)}%` }}
-                />
-            </div>
-            <span className={`w-16 text-right font-mono ${isHigh ? 'text-red-500 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'}`}>
-                {suffix || `${value.toFixed(0)}%`}
-            </span>
-        </div>
-    );
 }
 

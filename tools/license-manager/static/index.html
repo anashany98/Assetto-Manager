@@ -1,298 +1,558 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Assetto Manager - Admin Portal</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/lucide.min.js"></script>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Assetto Manager - License Admin</title>
     <style>
-        body {
-            background-color: #0f172a;
-            color: #e2e8f0;
-            font-family: 'Inter', sans-serif;
-        }
-
-        .glass {
-            background: rgba(30, 41, 59, 0.7);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
+      :root {
+        --bg: #0b1220;
+        --panel: rgba(30, 41, 59, 0.7);
+        --border: rgba(148, 163, 184, 0.22);
+        --text: #e2e8f0;
+        --muted: #94a3b8;
+        --blue: #60a5fa;
+        --green: #34d399;
+        --red: #f87171;
+        --yellow: #fbbf24;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans",
+          "Liberation Sans", sans-serif;
+      }
+      a { color: var(--blue); }
+      .wrap { max-width: 1100px; margin: 0 auto; padding: 28px; }
+      .row { display: flex; gap: 18px; flex-wrap: wrap; }
+      .col { flex: 1; min-width: 280px; }
+      .card {
+        background: var(--panel);
+        backdrop-filter: blur(10px);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 18px;
+      }
+      .h1 { font-size: 26px; font-weight: 900; letter-spacing: 0.04em; }
+      .sub { color: var(--muted); margin-top: 6px; }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: rgba(2, 6, 23, 0.35);
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      .pill.ok { color: var(--green); border-color: rgba(52, 211, 153, 0.35); }
+      .pill.bad { color: var(--red); border-color: rgba(248, 113, 113, 0.35); }
+      .pill.warn { color: var(--yellow); border-color: rgba(251, 191, 36, 0.35); }
+      .btn {
+        appearance: none;
+        border: 1px solid var(--border);
+        background: rgba(15, 23, 42, 0.55);
+        color: var(--text);
+        padding: 10px 12px;
+        border-radius: 12px;
+        cursor: pointer;
+        font-weight: 800;
+      }
+      .btn.primary { border-color: rgba(96, 165, 250, 0.5); background: rgba(59, 130, 246, 0.28); }
+      .btn.danger { border-color: rgba(248, 113, 113, 0.5); background: rgba(239, 68, 68, 0.18); }
+      .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+      .inp, select, textarea {
+        width: 100%;
+        box-sizing: border-box;
+        border: 1px solid var(--border);
+        background: rgba(2, 6, 23, 0.5);
+        color: var(--text);
+        border-radius: 12px;
+        padding: 10px 12px;
+        outline: none;
+      }
+      .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+      .muted { color: var(--muted); }
+      pre {
+        background: rgba(2, 6, 23, 0.6);
+        border: 1px solid var(--border);
+        padding: 12px;
+        border-radius: 12px;
+        overflow: auto;
+      }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { border-bottom: 1px solid rgba(148, 163, 184, 0.16); padding: 10px 6px; text-align: left; }
+      th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+      .right { text-align: right; }
+      .status { margin-top: 14px; color: var(--muted); font-size: 12px; }
+      .hide { display: none; }
+      .mods { display: flex; gap: 8px; flex-wrap: wrap; }
+      .tag { font-size: 12px; padding: 6px 8px; border-radius: 999px; border: 1px solid rgba(148, 163, 184, 0.22); color: var(--muted); }
+      .tag.on { color: var(--blue); border-color: rgba(96, 165, 250, 0.45); background: rgba(59, 130, 246, 0.18); }
     </style>
-</head>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="row" style="align-items: center; justify-content: space-between">
+        <div>
+          <div class="h1">LICENSE ADMIN</div>
+          <div class="sub">SaaS multi-cliente: tenants, usuarios y licencias por modulos</div>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <span id="pill-keys" class="pill">Keys: ...</span>
+          <span id="pill-auth" class="pill">Auth: ...</span>
+          <button id="btn-logout" class="btn danger hide">Salir</button>
+          <a class="pill" href="/docs">/docs</a>
+        </div>
+      </div>
 
-<body>
-    <div id="app" class="min-h-screen p-8">
-        <header class="max-w-6xl mx-auto mb-12 flex justify-between items-center">
-            <div>
-                <h1
-                    class="text-4xl font-black bg-gradient-to-r from-blue-400 to-indigo-500 text-transparent bg-clip-text">
-                    ADMIN PORTAL
-                </h1>
-                <p class="text-slate-400 font-medium">Gestor de Licencias SaaS</p>
+      <div id="status" class="status"></div>
+
+      <div id="login" class="row" style="margin-top: 18px;">
+        <div class="col">
+          <div class="card">
+            <h2 style="margin: 0 0 12px 0;">Login</h2>
+            <div class="grid2">
+              <input id="login-email" class="inp" placeholder="email" type="email" />
+              <input id="login-pass" class="inp" placeholder="password" type="password" />
             </div>
-            <div v-if="!config.has_key"
-                class="bg-red-500/20 text-red-400 px-4 py-2 rounded-lg border border-red-500/30 flex items-center gap-2">
-                <i data-lucide="alert-triangle"></i> Faltan llaves RSA
+            <div style="margin-top: 12px; display:flex; gap:10px;">
+              <button id="btn-login" class="btn primary">Entrar</button>
             </div>
-            <div v-else
-                class="bg-green-500/20 text-green-400 px-4 py-2 rounded-lg border border-green-500/30 flex items-center gap-2">
-                <i data-lucide="shield-check"></i> Sistema Seguro
+            <div class="muted" style="margin-top: 10px;">
+              Si no existe ningun usuario aun, hay que hacer bootstrap (ver abajo).
             </div>
-        </header>
+          </div>
+        </div>
+        <div class="col">
+          <div class="card">
+            <h2 style="margin: 0 0 12px 0;">Bootstrap (primer superadmin)</h2>
+            <div class="muted">
+              Endpoint: <code>POST /api/auth/bootstrap</code> con header <code>X-Bootstrap-Token</code>.
+            </div>
+            <pre>curl -X POST http://localhost:8800/api/auth/bootstrap ^
+  -H "Content-Type: application/json" ^
+  -H "X-Bootstrap-Token: &lt;LICENSE_ADMIN_BOOTSTRAP_TOKEN&gt;" ^
+  -d "{\"email\":\"admin@tuempresa.com\",\"password\":\"cambia-esto-ya\"}"</pre>
+          </div>
+        </div>
+      </div>
 
-        <main class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Form Section -->
-            <section class="lg:col-span-1 space-y-8">
-                <div class="glass rounded-2xl p-6 shadow-xl relative overflow-hidden">
-                    <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-purple-600"></div>
-                    <h2 class="text-xl font-bold mb-6 flex items-center gap-2">
-                        <i data-lucide="plus-circle" class="text-blue-400"></i> Nueva Licencia
-                    </h2>
-
-                    <form @submit.prevent="generateLicense" class="space-y-4">
-                        <div>
-                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Cliente /
-                                Negocio</label>
-                            <input v-model="form.client_name" type="text" required
-                                class="w-full bg-slate-800 border-slate-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                                placeholder="Ej. SimCenter Barcelona">
-                        </div>
-
-                        <div>
-                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Validez</label>
-                            <select v-model="form.days"
-                                class="w-full bg-slate-800 border-slate-700 rounded-lg p-3 text-white outline-none">
-                                <option :value="30">1 Mes (Trial)</option>
-                                <option :value="90">3 Meses</option>
-                                <option :value="365">1 Año</option>
-                                <option :value="730">2 Años</option>
-                                <option :value="3650">Perpetua (10 Años)</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label class="block text-xs font-bold uppercase text-slate-500 mb-2">Módulos</label>
-                            <div class="flex items-center gap-2 mb-3 p-2 bg-slate-800/50 rounded cursor-pointer"
-                                @click="toggleAllModules">
-                                <div
-                                    :class="['w-5 h-5 rounded border flex items-center justify-center transition-colors', isAllSelected ? 'bg-purple-600 border-purple-600' : 'border-slate-600']">
-                                    <i v-if="isAllSelected" data-lucide="check" class="w-3 h-3 text-white"></i>
-                                </div>
-                                <span class="text-sm font-medium text-purple-300">Todos (Master Key)</span>
-                            </div>
-
-                            <div class="grid grid-cols-2 gap-2">
-                                <div v-for="mod in availableModules" :key="mod.id" @click="toggleModule(mod.id)"
-                                    :class="['p-2 rounded border cursor-pointer text-sm transition-all select-none', 
-                                    form.modules.includes(mod.id) ? 'bg-blue-500/20 border-blue-500/50 text-blue-300' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500']">
-                                    {{ mod.label }}
-                                </div>
-                            </div>
-                        </div>
-
-                        <button type="submit" :disabled="loading"
-                            class="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold shadow-lg shadow-blue-500/25 transition-all transform hover:scale-[1.02] disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2">
-                            <span v-if="!loading">Generar Clave</span>
-                            <span v-else>Procesando...</span>
-                        </button>
-                    </form>
+      <div id="app" class="hide" style="margin-top: 18px;">
+        <div class="row">
+          <div class="col">
+            <div class="card">
+              <div style="display:flex; gap:10px; justify-content:space-between; align-items:flex-start;">
+                <div>
+                  <h2 style="margin:0;">Tenants</h2>
+                  <div class="muted">Usuario: <span id="me-email">-</span> (<span id="me-role">-</span>)</div>
                 </div>
-            </section>
+                <button id="btn-refresh" class="btn">Refrescar</button>
+              </div>
+              <div id="tenant-create" class="grid2 hide" style="margin-top:12px;">
+                <input id="tenant-name" class="inp" placeholder="Nombre del cliente" />
+                <button id="btn-tenant-create" class="btn primary">Crear</button>
+              </div>
+              <div style="margin-top:12px;">
+                <select id="tenant-select"></select>
+              </div>
+            </div>
+          </div>
 
-            <!-- Results & History -->
-            <section class="lg:col-span-2 space-y-8">
-                <!-- Generated Result -->
-                <div v-if="generatedToken"
-                    class="glass rounded-2xl p-8 border-green-500/20 shadow-2xl animate-bounce-in">
-                    <div class="flex justify-between items-start mb-4">
-                        <h2 class="text-2xl font-bold text-white flex items-center gap-2">
-                            <i data-lucide="check-circle" class="text-green-400"></i> Licencia Generada
-                        </h2>
-                        <button @click="generatedToken = null" class="text-slate-500 hover:text-white"><i
-                                data-lucide="x"></i></button>
-                    </div>
-
-                    <div
-                        class="bg-slate-900/80 p-4 rounded-xl border border-slate-700 font-mono text-sm text-green-300 break-all leading-relaxed relative group">
-                        {{ generatedToken }}
-                        <button @click="copyToken(generatedToken)"
-                            class="absolute top-2 right-2 p-2 bg-slate-800 hover:bg-slate-700 rounded text-slate-300 transition-colors">
-                            <i data-lucide="copy" class="w-4 h-4"></i>
-                        </button>
-                    </div>
-                    <div class="mt-4 text-center">
-                        <p class="text-slate-400 text-sm">Copia y envía esta clave al cliente. Debe pegarla en
-                            <strong>Ajustes > Licencia</strong>.</p>
-                    </div>
+          <div class="col">
+            <div class="card">
+              <h2 style="margin:0 0 12px 0;">Usuarios</h2>
+              <div id="user-create" class="hide">
+                <div class="grid2">
+                  <input id="user-email" class="inp" placeholder="email" type="email" />
+                  <input id="user-pass" class="inp" placeholder="password (min 8)" type="password" />
                 </div>
-
-                <!-- History -->
-                <div class="glass rounded-2xl p-6">
-                    <h2 class="text-xl font-bold mb-6 flex items-center gap-2">
-                        <i data-lucide="history" class="text-slate-400"></i> Historial Reciente
-                    </h2>
-
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr class="text-xs font-bold text-slate-500 uppercase border-b border-slate-700">
-                                    <th class="pb-3 pl-2">Cliente</th>
-                                    <th class="pb-3">Generada</th>
-                                    <th class="pb-3">Vence</th>
-                                    <th class="pb-3">Módulos</th>
-                                    <th class="pb-3 text-right pr-2">Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-800">
-                                <tr v-for="entry in history" :key="entry.generated_at"
-                                    class="group hover:bg-slate-800/30 transition-colors">
-                                    <td class="py-4 pl-2 font-medium text-white">{{ entry.client }}</td>
-                                    <td class="py-4 text-slate-400 text-sm">{{ new
-                                        Date(entry.generated_at).toLocaleDateString() }}</td>
-                                    <td class="py-4 text-slate-400 text-sm">{{ new
-                                        Date(entry.valid_until).toLocaleDateString() }}</td>
-                                    <td class="py-4">
-                                        <div class="flex flex-wrap gap-1 max-w-xs">
-                                            <span v-if="entry.modules.includes('*')"
-                                                class="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] font-bold">MASTER</span>
-                                            <span v-else v-for="m in entry.modules.slice(0, 3)" :key="m"
-                                                class="px-1.5 py-0.5 rounded bg-slate-700 text-slate-300 text-[10px] border border-slate-600">{{
-                                                m }}</span>
-                                            <span v-if="!entry.modules.includes('*') && entry.modules.length > 3"
-                                                class="text-[10px] text-slate-500">+{{ entry.modules.length - 3
-                                                }}</span>
-                                        </div>
-                                    </td>
-                                    <td class="py-4 text-right pr-2">
-                                        <button @click="copyToken(entry.token)"
-                                            class="text-blue-400 hover:text-white transition-colors"
-                                            title="Copiar Clave">
-                                            <i data-lucide="copy" class="w-4 h-4"></i>
-                                        </button>
-                                    </td>
-                                </tr>
-                                <tr v-if="history.length === 0">
-                                    <td colspan="5" class="py-8 text-center text-slate-500 italic">No hay licencias
-                                        generadas aún.</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                <div style="margin-top:10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                  <select id="user-role" style="min-width:220px;">
+                    <option value="tenant_user" selected>tenant_user</option>
+                    <option value="tenant_admin">tenant_admin</option>
+                  </select>
+                  <button id="btn-user-create" class="btn primary">Crear</button>
                 </div>
-            </section>
-        </main>
+              </div>
+              <div style="margin-top:12px; overflow:auto;">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Email</th>
+                      <th>Rol</th>
+                      <th>Activo</th>
+                    </tr>
+                  </thead>
+                  <tbody id="users-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top: 18px;">
+          <div class="col">
+            <div class="card">
+              <h2 style="margin:0 0 12px 0;">Emitir licencia</h2>
+              <div id="license-form" class="hide">
+                <div class="grid3">
+                  <select id="lic-days">
+                    <option value="30">30 dias (trial)</option>
+                    <option value="90">90 dias</option>
+                    <option value="365" selected>365 dias</option>
+                    <option value="730">730 dias</option>
+                  </select>
+                  <input id="lic-note" class="inp" placeholder="nota (opcional)" />
+                  <button id="btn-lic-issue" class="btn primary">Generar</button>
+                </div>
+                <div class="muted" style="margin-top:10px;">Selecciona modulos:</div>
+                <div id="mods" class="mods" style="margin-top:10px;"></div>
+              </div>
+              <div id="license-form-locked" class="muted">
+                Solo superadmin puede emitir/revocar licencias.
+              </div>
+            </div>
+          </div>
+          <div class="col">
+            <div class="card">
+              <h2 style="margin:0 0 12px 0;">Licencias</h2>
+              <div style="overflow:auto;">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Estado</th>
+                      <th>Vence</th>
+                      <th>Modulos</th>
+                      <th class="right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="licenses-tbody"></tbody>
+                </table>
+              </div>
+              <div class="muted" style="margin-top:10px;">
+                Consejo: el cliente pega el token en <code>Ajustes -&gt; Licencia</code>.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top: 18px;">
+          <div class="col">
+            <div class="card">
+              <h2 style="margin:0 0 12px 0;">Token seleccionado</h2>
+              <textarea id="token-box" rows="6" readonly></textarea>
+              <div style="margin-top: 10px; display:flex; gap:10px; justify-content:flex-end;">
+                <button id="btn-token-copy" class="btn">Copiar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <script>
-        const { createApp, ref, computed, onMounted } = Vue;
+      const $ = (id) => document.getElementById(id);
 
-        createApp({
-            setup() {
-                const config = ref({ has_key: false });
-                const history = ref([]);
-                const loading = ref(false);
-                const generatedToken = ref(null);
+      let token = localStorage.getItem("license_admin_token") || "";
+      let me = null;
+      let tenants = [];
+      let tenantId = null;
+      let modules = [];
+      let selectedModules = [];
 
-                const form = ref({
-                    client_name: '',
-                    days: 365,
-                    modules: ['dashboard', 'kiosk', 'leaderboard', 'settings']
-                });
+      function setStatus(msg) {
+        $("status").textContent = msg || "";
+      }
 
-                const availableModules = [
-                    { id: 'dashboard', label: 'Dashboard' },
-                    { id: 'kiosk', label: 'Modo Kiosko' },
-                    { id: 'leaderboard', label: 'Clasificación' },
-                    { id: 'settings', label: 'Ajustes' },
-                    { id: 'stations', label: 'Simuladores' },
-                    { id: 'mods', label: 'Librería Mods' },
-                    { id: 'events', label: 'Eventos' },
-                    { id: 'users', label: 'Usuarios' },
-                    { id: 'reservations', label: 'Reservas' },
-                    { id: 'tv_control', label: 'Control TV' },
-                ];
+      async function apiFetch(path, opts = {}) {
+        const headers = opts.headers || {};
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+        opts.headers = headers;
+        const res = await fetch(path, opts);
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(text || `HTTP ${res.status}`);
+        }
+        const ct = res.headers.get("content-type") || "";
+        if (ct.includes("application/json")) return await res.json();
+        return await res.text();
+      }
 
-                const isAllSelected = computed(() => form.value.modules.includes('*'));
+      function setPills(config) {
+        const keys = $("pill-keys");
+        keys.textContent = config.has_private_key ? "Keys: OK" : "Keys: MISSING";
+        keys.className = "pill " + (config.has_private_key ? "ok" : "bad");
 
-                const toggleModule = (id) => {
-                    if (isAllSelected.value) {
-                        form.value.modules = [id];
-                        return;
-                    }
-                    if (form.value.modules.includes(id)) {
-                        form.value.modules = form.value.modules.filter(m => m !== id);
-                    } else {
-                        form.value.modules.push(id);
-                    }
-                };
+        const auth = $("pill-auth");
+        auth.textContent = token ? "Auth: ON" : "Auth: OFF";
+        auth.className = "pill " + (token ? "ok" : "warn");
+      }
 
-                const toggleAllModules = () => {
-                    if (isAllSelected.value) {
-                        form.value.modules = [];
-                    } else {
-                        form.value.modules = ['*'];
-                    }
-                };
+      async function loadConfig() {
+        const cfg = await apiFetch("/api/config");
+        setPills(cfg);
+        return cfg;
+      }
 
-                const fetchConfig = async () => {
-                    try {
-                        const res = await fetch('/api/config');
-                        config.value = await res.json();
-                    } catch (e) { console.error(e); }
-                };
+      async function loadMe() {
+        me = await apiFetch("/api/me");
+        $("me-email").textContent = me.email;
+        $("me-role").textContent = me.role;
+        const isSuper = me.role === "superadmin";
+        $("tenant-create").classList.toggle("hide", !isSuper);
+        $("user-create").classList.toggle("hide", !isSuper && me.role !== "tenant_admin");
+        $("license-form").classList.toggle("hide", !isSuper);
+        $("license-form-locked").classList.toggle("hide", isSuper);
 
-                const fetchHistory = async () => {
-                    try {
-                        const res = await fetch('/api/history');
-                        history.value = await res.json();
-                    } catch (e) { console.error(e); }
-                };
+        const roleSel = $("user-role");
+        if (roleSel) {
+          roleSel.disabled = !isSuper;
+          if (!isSuper) roleSel.value = "tenant_user";
+        }
+      }
 
-                const generateLicense = async () => {
-                    loading.value = true;
-                    try {
-                        const res = await fetch('/api/generate', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(form.value)
-                        });
-                        if (!res.ok) throw new Error(await res.text());
-                        const data = await res.json();
-                        generatedToken.value = data.token;
-                        fetchHistory(); // Refresh history
-                    } catch (e) {
-                        alert("Error: " + e.message);
-                    } finally {
-                        loading.value = false;
-                    }
-                };
+      async function loadModules() {
+        modules = await apiFetch("/api/modules");
+      }
 
-                const copyToken = async (token) => {
-                    await navigator.clipboard.writeText(token);
-                    alert("Clave copiada!");
-                };
+      function renderModules() {
+        const root = $("mods");
+        root.innerHTML = "";
 
-                onMounted(() => {
-                    fetchConfig();
-                    fetchHistory();
-                    lucide.createIcons();
-                });
+        const mk = document.createElement("span");
+        mk.className = "tag " + (selectedModules.includes("*") ? "on" : "");
+        mk.textContent = "MASTER (*)";
+        mk.onclick = () => {
+          selectedModules = selectedModules.includes("*") ? [] : ["*"];
+          renderModules();
+        };
+        root.appendChild(mk);
 
-                // Re-init icons when DOM updates
-                Vue.watch([history, generatedToken], () => {
-                    setTimeout(() => lucide.createIcons(), 100);
-                });
+        for (const m of modules) {
+          const el = document.createElement("span");
+          const isOn = selectedModules.includes(m.key);
+          el.className = "tag " + (isOn ? "on" : "");
+          el.textContent = m.label;
+          el.onclick = () => {
+            if (selectedModules.includes("*")) return;
+            if (isOn) selectedModules = selectedModules.filter((x) => x !== m.key);
+            else selectedModules = [...selectedModules, m.key];
+            renderModules();
+          };
+          root.appendChild(el);
+        }
+      }
 
-                return {
-                    config, history, form, availableModules, loading, generatedToken,
-                    isAllSelected, toggleModule, toggleAllModules, generateLicense, copyToken
-                };
-            }
-        }).mount('#app');
+      async function loadTenants() {
+        tenants = await apiFetch("/api/tenants");
+        const sel = $("tenant-select");
+        sel.innerHTML = "";
+        for (const t of tenants) {
+          const opt = document.createElement("option");
+          opt.value = String(t.id);
+          opt.textContent = `${t.name} (${t.slug})`;
+          sel.appendChild(opt);
+        }
+        if (!tenantId && tenants.length) tenantId = tenants[0].id;
+        if (tenantId) sel.value = String(tenantId);
+      }
+
+      async function loadUsers() {
+        const tbody = $("users-tbody");
+        tbody.innerHTML = "";
+        if (!tenantId) return;
+        const users = await apiFetch(`/api/tenants/${tenantId}/users`);
+        for (const u of users) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${u.email}</td><td>${u.role}</td><td>${u.is_active ? "SI" : "NO"}</td>`;
+          tbody.appendChild(tr);
+        }
+      }
+
+      async function loadLicenses() {
+        const tbody = $("licenses-tbody");
+        tbody.innerHTML = "";
+        if (!tenantId) return;
+        const licenses = await apiFetch(`/api/tenants/${tenantId}/licenses`);
+        for (const lic of licenses) {
+          const tr = document.createElement("tr");
+          const mods = (lic.modules || []).includes("*") ? "MASTER" : (lic.modules || []).join(", ");
+          const btnCopy = `<button class="btn" data-act="select" data-id="${lic.id}">Ver/Copy</button>`;
+          const btnRevoke =
+            me.role === "superadmin" && lic.status === "active"
+              ? ` <button class="btn danger" data-act="revoke" data-id="${lic.id}">Revocar</button>`
+              : "";
+          tr.innerHTML = `<td>#${lic.id}</td><td>${lic.status}</td><td>${new Date(lic.valid_until).toLocaleDateString()}</td><td>${mods}</td><td class="right">${btnCopy}${btnRevoke}</td>`;
+          tr.dataset.token = lic.token;
+          tbody.appendChild(tr);
+        }
+
+        tbody.onclick = async (e) => {
+          const btn = e.target.closest("button");
+          if (!btn) return;
+          const act = btn.dataset.act;
+          const id = btn.dataset.id;
+          const row = btn.closest("tr");
+          const licToken = row ? row.dataset.token : "";
+          if (act === "select") {
+            $("token-box").value = licToken || "";
+            setStatus(`Token seleccionado: licencia #${id}`);
+          } else if (act === "revoke") {
+            if (!confirm(`Revocar licencia #${id}?`)) return;
+            await apiFetch(`/api/licenses/${id}/revoke`, { method: "POST" });
+            await loadLicenses();
+            setStatus(`Licencia #${id} revocada.`);
+          }
+        };
+      }
+
+      async function login() {
+        const email = $("login-email").value.trim();
+        const pass = $("login-pass").value;
+        if (!email || !pass) return;
+        setStatus("Entrando...");
+        const body = new URLSearchParams();
+        body.set("username", email);
+        body.set("password", pass);
+        const res = await fetch("/api/auth/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body,
+        });
+        if (!res.ok) {
+          setStatus("Login fallido.");
+          throw new Error(await res.text());
+        }
+        const data = await res.json();
+        token = data.access_token;
+        localStorage.setItem("license_admin_token", token);
+        $("login-email").value = "";
+        $("login-pass").value = "";
+        await initAfterLogin();
+      }
+
+      function logout() {
+        localStorage.removeItem("license_admin_token");
+        token = "";
+        me = null;
+        tenantId = null;
+        $("app").classList.add("hide");
+        $("login").classList.remove("hide");
+        $("btn-logout").classList.add("hide");
+        $("token-box").value = "";
+        setStatus("Sesion cerrada.");
+        loadConfig().catch(() => {});
+      }
+
+      async function initAfterLogin() {
+        await loadConfig();
+        await loadMe();
+        await loadModules();
+        selectedModules = [];
+        renderModules();
+        await loadTenants();
+        await loadUsers();
+        await loadLicenses();
+
+        $("login").classList.add("hide");
+        $("app").classList.remove("hide");
+        $("btn-logout").classList.remove("hide");
+        setStatus("OK");
+      }
+
+      $("btn-login").onclick = () => login().catch((e) => setStatus(String(e.message || e)));
+      $("btn-logout").onclick = () => logout();
+      $("btn-refresh").onclick = () => initAfterLogin().catch((e) => setStatus(String(e.message || e)));
+
+      $("tenant-select").onchange = async (e) => {
+        tenantId = parseInt(e.target.value, 10);
+        await loadUsers();
+        await loadLicenses();
+        setStatus(`Tenant seleccionado: ${tenantId}`);
+      };
+
+      $("btn-tenant-create").onclick = async () => {
+        const name = $("tenant-name").value.trim();
+        if (!name) return;
+        setStatus("Creando tenant...");
+        const t = await apiFetch("/api/tenants", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name }),
+        });
+        $("tenant-name").value = "";
+        await loadTenants();
+        tenantId = t.id;
+        $("tenant-select").value = String(tenantId);
+        await loadUsers();
+        await loadLicenses();
+        setStatus("Tenant creado.");
+      };
+
+      $("btn-user-create").onclick = async () => {
+        if (!tenantId) return;
+        const email = $("user-email").value.trim();
+        const pass = $("user-pass").value;
+        if (!email || !pass) return;
+        setStatus("Creando usuario...");
+        const role = me && me.role === "superadmin" ? $("user-role").value : "tenant_user";
+        await apiFetch(`/api/tenants/${tenantId}/users`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password: pass, role }),
+        });
+        $("user-email").value = "";
+        $("user-pass").value = "";
+        await loadUsers();
+        setStatus("Usuario creado.");
+      };
+
+      $("btn-lic-issue").onclick = async () => {
+        if (!tenantId) return;
+        if (!selectedModules.length) return;
+        const days = parseInt($("lic-days").value, 10);
+        const note = $("lic-note").value.trim();
+        setStatus("Emitiendo licencia...");
+        const lic = await apiFetch(`/api/tenants/${tenantId}/licenses`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ days, modules: selectedModules, note }),
+        });
+        selectedModules = [];
+        renderModules();
+        $("lic-note").value = "";
+        $("token-box").value = lic.token || "";
+        await loadLicenses();
+        setStatus(`Licencia emitida (#${lic.id}).`);
+      };
+
+      $("btn-token-copy").onclick = async () => {
+        const txt = $("token-box").value || "";
+        if (!txt) return;
+        await navigator.clipboard.writeText(txt);
+        setStatus("Copiado al portapapeles.");
+      };
+
+      (async () => {
+        await loadConfig();
+        if (token) {
+          try {
+            await initAfterLogin();
+          } catch {
+            logout();
+          }
+        } else {
+          $("login").classList.remove("hide");
+        }
+      })();
     </script>
-</body>
-
+  </body>
 </html>

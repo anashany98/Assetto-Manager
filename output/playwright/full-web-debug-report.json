@@ -1,0 +1,264 @@
+{
+  "meta": {
+    "baseUrl": "http://localhost:3010",
+    "apiUrl": "http://127.0.0.1:8000",
+    "checkedRoutes": 36,
+    "generatedAt": "2026-02-11T22:07:33.829Z"
+  },
+  "visited": [
+    {
+      "route": "/admin",
+      "finalUrl": "http://localhost:3010/admin",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 852
+    },
+    {
+      "route": "/admin/scenarios",
+      "finalUrl": "http://localhost:3010/admin/scenarios",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 858
+    },
+    {
+      "route": "/drivers",
+      "finalUrl": "http://localhost:3010/drivers",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 846
+    },
+    {
+      "route": "/events",
+      "finalUrl": "http://localhost:3010/events",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 859
+    },
+    {
+      "route": "/championships",
+      "finalUrl": "http://localhost:3010/championships",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 853
+    },
+    {
+      "route": "/history",
+      "finalUrl": "http://localhost:3010/history",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 860
+    },
+    {
+      "route": "/bookings",
+      "finalUrl": "http://localhost:3010/bookings",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 852
+    },
+    {
+      "route": "/reservations",
+      "finalUrl": "http://localhost:3010/reservations",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 854
+    },
+    {
+      "route": "/mods",
+      "finalUrl": "http://localhost:3010/mods",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 861
+    },
+    {
+      "route": "/online-reservations",
+      "finalUrl": "http://localhost:3010/online-reservations",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 852
+    },
+    {
+      "route": "/compare",
+      "finalUrl": "http://localhost:3010/compare",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 844
+    },
+    {
+      "route": "/settings",
+      "finalUrl": "http://localhost:3010/settings",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 849
+    },
+    {
+      "route": "/profiles",
+      "finalUrl": "http://localhost:3010/profiles",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 851
+    },
+    {
+      "route": "/users",
+      "finalUrl": "http://localhost:3010/users",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 846
+    },
+    {
+      "route": "/remote",
+      "finalUrl": "http://localhost:3010/remote",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 841
+    },
+    {
+      "route": "/leaderboard",
+      "finalUrl": "http://localhost:3010/leaderboard",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 897
+    },
+    {
+      "route": "/hall-of-fame",
+      "finalUrl": "http://localhost:3010/hall-of-fame",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 858
+    },
+    {
+      "route": "/kiosk",
+      "finalUrl": "http://localhost:3010/kiosk",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 843
+    },
+    {
+      "route": "/battle",
+      "finalUrl": "http://localhost:3010/battle",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 845
+    },
+    {
+      "route": "/live-map",
+      "finalUrl": "http://localhost:3010/live-map",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 856
+    },
+    {
+      "route": "/tv",
+      "finalUrl": "http://localhost:3010/tv",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 846
+    },
+    {
+      "route": "/reservar",
+      "finalUrl": "http://localhost:3010/reservar",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 850
+    },
+    {
+      "route": "/portal",
+      "finalUrl": "http://localhost:3010/portal",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 850
+    },
+    {
+      "route": "/station-display",
+      "finalUrl": "http://localhost:3010/station-display",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 855
+    },
+    {
+      "route": "/tv/leaderboard",
+      "finalUrl": "http://localhost:3010/tv/leaderboard",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 843
+    },
+    {
+      "route": "/tv/ads",
+      "finalUrl": "http://localhost:3010/tv/ads",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 845
+    },
+    {
+      "route": "/tv/spectator",
+      "finalUrl": "http://localhost:3010/tv/spectator",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 852
+    },
+    {
+      "route": "/tv/spectator-fullscreen",
+      "finalUrl": "http://localhost:3010/tv/spectator-fullscreen",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 847
+    },
+    {
+      "route": "/tv/spectator-multi",
+      "finalUrl": "http://localhost:3010/tv/spectator-multi",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 854
+    },
+    {
+      "route": "/mobile",
+      "finalUrl": "http://localhost:3010/mobile",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 854
+    },
+    {
+      "route": "/passport-scanner",
+      "finalUrl": "http://localhost:3010/passport-scanner",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 849
+    },
+    {
+      "route": "/tv-mode",
+      "finalUrl": "http://localhost:3010/tv-mode",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 849
+    },
+    {
+      "route": "/elimination",
+      "finalUrl": "http://localhost:3010/elimination",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 849
+    },
+    {
+      "route": "/hardware",
+      "finalUrl": "http://localhost:3010/hardware",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 846
+    },
+    {
+      "route": "/analytics",
+      "finalUrl": "http://localhost:3010/analytics",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 943
+    },
+    {
+      "route": "/lock-screen",
+      "finalUrl": "http://localhost:3010/kiosk",
+      "title": "Assetto Manager",
+      "status": 200,
+      "durationMs": 874
+    }
+  ],
+  "consoleIssues": [],
+  "networkIssues": []
+}

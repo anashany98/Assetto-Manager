@@ -3,8 +3,6 @@ import esTranslations from '../i18n/es.json';
 import enTranslations from '../i18n/en.json';
 import caTranslations from '../i18n/ca.json';
 
-export type Language = 'es' | 'en' | 'ca';
-
 const translations: Record<Language, typeof esTranslations> = {
     es: esTranslations,
     en: enTranslations,
@@ -14,12 +12,12 @@ const translations: Record<Language, typeof esTranslations> = {
 import { LanguageContext } from './LanguageContextDefinition';
 
 // availableLanguages moved to languageConstants.ts
-import { availableLanguages } from './languageConstants';
+import { availableLanguages, type Language } from './languageConstants';
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
     const [language, setLanguageState] = useState<Language>(() => {
         const saved = localStorage.getItem('language');
-        if (saved && ['es', 'en'].includes(saved)) {
+        if (saved && availableLanguages.some((l) => l.code === saved)) {
             return saved as Language;
         }
         return 'es'; // Default
@@ -37,7 +35,6 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     // Translation function
     const t = (key: string): string => {
         const keys = key.split('.');
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let value: any = translations[language];
 
         for (const k of keys) {

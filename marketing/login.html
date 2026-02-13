@@ -67,6 +67,18 @@
             <input type="hidden" id="mode" value="login">
             <div class="space-y-4">
                 <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Servidor (API)</label>
+                    <input type="text" id="api-base" placeholder="http://192.168.1.50:8000" required
+                        class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-blue-500 transition-colors placeholder-gray-600">
+                    <p class="text-[10px] text-gray-500 mt-1">LAN: usa la IP del PC Master. Se guarda en este navegador.
+                    </p>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Panel Web</label>
+                    <input type="text" id="panel-base" placeholder="http://192.168.1.50:3010" required
+                        class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-blue-500 transition-colors placeholder-gray-600">
+                </div>
+                <div>
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Email / Usuario</label>
                     <input type="text" id="username" placeholder="admin" required
                         class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-blue-500 transition-colors placeholder-gray-600">
@@ -119,6 +131,49 @@
             forgot: document.getElementById('forgot-link')
         };
 
+        const STORAGE_KEYS = {
+            apiBase: 'am_api_base',
+            panelBase: 'am_panel_base'
+        };
+
+        function getDefaultHost() {
+            return window.location.hostname || 'localhost';
+        }
+
+        function derivePanelBase(apiBase) {
+            try {
+                const u = new URL(apiBase);
+                return `${u.protocol}//${u.hostname}:3010`;
+            } catch {
+                return `http://${getDefaultHost()}:3010`;
+            }
+        }
+
+        function initServerInputs() {
+            const apiInput = document.getElementById('api-base');
+            const panelInput = document.getElementById('panel-base');
+
+            const apiBase = (localStorage.getItem(STORAGE_KEYS.apiBase) || `http://${getDefaultHost()}:8000`).trim();
+            const panelBase = (localStorage.getItem(STORAGE_KEYS.panelBase) || derivePanelBase(apiBase)).trim();
+
+            apiInput.value = apiBase;
+            panelInput.value = panelBase;
+
+            apiInput.addEventListener('change', () => {
+                const nextApi = apiInput.value.trim();
+                const nextPanel = derivePanelBase(nextApi);
+                panelInput.value = nextPanel;
+                localStorage.setItem(STORAGE_KEYS.apiBase, nextApi);
+                localStorage.setItem(STORAGE_KEYS.panelBase, nextPanel);
+            });
+
+            panelInput.addEventListener('change', () => {
+                localStorage.setItem(STORAGE_KEYS.panelBase, panelInput.value.trim());
+            });
+        }
+
+        initServerInputs();
+
         function toggleMode() {
             state.mode = state.mode === 'login' ? 'register' : 'login';
 
@@ -146,6 +201,8 @@
         els.form.addEventListener('submit', async (e) => {
             e.preventDefault();
 
+            const apiBase = document.getElementById('api-base').value.trim();
+            const panelBase = document.getElementById('panel-base').value.trim();
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
 
@@ -156,13 +213,24 @@
             document.getElementById('btn-loader').classList.remove('hidden');
 
             try {
+                localStorage.setItem(STORAGE_KEYS.apiBase, apiBase);
+                localStorage.setItem(STORAGE_KEYS.panelBase, panelBase);
+
+                const apiUrl = (path) => {
+                    const u = new URL(apiBase);
+                    u.pathname = path;
+                    u.search = '';
+                    u.hash = '';
+                    return u.toString();
+                };
+
                 if (state.mode === 'login') {
                     // LOGIN FLOW
                     const formData = new URLSearchParams();
                     formData.append('username', username);
                     formData.append('password', password);
 
-                    const res = await fetch('http://localhost:8000/token', {
+                    const res = await fetch(apiUrl('/token'), {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                         body: formData
@@ -172,13 +240,10 @@
                     const data = await res.json();
 
                     localStorage.setItem('token', data.access_token);
-                    // Redirect to the dashboard URL (usually running on port 3010 or similar, but let's assume root of where this is hosted or localhost:3010)
-                    // Since this is a standalone file, we redirect to the React app or stay here if testing.
-                    // For now, let's redirect to localhost:3010 (The web panel)
-                    window.location.href = 'http://localhost:3010/';
+                    window.location.href = `${panelBase.replace(/\/$/, '')}/`;
                 } else {
                     // REGISTER FLOW
-                    const res = await fetch('http://localhost:8000/register', {
+                    const res = await fetch(apiUrl('/register'), {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ username, password })
@@ -198,7 +263,7 @@
                     const formData = new URLSearchParams();
                     formData.append('username', username);
                     formData.append('password', password);
-                    const loginRes = await fetch('http://localhost:8000/token', {
+                    const loginRes = await fetch(apiUrl('/token'), {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                         body: formData
@@ -207,7 +272,7 @@
                     localStorage.setItem('token', loginData.access_token);
 
                     setTimeout(() => {
-                        window.location.href = 'http://localhost:3010/';
+                        window.location.href = `${panelBase.replace(/\/$/, '')}/`;
                     }, 1000);
                 }
 

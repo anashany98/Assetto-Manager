@@ -4,11 +4,14 @@ from sqlalchemy import func, desc, asc
 from typing import List, Optional
 from ..database import get_db
 from ..models import SessionResult, Driver, Scenario
+from .auth import require_admin_or_public_token
+from ..security.license import require_license_module
 
 router = APIRouter(
     prefix="/leaderboard",
     tags=["Leaderboard"],
     responses={404: {"description": "Not found"}},
+    dependencies=[Depends(require_admin_or_public_token), Depends(require_license_module("leaderboard"))],
 )
 
 def format_lap_time(ms: int) -> str:

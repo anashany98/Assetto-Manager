@@ -25,17 +25,16 @@ def generate_keys():
 
     # Ensure directories exist
     os.makedirs("certs", exist_ok=True)
-    os.makedirs("../backend/app/certs", exist_ok=True)
 
     # Save Private Key (Keep this safe!)
     with open("certs/private_key.pem", "wb") as f:
         f.write(pem_private)
     print("Generated certs/private_key.pem (KEEP SAFE!)")
 
-    # Save Public Key (For Backend)
-    with open("../backend/app/certs/public_key.pem", "wb") as f:
+    # Save Public Key (For Backend verification)
+    with open("certs/public_key.pem", "wb") as f:
         f.write(pem_public)
-    print("Generated ../backend/app/certs/public_key.pem (Verify Token)")
+    print("Generated certs/public_key.pem (Verify Token)")
 
 if __name__ == "__main__":
     generate_keys()

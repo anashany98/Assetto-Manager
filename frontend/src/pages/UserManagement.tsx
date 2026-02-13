@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { useAuth } from '../context/useAuth';
 import { API_URL } from '../config';
-import { Shield, Check, X, User as UserIcon } from 'lucide-react';
+import { Shield, Check, User as UserIcon } from 'lucide-react';
 
 type User = {
     id: number;
@@ -61,6 +61,8 @@ export default function UserManagement() {
         return <div className="p-8 text-red-500">Acceso denegado. Requiere permisos de administrador.</div>;
     }
 
+    const editingUser = editingId !== null ? (users?.find(u => u.id === editingId) ?? null) : null;
+
     return (
         <div className="p-8 max-w-7xl mx-auto">
             <div className="flex items-center gap-3 mb-8">
@@ -108,42 +110,12 @@ export default function UserManagement() {
                                         <span className="text-slate-500 italic">Acceso Total (Admin)</span>
                                     ) : (
                                         <div className="flex flex-wrap gap-1">
-                                            {editingId === u.id ? (
-                                                <div className="grid grid-cols-2 gap-2 p-2 bg-slate-900 rounded border border-slate-600">
-                                                    {MODULES.map(mod => (
-                                                        <label key={mod.key} className="flex items-center gap-2 cursor-pointer hover:bg-slate-800 p-1 rounded">
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={u.permissions?.includes(mod.key)}
-                                                                onChange={(e) => {
-                                                                    const confirmList = u.permissions || [];
-                                                                    const newList = e.target.checked
-                                                                        ? [...confirmList, mod.key]
-                                                                        : confirmList.filter(k => k !== mod.key);
-
-                                                                    // Optimistic update for UI interaction would be complex here without state
-                                                                    // So we will just use a temp state or just save on every click? 
-                                                                    // Let's create a local save button instead of live editing on list.
-                                                                }}
-                                                                // Actually, better to render a Modal or inline form.
-                                                                // For simplicity, let's render standard badges when not editing, 
-                                                                // and a full permission editor when editing.
-                                                                className="rounded border-slate-600 bg-slate-800 text-blue-500 focus:ring-blue-500"
-                                                            />
-                                                            <span className="text-sm text-slate-300">{mod.label}</span>
-                                                        </label>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <>
-                                                    {u.permissions?.length === 0 && <span className="text-red-400 text-sm">Sin acceso</span>}
-                                                    {u.permissions?.map(p => (
-                                                        <span key={p} className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-xs border border-slate-700">
-                                                            {MODULES.find(m => m.key === p)?.label || p}
-                                                        </span>
-                                                    ))}
-                                                </>
-                                            )}
+                                            {u.permissions?.length === 0 && <span className="text-red-400 text-sm">Sin acceso</span>}
+                                            {u.permissions?.map(p => (
+                                                <span key={p} className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-xs border border-slate-700">
+                                                    {MODULES.find(m => m.key === p)?.label || p}
+                                                </span>
+                                            ))}
                                         </div>
                                     )}
                                 </td>
@@ -164,11 +136,11 @@ export default function UserManagement() {
             </div>
 
             {/* Permission Editor Modal */}
-            {editingId && (
+            {editingUser && (
                 <PermissionEditor
-                    user={users?.find(u => u.id === editingId)!}
+                    user={editingUser}
                     onClose={() => setEditingId(null)}
-                    onSave={(perms) => updatePermissionsMutation.mutate({ id: editingId, permissions: perms })}
+                    onSave={(perms) => updatePermissionsMutation.mutate({ id: editingUser.id, permissions: perms })}
                 />
             )}
         </div>

@@ -74,7 +74,7 @@ const useSmoothCars = (liveCars: Record<string, any>) => {
                     }
 
                     // Linear Interpolation for Normalized Pos
-                    let currentPos = prevCar.normalized_pos;
+                    const currentPos = prevCar.normalized_pos;
                     let targetPos = targetCar.normalized_pos;
 
                     // Handle lap wrap-around (0.99 -> 0.01)
@@ -120,7 +120,7 @@ const LiveMapPage = () => {
     const [showRecordToast, setShowRecordToast] = useState(false);
 
     // Refs
-    const pathRef = useRef<SVGPathElement>(null);
+    const [pathElement, setPathElement] = useState<SVGPathElement | null>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const historyRef = useRef<{ throttle: number[], brake: number[] }>({
         throttle: new Array(GRAPH_POINTS).fill(0),
@@ -219,7 +219,8 @@ const LiveMapPage = () => {
             const step = w / (GRAPH_POINTS - 1);
             data.forEach((val, i) => {
                 const x = i * step; const y = h - (val / 100) * h;
-                i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
             });
             ctx.stroke();
         };
@@ -326,7 +327,7 @@ const LiveMapPage = () => {
                         />
                         {/* Center Line */}
                         <path
-                            ref={pathRef}
+                            ref={setPathElement}
                             d={activeTrack.path}
                             stroke="#444"
                             strokeWidth="2"
@@ -336,7 +337,7 @@ const LiveMapPage = () => {
 
                         {/* Cars */}
                         {sortedCars.map((car, idx) => {
-                            const pos = getPointOnPath(pathRef.current, car.normalized_pos || 0);
+                            const pos = getPointOnPath(pathElement, car.normalized_pos || 0);
                             const isSelected = selectedStationId === car.station_id;
                             const isLeader = idx === 0;
 

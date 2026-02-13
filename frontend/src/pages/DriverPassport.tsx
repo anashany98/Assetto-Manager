@@ -150,7 +150,10 @@ export default function DriverPassport() {
                             <Tooltip
                                 contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', borderRadius: '8px' }}
                                 labelStyle={{ color: '#9CA3AF' }}
-                                formatter={(value: number | string) => [`${(Number(value) / 1000).toFixed(3)}s`, 'Tiempo']}
+                                formatter={(value: number | string | undefined) => {
+                                    if (value === undefined) return ['--', 'Tiempo'];
+                                    return [`${(Number(value) / 1000).toFixed(3)}s`, 'Tiempo'];
+                                }}
                             />
                             <Line
                                 type="monotone"

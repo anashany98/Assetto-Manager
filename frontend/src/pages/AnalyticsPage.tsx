@@ -202,7 +202,10 @@ export default function AnalyticsPage() {
                                     })}
                                 </Pie>
                                 <Tooltip
-                                    formatter={(value: number) => `€${value}`}
+                                    formatter={(value: number | string | undefined) => {
+                                        if (value === undefined) return '€0';
+                                        return `€${value}`;
+                                    }}
                                     contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', color: '#fff' }}
                                 />
                                 <Legend

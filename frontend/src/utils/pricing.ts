@@ -42,7 +42,7 @@ export const getPricingConfig = (settings: SettingsItem[]): PricingConfig => {
         .sort((a, b) => a.minutes - b.minutes);
     const discounts = parseJsonSetting<PricingDiscount[]>(settings, 'pricing_discounts', [])
         .filter((rule) => Number.isFinite(rule.minutes) && Number.isFinite(rule.value))
-        .map((rule) => ({
+        .map((rule): PricingDiscount => ({
             minutes: Number(rule.minutes),
             type: rule.type === 'percent' ? 'percent' : 'flat',
             value: Number(rule.value)

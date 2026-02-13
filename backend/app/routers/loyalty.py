@@ -8,8 +8,9 @@ from typing import Optional, List
 from .. import models
 from ..database import get_db
 from sqlalchemy.orm import Session
+from ..routers.auth import require_admin
 
-router = APIRouter(prefix="/loyalty", tags=["loyalty"])
+router = APIRouter(prefix="/loyalty", tags=["loyalty"], dependencies=[Depends(require_admin)])
 
 
 # Schemas

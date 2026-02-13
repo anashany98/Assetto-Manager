@@ -7,6 +7,7 @@ import json
 import requests
 import re
 from pathlib import Path
+from typing import Optional, Tuple
 from config import SERVER_URL, AGENT_TOKEN, LOBBY_ADMIN_PASSWORD, logger
 from networking import get_agent_headers
 from utils import launch_ac, get_system_info
@@ -14,6 +15,105 @@ from watchdog import watchdog
 
 # Use a global stop event for session timer
 session_stop_event = threading.Event()
+
+SESSION_TYPE_CONFIG = {
+    "practice": ("Practice", "PRACTICE"),
+    "qualify": ("Qualifying", "QUALIFY"),
+    "race": ("Race", "RACE"),
+    "hotlap": ("Hotlap", "HOTLAP"),
+    "drift": ("Drift", "DRIFT"),
+}
+
+WEATHER_PRESETS = {
+    "sun": "3_clear",
+    "clear": "3_clear",
+    "windy": "5_light_clouds",
+    "rain": "7_heavy_clouds",
+    "rainy": "7_heavy_clouds",
+    "storm": "8_thunderstorm",
+    "fog": "6_mid_clear",
+}
+
+TIME_OF_DAY_SUN_ANGLE = {
+    "dawn": 10,
+    "morning": 25,
+    "noon": 48,
+    "afternoon": 70,
+    "sunset": 90,
+    "night": 120,
+}
+
+
+def _coerce_int(value, default: int, min_value: Optional[int] = None, max_value: Optional[int] = None) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        parsed = default
+    if min_value is not None:
+        parsed = max(min_value, parsed)
+    if max_value is not None:
+        parsed = min(max_value, parsed)
+    return parsed
+
+
+def _normalize_text(value, default: str) -> str:
+    normalized = str(value or "").strip()
+    return normalized or default
+
+
+def _resolve_session_type(session_type: Optional[str]) -> Tuple[str, str]:
+    normalized = _normalize_text(session_type, "practice").lower()
+    return SESSION_TYPE_CONFIG.get(normalized, SESSION_TYPE_CONFIG["practice"])
+
+
+def _resolve_weather_preset(weather: Optional[str]) -> str:
+    normalized = _normalize_text(weather, "sun").lower()
+    return WEATHER_PRESETS.get(normalized, normalized)
+
+
+def _resolve_sun_angle(time_of_day: Optional[str]) -> int:
+    normalized = _normalize_text(time_of_day, "noon").lower()
+    return TIME_OF_DAY_SUN_ANGLE.get(normalized, TIME_OF_DAY_SUN_ANGLE["noon"])
+
+
+def _upsert_ini_value(content: str, section: str, key: str, value: str) -> str:
+    section_pattern = re.compile(
+        rf"(?ims)^\[{re.escape(section)}\]\s*\n(.*?)(?=^\[|\Z)"
+    )
+    match = section_pattern.search(content)
+    if match:
+        body = match.group(1)
+        key_pattern = re.compile(rf"(?im)^{re.escape(key)}=.*$")
+        if key_pattern.search(body):
+            body = key_pattern.sub(f"{key}={value}", body, count=1)
+        else:
+            if body and not body.endswith("\n"):
+                body += "\n"
+            body += f"{key}={value}\n"
+        return content[:match.start(1)] + body + content[match.end(1):]
+
+    if content and not content.endswith("\n"):
+        content += "\n"
+    return f"{content}\n[{section}]\n{key}={value}\n"
+
+
+def set_weather_logic(weather_value: Optional[str]):
+    try:
+        preset = _resolve_weather_preset(weather_value)
+        ac_docs_path = os.path.join(os.path.expanduser("~"), "Documents", "Assetto Corsa", "cfg")
+        os.makedirs(ac_docs_path, exist_ok=True)
+        race_ini_path = os.path.join(ac_docs_path, "race.ini")
+        if os.path.exists(race_ini_path):
+            with open(race_ini_path, "r", encoding="utf-8", errors="ignore") as f:
+                content = f.read()
+        else:
+            content = ""
+        content = _upsert_ini_value(content, "WEATHER", "NAME", preset)
+        with open(race_ini_path, "w", encoding="utf-8") as f:
+            f.write(content)
+        logger.info(f"Weather preset updated in race.ini: {preset}")
+    except Exception as e:
+        logger.error(f"Failed to apply weather preset: {e}")
 
 def restart_agent_process():
     try:
@@ -239,39 +339,61 @@ def stop_lobby_server():
         logger.error(f"Failed to stop lobby: {e}")
 
 def launch_session_logic(data, station_id):
-    car = data.get("car")
-    track = data.get("track")
-    assists = data.get("assists", {})
-    driver_name = data.get("driver_name", "Guest")
-    ac_path = data.get("ac_path")
-    duration_minutes = data.get("duration_minutes", 15)
-    session_type = data.get("session_type", "practice")
-    ai_count = data.get("ai_count", 0)
-    tyre_compound = data.get("tyre_compound")
-    
-    logger.info(f"Received LAUNCH_SESSION command: {driver_name} -> {car} @ {track} ({duration_minutes}min)")
-    
+    car = _normalize_text(data.get("car"), "")
+    track = _normalize_text(data.get("track"), "")
+    if not car or not track:
+        logger.error("LAUNCH_SESSION rejected: missing car or track")
+        return
+
+    assists = data.get("assists", {}) or {}
+    driver_name = _normalize_text(data.get("driver_name"), "Guest").replace("\n", " ").replace("\r", " ")
+    ac_path = _normalize_text(data.get("ac_path"), "") or get_system_info().get("ac_path")
+    duration_minutes = _coerce_int(data.get("duration_minutes"), 15, min_value=1, max_value=300)
+    ai_count = _coerce_int(data.get("ai_count"), 0, min_value=0, max_value=23)
+    transmission = _normalize_text(data.get("transmission"), "automatic").lower()
+    time_of_day = _normalize_text(data.get("time_of_day"), "noon").lower()
+    weather = _normalize_text(data.get("weather"), "sun").lower()
+    tyre_compound = _normalize_text(data.get("tyre_compound"), "semislicks")
+    session_name, session_type = _resolve_session_type(data.get("session_type"))
+
+    weather_preset = _resolve_weather_preset(weather)
+    sun_angle = _resolve_sun_angle(time_of_day)
+
+    logger.info(
+        "Received LAUNCH_SESSION command: %s -> %s @ %s (%smin, type=%s, ai=%s, weather=%s, time=%s, tx=%s)",
+        driver_name,
+        car,
+        track,
+        duration_minutes,
+        session_type,
+        ai_count,
+        weather_preset,
+        time_of_day,
+        transmission,
+    )
+
     # 1. Kill any running game instance first
     if platform.system() == "Windows":
         os.system("taskkill /F /IM acs.exe 2>nul")
     else:
         os.system("pkill -9 acs 2>/dev/null")
-    
+
     # Find AC Documents folder
     ac_docs_path = os.path.join(os.path.expanduser("~"), "Documents", "Assetto Corsa", "cfg")
-    
+    os.makedirs(ac_docs_path, exist_ok=True)
+
     # 1.5 Update player.ini
     player_ini_path = os.path.join(ac_docs_path, "player.ini")
     try:
         if os.path.exists(player_ini_path):
-            with open(player_ini_path, 'r') as f:
+            with open(player_ini_path, "r", encoding="utf-8", errors="ignore") as f:
                 player_content = f.read()
-            
-            player_content = re.sub(r'^NAME=.*$', f'NAME={driver_name}', player_content, flags=re.MULTILINE)
-            player_content = re.sub(r'^NICKNAME=.*$', f'NICKNAME={driver_name}', player_content, flags=re.MULTILINE)
-            
-            with open(player_ini_path, 'w') as f:
-                f.write(player_content)
+            player_content = re.sub(r"^NAME=.*$", f"NAME={driver_name}", player_content, flags=re.MULTILINE)
+            player_content = re.sub(r"^NICKNAME=.*$", f"NICKNAME={driver_name}", player_content, flags=re.MULTILINE)
+        else:
+            player_content = f"NAME={driver_name}\nNICKNAME={driver_name}\n"
+        with open(player_ini_path, "w", encoding="utf-8") as f:
+            f.write(player_content)
     except Exception as e:
         logger.error(f"Failed to update player.ini: {e}")
 
@@ -281,67 +403,94 @@ def launch_session_logic(data, station_id):
         resp = requests.get(f"{SERVER_URL}/settings/", headers=get_agent_headers(), timeout=5)
         if resp.status_code == 200:
             settings_list = resp.json()
-            sim_settings = {s['key']: s['value'] for s in settings_list if s['key'].startswith('sim_')}
-    except: pass
-    
+            sim_settings = {s["key"]: s["value"] for s in settings_list if s["key"].startswith("sim_")}
+    except Exception:
+        pass
+
     def get_sim(key, default):
         val = sim_settings.get(f"sim_{key}")
-        if val is None: return default
-        if val.lower() == 'true': return 1
+        if val is None:
+            return default
+        if isinstance(val, str):
+            lowered = val.lower()
+            if lowered == "true":
+                return 1
+            if lowered == "false":
+                return 0
         return val
+
+    ai_level = _coerce_int(get_sim("ai_level", 90), 90, min_value=0, max_value=100)
+    compound = tyre_compound if tyre_compound else _normalize_text(get_sim("tyre_compound", "semislicks"), "semislicks")
 
     # 2. Write assist.ini
     assist_ini_path = os.path.join(ac_docs_path, "assist.ini")
     try:
+        abs_value = assists.get("abs", 1)
+        tc_value = assists.get("tc", 1)
+        stability_value = assists.get("stability_aid", 0)
+        auto_shift_value = assists.get("auto_shifter", 0)
+        auto_clutch_value = 1
+
+        if transmission == "automatic":
+            auto_shift_value = 1
+            auto_clutch_value = 1
+        elif transmission == "manual":
+            auto_shift_value = 0
+            auto_clutch_value = 0
+
         assist_content = f"""[ASSISTS]
-ABS={assists.get('abs', 1)}
-AUTOCLUTCH=1
-AUTOSHIFT={assists.get('auto_shifter', 0)}
-STABILITY_CONTROL={assists.get('stability_aid', 0)}
-TRACTION_CONTROL={assists.get('tc', 1)}
+ABS={abs_value}
+AUTOCLUTCH={auto_clutch_value}
+AUTOSHIFT={auto_shift_value}
+STABILITY_CONTROL={stability_value}
+TRACTION_CONTROL={tc_value}
 """
-        with open(assist_ini_path, 'w') as f:
+        with open(assist_ini_path, "w", encoding="utf-8") as f:
             f.write(assist_content)
-            
+
         global session_stop_event
         session_stop_event.set()
         session_stop_event = threading.Event()
     except Exception as e:
         logger.error(f"Failed to update assist.ini: {e}")
-        
+
     # 3. Write race.ini
     race_ini_path = os.path.join(ac_docs_path, "race.ini")
     try:
-         # Simplified logic for brevity, assuming standard race.ini construction
-         # ... (In a real scenario I would copy the full logic, I'm abbreviating to fit context if needed, but I should copy it all)
-         # I will copy the essential parts.
-         
-         compound = tyre_compound if tyre_compound else get_sim('tyre_compound', 'Semislicks')
-         ai_level = get_sim('ai_level', '90')
-         
-         race_content = f"""[RACE]
+        race_content = f"""[RACE]
 MODEL={car}
+MODEL_CONFIG=
+SKIN=
 TRACK={track}
+CONFIG_TRACK=
 CARS={1 + ai_count}
 AI_LEVEL={ai_level}
+FIXED_SETUP=0
+PENALTIES=0
+
 [CAR_0]
 MODEL={car}
 DRIVER_NAME={driver_name}
 COMPOUND={compound}
+
 [SESSION_0]
-NAME=Practice
+NAME={session_name}
 TIME={duration_minutes}
-TYPE=PRACTICE
+TYPE={session_type}
+
+[LIGHTING]
+SUN_ANGLE={sun_angle}
+TIME_MULT=1
+
+[WEATHER]
+NAME={weather_preset}
 """
-         with open(race_ini_path, 'w') as f:
-             f.write(race_content)
-    except Exception:
-        pass
+        with open(race_ini_path, "w", encoding="utf-8") as f:
+            f.write(race_content)
+    except Exception as e:
+        logger.error(f"Failed to write race.ini: {e}")
+        return
 
     # 4. Launch
     if launch_ac(ac_path):
         watchdog.start({"ac_path": ac_path, "car": car, "track": track})
-        
-        # Start Timer Thread (Inline or separate)
-        # For refactoring, let's keep it simple here.
-        # Ideally this goes to a SessionManager class.

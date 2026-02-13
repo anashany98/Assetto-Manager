@@ -96,6 +96,8 @@
                     <h3 class="text-xs font-bold text-gray-500 uppercase px-4 mb-2">Instalación</h3>
                     <a href="#install-server" class="nav-link">Servidor Central</a>
                     <a href="#install-agent" class="nav-link">Agentes (Sims)</a>
+                    <a href="#licensing" class="nav-link">Licencia y Módulos</a>
+                    <a href="#lan" class="nav-link">LAN (Red y Puertos)</a>
                 </div>
                 <div>
                     <h3 class="text-xs font-bold text-gray-500 uppercase px-4 mb-2">Operación</h3>
@@ -247,7 +249,12 @@ ENABLE_TELEMETRY=true</pre>
                         <pre>START_SYSTEM.bat</pre>
                         <p
                             class="text-xs text-blue-400 mt-2 font-bold uppercase tracking-widest flex items-center gap-2">
-                            <i data-lucide="globe" class="w-3 h-3"></i> Acceso Web: http://localhost:3000
+                            <i data-lucide="globe" class="w-3 h-3"></i> Acceso Web: http://localhost:3010
+                        </p>
+                        <p class="text-[10px] text-gray-500 mt-2">
+                            LAN: para acceder desde otras máquinas, usa <code>start_server.bat</code> (o ejecuta Frontend
+                            con <code>--host</code> y Backend con <code>--host 0.0.0.0</code>). Ver <a href="#lan"
+                                class="text-blue-400 hover:text-white font-bold">sección LAN</a>.
                         </p>
                     </div>
                 </div>
@@ -292,14 +299,209 @@ ENABLE_TELEMETRY=true</pre>
                 </div>
             </section>
 
+            <section id="licensing">
+                <h2 class="text-3xl font-bold mb-6 flex items-center gap-3">
+                    <span
+                        class="w-10 h-10 bg-blue-500/10 text-blue-400 rounded-lg flex items-center justify-center text-lg font-black">04</span>
+                    Licencia y Módulos (Activación)
+                </h2>
+                <p class="text-gray-400 mb-6">
+                    Assetto Manager valida la licencia de forma <b>offline</b> (JWT RS256 firmado) y habilita funciones
+                    por <b>módulos</b>. En <code>ENVIRONMENT=production</code> la API bloquea endpoints no licenciados con
+                    <code>403</code>.
+                </p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="glass p-6 rounded-xl border-l-4 border-blue-500 space-y-4">
+                        <h4 class="font-bold text-white flex items-center gap-2">
+                            <i data-lucide="key" class="w-4 h-4 text-blue-400"></i> Activación
+                        </h4>
+                        <ul class="text-sm text-gray-400 space-y-2">
+                            <li>1. Panel: abre <b>Ajustes</b> y pega el token de licencia.</li>
+                            <li>2. API (opcional): <code>POST /license</code> (requiere admin) para guardar la licencia.
+                            </li>
+                            <li>3. Verifica: <code>GET /license</code> devuelve cliente, expiración y módulos.</li>
+                        </ul>
+                        <p class="text-[10px] text-amber-500 font-bold flex items-center gap-1">
+                            <i data-lucide="alert-triangle" class="w-3 h-3"></i> Requiere clave pública en
+                            <code>certs/public_key.pem</code> (o <code>LICENSE_PUBLIC_KEY</code> /
+                            <code>LICENSE_PUBLIC_KEY_PATH</code>).
+                        </p>
+                        <div class="text-xs text-gray-500">
+                            <div class="font-bold text-gray-400 mb-1">Forzar validación en desarrollo</div>
+                            <pre>ENFORCE_LICENSE=true</pre>
+                        </div>
+                    </div>
+
+                    <div class="glass p-6 rounded-xl border-l-4 border-indigo-500 space-y-4">
+                        <h4 class="font-bold text-white flex items-center gap-2">
+                            <i data-lucide="layers" class="w-4 h-4 text-indigo-400"></i> Catálogo de módulos (keys)
+                        </h4>
+                        <p class="text-xs text-gray-500">La licencia incluye una lista <code>modules: [...]</code>.</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-gray-300">
+                            <div class="bg-black/40 p-3 rounded-lg border border-white/5"><code>leaderboard</code>
+                                Clasificación</div>
+                            <div class="bg-black/40 p-3 rounded-lg border border-white/5"><code>passport</code>
+                                Pasaporte piloto</div>
+                            <div class="bg-black/40 p-3 rounded-lg border border-white/5"><code>hall_of_fame</code>
+                                Salón de la fama</div>
+                            <div class="bg-black/40 p-3 rounded-lg border border-white/5"><code>history</code>
+                                Historial</div>
+                            <div class="bg-black/40 p-3 rounded-lg border border-white/5"><code>lap_comparison</code>
+                                Comparador</div>
+                            <div class="bg-black/40 p-3 rounded-lg border border-white/5"><code>tv_spectator</code>
+                                TV espectador</div>
+                            <div class="bg-black/40 p-3 rounded-lg border border-white/5"><code>mods</code> Mods</div>
+                            <div class="bg-black/40 p-3 rounded-lg border border-white/5"><code>events</code> Eventos</div>
+                            <div class="bg-black/40 p-3 rounded-lg border border-white/5"><code>championships</code>
+                                Campeonatos</div>
+                            <div class="bg-black/40 p-3 rounded-lg border border-white/5"><code>bookings</code> Reservas</div>
+                            <div class="bg-black/40 p-3 rounded-lg border border-white/5"><code>online_reservations</code>
+                                Reservas online</div>
+                            <div class="bg-black/40 p-3 rounded-lg border border-white/5"><code>tables</code> Mesas</div>
+                            <div class="bg-black/40 p-3 rounded-lg border border-white/5"><code>users</code> Usuarios</div>
+                            <div class="bg-black/40 p-3 rounded-lg border border-white/5"><code>profiles</code> Perfiles</div>
+                            <div class="bg-black/40 p-3 rounded-lg border border-white/5"><code>drivers</code> Pilotos</div>
+                            <div class="bg-black/40 p-3 rounded-lg border border-white/5"><code>editor</code> Editor</div>
+                            <div class="bg-black/40 p-3 rounded-lg border border-white/5"><code>analytics</code>
+                                Analítica</div>
+                            <div class="bg-black/40 p-3 rounded-lg border border-white/5"><code>reservations</code> Legacy
+                            </div>
+                        </div>
+                        <p class="text-[10px] text-gray-500">
+                            Además de la licencia global, el backend soporta <b>permisos por usuario</b> para limitar
+                            acceso a módulos incluso si están licenciados.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="mt-6 glass p-6 rounded-xl border border-white/5">
+                    <h4 class="font-bold text-white mb-2 flex items-center gap-2">
+                        <i data-lucide="shield-check" class="w-4 h-4 text-green-400"></i> Mostrar solo módulos autorizados
+                    </h4>
+                    <p class="text-sm text-gray-400">
+                        Recomendación: el frontend puede consumir <code>GET /license</code> y filtrar el menú en base a
+                        <code>modules</code> (y a los permisos del usuario autenticado) para que solo aparezca lo
+                        habilitado.
+                    </p>
+                </div>
+            </section>
+
+            <section id="lan">
+                <h2 class="text-3xl font-bold mb-6 flex items-center gap-3">
+                    <span
+                        class="w-10 h-10 bg-blue-500/10 text-blue-400 rounded-lg flex items-center justify-center text-lg font-black">05</span>
+                    LAN (Red y Puertos)
+                </h2>
+                <p class="text-gray-400 mb-6">
+                    En un SimCenter, el 90% de los problemas son red: IP incorrecta, puertos bloqueados o servicios
+                    escuchando solo en <code>127.0.0.1</code>. Esta sección te deja el checklist mínimo.
+                </p>
+
+                <div class="space-y-4">
+                    <div class="glass p-6 rounded-xl border-l-4 border-green-500">
+                        <h4 class="font-bold text-white mb-2 flex items-center gap-2">
+                            <i data-lucide="router" class="w-4 h-4 text-green-400"></i> Puertos estándar
+                        </h4>
+                        <ul class="text-sm text-gray-400 space-y-2">
+                            <li><code>8000/TCP</code> Backend API + WebSocket (agentes y telemetría).</li>
+                            <li><code>3010/TCP</code> Panel web (Frontend).</li>
+                            <li><code>8800/TCP</code> License Admin (opcional, solo si lo despliegas).</li>
+                        </ul>
+                    </div>
+
+                    <div class="glass p-6 rounded-xl border-l-4 border-blue-500">
+                        <h4 class="font-bold text-white mb-2 flex items-center gap-2">
+                            <i data-lucide="play" class="w-4 h-4 text-blue-400"></i> Arranque accesible desde LAN
+                        </h4>
+                        <p class="text-sm text-gray-400 mb-3">
+                            Para que otros PCs accedan, el Backend debe escuchar en <code>0.0.0.0</code> y el Frontend
+                            debe exponerse con <code>--host</code>.
+                        </p>
+                        <pre>start_server.bat</pre>
+                        <p class="text-[10px] text-gray-500 mt-2">
+                            Nota: <code>start_system.bat</code> es cómodo para local, pero por defecto no expone a la LAN
+                            (solo <code>localhost</code>).
+                        </p>
+                    </div>
+
+                    <div class="glass p-6 rounded-xl border-l-4 border-amber-500">
+                        <h4 class="font-bold text-white mb-2 flex items-center gap-2">
+                            <i data-lucide="flame" class="w-4 h-4 text-amber-400"></i> Firewall (Windows)
+                        </h4>
+                        <p class="text-sm text-gray-400 mb-3">Reglas inbound típicas para el PC Master:</p>
+                        <pre>New-NetFirewallRule -DisplayName "Assetto Manager Backend" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 8000
+New-NetFirewallRule -DisplayName "Assetto Manager Panel" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3010</pre>
+                    </div>
+
+                    <div class="glass p-6 rounded-xl border-l-4 border-indigo-500">
+                        <h4 class="font-bold text-white mb-2 flex items-center gap-2">
+                            <i data-lucide="boxes" class="w-4 h-4 text-indigo-400"></i> WS y multi-worker (nota realista)
+                        </h4>
+                        <p class="text-sm text-gray-400">
+                            Para telemetría/TV en tiempo real, una sola instancia suele ser lo más estable. Si ejecutas
+                            múltiples workers/procesos, necesitas <b>sticky sessions</b> y/o un broker (por ejemplo
+                            Redis) para distribuir eventos, porque las conexiones WebSocket activas viven en memoria del
+                            proceso.
+                        </p>
+                    </div>
+
+                    <div class="glass p-6 rounded-xl border-l-4 border-slate-500">
+                        <h4 class="font-bold text-white mb-2 flex items-center gap-2">
+                            <i data-lucide="activity" class="w-4 h-4 text-slate-300"></i> Observabilidad (logs y métricas)
+                        </h4>
+                        <ul class="text-sm text-gray-400 space-y-2">
+                            <li>Salud: <code>GET /health</code></li>
+                            <li>Métricas snapshot: <code>GET /system/metrics</code> (admin)</li>
+                            <li>Logs recientes: <code>GET /system/logs</code> (admin)</li>
+                        </ul>
+                        <p class="text-[10px] text-gray-500 mt-2">
+                            Recomendación: en producción centraliza logs (Loki/ELK) y monitoriza latencia, caídas y
+                            desconexiones WS de estaciones.
+                        </p>
+                    </div>
+
+                    <div class="glass p-6 rounded-xl border-l-4 border-blue-400">
+                        <h4 class="font-bold text-white mb-2 flex items-center gap-2">
+                            <i data-lucide="database" class="w-4 h-4 text-blue-300"></i> Backups y actualizaciones
+                        </h4>
+                        <p class="text-sm text-gray-400 mb-3">
+                            En producción usa PostgreSQL y programa backups. En pruebas con SQLite, el backup es copiar
+                            el archivo <code>.db</code>.
+                        </p>
+                        <pre># PostgreSQL (ejemplo)
+pg_dump -Fc -f ac_manager.backup.dump "postgresql://user:pass@host:5432/ac_manager"</pre>
+                        <p class="text-sm text-gray-400 mt-3">
+                            Actualizaciones de Agente: sube un ZIP con <code>POST /system/update</code> y los agentes
+                            consultan <code>GET /system/version</code>.
+                        </p>
+                    </div>
+                </div>
+            </section>
+
             <!-- OPERATIONS -->
             <section id="dashboard">
                 <h2 class="text-3xl font-bold mb-6 flex items-center gap-3">
                     <span
-                        class="w-10 h-10 bg-blue-500/10 text-blue-400 rounded-lg flex items-center justify-center text-lg font-black">04</span>
+                        class="w-10 h-10 bg-blue-500/10 text-blue-400 rounded-lg flex items-center justify-center text-lg font-black">06</span>
                     El Dashboard (Panel de Control)
                 </h2>
                 <div class="glass p-6 rounded-xl space-y-4">
+                    <div class="bg-black/40 p-5 rounded-xl border border-white/5">
+                        <h4 class="font-bold text-white flex items-center gap-2 mb-2">
+                            <i data-lucide="user-plus" class="text-blue-500 w-4 h-4"></i> Primer acceso (crear admin)
+                        </h4>
+                        <p class="text-xs text-gray-400 mb-3">
+                            Si al iniciar sesión recibes <code>Invalid credentials</code> y es una instalación nueva,
+                            primero debes crear el usuario admin (solo funciona si aún no hay usuarios).
+                        </p>
+                        <pre># PowerShell
+$body = @{ username = "admin"; password = "cambia-esto" } | ConvertTo-Json
+Invoke-RestMethod -Method POST "http://localhost:8000/users/setup" -ContentType "application/json" -Body $body</pre>
+                        <p class="text-[10px] text-gray-500 mt-2">
+                            En producción configura <code>SETUP_TOKEN</code> y envía el header <code>X-Setup-Token</code>.
+                        </p>
+                    </div>
                     <p class="text-gray-400">El núcleo de Assetto Manager. Una vista de pájaro de todo tu negocio.</p>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="bg-black/40 p-5 rounded-xl border border-white/5">
@@ -323,7 +525,7 @@ ENABLE_TELEMETRY=true</pre>
             <section id="sessions">
                 <h2 class="text-3xl font-bold mb-6 flex items-center gap-3">
                     <span
-                        class="w-10 h-10 bg-blue-500/10 text-blue-400 rounded-lg flex items-center justify-center text-lg font-black">05</span>
+                        class="w-10 h-10 bg-blue-500/10 text-blue-400 rounded-lg flex items-center justify-center text-lg font-black">07</span>
                     Gestión de Sesiones
                 </h2>
                 <div class="space-y-6">
@@ -366,7 +568,7 @@ ENABLE_TELEMETRY=true</pre>
             <section id="tournaments">
                 <h2 class="text-3xl font-bold mb-6 flex items-center gap-3">
                     <span
-                        class="w-10 h-10 bg-blue-500/10 text-blue-400 rounded-lg flex items-center justify-center text-lg font-black">06</span>
+                        class="w-10 h-10 bg-blue-500/10 text-blue-400 rounded-lg flex items-center justify-center text-lg font-black">08</span>
                     Ecosistema de Competición
                 </h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -394,7 +596,7 @@ ENABLE_TELEMETRY=true</pre>
             <section id="tv-mode">
                 <h2 class="text-3xl font-bold mb-6 flex items-center gap-3">
                     <span
-                        class="w-10 h-10 bg-blue-500/10 text-blue-400 rounded-lg flex items-center justify-center text-lg font-black">07</span>
+                        class="w-10 h-10 bg-blue-500/10 text-blue-400 rounded-lg flex items-center justify-center text-lg font-black">09</span>
                     Vistas de Pantalla (Smart TV)
                 </h2>
                 <p class="text-gray-400 mb-6">Ambienta tu local con información profesional en tiempo real simplemente
@@ -403,12 +605,12 @@ ENABLE_TELEMETRY=true</pre>
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div class="glass p-5 rounded-xl border-t border-blue-500/50">
                         <h5 class="text-blue-400 font-bold mb-2">TELEVISIÓN EN VIVO</h5>
-                        <code>/tv-mode</code>
+                        <code>/tv</code>
                         <p class="text-[10px] text-gray-500 mt-2">Streaming de datos de los 4 mejores del torneo.</p>
                     </div>
                     <div class="glass p-5 rounded-xl border-t border-purple-500/50">
-                        <h5 class="text-purple-400 font-bold mb-2">CLAN/HAME OF FAME</h5>
-                        <code>/tv/hall-of-fame</code>
+                        <h5 class="text-purple-400 font-bold mb-2">SALÓN DE LA FAMA</h5>
+                        <code>/hall-of-fame</code>
                         <p class="text-[10px] text-gray-500 mt-2">Display estético de récords históricos por categorías.
                         </p>
                     </div>

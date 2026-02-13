@@ -4,6 +4,7 @@ param(
   [string]$StationName = "",
   [string]$ACPath = "",
   [string]$ContentDir = "",
+  [string]$StreamUrl = "",
   [string]$UpdateSigningKey = "",
   [string]$LobbyAdminPassword = "",
   [switch]$InstallTask,
@@ -61,6 +62,7 @@ if ($ContentDir) {
 
 if ($UpdateSigningKey) { $config.update_signing_key = $UpdateSigningKey }
 if ($LobbyAdminPassword) { $config.lobby_admin_password = $LobbyAdminPassword }
+if ($StreamUrl) { $config.stream_url = $StreamUrl }
 
 if (-not $UpdateSigningKey) {
   Write-Host "WARNING: update_signing_key not set. Signed updates will be rejected."

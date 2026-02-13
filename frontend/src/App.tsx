@@ -50,7 +50,7 @@ const StationDisplay = lazy(() => import('./pages/StationDisplay'));
 
 
 import { useBranding } from './hooks/useBranding';
-import { LicenseProvider } from './context/LicenseContext';
+import { LicenseProvider } from './context/LicenseProvider';
 
 // Fallback Loading Component
 const PageLoader = () => (

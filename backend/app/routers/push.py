@@ -20,7 +20,7 @@ router = APIRouter(
     tags=["push-notifications"]
 )
 
-ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+ENVIRONMENT = (os.getenv("ENVIRONMENT", "development") or "development").lower().strip()
 VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY")
 VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY")
 VAPID_SUBJECT = os.getenv("VAPID_SUBJECT", "mailto:admin@example.com")

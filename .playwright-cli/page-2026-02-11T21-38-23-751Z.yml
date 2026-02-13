@@ -1,0 +1,715 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - button [ref=e22]:
+      - img [ref=e23]
+    - generic [ref=e25]:
+      - img "VRacing Bar" [ref=e26]
+      - heading "VRacing Bar" [level=2] [ref=e27]
+    - navigation [ref=e28]:
+      - generic [ref=e29]: Gestión
+      - link "Panel Control" [ref=e30] [cursor=pointer]:
+        - /url: /admin
+        - img [ref=e32]
+        - generic [ref=e37]: Panel Control
+      - link "Torneos" [ref=e38] [cursor=pointer]:
+        - /url: /events
+        - img [ref=e40]
+        - generic [ref=e42]: Torneos
+      - link "Sesiones Kiosk" [ref=e43] [cursor=pointer]:
+        - /url: /admin/scenarios
+        - img [ref=e45]
+        - generic [ref=e47]: Sesiones Kiosk
+      - link "Librería" [ref=e49] [cursor=pointer]:
+        - /url: /mods
+        - img [ref=e51]
+        - generic [ref=e53]: Librería
+      - generic [ref=e54]: Sistema
+      - link "Configuración" [ref=e55] [cursor=pointer]:
+        - /url: /settings
+        - img [ref=e57]
+        - generic [ref=e60]: Configuración
+      - link "Editor AC" [ref=e61] [cursor=pointer]:
+        - /url: /settings?tab=game
+        - img [ref=e63]
+        - generic [ref=e65]: Editor AC
+      - link "Perfiles" [ref=e66] [cursor=pointer]:
+        - /url: /profiles
+        - img [ref=e68]
+        - generic [ref=e73]: Perfiles
+      - generic [ref=e74]: Sala & TV
+      - link "Mando TV" [ref=e75] [cursor=pointer]:
+        - /url: /remote
+        - img [ref=e77]
+        - generic [ref=e80]: Mando TV
+      - link "Espectador TV" [ref=e81] [cursor=pointer]:
+        - /url: /tv/spectator
+        - img [ref=e83]
+        - generic [ref=e86]: Espectador TV
+      - link "Clasificación" [ref=e87] [cursor=pointer]:
+        - /url: /leaderboard
+        - img [ref=e89]
+        - generic [ref=e90]: Clasificación
+      - link "Salón Fama" [ref=e91] [cursor=pointer]:
+        - /url: /hall-of-fame
+        - img [ref=e93]
+        - generic [ref=e95]: Salón Fama
+      - link "Menú Pantallas" [ref=e96] [cursor=pointer]:
+        - /url: /kiosk
+        - img [ref=e98]
+        - generic [ref=e101]: Menú Pantallas
+    - generic [ref=e103]:
+      - generic [ref=e104]:
+        - generic [ref=e105]: A
+        - generic [ref=e106]:
+          - paragraph [ref=e107]: Operador
+          - paragraph [ref=e108]: Conectado
+      - button "Cambiar a modo claro" [ref=e110]:
+        - img [ref=e111]
+  - generic [ref=e118]:
+    - generic [ref=e119]:
+      - img [ref=e120]
+      - generic [ref=e122]: Agente desconectado.
+    - generic [ref=e123]:
+      - generic [ref=e125]:
+        - heading "GESTOR DE ESCENARIOS" [level=1] [ref=e126]
+        - paragraph [ref=e127]: Configura eventos y contenido restringido para el Kiosko
+      - generic [ref=e312]:
+        - generic [ref=e313]:
+          - heading "EDITAR ESCENARIO" [level=2] [ref=e461]:
+            - img [ref=e462]
+            - text: EDITAR ESCENARIO
+          - button "Cerrar editor" [ref=e316]:
+            - img [ref=e317]
+        - generic [ref=e320]:
+          - generic [ref=e321]:
+            - generic [ref=e322]:
+              - generic [ref=e323]: NOMBRE
+              - textbox "Ej. Torneo Drift JDM" [ref=e324]: "5555"
+            - generic [ref=e326]:
+              - generic [ref=e327]: DESCRIPCION
+              - textbox "Descripcion breve para el usuario..." [ref=e328]
+            - generic [ref=e329]:
+              - generic [ref=e330]: OPCIONES DE TIEMPO (MINUTOS)
+              - generic [ref=e331]:
+                - button "5m" [ref=e332]
+                - button "10m" [ref=e333]
+                - button "15m" [ref=e334]
+                - button "20m" [ref=e335]
+                - button "30m" [ref=e336]
+                - button "45m" [ref=e337]
+                - button "60m" [ref=e338]
+            - generic [ref=e339]:
+              - generic [ref=e340]: MODO DE JUEGO
+              - generic [ref=e341]:
+                - button "PRACTICA" [ref=e342]
+                - button "CARRERA" [ref=e343]
+                - button "DRIFT" [ref=e344]
+                - button "TANDAS" [ref=e345]
+                - button "TRAFICO" [ref=e346]
+                - button "OVERTAKE" [ref=e347]
+            - generic [ref=e352] [cursor=pointer]: ESCENARIO ACTIVO
+          - generic [ref=e353]:
+            - heading "COCHES PERMITIDOS" [level=3] [ref=e354]:
+              - img [ref=e355]
+              - text: COCHES PERMITIDOS
+            - generic [ref=e359]:
+              - generic [ref=e360]:
+                - img [ref=e361]
+                - textbox "Buscar coche..." [ref=e364]
+              - button "Seleccionados" [ref=e365]
+            - generic [ref=e366]:
+              - generic [ref=e465] [cursor=pointer]:
+                - img [ref=e467]
+                - generic [ref=e469]: abarth500
+              - generic [ref=e470] [cursor=pointer]:
+                - img [ref=e472]
+                - generic [ref=e474]: abarth500_s1
+              - generic [ref=e475] [cursor=pointer]:
+                - img [ref=e477]
+                - generic [ref=e479]: alfa_romeo_giulietta_qv
+              - generic [ref=e480] [cursor=pointer]:
+                - img [ref=e482]
+                - generic [ref=e484]: alfa_romeo_giulietta_qv_le
+              - generic [ref=e485] [cursor=pointer]:
+                - img [ref=e487]
+                - generic [ref=e489]: bmw_1m
+              - generic [ref=e490] [cursor=pointer]:
+                - img [ref=e492]
+                - generic [ref=e494]: bmw_1m_s3
+              - generic [ref=e495] [cursor=pointer]:
+                - img [ref=e497]
+                - generic [ref=e499]: bmw_m3_e30
+              - generic [ref=e500] [cursor=pointer]:
+                - img [ref=e502]
+                - generic [ref=e504]: bmw_m3_e30_drift
+              - generic [ref=e505] [cursor=pointer]:
+                - img [ref=e507]
+                - generic [ref=e509]: bmw_m3_e30_dtm
+              - generic [ref=e510] [cursor=pointer]:
+                - img [ref=e512]
+                - generic [ref=e514]: bmw_m3_e30_gra
+              - generic [ref=e515] [cursor=pointer]:
+                - img [ref=e517]
+                - generic [ref=e519]: bmw_m3_e30_s1
+              - generic [ref=e520] [cursor=pointer]:
+                - img [ref=e522]
+                - generic [ref=e524]: bmw_m3_e92
+              - generic [ref=e525] [cursor=pointer]:
+                - img [ref=e527]
+                - generic [ref=e529]: bmw_m3_e92_drift
+              - generic [ref=e530] [cursor=pointer]:
+                - img [ref=e532]
+                - generic [ref=e534]: bmw_m3_e92_s1
+              - generic [ref=e535] [cursor=pointer]:
+                - img [ref=e537]
+                - generic [ref=e539]: bmw_m3_gt2
+              - generic [ref=e540] [cursor=pointer]:
+                - img [ref=e542]
+                - generic [ref=e544]: bmw_z4
+              - generic [ref=e545] [cursor=pointer]:
+                - img [ref=e547]
+                - generic [ref=e549]: bmw_z4_drift
+              - generic [ref=e550] [cursor=pointer]:
+                - img [ref=e552]
+                - generic [ref=e554]: bmw_z4_gt3
+              - generic [ref=e555] [cursor=pointer]:
+                - img [ref=e557]
+                - generic [ref=e559]: bmw_z4_s1
+              - generic [ref=e560] [cursor=pointer]:
+                - img [ref=e562]
+                - generic [ref=e564]: ferrari_312t
+              - generic [ref=e565] [cursor=pointer]:
+                - img [ref=e567]
+                - generic [ref=e569]: ferrari_458
+              - generic [ref=e570] [cursor=pointer]:
+                - img [ref=e572]
+                - generic [ref=e574]: ferrari_458_gt2
+              - generic [ref=e575] [cursor=pointer]:
+                - img [ref=e577]
+                - generic [ref=e579]: ferrari_458_s3
+              - generic [ref=e580] [cursor=pointer]:
+                - img [ref=e582]
+                - generic [ref=e584]: ferrari_599xxevo
+              - generic [ref=e585] [cursor=pointer]:
+                - img [ref=e587]
+                - generic [ref=e589]: ferrari_f40
+              - generic [ref=e590] [cursor=pointer]:
+                - img [ref=e592]
+                - generic [ref=e594]: ferrari_f40_s3
+              - generic [ref=e595] [cursor=pointer]:
+                - img [ref=e597]
+                - generic [ref=e599]: ferrari_laferrari
+              - generic [ref=e600] [cursor=pointer]:
+                - img [ref=e602]
+                - generic [ref=e604]: ks_abarth500_assetto_corse
+              - generic [ref=e605] [cursor=pointer]:
+                - img [ref=e607]
+                - generic [ref=e609]: ks_abarth_595ss
+              - generic [ref=e610] [cursor=pointer]:
+                - img [ref=e612]
+                - generic [ref=e614]: ks_abarth_595ss_s1
+              - generic [ref=e615] [cursor=pointer]:
+                - img [ref=e617]
+                - generic [ref=e619]: ks_abarth_595ss_s2
+              - generic [ref=e620] [cursor=pointer]:
+                - img [ref=e622]
+                - generic [ref=e624]: ks_alfa_33_stradale
+              - generic [ref=e625] [cursor=pointer]:
+                - img [ref=e627]
+                - generic [ref=e629]: ks_alfa_giulia_qv
+              - generic [ref=e630] [cursor=pointer]:
+                - img [ref=e632]
+                - generic [ref=e634]: ks_alfa_mito_qv
+              - generic [ref=e635] [cursor=pointer]:
+                - img [ref=e637]
+                - generic [ref=e639]: Alfa Romeo 155 TI V6
+              - generic [ref=e640] [cursor=pointer]:
+                - img [ref=e642]
+                - generic [ref=e644]: ks_alfa_romeo_4c
+              - generic [ref=e645] [cursor=pointer]:
+                - img [ref=e647]
+                - generic [ref=e649]: ks_alfa_romeo_gta
+              - generic [ref=e650] [cursor=pointer]:
+                - img [ref=e652]
+                - generic [ref=e654]: ks_audi_a1s1
+              - generic [ref=e655] [cursor=pointer]:
+                - img [ref=e657]
+                - generic [ref=e659]: ks_audi_r18_etron_quattro
+              - generic [ref=e660] [cursor=pointer]:
+                - img [ref=e662]
+                - generic [ref=e664]: ks_audi_r8_lms
+              - generic [ref=e665] [cursor=pointer]:
+                - img [ref=e667]
+                - generic [ref=e669]: ks_audi_r8_lms_2016
+              - generic [ref=e670] [cursor=pointer]:
+                - img [ref=e672]
+                - generic [ref=e674]: ks_audi_r8_plus
+              - generic [ref=e675] [cursor=pointer]:
+                - img [ref=e677]
+                - generic [ref=e679]: Audi Sport quattro
+              - generic [ref=e680] [cursor=pointer]:
+                - img [ref=e682]
+                - generic [ref=e684]: ks_audi_sport_quattro_rally
+              - generic [ref=e685] [cursor=pointer]:
+                - img [ref=e687]
+                - generic [ref=e689]: Audi Sport quattro Step1
+              - generic [ref=e690] [cursor=pointer]:
+                - img [ref=e692]
+                - generic [ref=e694]: ks_audi_tt_cup
+              - generic [ref=e695] [cursor=pointer]:
+                - img [ref=e697]
+                - generic [ref=e699]: ks_audi_tt_vln
+              - generic [ref=e700] [cursor=pointer]:
+                - img [ref=e702]
+                - generic [ref=e704]: ks_bmw_m235i_racing
+              - generic [ref=e705] [cursor=pointer]:
+                - img [ref=e707]
+                - generic [ref=e709]: ks_bmw_m4
+              - generic [ref=e710] [cursor=pointer]:
+                - img [ref=e712]
+                - generic [ref=e714]: ks_bmw_m4_akrapovic
+              - generic [ref=e715] [cursor=pointer]:
+                - img [ref=e717]
+                - generic [ref=e719]: ks_corvette_c7r
+              - generic [ref=e720] [cursor=pointer]:
+                - img [ref=e722]
+                - generic [ref=e724]: ks_corvette_c7_stingray
+              - generic [ref=e725] [cursor=pointer]:
+                - img [ref=e727]
+                - generic [ref=e729]: ks_ferrari_250_gto
+              - generic [ref=e730] [cursor=pointer]:
+                - img [ref=e732]
+                - generic [ref=e734]: ks_ferrari_288_gto
+              - generic [ref=e735] [cursor=pointer]:
+                - img [ref=e737]
+                - generic [ref=e739]: ks_ferrari_312_67
+              - generic [ref=e740] [cursor=pointer]:
+                - img [ref=e742]
+                - generic [ref=e744]: ks_ferrari_330_p4
+              - generic [ref=e745] [cursor=pointer]:
+                - img [ref=e747]
+                - generic [ref=e749]: ks_ferrari_488_challenge_evo
+              - generic [ref=e750] [cursor=pointer]:
+                - img [ref=e752]
+                - generic [ref=e754]: ks_ferrari_488_gt3
+              - generic [ref=e755] [cursor=pointer]:
+                - img [ref=e757]
+                - generic [ref=e759]: ks_ferrari_488_gt3_2020
+              - generic [ref=e760] [cursor=pointer]:
+                - img [ref=e762]
+                - generic [ref=e764]: ks_ferrari_488_gtb
+              - generic [ref=e765] [cursor=pointer]:
+                - img [ref=e767]
+                - generic [ref=e769]: ks_ferrari_812_superfast
+              - generic [ref=e770] [cursor=pointer]:
+                - img [ref=e772]
+                - generic [ref=e774]: ks_ferrari_f138
+              - generic [ref=e775] [cursor=pointer]:
+                - img [ref=e777]
+                - generic [ref=e779]: ks_ferrari_f2004
+              - generic [ref=e780] [cursor=pointer]:
+                - img [ref=e782]
+                - generic [ref=e784]: ks_ferrari_fxx_k
+              - generic [ref=e785] [cursor=pointer]:
+                - img [ref=e787]
+                - generic [ref=e789]: ks_ferrari_sf15t
+              - generic [ref=e790] [cursor=pointer]:
+                - img [ref=e792]
+                - generic [ref=e794]: ks_ferrari_sf70h
+              - generic [ref=e795] [cursor=pointer]:
+                - img [ref=e797]
+                - generic [ref=e799]: ks_ford_escort_mk1
+              - generic [ref=e800] [cursor=pointer]:
+                - img [ref=e802]
+                - generic [ref=e804]: ks_ford_gt40
+              - generic [ref=e805] [cursor=pointer]:
+                - img [ref=e807]
+                - generic [ref=e809]: ks_ford_mustang_2015
+              - generic [ref=e810] [cursor=pointer]:
+                - img [ref=e812]
+                - generic [ref=e814]: ks_glickenhaus_scg003
+              - generic [ref=e815] [cursor=pointer]:
+                - img [ref=e817]
+                - generic [ref=e819]: ks_lamborghini_aventador_sv
+              - generic [ref=e820] [cursor=pointer]:
+                - img [ref=e822]
+                - generic [ref=e824]: ks_lamborghini_countach
+              - generic [ref=e825] [cursor=pointer]:
+                - img [ref=e827]
+                - generic [ref=e829]: ks_lamborghini_countach_s1
+              - generic [ref=e830] [cursor=pointer]:
+                - img [ref=e832]
+                - generic [ref=e834]: ks_lamborghini_gallardo_sl
+              - generic [ref=e835] [cursor=pointer]:
+                - img [ref=e837]
+                - generic [ref=e839]: ks_lamborghini_gallardo_sl_s3
+              - generic [ref=e840] [cursor=pointer]:
+                - img [ref=e842]
+                - generic [ref=e844]: ks_lamborghini_huracan_gt3
+              - generic [ref=e845] [cursor=pointer]:
+                - img [ref=e847]
+                - generic [ref=e849]: ks_lamborghini_huracan_performante
+              - generic [ref=e850] [cursor=pointer]:
+                - img [ref=e852]
+                - generic [ref=e854]: ks_lamborghini_huracan_st
+              - generic [ref=e855] [cursor=pointer]:
+                - img [ref=e857]
+                - generic [ref=e859]: ks_lamborghini_miura_sv
+              - generic [ref=e860] [cursor=pointer]:
+                - img [ref=e862]
+                - generic [ref=e864]: ks_lamborghini_sesto_elemento
+              - generic [ref=e865] [cursor=pointer]:
+                - img [ref=e867]
+                - generic [ref=e869]: Lotus Type 25
+              - generic [ref=e870] [cursor=pointer]:
+                - img [ref=e872]
+                - generic [ref=e874]: ks_lotus_3_eleven
+              - generic [ref=e875] [cursor=pointer]:
+                - img [ref=e877]
+                - generic [ref=e879]: ks_lotus_72d
+              - generic [ref=e880] [cursor=pointer]:
+                - img [ref=e882]
+                - generic [ref=e884]: ks_maserati_250f_12cyl
+              - generic [ref=e885] [cursor=pointer]:
+                - img [ref=e887]
+                - generic [ref=e889]: ks_maserati_250f_6cyl
+              - generic [ref=e890] [cursor=pointer]:
+                - img [ref=e892]
+                - generic [ref=e894]: ks_maserati_alfieri
+              - generic [ref=e895] [cursor=pointer]:
+                - img [ref=e897]
+                - generic [ref=e899]: ks_maserati_gt_mc_gt4
+              - generic [ref=e900] [cursor=pointer]:
+                - img [ref=e902]
+                - generic [ref=e904]: ks_maserati_levante
+              - generic [ref=e905] [cursor=pointer]:
+                - img [ref=e907]
+                - generic [ref=e909]: ks_maserati_mc12_gt1
+              - generic [ref=e910] [cursor=pointer]:
+                - img [ref=e912]
+                - generic [ref=e914]: Maserati Quattroporte GTS
+              - generic [ref=e915] [cursor=pointer]:
+                - img [ref=e917]
+                - generic [ref=e919]: ks_mazda_787b
+              - generic [ref=e920] [cursor=pointer]:
+                - img [ref=e922]
+                - generic [ref=e924]: ks_mazda_miata
+              - generic [ref=e925] [cursor=pointer]:
+                - img [ref=e927]
+                - generic [ref=e929]: ks_mazda_mx5_cup
+              - generic [ref=e930] [cursor=pointer]:
+                - img [ref=e932]
+                - generic [ref=e934]: ks_mazda_mx5_nd
+              - generic [ref=e935] [cursor=pointer]:
+                - img [ref=e937]
+                - generic [ref=e939]: ks_mazda_rx7_spirit_r
+              - generic [ref=e940] [cursor=pointer]:
+                - img [ref=e942]
+                - generic [ref=e944]: ks_mazda_rx7_tuned
+              - generic [ref=e945] [cursor=pointer]:
+                - img [ref=e947]
+                - generic [ref=e949]: ks_mclaren_570s
+              - generic [ref=e950] [cursor=pointer]:
+                - img [ref=e952]
+                - generic [ref=e954]: ks_mclaren_650_gt3
+              - generic [ref=e955] [cursor=pointer]:
+                - img [ref=e957]
+                - generic [ref=e959]: ks_mclaren_f1_gtr
+              - generic [ref=e960] [cursor=pointer]:
+                - img [ref=e962]
+                - generic [ref=e964]: ks_mclaren_p1
+              - generic [ref=e965] [cursor=pointer]:
+                - img [ref=e967]
+                - generic [ref=e969]: ks_mclaren_p1_gtr
+              - generic [ref=e970] [cursor=pointer]:
+                - img [ref=e972]
+                - generic [ref=e974]: ks_mercedes_190_evo2
+              - generic [ref=e975] [cursor=pointer]:
+                - img [ref=e977]
+                - generic [ref=e979]: ks_mercedes_amg_gt3
+              - generic [ref=e980] [cursor=pointer]:
+                - img [ref=e982]
+                - generic [ref=e984]: ks_mercedes_c9
+              - generic [ref=e985] [cursor=pointer]:
+                - img [ref=e987]
+                - generic [ref=e989]: ks_nissan_370z
+              - generic [ref=e990] [cursor=pointer]:
+                - img [ref=e992]
+                - generic [ref=e994]: ks_nissan_gtr
+              - generic [ref=e995] [cursor=pointer]:
+                - img [ref=e997]
+                - generic [ref=e999]: ks_nissan_gtr_gt3
+              - generic [ref=e1000] [cursor=pointer]:
+                - img [ref=e1002]
+                - generic [ref=e1004]: ks_nissan_skyline_r34
+              - generic [ref=e1005] [cursor=pointer]:
+                - img [ref=e1007]
+                - generic [ref=e1009]: ks_pagani_huayra_bc
+              - generic [ref=e1010] [cursor=pointer]:
+                - img [ref=e1012]
+                - generic [ref=e1014]: ks_porsche_718_boxster_s
+              - generic [ref=e1015] [cursor=pointer]:
+                - img [ref=e1017]
+                - generic [ref=e1019]: ks_porsche_718_boxster_s_pdk
+              - generic [ref=e1020] [cursor=pointer]:
+                - img [ref=e1022]
+                - generic [ref=e1024]: ks_porsche_718_cayman_s
+              - generic [ref=e1025] [cursor=pointer]:
+                - img [ref=e1027]
+                - generic [ref=e1029]: ks_porsche_718_spyder_rs
+              - generic [ref=e1030] [cursor=pointer]:
+                - img [ref=e1032]
+                - generic [ref=e1034]: ks_porsche_908_lh
+              - generic [ref=e1035] [cursor=pointer]:
+                - img [ref=e1037]
+                - generic [ref=e1039]: ks_porsche_911_carrera_rsr
+              - generic [ref=e1040] [cursor=pointer]:
+                - img [ref=e1042]
+                - generic [ref=e1044]: ks_porsche_911_gt1
+              - generic [ref=e1045] [cursor=pointer]:
+                - img [ref=e1047]
+                - generic [ref=e1049]: ks_porsche_911_gt3_cup_2017
+              - generic [ref=e1050] [cursor=pointer]:
+                - img [ref=e1052]
+                - generic [ref=e1054]: ks_porsche_911_gt3_rs
+              - generic [ref=e1055] [cursor=pointer]:
+                - img [ref=e1057]
+                - generic [ref=e1059]: ks_porsche_911_gt3_r_2016
+              - generic [ref=e1060] [cursor=pointer]:
+                - img [ref=e1062]
+                - generic [ref=e1064]: ks_porsche_911_r
+            - button "Mostrar mas (60)" [ref=e1065]
+            - generic [ref=e368]:
+              - generic [ref=e369]: 180 coches seleccionados (0 = todos)
+              - generic [ref=e370]:
+                - button "SELECCIONAR FILTRADOS" [ref=e371]
+                - button "LIMPIAR" [ref=e372]
+          - generic [ref=e373]:
+            - heading "CIRCUITOS PERMITIDOS" [level=3] [ref=e374]:
+              - img [ref=e375]
+              - text: CIRCUITOS PERMITIDOS
+            - generic [ref=e377]:
+              - generic [ref=e378]:
+                - img [ref=e379]
+                - textbox "Buscar circuito..." [ref=e382]
+              - button "Seleccionados" [ref=e383]
+            - generic [ref=e384]:
+              - generic [ref=e385] [cursor=pointer]:
+                - img [ref=e1066]
+                - generic [ref=e387]: Drift
+              - generic [ref=e388] [cursor=pointer]:
+                - img [ref=e1068]
+                - generic [ref=e390]: Imola
+              - generic [ref=e391] [cursor=pointer]:
+                - img [ref=e1070]
+                - generic [ref=e393]: ks_barcelona
+              - generic [ref=e394] [cursor=pointer]:
+                - img [ref=e1072]
+                - generic [ref=e396]: ks_black_cat_county
+              - generic [ref=e397] [cursor=pointer]:
+                - img [ref=e1074]
+                - generic [ref=e399]: ks_brands_hatch
+              - generic [ref=e400] [cursor=pointer]:
+                - img [ref=e1076]
+                - generic [ref=e402]: ks_drag
+              - generic [ref=e403] [cursor=pointer]:
+                - img [ref=e1078]
+                - generic [ref=e405]: ks_highlands
+              - generic [ref=e406] [cursor=pointer]:
+                - img [ref=e1080]
+                - generic [ref=e408]: Laguna Seca
+              - generic [ref=e409] [cursor=pointer]:
+                - img [ref=e1082]
+                - generic [ref=e411]: ks_monza66
+              - generic [ref=e412] [cursor=pointer]:
+                - img [ref=e1084]
+                - generic [ref=e414]: ks_nordschleife
+              - generic [ref=e415] [cursor=pointer]:
+                - img [ref=e1086]
+                - generic [ref=e417]: ks_nurburgring
+              - generic [ref=e418] [cursor=pointer]:
+                - img [ref=e1088]
+                - generic [ref=e420]: ks_red_bull_ring
+              - generic [ref=e421] [cursor=pointer]:
+                - img [ref=e1090]
+                - generic [ref=e423]: ks_silverstone
+              - generic [ref=e424] [cursor=pointer]:
+                - img [ref=e1092]
+                - generic [ref=e426]: Silverstone 1967
+              - generic [ref=e427] [cursor=pointer]:
+                - img [ref=e1094]
+                - generic [ref=e429]: ks_vallelunga
+              - generic [ref=e430] [cursor=pointer]:
+                - img [ref=e1096]
+                - generic [ref=e432]: Zandvoort
+              - generic [ref=e433] [cursor=pointer]:
+                - img [ref=e1098]
+                - generic [ref=e435]: Magione
+              - generic [ref=e436] [cursor=pointer]:
+                - img [ref=e1100]
+                - generic [ref=e438]: Monza
+              - generic [ref=e439] [cursor=pointer]:
+                - img [ref=e1102]
+                - generic [ref=e441]: Mugello
+              - generic [ref=e442] [cursor=pointer]:
+                - img [ref=e1104]
+                - generic [ref=e444]: Spa
+              - generic [ref=e445] [cursor=pointer]:
+                - img [ref=e1106]
+                - generic [ref=e447]: Trento-Bondone
+            - generic [ref=e448]:
+              - generic [ref=e449]: 21 circuitos seleccionados (0 = todos)
+              - generic [ref=e450]:
+                - button "SELECCIONAR FILTRADOS" [ref=e451]
+                - button "LIMPIAR" [ref=e452]
+        - generic [ref=e453]:
+          - button "CANCELAR" [ref=e454]
+          - button "GUARDAR ESCENARIO" [disabled] [ref=e455]:
+            - generic [ref=e456]:
+              - img [ref=e457]
+              - text: GUARDAR ESCENARIO
+      - generic [ref=e131]:
+        - generic [ref=e132]:
+          - generic [ref=e133]:
+            - heading "5555" [level=3] [ref=e134]
+            - button "ACTIVO" [ref=e135]
+          - paragraph [ref=e136]: Sin descripcion
+          - generic [ref=e137]:
+            - generic [ref=e138]:
+              - img [ref=e139]
+              - generic [ref=e143]: "180"
+              - text: Coches
+            - generic [ref=e144]:
+              - img [ref=e145]
+              - generic [ref=e147]: "21"
+              - text: Circuitos
+            - generic [ref=e148]:
+              - img [ref=e149]
+              - generic [ref=e152]: 5, 10, 15, 20, 30, 45, 60
+              - text: Min
+          - generic [ref=e153]:
+            - button "EDITAR" [active] [ref=e154]:
+              - img [ref=e155]
+              - text: EDITAR
+            - button "Eliminar escenario" [ref=e158]:
+              - img [ref=e159]
+        - generic [ref=e162]:
+          - generic [ref=e163]:
+            - heading "Copa Abarth" [level=3] [ref=e164]
+            - button "INACTIVO" [ref=e165]
+          - paragraph [ref=e166]: Diversion pura con el pequeno 500 Abarth.
+          - generic [ref=e167]:
+            - generic [ref=e168]:
+              - img [ref=e169]
+              - generic [ref=e173]: "2"
+              - text: Coches
+            - generic [ref=e174]:
+              - img [ref=e175]
+              - generic [ref=e177]: "2"
+              - text: Circuitos
+            - generic [ref=e178]:
+              - img [ref=e179]
+              - generic [ref=e182]: 5, 10
+              - text: Min
+          - generic [ref=e183]:
+            - button "EDITAR" [ref=e184]:
+              - img [ref=e185]
+              - text: EDITAR
+            - button "Eliminar escenario" [ref=e188]:
+              - img [ref=e189]
+        - generic [ref=e192]:
+          - generic [ref=e193]:
+            - heading "Drift Academy" [level=3] [ref=e194]
+            - button "ACTIVO" [ref=e195]
+          - paragraph [ref=e196]: Aprende a derrapar con el clasico BMW E30.
+          - generic [ref=e197]:
+            - generic [ref=e198]:
+              - img [ref=e199]
+              - generic [ref=e203]: "2"
+              - text: Coches
+            - generic [ref=e204]:
+              - img [ref=e205]
+              - generic [ref=e207]: "2"
+              - text: Circuitos
+            - generic [ref=e208]:
+              - img [ref=e209]
+              - generic [ref=e212]: "10"
+              - text: Min
+          - generic [ref=e213]:
+            - button "EDITAR" [ref=e214]:
+              - img [ref=e215]
+              - text: EDITAR
+            - button "Eliminar escenario" [ref=e218]:
+              - img [ref=e219]
+        - generic [ref=e222]:
+          - generic [ref=e223]:
+            - heading "F1 Experience" [level=3] [ref=e224]
+            - button "ACTIVO" [ref=e225]
+          - paragraph [ref=e226]: Siente la velocidad maxima de un F1 moderno.
+          - generic [ref=e227]:
+            - generic [ref=e228]:
+              - img [ref=e229]
+              - generic [ref=e233]: "2"
+              - text: Coches
+            - generic [ref=e234]:
+              - img [ref=e235]
+              - generic [ref=e237]: "3"
+              - text: Circuitos
+            - generic [ref=e238]:
+              - img [ref=e239]
+              - generic [ref=e242]: 15, 30
+              - text: Min
+          - generic [ref=e243]:
+            - button "EDITAR" [ref=e244]:
+              - img [ref=e245]
+              - text: EDITAR
+            - button "Eliminar escenario" [ref=e248]:
+              - img [ref=e249]
+        - generic [ref=e252]:
+          - generic [ref=e253]:
+            - heading "Tandas GT3" [level=3] [ref=e254]
+            - button "ACTIVO" [ref=e255]
+          - paragraph [ref=e256]: Competicion oficial con vehiculos GT3 en Spa Francorchamps.
+          - generic [ref=e257]:
+            - generic [ref=e258]:
+              - img [ref=e259]
+              - generic [ref=e263]: "4"
+              - text: Coches
+            - generic [ref=e264]:
+              - img [ref=e265]
+              - generic [ref=e267]: "3"
+              - text: Circuitos
+            - generic [ref=e268]:
+              - img [ref=e269]
+              - generic [ref=e272]: 10, 20, 30
+              - text: Min
+          - generic [ref=e273]:
+            - button "EDITAR" [ref=e274]:
+              - img [ref=e275]
+              - text: EDITAR
+            - button "Eliminar escenario" [ref=e278]:
+              - img [ref=e279]
+        - generic [ref=e282]:
+          - generic [ref=e283]:
+            - heading "TEST" [level=3] [ref=e284]
+            - button "ACTIVO" [ref=e285]
+          - paragraph [ref=e286]: Sin descripcion
+          - generic [ref=e287]:
+            - generic [ref=e288]:
+              - img [ref=e289]
+              - generic [ref=e293]: "180"
+              - text: Coches
+            - generic [ref=e294]:
+              - img [ref=e295]
+              - generic [ref=e297]: "21"
+              - text: Circuitos
+            - generic [ref=e298]:
+              - img [ref=e299]
+              - generic [ref=e302]: 10, 15, 20
+              - text: Min
+          - generic [ref=e303]:
+            - button "EDITAR" [ref=e304]:
+              - img [ref=e305]
+              - text: EDITAR
+            - button "Eliminar escenario" [ref=e308]:
+              - img [ref=e309]

@@ -1,16 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import type { FC } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { API_URL } from '../config';
-import { Activity, Gauge, MapPin, Zap } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Activity, Gauge, MapPin } from 'lucide-react';
 
 interface LiveSessionMonitorProps {
     stationId: number;
     driverName?: string;
 }
 
-export const LiveSessionMonitor: React.FC<LiveSessionMonitorProps> = ({ stationId, driverName }) => {
+export const LiveSessionMonitor: FC<LiveSessionMonitorProps> = ({ stationId, driverName }) => {
     // Poll for telemetry every 200ms
     const { data: telemetry } = useQuery({
         queryKey: ['telemetry-live', stationId],

@@ -392,7 +392,7 @@ function PreviewScreen({ view, mode }: { view: string, mode: string }) {
             x: c.x || 0,
             z: c.z || 0,
             normPos: c.normalized_pos || 0,
-            color: c.station_id === '1' ? '#ef4444' : c.station_id === '2' ? '#3b82f6' : c.station_id === '3' ? '#22c55e' : '#eab308',
+            color: c.station_id === 1 ? '#ef4444' : c.station_id === 2 ? '#3b82f6' : c.station_id === 3 ? '#22c55e' : '#eab308',
             isOnline: true
         })) : []} trackName="Circuito" />; break;
         case 'TOURNAMENT': content = <div className="p-4"><p className="text-white text-center">Torneo Activo</p></div>; break;

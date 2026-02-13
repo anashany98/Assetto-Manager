@@ -1,0 +1,18 @@
+{
+  "size": {
+    "w": 768,
+    "h": 1024
+  },
+  "tabsInfo": [
+    "Licencia",
+    "Marca y TV",
+    "Precios",
+    "Editor AC",
+    "Simulador AC",
+    "Simuladores",
+    "Logs Sistema",
+    "Base de Datos",
+    "Subir Archivo",
+    "Usar IP Local Detectada"
+  ]
+}

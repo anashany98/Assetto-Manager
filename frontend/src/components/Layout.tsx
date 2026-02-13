@@ -30,6 +30,7 @@ import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { API_URL, PUBLIC_API_TOKEN } from '../config';
 import { FEATURES } from '../config/features';
+import AppUpdateBanner from './AppUpdateBanner';
 
 
 // NavItem Component
@@ -39,22 +40,52 @@ const NavItem = ({ to, icon: Icon, children, collapsed }: { to: string, icon: Re
     const { isModuleEnabled } = useLicense();
     const isActive = location.pathname === to;
 
-    // Permission Check
-    // Map route paths to permission keys
-    const PERMISSION_MAP: Record<string, string> = {
-        '/': 'dashboard',
-        '/stations': 'stations',
-        '/mods': 'mods',
+    // Permission/Module Check
+    // Keys should match BOTH backend user permissions AND license modules.
+    // We select the longest matching prefix so "/" does not shadow everything.
+    const ROUTE_PERMISSION_MAP: Record<string, string> = {
+        // Management
+        '/admin/scenarios': 'kiosk',
+        '/admin': 'dashboard',
+        '/drivers': 'drivers',
         '/events': 'events',
-        '/leaderboard': 'leaderboard',
-        '/users': 'users',
-        '/reservations': 'reservations',
+        '/championships': 'championships',
+        '/history': 'history',
+        '/bookings': 'bookings',
+        '/reservations': 'tables',
+        '/analytics': 'analytics',
+        '/mods': 'mods',
+        '/online-reservations': 'online_reservations',
+        '/compare': 'lap_comparison',
+
+        // System
+        '/settings?tab=game': 'editor',
         '/settings': 'settings',
-        '/tv-control': 'tv_control',
-        '/kiosk': 'kiosk'
+        '/profiles': 'profiles',
+        '/users': 'users',
+
+        // Public / TV
+        '/remote': 'tv_remote',
+        '/tv/spectator': 'tv_spectator',
+        '/leaderboard': 'leaderboard',
+        '/hall-of-fame': 'hall_of_fame',
+        '/kiosk': 'kiosk',
+
+        // Fallback
+        '/': 'dashboard',
     };
 
-    const requiredPerm = Object.entries(PERMISSION_MAP).find(([path]) => to.startsWith(path))?.[1];
+    const requiredPerm = (() => {
+        let bestPerm: string | undefined;
+        let bestLen = -1;
+        for (const [prefix, perm] of Object.entries(ROUTE_PERMISSION_MAP)) {
+            if (to.startsWith(prefix) && prefix.length > bestLen) {
+                bestPerm = perm;
+                bestLen = prefix.length;
+            }
+        }
+        return bestPerm;
+    })();
 
     // User Permission Check
     const hasUserPerm = !requiredPerm ||
@@ -136,7 +167,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     // Poll hardware stats for station 1 (default) or detect station ID from URL/Storage
     // In a real multi-station deployment, the frontend knows its "Station ID" via config.
     // For now, we assume stationId = 1 or use local storage logic similar to KioskMode.
-    const [stationId, setStationId] = useState<number>(() => {
+    const [stationId] = useState<number>(() => {
         const stored = localStorage.getItem('kiosk_station_id');
         return stored ? parseInt(stored) : 1;
     });
@@ -163,7 +194,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 return res.data;
             } catch { return null; }
         },
-        refetchInterval: 2000 // Poll every 2s
+        refetchInterval: () => {
+            // Reduce polling load and pause while tab/window is not visible.
+            if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return false;
+            return isAdminView ? 10000 : 4000;
+        },
+        refetchIntervalInBackground: false,
     });
 
     const hardwareWarning = lockStatus && (lockStatus.is_online === false || !lockStatus.wheel_connected || !lockStatus.pedals_connected);
@@ -264,6 +300,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             {/* Main Content Area */}
             <div className="flex-1 overflow-auto relative">
                 <div className="min-h-full">
+                    <AppUpdateBanner />
                     {hardwareWarning && (
                         <div className="mx-8 mt-6 mb-2 bg-red-500/10 border border-red-500/30 rounded-2xl p-4 text-red-600 dark:text-red-200 font-bold text-sm flex items-center gap-3">
                             <AlertTriangle size={18} />

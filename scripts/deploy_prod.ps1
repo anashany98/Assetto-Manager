@@ -3,6 +3,7 @@ param(
   [string]$EnvExample = "backend\.env.production.example",
   [string]$DatabaseUrl = "",
   [switch]$UseSqlite,
+  [switch]$NoStart,
   [switch]$InstallService,
   [string]$ServiceName = "ACManagerBackend",
   [string]$NssmPath = "nssm.exe"
@@ -10,6 +11,12 @@ param(
 
 $root = Resolve-Path (Join-Path $PSScriptRoot "..")
 Set-Location $root
+
+function Get-VenvPython() {
+  $candidate = Join-Path $root ".venv\\Scripts\\python.exe"
+  if (Test-Path $candidate) { return $candidate }
+  return "python"
+}
 
 function Get-RandomToken([int]$Length = 32) {
   $bytes = New-Object byte[] $Length
@@ -46,19 +53,12 @@ if (!(Test-Path ".venv")) {
   Write-Host "Creating virtualenv..."
   python -m venv .venv
 }
-if (Test-Path ".venv\Scripts\activate.bat") {
-  cmd /c "call .venv\Scripts\activate.bat && pip install -r backend\requirements.txt"
-}
+$py = Get-VenvPython
+Write-Host ("Using Python: " + $py)
+& $py -m pip install -r backend\\requirements.txt
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-# 2) Frontend build
-if (!(Test-Path "frontend\node_modules")) {
-  Write-Host "Installing frontend deps..."
-  cmd /c "cd frontend && npm install"
-}
-Write-Host "Building frontend..."
-cmd /c "cd frontend && npm run build"
-
-# 3) Prepare .env
+# 2) Prepare backend/.env
 $envMap = @{}
 foreach ($kv in (Read-EnvFile $EnvExample).GetEnumerator()) {
   $envMap[$kv.Key] = $kv.Value
@@ -93,19 +93,60 @@ Ensure-Value "AGENT_TOKEN" (Get-RandomToken 16)
 Ensure-Value "UPDATE_SIGNING_KEY" (Get-RandomToken 32)
 Ensure-Value "PUBLIC_API_TOKEN" (Get-RandomToken 16)
 Ensure-Value "PUBLIC_WS_TOKEN" (Get-RandomToken 16)
-Ensure-Value "AUTO_SCHEMA" "true"
+$envMap["AUTO_SCHEMA"] = "false"
+$envMap["ALLOW_PUBLIC_TOKEN_QUERY"] = "false"
+$envMap["REQUIRE_SECRETS"] = "true"
+Ensure-Value "UVICORN_WORKERS" "1"
+Ensure-Value "ENABLE_SCHEDULER" "true"
 
 Write-EnvFile $EnvFile $envMap
 Write-Host "Wrote $EnvFile"
-Write-Host "NOTE: AUTO_SCHEMA is set to true for the first run. Set it to false after the DB is initialized."
 Write-Host ("AGENT_TOKEN: " + $envMap["AGENT_TOKEN"])
 Write-Host ("UPDATE_SIGNING_KEY: " + $envMap["UPDATE_SIGNING_KEY"])
 
-# 4) Optional service install
+# 3) Write frontend/.env.production so kiosk/public flows work in production builds
+$feEnvPath = Join-Path $root "frontend\\.env.production"
+$feApiToken = $envMap["PUBLIC_API_TOKEN"]
+$feWsToken = $envMap["PUBLIC_WS_TOKEN"]
+@(
+  "VITE_PUBLIC_API_TOKEN=$feApiToken"
+  "VITE_PUBLIC_WS_TOKEN=$feWsToken"
+) | Set-Content -Encoding ASCII $feEnvPath
+Write-Host "Wrote $feEnvPath"
+
+# 4) Frontend build
+if (!(Test-Path "frontend\\node_modules")) {
+  Write-Host "Installing frontend deps..."
+  cmd /c "cd frontend && npm install"
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
+Write-Host "Building frontend..."
+cmd /c "cd frontend && npm run build"
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+# 5) Validate critical config early
+Write-Host "Validating production environment..."
+$env:ENVIRONMENT = "production"
+$env:REQUIRE_SECRETS = "true"
+& $py -c "from backend.app.main import _validate_runtime_config; _validate_runtime_config()"
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+# 6) Optional service install
 if ($InstallService) {
   & scripts\install_service.ps1 -ServiceName $ServiceName -NssmPath $NssmPath
 }
 
-# 5) Run backend
-Write-Host "Starting backend..."
-cmd /c "python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --workers 2"
+# 7) Run backend
+if ($NoStart) {
+  Write-Host "Deployment completed. Backend start skipped (-NoStart)."
+  exit 0
+}
+
+Write-Host "Bootstrapping DB schema (create_all) if needed..."
+& $py bootstrap_db.py
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+$workers = $envMap["UVICORN_WORKERS"]
+if (-not $workers) { $workers = "1" }
+Write-Host ("Starting backend... (workers=" + $workers + ")")
+& $py -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --workers $workers

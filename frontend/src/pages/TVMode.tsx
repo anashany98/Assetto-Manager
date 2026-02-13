@@ -156,7 +156,7 @@ export const TVMode = () => {
                                 x: c.x || 0,
                                 z: c.z || 0,
                                 normPos: c.normalized_pos || 0,
-                                color: c.station_id === '1' ? '#ef4444' : c.station_id === '2' ? '#3b82f6' : c.station_id === '3' ? '#22c55e' : '#eab308',
+                                color: c.station_id === 1 ? '#ef4444' : c.station_id === 2 ? '#3b82f6' : c.station_id === 3 ? '#22c55e' : '#eab308',
                                 isOnline: true
                             })) : []} trackName={(Array.isArray(Object.values(liveCars)) && Object.values(liveCars).length > 0) ? Object.values(liveCars)[0]?.track || 'Circuito' : 'Circuito'} />
                         </div>

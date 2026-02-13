@@ -37,7 +37,9 @@ export const getMe = async (token: string): Promise<User> => {
     });
 
     if (!response.ok) {
-        throw new Error("Failed to fetch user");
+        const error = new Error("Failed to fetch user") as Error & { status?: number };
+        error.status = response.status;
+        throw error;
     }
 
     return response.json();

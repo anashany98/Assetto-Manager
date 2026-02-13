@@ -238,6 +238,8 @@ class Championship(Base):
     end_date = Column(DateTime(timezone=True), nullable=True)
     is_active = Column(Boolean, default=True)
     scoring_rules = Column(JSON, nullable=True) 
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime(timezone=True), onupdate=lambda: datetime.now(timezone.utc))
     
     events = relationship("Event", backref="championship") 
 
@@ -359,9 +361,13 @@ class Booking(Base):
     num_players = Column(Integer, default=1)  # Number of players in the group
     date = Column(DateTime(timezone=True), nullable=False, index=True)
     time_slot = Column(String(20), nullable=False)  # e.g., "10:00-11:00"
+    start_time = Column(DateTime(timezone=True), nullable=True, index=True)
+    end_time = Column(DateTime(timezone=True), nullable=True)
     duration_minutes = Column(Integer, default=60)
     status = Column(String(20), default="pending", index=True)  # pending, confirmed, cancelled, completed
     notes = Column(String(500), nullable=True)
+    price = Column(Float, nullable=True)
+    paid = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     
     station = relationship("Station")
@@ -560,38 +566,3 @@ class WheelProfile(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
-class Reservation(Base):
-    """Online booking system for simulator sessions"""
-    __tablename__ = "reservations"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    station_id = Column(Integer, ForeignKey("stations.id"), nullable=True)
-    
-    # Client info
-    client_name = Column(String, index=True)
-    client_email = Column(String, nullable=True)
-    client_phone = Column(String, nullable=True)
-    
-    # Timing
-    start_time = Column(DateTime(timezone=True), index=True)
-    end_time = Column(DateTime(timezone=True))
-    duration_minutes = Column(Integer, default=30)
-    
-    # Status: pending, confirmed, cancelled, completed
-    status = Column(String, default="pending", index=True)
-    
-    # Optional notes
-    notes = Column(String, nullable=True)
-    
-    # Pricing (optional)
-    price = Column(Float, nullable=True)
-    paid = Column(Boolean, default=False)
-    
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime(timezone=True), onupdate=lambda: datetime.now(timezone.utc))
-    
-    station = relationship("Station")
-    
-    __table_args__ = (
-        Index('idx_reservation_time', 'station_id', 'start_time'),
-    )

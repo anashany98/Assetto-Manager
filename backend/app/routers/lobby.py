@@ -1,21 +1,55 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import logging
+import os
 
 from .. import models, schemas, database
+from .auth import require_admin
 from .websockets import manager
 
 logger = logging.getLogger("api.lobby")
 
 router = APIRouter(
     prefix="/lobby",
-    tags=["lobby"]
+    tags=["lobby"],
+    dependencies=[Depends(require_admin)]
 )
 
 def get_db():
     return database.get_db()
+
+def _cleanup_orphan_lobbies(db: Session) -> int:
+    """
+    Cancel lobbies whose host is offline or stale.
+    Returns number of lobbies updated.
+    """
+    grace_seconds = int(os.getenv("LOBBY_ORPHAN_SECONDS", "120"))
+    cutoff = datetime.now(timezone.utc) - timedelta(seconds=grace_seconds)
+
+    lobbies = db.query(models.Lobby).filter(
+        models.Lobby.status.in_(["waiting", "starting", "running"])
+    ).all()
+
+    updated = 0
+    for lobby in lobbies:
+        host = db.query(models.Station).filter(models.Station.id == lobby.host_station_id).first()
+        if not host:
+            lobby.status = "cancelled"
+            lobby.finished_at = datetime.now(timezone.utc)
+            updated += 1
+            continue
+
+        last_seen = host.last_seen
+        if host.is_online is False or (last_seen and last_seen < cutoff):
+            lobby.status = "cancelled"
+            lobby.finished_at = datetime.now(timezone.utc)
+            updated += 1
+
+    if updated:
+        db.commit()
+    return updated
 
 
 @router.post("/create", response_model=schemas.Lobby)
@@ -38,6 +72,8 @@ async def create_lobby(
         raise HTTPException(status_code=404, detail=f"Station {active_host_id} not found")
     if not host.is_online:
         raise HTTPException(status_code=400, detail="Host station must be online")
+    if not host.ip_address:
+        raise HTTPException(status_code=400, detail="Host station has no IP address")
     
     # Find available port (9600 + lobby_id offset)
     last_lobby = db.query(models.Lobby).order_by(models.Lobby.id.desc()).first()
@@ -96,6 +132,7 @@ async def list_lobbies(
     """
     List available lobbies. Default 'active' shows waiting and running.
     """
+    _cleanup_orphan_lobbies(db)
     query = db.query(models.Lobby)
     if status == "active":
         query = query.filter(models.Lobby.status.in_(["waiting", "running"]))
@@ -130,6 +167,7 @@ async def list_lobbies(
 @router.get("/{lobby_id}", response_model=schemas.Lobby)
 async def get_lobby(lobby_id: int, db: Session = Depends(database.get_db)):
     """Get detailed lobby info including players."""
+    _cleanup_orphan_lobbies(db)
     lobby = db.query(models.Lobby).filter(models.Lobby.id == lobby_id).first()
     if not lobby:
         raise HTTPException(status_code=404, detail="Lobby not found")
@@ -223,6 +261,8 @@ async def join_lobby(
     station = db.query(models.Station).filter(models.Station.id == join_data.station_id).first()
     if not station:
         raise HTTPException(status_code=404, detail="Station not found")
+    if not station.is_online:
+        raise HTTPException(status_code=400, detail="Station is offline")
     
     # Check if already in lobby
     if station in lobby.players:
@@ -242,27 +282,22 @@ async def join_lobby(
 
     # If lobby is already running, send join command immediately
     if lobby.status == "running":
-        ws = manager.active_agents.get(station.id)
-        if ws:
-            try:
-                import json
-                # Calculate slot (might be append)
-                # Note: Entry list is static on server, so slot number effectively maps to CAR_x
-                # We need to ensure we give a valid slot index.
-                slot_idx = len(lobby.players) - 1
-                
-                await ws.send_text(json.dumps({
-                    "command": "join_lobby",
-                    "lobby_id": lobby.id,
-                    "server_ip": lobby.server_ip,
-                    "port": lobby.port,
-                    "track": lobby.track,
-                    "car": lobby.car,
-                    "slot": slot_idx
-                }))
-                logger.info(f"Sent immediate join_lobby to {station.name} (Late Join)")
-            except Exception as e:
-                logger.error(f"Failed to send immediate join_lobby to {station.name}: {e}")
+        # Calculate slot (might be append)
+        # Note: Entry list is static on server, so slot number effectively maps to CAR_x
+        slot_idx = len(lobby.players) - 1
+        ok = await manager.send_command(station.id, {
+            "command": "join_lobby",
+            "lobby_id": lobby.id,
+            "server_ip": lobby.server_ip,
+            "port": lobby.port,
+            "track": lobby.track,
+            "car": lobby.car,
+            "slot": slot_idx
+        })
+        if ok:
+            logger.info(f"Sent immediate join_lobby to {station.name} (Late Join)")
+        else:
+            logger.warning(f"Station {station.id} has no active Agent connection for late join")
 
     return {"status": "joined", "lobby_id": lobby_id, "slot": len(lobby.players) - 1}
 
@@ -297,48 +332,68 @@ async def start_lobby(
     
     # Get host station
     host = db.query(models.Station).filter(models.Station.id == lobby.host_station_id).first()
+    if not host or not host.is_online:
+        raise HTTPException(status_code=400, detail="Host station is offline")
+
+    # Enforce ready players only. Unready players are auto-removed to allow partial participation.
+    stmt = models.lobby_players.select().where(models.lobby_players.c.lobby_id == lobby_id)
+    results = db.execute(stmt).fetchall()
+    ready_map = {row.station_id: row.ready for row in results}
+    ready_players = [p for p in lobby.players if ready_map.get(p.id, False)]
+    unready_players = [p for p in lobby.players if not ready_map.get(p.id, False)]
+
+    if host.id not in [p.id for p in ready_players]:
+        raise HTTPException(status_code=400, detail="Host must be ready to start")
+    if len(ready_players) < 1:
+        raise HTTPException(status_code=400, detail="Need at least 1 ready player to start")
+
+    # Remove unready players from lobby before starting
+    if unready_players:
+        for p in unready_players:
+            try:
+                lobby.players.remove(p)
+            except Exception:
+                pass
+        db.commit()
     
     # Send create_lobby command to host agent
-    host_ws = manager.active_agents.get(host.id)
-    if host_ws:
-        try:
-            import json
-            await host_ws.send_text(json.dumps({
-                "command": "create_lobby",
-                "lobby_id": lobby.id,
-                "track": lobby.track,
-                "car": lobby.car,
-                "laps": lobby.laps,
-                "max_players": lobby.max_players,
-                "port": lobby.port,
-                "players": [{"name": s.name, "slot": idx} for idx, s in enumerate(lobby.players)]
-            }))
-            logger.info(f"Sent create_lobby to host {host.name}")
-        except Exception as e:
-            logger.error(f"Failed to send create_lobby: {e}")
+    ok = await manager.send_command(host.id, {
+        "command": "create_lobby",
+        "lobby_id": lobby.id,
+        "track": lobby.track,
+        "car": lobby.car,
+        "laps": lobby.laps,
+        "max_players": lobby.max_players,
+        "port": lobby.port,
+        "players": [{"name": s.name, "slot": idx} for idx, s in enumerate(lobby.players)]
+    })
+    if ok:
+        logger.info(f"Sent create_lobby to host {host.name}")
+    else:
+        lobby.status = "waiting"
+        lobby.started_at = None
+        db.commit()
+        raise HTTPException(status_code=500, detail="Host Agent not connected")
     
     # Send join_lobby command to all other players
     for idx, station in enumerate(lobby.players):
         if station.id == lobby.host_station_id:
             continue  # Skip host
         
-        ws = manager.active_agents.get(station.id)
-        if ws:
-            try:
-                import json
-                await ws.send_text(json.dumps({
-                    "command": "join_lobby",
-                    "lobby_id": lobby.id,
-                    "server_ip": lobby.server_ip,
-                    "port": lobby.port,
-                    "track": lobby.track,
-                    "car": lobby.car,
-                    "slot": idx,
-                    "is_spectator": False
-                }))
-                logger.info(f"Sent join_lobby to {station.name}")
-            except Exception as e:
-                logger.error(f"Failed to send join_lobby to {station.name}: {e}")
+        ok = await manager.send_command(station.id, {
+            "command": "join_lobby",
+            "lobby_id": lobby.id,
+            "server_ip": lobby.server_ip,
+            "port": lobby.port,
+            "track": lobby.track,
+            "car": lobby.car,
+            "slot": idx,
+            "is_spectator": False
+        })
+        if ok:
+            logger.info(f"Sent join_lobby to {station.name}")
+        else:
+            logger.warning(f"Station {station.id} agent not connected, join_lobby skipped")
     
     # NEW: Automatically join TV Mode stations as spectators
     tv_stations = db.query(models.Station).filter(
@@ -351,22 +406,19 @@ async def start_lobby(
         if any(p.id == tv_station.id for p in lobby.players):
             continue
             
-        ws = manager.active_agents.get(tv_station.id)
-        if ws:
-            try:
-                import json
-                await ws.send_text(json.dumps({
-                    "command": "join_lobby",
-                    "lobby_id": lobby.id,
-                    "server_ip": lobby.server_ip,
-                    "port": lobby.port,
-                    "track": lobby.track,
-                    "car": lobby.car,
-                    "is_spectator": True
-                }))
-                logger.info(f"Sent join_lobby (Spectator) to TV Station {tv_station.name}")
-            except Exception as e:
-                logger.error(f"Failed to send spectator join to {tv_station.name}: {e}")
+        ok = await manager.send_command(tv_station.id, {
+            "command": "join_lobby",
+            "lobby_id": lobby.id,
+            "server_ip": lobby.server_ip,
+            "port": lobby.port,
+            "track": lobby.track,
+            "car": lobby.car,
+            "is_spectator": True
+        })
+        if ok:
+            logger.info(f"Sent join_lobby (Spectator) to TV Station {tv_station.name}")
+        else:
+            logger.warning(f"TV Station {tv_station.id} agent not connected, spectator join skipped")
     
     lobby.status = "running"
     db.commit()
@@ -391,11 +443,9 @@ async def cancel_lobby(
     # If running, send stop command to host
     if lobby.status == "running":
         host = db.query(models.Station).filter(models.Station.id == lobby.host_station_id).first()
-        ws = manager.active_agents.get(host.id)
-        if ws:
+        if host:
             try:
-                import json
-                await ws.send_text(json.dumps({"command": "stop_lobby"}))
+                await manager.send_command(host.id, {"command": "stop_lobby"})
             except Exception:
                 pass
     

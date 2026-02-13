@@ -5,7 +5,7 @@ import time
 from collections import deque
 import logging
 logger = logging.getLogger(__name__)
-from .auth import require_agent_token, require_admin
+from .auth import require_agent_token_scoped, require_admin
 
 # In-memory Circular Buffer (Max 1000 logs)
 MAX_LOGS = 1000
@@ -29,7 +29,7 @@ router = APIRouter(
     tags=["logs"]
 )
 
-@router.post("/", status_code=201, dependencies=[Depends(require_agent_token)])
+@router.post("/", status_code=201, dependencies=[Depends(require_agent_token_scoped("agent:logs"))])
 async def submit_log(log: LogCreate):
     entry = LogEntry(
         timestamp=time.time(),

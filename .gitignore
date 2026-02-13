@@ -20,6 +20,7 @@ ENV/
 # Frontend
 frontend/node_modules/
 frontend/.env
+frontend/.env.*
 
 # OS
 .DS_Store
@@ -35,6 +36,7 @@ dist/
 backend/.env
 certs/*.pem
 certs/*.key
+!certs/public_key.pem
 
 # Local Config
 LOCAL

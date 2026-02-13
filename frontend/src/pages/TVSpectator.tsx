@@ -275,7 +275,7 @@ export default function TVSpectator() {
                                 <li>• OBS Studio instalado en cada PC simulador</li>
                                 <li>• Plugin obs-websocket activo (puerto 4455)</li>
                                 <li>• Escena "Game" con captura de pantalla configurada</li>
-                                <li>• Servidor de medios: RTMP o HTTP a http://localhost:8080/stream</li>
+                                <li>• Para latencia minima en LAN: stream_url WebRTC (ej. http://media.local:8889/live/station1)</li>
                             </ul>
                         </div>
                     </div>

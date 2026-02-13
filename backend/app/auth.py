@@ -4,16 +4,53 @@ from typing import Optional
 from joserfc import jwt
 from joserfc.jwk import OctKey
 from passlib.context import CryptContext
+import logging
 import os
+import secrets
 
 # Configuration
-# Prefer env vars, fallback to dev defaults
-ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
-SECRET_KEY = os.getenv("SECRET_KEY")
-if not SECRET_KEY:
+# Prefer env vars and avoid static fallback secrets.
+ENVIRONMENT = (os.getenv("ENVIRONMENT", "development") or "development").lower().strip()
+logger = logging.getLogger(__name__)
+
+_INSECURE_SECRET_SENTINELS = {
+    "change-me",
+    "changeme",
+    "replace-me",
+    "default",
+    "password",
+    "secret",
+    "your-secret",
+    "your-secret-key",
+    "test",
+    "dev",
+    "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7",
+}
+
+
+def _load_secret_key() -> str:
+    candidate = (os.getenv("SECRET_KEY") or "").strip()
+    if candidate:
+        if ENVIRONMENT == "production":
+            if candidate.lower() in _INSECURE_SECRET_SENTINELS:
+                raise RuntimeError("SECRET_KEY uses an insecure placeholder value")
+            if len(candidate) < 32:
+                raise RuntimeError("SECRET_KEY must be at least 32 characters in production")
+        return candidate
+
     if ENVIRONMENT == "production":
         raise RuntimeError("SECRET_KEY must be set in production")
-    SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
+
+    # Dev/test fallback: random per-process key (tokens rotate on restart).
+    ephemeral = secrets.token_urlsafe(48)
+    logger.warning(
+        "SECRET_KEY not configured; using ephemeral in-memory key. "
+        "Existing JWT sessions will be invalid after restart."
+    )
+    return ephemeral
+
+
+SECRET_KEY = _load_secret_key()
 
 ALGORITHM = "HS256"
 DEFAULT_TOKEN_EXPIRE_MINUTES = 60 if ENVIRONMENT == "production" else 60 * 24 * 365

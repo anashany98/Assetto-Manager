@@ -32,7 +32,7 @@ export default function EventCountdown({ eventName, targetDate, isActive }: Even
     }, [targetDate]);
 
     return (
-        <div className="flex flex-col items-center justify-center h-full bg-slate-900 text-white p-10 bg-[url('/bg-pattern.png')] bg-cover bg-blend-overlay">
+        <div className="flex flex-col items-center justify-center h-full bg-slate-900 text-white p-10 bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.12)_1px,transparent_0)] [background-size:28px_28px]">
             <div className="mb-8 animate-bounce bg-blue-600 p-4 rounded-full shadow-[0_0_50px_rgba(37,99,235,0.6)]">
                 <Clock size={64} className="text-white" />
             </div>

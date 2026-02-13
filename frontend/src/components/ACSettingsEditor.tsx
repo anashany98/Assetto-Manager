@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import {
@@ -13,6 +13,7 @@ import { cn } from '../lib/utils';
 interface ACSettingsEditorProps {
     category: 'controls' | 'gameplay' | 'video' | 'audio' | 'camera' | 'race' | 'weather';
     profileName: string;
+    onDirtyChange?: (dirty: boolean) => void;
 }
 
 type SectionData = Record<string, Record<string, string>>;
@@ -190,7 +191,7 @@ function SettingSection({
     );
 }
 
-export default function ACSettingsEditor({ category, profileName }: ACSettingsEditorProps) {
+export default function ACSettingsEditor({ category, profileName, onDirtyChange }: ACSettingsEditorProps) {
     const queryClient = useQueryClient();
     const [localData, setLocalData] = useState<SectionData | null>(null);
     const [hasChanges, setHasChanges] = useState(false);
@@ -208,13 +209,52 @@ export default function ACSettingsEditor({ category, profileName }: ACSettingsEd
     // Save mutation
     const saveMutation = useMutation({
         mutationFn: async (sections: SectionData) => {
-            await axios.post(`${API_URL}/configs/profile/${category}/${profileName}/parsed`, { sections });
+            const res = await axios.post(`${API_URL}/configs/profile/${category}/${profileName}/parsed`, { sections });
+            return res.data as { warnings?: string[]; safe_mode?: boolean };
         },
-        onSuccess: () => {
+        onSuccess: (res) => {
             queryClient.invalidateQueries({ queryKey: ['ac-config', category, profileName] });
             setHasChanges(false);
+            setLocalData(null);
+            if (Array.isArray(res?.warnings) && res.warnings.length > 0) {
+                alert(`Guardado con advertencias:\n- ${res.warnings.slice(0, 5).join('\n- ')}`);
+            }
+        },
+        onError: (error) => {
+            if (axios.isAxiosError(error)) {
+                const detail = error.response?.data?.detail;
+                if (detail?.errors && Array.isArray(detail.errors)) {
+                    const warnings = Array.isArray(detail?.warnings) ? detail.warnings : [];
+                    const lines = [
+                        ...detail.errors.slice(0, 6).map((item: string) => `- ${item}`),
+                        ...(warnings.length ? ['\nAdvertencias:', ...warnings.slice(0, 4).map((item: string) => `- ${item}`)] : []),
+                    ];
+                    alert(`No se pudo guardar:\n${lines.join('\n')}`);
+                    return;
+                }
+            }
+            alert("No se pudo guardar la configuración.");
         }
     });
+
+    useEffect(() => {
+        onDirtyChange?.(hasChanges);
+    }, [hasChanges, onDirtyChange]);
+
+    useEffect(() => {
+        setLocalData(null);
+        setHasChanges(false);
+    }, [category, profileName]);
+
+    useEffect(() => {
+        const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+            if (!hasChanges) return;
+            event.preventDefault();
+            event.returnValue = '';
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [hasChanges]);
 
     // Use local data if modified, otherwise server data
     const sections = localData ?? data?.sections ?? {};

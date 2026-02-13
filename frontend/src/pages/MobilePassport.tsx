@@ -1,10 +1,11 @@
 import { useState, useMemo, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, Trophy, Car, ChevronRight, Award, AlertTriangle, FileDown, Star, Gift, Camera } from 'lucide-react';
+import { Search, Trophy, Car, ChevronRight, Award, AlertTriangle, FileDown, Star, Gift, Camera, Share2, X } from 'lucide-react';
 import axios from 'axios';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { API_URL } from '../config';
+import { getAuthHeaders } from '../api/authHeaders';
 
 const getAllDrivers = async () => {
     const response = await axios.get(`${API_URL}/telemetry/drivers`);
@@ -19,6 +20,8 @@ const getDriverProfile = async (name: string) => {
 export default function MobilePassport() {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedDriver, setSelectedDriver] = useState<string | null>(null);
+    const [shareImage, setShareImage] = useState<string | null>(null);
+    const [isSharing, setIsSharing] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const queryClient = useQueryClient();
 
@@ -82,6 +85,85 @@ export default function MobilePassport() {
         setSearchTerm('');
     };
 
+    const handleCloseShare = () => {
+        if (shareImage && shareImage.startsWith('blob:')) {
+            URL.revokeObjectURL(shareImage);
+        }
+        setShareImage(null);
+    };
+
+    const handleSharePassport = async () => {
+        if (!selectedDriver) return;
+        setIsSharing(true);
+        const shareText = `🏁 Pasaporte de piloto: ${selectedDriver}. ¿Puedes superar mis tiempos?`;
+        try {
+            const res = await fetch(`${API_URL}/telemetry/pilot/${encodeURIComponent(selectedDriver)}/share-card?format=png`, { headers: getAuthHeaders() });
+            const contentType = res.headers.get('content-type') || '';
+
+            if (contentType.includes('image/png')) {
+                const pngBlob = await res.blob();
+                const file = new File([pngBlob], 'passport.png', { type: 'image/png' });
+                const nav = navigator as any;
+                const canShare = nav.canShare ? nav.canShare({ files: [file] }) : false;
+
+                if (nav.share && canShare) {
+                    await nav.share({ title: 'Pasaporte de Piloto', text: shareText, files: [file] });
+                } else {
+                    setShareImage(URL.createObjectURL(pngBlob));
+                }
+            } else {
+                const svgText = await res.text();
+                // Convert SVG to PNG using an in-memory canvas
+                const svgBlob = new Blob([svgText], { type: 'image/svg+xml' });
+                const svgUrl = URL.createObjectURL(svgBlob);
+
+                const img = new Image();
+                const pngBlob: Blob | null = await new Promise((resolve) => {
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        // Known size from SVG renderer (800x420)
+                        canvas.width = 800;
+                        canvas.height = 420;
+                        const ctx = canvas.getContext('2d');
+                        if (ctx) {
+                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                            canvas.toBlob((blob) => resolve(blob), 'image/png');
+                        } else {
+                            resolve(null);
+                        }
+                    };
+                    img.onerror = () => resolve(null);
+                    img.src = svgUrl;
+                });
+
+                URL.revokeObjectURL(svgUrl);
+
+                if (pngBlob) {
+                    const file = new File([pngBlob], 'passport.png', { type: 'image/png' });
+                    const nav = navigator as any;
+                    const canShare = nav.canShare ? nav.canShare({ files: [file] }) : false;
+
+                    if (nav.share && canShare) {
+                        await nav.share({ title: 'Pasaporte de Piloto', text: shareText, files: [file] });
+                    } else {
+                        setShareImage(URL.createObjectURL(pngBlob));
+                    }
+                } else {
+                    const encoded = encodeURIComponent(svgText);
+                    setShareImage(`data:image/svg+xml;utf8,${encoded}`);
+                }
+            }
+
+            if (navigator.clipboard) {
+                await navigator.clipboard.writeText(shareText);
+            }
+        } catch (err) {
+            console.error('Share passport failed', err);
+        } finally {
+            setIsSharing(false);
+        }
+    };
+
     // --- VIEW: DRIVER PROFILE (The "Passport") ---
     if (selectedDriver) {
         if (isLoadingProfile) {
@@ -116,13 +198,23 @@ export default function MobilePassport() {
                         <ChevronRight className="rotate-180" size={24} />
                     </button>
                     <span className="font-bold text-sm tracking-widest uppercase">Driver Passport</span>
-                    <button
-                        onClick={() => window.open(`${API_URL}/exports/passport/${encodeURIComponent(selectedDriver)}`, '_blank')}
-                        className="p-2 -mr-2 text-green-400 hover:text-green-300 flex items-center gap-1"
-                        title="Descargar PDF"
-                    >
-                        <FileDown size={20} />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={handleSharePassport}
+                            className="p-2 text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                            title="Compartir"
+                            disabled={isSharing}
+                        >
+                            <Share2 size={18} />
+                        </button>
+                        <button
+                            onClick={() => window.open(`${API_URL}/exports/passport/${encodeURIComponent(selectedDriver)}`, '_blank')}
+                            className="p-2 -mr-2 text-green-400 hover:text-green-300 flex items-center gap-1"
+                            title="Descargar PDF"
+                        >
+                            <FileDown size={20} />
+                        </button>
+                    </div>
                 </div>
 
                 {/* Main Card */}
@@ -240,6 +332,53 @@ export default function MobilePassport() {
                                     <Gift size={12} className="inline mr-1" />
                                     Total ganados: <span className="text-white font-bold">{loyalty.total_earned?.toLocaleString() || 0}</span>
                                 </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {Array.isArray(profile?.badges) && profile.badges.length > 0 && (
+                        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
+                            <h3 className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-3">Logros</h3>
+                            <div className="grid grid-cols-2 gap-3">
+                                {profile.badges.map((badge: { id: string; label: string; desc?: string; icon?: string; achieved?: boolean; progress?: number }) => (
+                                    <div
+                                        key={badge.id}
+                                        className={`rounded-xl p-3 border ${badge.achieved ? 'bg-blue-900/30 border-blue-500/40' : 'bg-gray-800/60 border-gray-700'}`}
+                                    >
+                                        <div className="text-2xl">{badge.icon || '🏁'}</div>
+                                        <div className="text-sm font-bold text-white">{badge.label}</div>
+                                        {badge.desc && <div className="text-[10px] text-gray-400 mt-1">{badge.desc}</div>}
+                                        {typeof badge.progress === 'number' && (
+                                            <div className="mt-2 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                                                <div
+                                                    className={`h-full ${badge.achieved ? 'bg-blue-400' : 'bg-gray-500'}`}
+                                                    style={{ width: `${Math.round(badge.progress * 100)}%` }}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {shareImage && (
+                        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-6 backdrop-blur-sm" onClick={handleCloseShare}>
+                            <div className="bg-gray-900 border border-gray-700 rounded-2xl p-4 max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex items-center justify-between mb-3">
+                                    <h3 className="text-white font-bold">Compartir pasaporte</h3>
+                                    <button onClick={handleCloseShare} className="text-gray-400 hover:text-white">
+                                        <X size={18} />
+                                    </button>
+                                </div>
+                                <img src={shareImage} alt="Share" className="w-full rounded-lg shadow-lg mb-4 border border-gray-800" />
+                                <a
+                                    href={shareImage}
+                                    download={shareImage.startsWith('data:image/svg') ? 'passport.svg' : 'passport.png'}
+                                    className="inline-flex items-center justify-center w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold"
+                                >
+                                    Descargar imagen
+                                </a>
                             </div>
                         </div>
                     )}

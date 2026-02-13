@@ -2,12 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import models
-from .auth import get_current_active_user
+from .auth import require_admin, require_admin_or_public_token
+from ..security.license import require_license_module
 import json
 
 router = APIRouter(
     prefix="/tournaments",
-    tags=["tournaments"]
+    tags=["tournaments"],
+    dependencies=[Depends(require_license_module("events"))],
 )
 
 # --------------------------
@@ -172,7 +174,7 @@ from ..routers.websockets import manager
 # ... (Previous code remains, skipping to endpoints)
 
 @router.get("/{event_id}/bracket")
-def get_bracket(event_id: int, db: Session = Depends(get_db)):
+def get_bracket(event_id: int, db: Session = Depends(get_db), _auth: object = Depends(require_admin_or_public_token)):
     event = db.query(models.Event).filter(models.Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Evento no encontrado")
@@ -183,7 +185,7 @@ def get_bracket(event_id: int, db: Session = Depends(get_db)):
     
     return bracket
 
-@router.post("/{event_id}/generate", dependencies=[Depends(get_current_active_user)])
+@router.post("/{event_id}/generate", dependencies=[Depends(require_admin)])
 async def generate_bracket_endpoint(event_id: int, participants: list[str], db: Session = Depends(get_db)):
     event = db.query(models.Event).filter(models.Event.id == event_id).first()
     if not event:
@@ -201,7 +203,7 @@ async def generate_bracket_endpoint(event_id: int, participants: list[str], db: 
     
     return bracket
 
-@router.post("/{event_id}/match/{match_id}/update", dependencies=[Depends(get_current_active_user)])
+@router.post("/{event_id}/match/{match_id}/update", dependencies=[Depends(require_admin)])
 async def update_match(event_id: int, match_id: int, score1: int, score2: int, winner: str, db: Session = Depends(get_db)):
     event = db.query(models.Event).filter(models.Event.id == event_id).first()
     if not event:

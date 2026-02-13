@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { Event } from '../types';
 import { API_URL } from '../config';
 
 const API_BASE = `${API_URL}/championships`;
@@ -10,7 +11,8 @@ export interface Championship {
     start_date: string;
     end_date?: string;
     is_active: boolean;
-    events?: { id: number; name: string }[];
+    scoring_rules?: unknown;
+    events?: Event[];
 }
 
 export interface ChampionshipStanding {
@@ -23,7 +25,8 @@ export interface ChampionshipStanding {
 }
 
 export const getChampionships = async () => {
-    const response = await axios.get<Championship[]>(API_BASE);
+    // Backend defines list/create at `/championships/` (trailing slash). Without it, the SPA catch-all may respond with HTML.
+    const response = await axios.get<Championship[]>(`${API_BASE}/`);
     return response.data;
 };
 
@@ -33,7 +36,7 @@ export const getChampionship = async (id: number) => {
 };
 
 export const createChampionship = async (data: Partial<Championship>) => {
-    const response = await axios.post<Championship>(API_BASE, data);
+    const response = await axios.post<Championship>(`${API_BASE}/`, data);
     return response.data;
 };
 

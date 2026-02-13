@@ -9,6 +9,7 @@ from typing import List, Optional
 
 from ..database import get_db
 from ..models import Driver
+from .auth import require_admin_or_public_token
 from ..services.elo import (
     get_elo_tier, 
     get_elo_color, 
@@ -19,7 +20,8 @@ from ..services.elo import (
 
 router = APIRouter(
     prefix="/elo",
-    tags=["elo"]
+    tags=["elo"],
+    dependencies=[Depends(require_admin_or_public_token)]
 )
 
 

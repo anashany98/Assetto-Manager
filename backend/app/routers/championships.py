@@ -3,10 +3,13 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List, Dict, Any
 from .. import models, schemas, database
+from .auth import require_admin
+from ..security.license import require_license_module
 
 router = APIRouter(
     prefix="/championships",
-    tags=["championships"]
+    tags=["championships"],
+    dependencies=[Depends(require_admin), Depends(require_license_module("championships"))]
 )
 
 @router.get("/", response_model=List[schemas.Championship])
@@ -23,7 +26,10 @@ def create_championship(championship: schemas.ChampionshipCreate, db: Session = 
 
 @router.get("/{championship_id}", response_model=schemas.Championship)
 def get_championship(championship_id: int, db: Session = Depends(database.get_db)):
-    return db.query(models.Championship).filter(models.Championship.id == championship_id).first()
+    champ = db.query(models.Championship).filter(models.Championship.id == championship_id).first()
+    if not champ:
+        raise HTTPException(status_code=404, detail="Championship not found")
+    return champ
 
 @router.post("/{championship_id}/events/{event_id}")
 def add_event_to_championship(championship_id: int, event_id: int, db: Session = Depends(database.get_db)):

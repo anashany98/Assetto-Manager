@@ -4,6 +4,36 @@ import { login as apiLogin, getMe, type User, setupAdmin as apiSetupAdmin } from
 
 import { AuthContext } from "./AuthContextDefinition";
 
+const decodeBase64Url = (value: string): string | null => {
+    try {
+        const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+        const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+        return atob(padded);
+    } catch {
+        return null;
+    }
+};
+
+const parseUserFromToken = (jwt: string): User | null => {
+    const [, payload] = jwt.split(".");
+    if (!payload) return null;
+    const decoded = decodeBase64Url(payload);
+    if (!decoded) return null;
+    try {
+        const parsed = JSON.parse(decoded) as { sub?: string; role?: string };
+        if (!parsed.sub || !parsed.role) return null;
+        return { username: parsed.sub, role: parsed.role, permissions: [] };
+    } catch {
+        return null;
+    }
+};
+
+const isAuthError = (error: unknown): boolean => {
+    if (!(error instanceof Error)) return false;
+    const status = (error as Error & { status?: number }).status;
+    return status === 401 || status === 403;
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
     const [token, setToken] = useState<string | null>(localStorage.getItem("token"));
@@ -24,8 +54,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     setUser(userData);
                     setToken(storedToken);
                 } catch (error) {
-                    console.error("Auth init failed", error);
-                    logout();
+                    if (isAuthError(error)) {
+                        logout();
+                    } else {
+                        // Preserve local session during transient API outages.
+                        setToken(storedToken);
+                        const fallbackUser = parseUserFromToken(storedToken);
+                        if (fallbackUser) {
+                            setUser(fallbackUser);
+                        }
+                    }
                 }
             }
             setIsLoading(false);
@@ -51,7 +89,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     return (
-        <AuthContext.Provider value={{ user, token, login, logout, isLoading, setupAdmin, isAuthenticated: !!user }}>
+        <AuthContext.Provider value={{ user, token, login, logout, isLoading, setupAdmin, isAuthenticated: !!token }}>
             {children}
         </AuthContext.Provider>
     );

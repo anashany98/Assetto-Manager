@@ -14,8 +14,8 @@ def _launch_payload():
     }
 
 
-def test_control_launch_requires_token(client):
-    res = client.post("/control/station/1/launch", json=_launch_payload())
+def test_control_launch_requires_token(client_no_auth):
+    res = client_no_auth.post("/control/station/1/launch", json=_launch_payload())
     assert res.status_code in (401, 403)
 
 

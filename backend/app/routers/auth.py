@@ -7,12 +7,13 @@ from sqlalchemy.orm import Session
 import os
 import logging
 from ..limiters import limiter
+from ..security.api_keys import is_agent_token_allowed, is_client_token_allowed
 
 from .. import database, models, auth
 from ..auth import create_access_token, get_password_hash, verify_password, decode_access_token
 
 router = APIRouter(tags=["auth"])
-ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+ENVIRONMENT = (os.getenv("ENVIRONMENT", "development") or "development").lower().strip()
 logger = logging.getLogger(__name__)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -73,64 +74,103 @@ def get_current_active_user(current_user: Annotated[models.User, Depends(get_cur
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
 
-def _is_public_token_allowed(token: Optional[str]) -> bool:
-    expected = os.getenv("PUBLIC_API_TOKEN") or os.getenv("PUBLIC_WS_TOKEN")
-    if ENVIRONMENT == "production":
-        if not expected:
-            logger.error("PUBLIC_API_TOKEN not configured for production API access")
-            return False
-        return token == expected
-    if expected and token != expected:
-        return False
-    return True
+def _is_public_token_allowed(token: Optional[str], required_scopes: tuple[str, ...] = ()) -> bool:
+    allowed = is_client_token_allowed(token=token, required_scopes=required_scopes, environment=ENVIRONMENT)
+    if ENVIRONMENT == "production" and not allowed and not (os.getenv("CLIENT_TOKENS") or os.getenv("CLIENT_TOKENS_JSON") or os.getenv("PUBLIC_API_TOKEN") or os.getenv("PUBLIC_WS_TOKEN")):
+        logger.error("No client tokens configured for production API access")
+    return allowed
 
-def _is_agent_token_allowed(token: Optional[str]) -> bool:
-    expected = os.getenv("AGENT_TOKEN")
-    if ENVIRONMENT == "production":
-        if not expected:
-            logger.error("AGENT_TOKEN not configured for production agent access")
-            return False
-        return token == expected
-    if expected and token != expected:
-        return False
-    return True
+def _resolve_public_token(token: Optional[str], request: Request) -> Optional[str]:
+    if token:
+        return token
+    allow_query = os.getenv("ALLOW_PUBLIC_TOKEN_QUERY", "false").lower() in {"1", "true", "yes"}
+    if allow_query:
+        # Optional support for public links (e.g., manage booking) when explicitly enabled
+        return request.query_params.get("token")
+    return None
+
+def _is_agent_token_allowed(token: Optional[str], required_scopes: tuple[str, ...] = ()) -> bool:
+    allowed = is_agent_token_allowed(token=token, required_scopes=required_scopes, environment=ENVIRONMENT)
+    if ENVIRONMENT == "production" and not allowed and not (os.getenv("AGENT_TOKENS") or os.getenv("AGENT_TOKENS_JSON") or os.getenv("AGENT_TOKEN")):
+        logger.error("No agent tokens configured for production agent access")
+    return allowed
 
 def require_admin(current_user: Annotated[models.User, Depends(get_current_active_user)]):
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Not enough permissions")
     return current_user
 
-def require_agent_token(
-    token: Annotated[Optional[str], Header(None, alias="X-Agent-Token")]
-):
-    if not _is_agent_token_allowed(token):
-        raise HTTPException(status_code=403, detail="Invalid agent token")
-    return token or "agent"
+def require_agent_token_scoped(*required_scopes: str):
+    def _dep(agent_token: Annotated[Optional[str], Header(alias="X-Agent-Token")] = None):
+        if not _is_agent_token_allowed(agent_token, tuple(required_scopes)):
+            raise HTTPException(status_code=403, detail="Invalid agent token")
+        return agent_token or "agent"
+
+    return _dep
+
+
+def require_agent_token(agent_token: Annotated[Optional[str], Header(alias="X-Agent-Token")] = None):
+    # Backwards-compatible default: any configured agent token, no scope enforcement.
+    return require_agent_token_scoped()(agent_token)
+
+
+def require_public_token_scoped(*required_scopes: str):
+    def _dep(
+        request: Request,
+        client_token: Annotated[Optional[str], Header(alias="X-Client-Token")] = None,
+    ):
+        resolved = _resolve_public_token(client_token, request)
+        if not _is_public_token_allowed(resolved, tuple(required_scopes)):
+            raise HTTPException(status_code=403, detail="Invalid client token")
+        return resolved or "public"
+
+    return _dep
+
+
+def require_admin_or_public_token_scoped(*required_scopes: str):
+    def _dep(
+        request: Request,
+        current_user: Annotated[Optional[models.User], Depends(get_current_user_optional)],
+        client_token: Annotated[Optional[str], Header(alias="X-Client-Token")] = None,
+    ):
+        if current_user:
+            if not current_user.is_active:
+                raise HTTPException(status_code=400, detail="Inactive user")
+            if current_user.role == "admin":
+                return current_user
+        resolved = _resolve_public_token(client_token, request)
+        if _is_public_token_allowed(resolved, tuple(required_scopes)):
+            return resolved or "public"
+        raise HTTPException(status_code=403, detail="Not authenticated")
+
+    return _dep
 
 def require_admin_or_public_token(
-    token: Annotated[Optional[str], Header(None, alias="X-Client-Token")],
-    current_user: Annotated[Optional[models.User], Depends(get_current_user_optional)]
+    request: Request,
+    current_user: Annotated[Optional[models.User], Depends(get_current_user_optional)],
+    client_token: Annotated[Optional[str], Header(alias="X-Client-Token")] = None
 ):
-    if current_user:
-        if not current_user.is_active:
-            raise HTTPException(status_code=400, detail="Inactive user")
-        if current_user.role == "admin":
-            return current_user
-    if _is_public_token_allowed(token):
-        return token or "public"
-    raise HTTPException(status_code=403, detail="Not authenticated")
+    # Backwards-compatible default: any configured client token, no scope enforcement.
+    return require_admin_or_public_token_scoped()(request, current_user, client_token)
+
+def require_public_token(
+    request: Request,
+    client_token: Annotated[Optional[str], Header(alias="X-Client-Token")] = None
+):
+    # Backwards-compatible default: any configured client token, no scope enforcement.
+    return require_public_token_scoped()(request, client_token)
 
 def require_admin_or_agent(
-    token: Annotated[Optional[str], Header(None, alias="X-Agent-Token")],
-    current_user: Annotated[Optional[models.User], Depends(get_current_user_optional)]
+    current_user: Annotated[Optional[models.User], Depends(get_current_user_optional)],
+    agent_token: Annotated[Optional[str], Header(alias="X-Agent-Token")] = None
 ):
     if current_user:
         if not current_user.is_active:
             raise HTTPException(status_code=400, detail="Inactive user")
         if current_user.role == "admin":
             return current_user
-    if _is_agent_token_allowed(token):
-        return token or "agent"
+    if _is_agent_token_allowed(agent_token):
+        return agent_token or "agent"
     raise HTTPException(status_code=403, detail="Not authenticated")
 
 # ... (Helpers remain sync)
@@ -161,7 +201,11 @@ def login_for_access_token(
 
 @router.get("/users/me")
 def read_users_me(current_user: Annotated[models.User, Depends(get_current_active_user)]):
-    return {"username": current_user.username, "role": current_user.role}
+    return {
+        "username": current_user.username,
+        "role": current_user.role,
+        "permissions": current_user.permissions or [],
+    }
 
 # Initial Setup Endpoint (Only works if no users exist)
 from pydantic import BaseModel

@@ -117,7 +117,7 @@ export const HallOfFame = ({ embedded = false }: { embedded?: boolean }) => {
                             {/* Records List */}
                             <div className="p-2">
                                 {Array.isArray(cat.records) ? (
-                                    cat.records.map((record, rIdx) => (
+                                    cat.records.map((record: HallOfFameEntry, rIdx: number) => (
                                         <div key={rIdx} className={`flex items-center p-3 rounded-xl mb-1 ${rIdx === 0 ? 'bg-gradient-to-r from-yellow-500/10 to-transparent border border-yellow-500/10' : ''}`}>
                                             {/* Rank / Medal */}
                                             <div className="w-10 flex-shrink-0 text-center">

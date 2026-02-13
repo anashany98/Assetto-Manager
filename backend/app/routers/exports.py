@@ -1,7 +1,7 @@
 """
 PDF Export Router - Generate and download PDF reports
 """
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from fastapi.responses import StreamingResponse
 from io import BytesIO
 from reportlab.lib import colors
@@ -16,8 +16,9 @@ from .. import database, models
 from sqlalchemy.orm import Session
 from datetime import datetime
 import urllib.parse
+from ..routers.auth import require_admin
 
-router = APIRouter(prefix="/exports", tags=["exports"])
+router = APIRouter(prefix="/exports", tags=["exports"], dependencies=[Depends(require_admin)])
 
 # Helper to format lap time
 def format_lap_time(ms: int) -> str:
@@ -55,13 +56,21 @@ async def export_driver_passport(driver_name: str):
     """
     db: Session = database.SessionLocal()
     try:
-        # Get driver profile
-        profile = db.query(models.Profile).filter(models.Profile.name == driver_name).first()
+        # Get driver profile (from Driver model)
+        profile = db.query(models.Driver).filter(models.Driver.name == driver_name).first()
         
-        # Get driver's best laps
-        best_laps = db.query(models.LapTime).filter(
-            models.LapTime.driver_name == driver_name
-        ).order_by(models.LapTime.lap_time.asc()).limit(10).all()
+        # Get driver's best laps (join SessionResult for metadata)
+        best_laps = (
+            db.query(models.LapTime, models.SessionResult)
+            .join(models.SessionResult, models.LapTime.session_id == models.SessionResult.id)
+            .filter(
+                models.SessionResult.driver_name == driver_name,
+                models.LapTime.valid == True
+            )
+            .order_by(models.LapTime.time.asc())
+            .limit(10)
+            .all()
+        )
         
         # Create PDF buffer
         buffer = BytesIO()
@@ -106,8 +115,7 @@ async def export_driver_passport(driver_name: str):
         
         if profile:
             elements.append(Paragraph(f"Miembro desde: {profile.created_at.strftime('%d/%m/%Y') if profile.created_at else 'N/A'}", styles['Normal']))
-            if hasattr(profile, 'loyalty_points'):
-                elements.append(Paragraph(f"Puntos de Fidelidad: {profile.loyalty_points or 0}", styles['Normal']))
+            elements.append(Paragraph(f"Puntos de Fidelidad: {profile.loyalty_points or 0}", styles['Normal']))
         
         elements.append(Spacer(1, 20))
         
@@ -116,13 +124,13 @@ async def export_driver_passport(driver_name: str):
         
         if best_laps:
             table_data = [['#', 'Circuito', 'Coche', 'Tiempo', 'Fecha']]
-            for i, lap in enumerate(best_laps, 1):
+            for i, (lap, session) in enumerate(best_laps, 1):
                 table_data.append([
                     str(i),
-                    lap.track_name[:20] if lap.track_name else 'N/A',
-                    lap.car_model[:20] if lap.car_model else 'N/A',
-                    format_lap_time(lap.lap_time),
-                    lap.timestamp.strftime('%d/%m/%Y') if lap.timestamp else 'N/A'
+                    (session.track_name or 'N/A')[:20],
+                    (session.car_model or 'N/A')[:20],
+                    format_lap_time(lap.time),
+                    session.date.strftime('%d/%m/%Y') if session.date else 'N/A'
                 ])
             
             table = Table(table_data, colWidths=[1*cm, 5*cm, 5*cm, 3*cm, 3*cm])
@@ -202,23 +210,32 @@ async def export_leaderboard(
     """
     db: Session = database.SessionLocal()
     try:
-        query = db.query(models.LapTime)
-        
-        if track_name:
-            query = query.filter(models.LapTime.track_name == track_name)
-        
-        # Get best time per driver
         from sqlalchemy import func
+        filters = [models.LapTime.valid == True]
+        if track_name:
+            filters.append(models.SessionResult.track_name == track_name)
+
         subquery = db.query(
-            models.LapTime.driver_name,
-            func.min(models.LapTime.lap_time).label('best_time')
-        ).group_by(models.LapTime.driver_name).subquery()
+            models.SessionResult.driver_name.label("driver_name"),
+            func.min(models.LapTime.time).label("best_time")
+        ).join(
+            models.SessionResult,
+            models.LapTime.session_id == models.SessionResult.id
+        ).filter(*filters).group_by(models.SessionResult.driver_name).subquery()
         
-        entries = db.query(models.LapTime).join(
-            subquery,
-            (models.LapTime.driver_name == subquery.c.driver_name) &
-            (models.LapTime.lap_time == subquery.c.best_time)
-        ).order_by(models.LapTime.lap_time.asc()).limit(limit).all()
+        entries = (
+            db.query(models.LapTime, models.SessionResult)
+            .join(models.SessionResult, models.LapTime.session_id == models.SessionResult.id)
+            .join(
+                subquery,
+                (models.SessionResult.driver_name == subquery.c.driver_name) &
+                (models.LapTime.time == subquery.c.best_time)
+            )
+            .filter(*filters)
+            .order_by(models.LapTime.time.asc())
+            .limit(limit)
+            .all()
+        )
         
         # Create PDF
         buffer = BytesIO()
@@ -245,19 +262,19 @@ async def export_leaderboard(
         # Table
         if entries:
             table_data = [['POS', 'PILOTO', 'COCHE', 'TIEMPO', 'GAP', 'FECHA']]
-            best_time = entries[0].lap_time if entries else 0
+            best_time = entries[0][0].time if entries else 0
             
-            for i, entry in enumerate(entries, 1):
-                gap = entry.lap_time - best_time
+            for i, (lap, session) in enumerate(entries, 1):
+                gap = lap.time - best_time
                 gap_str = '-' if gap == 0 else f"+{gap/1000:.3f}s"
                 
                 table_data.append([
                     str(i),
-                    entry.driver_name[:25],
-                    entry.car_model[:25] if entry.car_model else 'N/A',
-                    format_lap_time(entry.lap_time),
+                    (session.driver_name or 'N/A')[:25],
+                    (session.car_model or 'N/A')[:25],
+                    format_lap_time(lap.time),
                     gap_str,
-                    entry.timestamp.strftime('%d/%m/%Y') if entry.timestamp else 'N/A'
+                    session.date.strftime('%d/%m/%Y') if session.date else 'N/A'
                 ])
             
             table = Table(table_data, colWidths=[1.5*cm, 6*cm, 6*cm, 3*cm, 2.5*cm, 3*cm])
@@ -308,10 +325,11 @@ async def export_event_results(event_id: int):
         if not event:
             raise HTTPException(status_code=404, detail="Event not found")
         
-        # Get session results
+        # Get session results (best lap first)
         results = db.query(models.SessionResult).filter(
-            models.SessionResult.event_id == event_id
-        ).order_by(models.SessionResult.position.asc()).all()
+            models.SessionResult.event_id == event_id,
+            models.SessionResult.best_lap > 0
+        ).order_by(models.SessionResult.best_lap.asc()).all()
         
         buffer = BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=2*cm, bottomMargin=2*cm)
@@ -340,12 +358,13 @@ async def export_event_results(event_id: int):
         if results:
             table_data = [['POS', 'PILOTO', 'MEJOR TIEMPO', 'VUELTAS']]
             
-            for r in results:
+            for idx, r in enumerate(results, 1):
+                laps_count = db.query(models.LapTime).filter(models.LapTime.session_id == r.id).count()
                 table_data.append([
-                    str(r.position) if r.position else '-',
+                    str(idx),
                     r.driver_name[:25] if r.driver_name else 'N/A',
                     format_lap_time(r.best_lap) if r.best_lap else '--:--.---',
-                    str(r.laps) if r.laps else '0'
+                    str(laps_count)
                 ])
             
             table = Table(table_data, colWidths=[2*cm, 8*cm, 4*cm, 3*cm])

@@ -3,10 +3,14 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from .. import database, models, schemas
-from .auth import get_current_active_user
+from .auth import require_admin
 import json
 from datetime import datetime
 import logging
+import os
+from pathlib import Path
+from ..paths import PRIVATE_STORAGE_DIR
+from ..utils.uploads import sanitize_filename, save_upload_file
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +44,7 @@ MODELS = [
 @router.get("/export")
 def export_database(
     db: Session = Depends(database.get_db),
-    current_user: models.User = Depends(get_current_active_user)
+    _auth: object = Depends(require_admin)
 ):
     """
     Export database to JSON
@@ -111,70 +115,81 @@ def _clean_list(items):
 async def import_database(
     file: UploadFile = File(...),
     db: Session = Depends(database.get_db),
-    current_user: models.User = Depends(get_current_active_user)
+    _auth: object = Depends(require_admin)
 ):
     """
     Import database from JSON - WARNING: DELETES EXISTING DATA
     """
+    temp_path = None
     try:
-        content = await file.read()
-        data = json.loads(content)
+        backups_dir = PRIVATE_STORAGE_DIR / "backups"
+        backups_dir.mkdir(parents=True, exist_ok=True)
+        safe_name = sanitize_filename(file.filename or "backup.json", fallback="backup.json")
+        temp_path = backups_dir / safe_name
+        max_bytes = int(os.getenv("MAX_BACKUP_UPLOAD_MB", "50")) * 1024 * 1024
+        save_upload_file(file, temp_path, max_bytes)
+
+        with open(temp_path, "rb") as fh:
+            data = json.load(fh)
         
         if "data" not in data:
             raise HTTPException(status_code=400, detail="Invalid backup file format")
-            
-        # Strategy: Delete All, Then Insert?
-        # Or Update?
-        # Restore usually implies overwriting.
-        
-        # Disable constraints? SQLite doesn't enforce foreign keys by default but SQLAlchemy might.
-        # Best to delete in reverse order of dependency.
-        
-        # DELETE
-        db.query(models.SessionResult).delete()
-        db.query(models.Event).delete()
-        db.query(models.Championship).delete()
-        # Mod/Tag handling is complex due to M2M. SKIP cleaning Mods for now?
-        # Maybe just restore Events/Results/Drivers/Championships/Settings?
-        # If we wipe Mods, we lose file associations if IDs change.
-        # Let's assume Mods are NOT wiped, only metadata updated?
-        # Or better: "Partial Restore" vs "Full Restore".
-        # Let's implement Restore for Data-only (Events, Results, Drivers, Championships).
-        # Mods and Stations are "Environment" configuration, often machine specific.
-        # But User requested "Backup/Restore mechanism for data safety". Events/Driver stats are critical.
-        
-        db.query(models.Driver).delete()
-        # db.query(models.GlobalSettings).delete() # Settings often safe to overwrite
-        
-        db.flush()
-        
-        # INSERT
-        # Drivers
-        for d in data["data"].get("drivers", []):
-            db.add(models.Driver(**d))
-            
-        # Championships
-        for c in data["data"].get("championships", []):
-            db.add(models.Championship(**c))
-        db.flush() # Commit IDs to allow Event reference
-        
-        # Events
-        for e in data["data"].get("events", []):
-            # Handle date parsing if JSON loaded as strings
-            if isinstance(e.get("start_date"), str): e["start_date"] = datetime.fromisoformat(e["start_date"])
-            if isinstance(e.get("end_date"), str): e["end_date"] = datetime.fromisoformat(e["end_date"])
-            db.add(models.Event(**e))
-        db.flush()
-        
-        # Results
-        for r in data["data"].get("results", []):
-            if isinstance(r.get("date"), str): r["date"] = datetime.fromisoformat(r["date"])
-            db.add(models.SessionResult(**r))
-            
-        db.commit()
+
+        with db.begin():
+            # Strategy: Delete All, Then Insert?
+            # Or Update?
+            # Restore usually implies overwriting.
+
+            # DELETE (reverse order of dependency)
+            db.query(models.SessionResult).delete()
+            db.query(models.Event).delete()
+            db.query(models.Championship).delete()
+
+            # Mod/Tag handling is complex due to M2M. SKIP cleaning Mods for now.
+            # We restore data-only (Events, Results, Drivers, Championships).
+            db.query(models.Driver).delete()
+            # db.query(models.GlobalSettings).delete() # Settings often safe to overwrite
+
+            db.flush()
+
+            # INSERT
+            # Drivers
+            for d in data["data"].get("drivers", []):
+                db.add(models.Driver(**d))
+
+            # Championships
+            for c in data["data"].get("championships", []):
+                db.add(models.Championship(**c))
+            db.flush()  # Commit IDs to allow Event reference
+
+            # Events
+            for e in data["data"].get("events", []):
+                # Handle date parsing if JSON loaded as strings
+                if isinstance(e.get("start_date"), str):
+                    e["start_date"] = datetime.fromisoformat(e["start_date"])
+                if isinstance(e.get("end_date"), str):
+                    e["end_date"] = datetime.fromisoformat(e["end_date"])
+                db.add(models.Event(**e))
+            db.flush()
+
+            # Results
+            for r in data["data"].get("results", []):
+                if isinstance(r.get("date"), str):
+                    r["date"] = datetime.fromisoformat(r["date"])
+                db.add(models.SessionResult(**r))
+
         return {"status": "success", "message": "Database restored successfully"}
         
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
         db.rollback()
         logger.error(f"Restore failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if temp_path and temp_path.exists():
+            try:
+                temp_path.unlink(missing_ok=True)
+            except Exception:
+                pass

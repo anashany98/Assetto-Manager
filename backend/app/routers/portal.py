@@ -10,10 +10,13 @@ from pydantic import BaseModel
 
 from .. import database, models
 from .leaderboard import format_lap_time
+from .auth import require_public_token
+from ..security.license import require_license_module
 
 router = APIRouter(
     prefix="/portal",
-    tags=["pilot-portal"]
+    tags=["pilot-portal"],
+    dependencies=[Depends(require_public_token), Depends(require_license_module("passport"))]
 )
 
 # --- Response Schemas ---

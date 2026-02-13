@@ -4,6 +4,7 @@ Sistema de gestión centralizada de mods y perfiles para simuladores de conducci
 
 ## 🚀 Inicio Rápido (Producción)
 *   **One-click prod:** `scripts/deploy_prod.ps1 -DatabaseUrl "postgresql://..."` (or `-UseSqlite`)
+*   **Cliente (1 clic):** `ACTUALIZAR_Y_ABRIR.bat` (actualiza y abre la app)
 
 ### 1. Servidor Central (El PC del Operador)
 *   **Instalación:** Ejecuta (como Admin) `server_setup.ps1` para configurar el Firewall.
@@ -34,6 +35,8 @@ Sistema de gestión centralizada de mods y perfiles para simuladores de conducci
 *   [Agent Packaging](docs/AGENT_PACKAGING.md): scripts para zip/exe del agente.
 *   [Backups Autom?ticos](scripts/schedule_backup.ps1): tarea programada para backups.
 *   [Manual de Operacion](docs/MANUAL_OPERACION.md): pasos para instalar en otras maquinas.
+*   [Manual Completo Web (HTML)](docs/MANUAL_COMPLETO.html): guia integral (tecnologia, arquitectura, flujos, riesgos y roadmap).
+*   [LAN Low Latency Streaming](docs/LAN_LOW_LATENCY_STREAMING.md): perfil recomendado para 4 estaciones por cable.
 
 *   [Guía de Despliegue Arcade](file:///C:/Users/Usuari/.gemini/antigravity/brain/4e86eebd-7c8d-4a1f-9dfc-0f399709b868/arcade_deployment_guide.md): Recomendaciones específicas para tu Bar (VMS, Red, etc.).
 *   [Roadmap de Futuro](file:///C:/Users/Usuari/.gemini/antigravity/brain/4e86eebd-7c8d-4a1f-9dfc-0f399709b868/future_roadmap.md): Ideas para expandir el sistema (Leaderboards, etc.).

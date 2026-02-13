@@ -11,21 +11,26 @@ import os
 import io
 import math
 
-import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib.units import cm
 
-plt.switch_backend('agg')
-
 from ... import models, schemas, database
-from ...paths import STORAGE_DIR, REPO_ROOT
+from ...paths import PUBLIC_STORAGE_DIR, REPO_ROOT
 from .base import _coerce_json_value, calculate_consistency_score, format_ms, logger
 
 router = APIRouter(tags=["telemetry-exports"])
+
+
+def _get_matplotlib():
+    try:
+        import matplotlib.pyplot as plt
+        plt.switch_backend("agg")
+        return plt
+    except Exception:
+        return None
 
 
 @router.get("/lap/{lap_id}/telemetry")
@@ -212,7 +217,7 @@ def get_session_pdf(session_id: int, db: Session = Depends(database.get_db)):
         ], colWidths=[4.2*cm])
 
     track_map_img = None
-    mods_dir = STORAGE_DIR / "mods"
+    mods_dir = PUBLIC_STORAGE_DIR / "mods"
     if mods_dir.exists():
         for mod_folder in os.listdir(mods_dir):
             if session.track_name.lower() in mod_folder.lower():
@@ -243,42 +248,50 @@ def get_session_pdf(session_id: int, db: Session = Depends(database.get_db)):
     elements.append(Spacer(1, 0.5*cm))
 
     charts_table_data = []
-    
-    try:
-        plt.figure(figsize=(5, 3), dpi=100)
-        plt.plot(range(1, len(lap_times) + 1), [t/1000 for t in lap_times], marker='o', color='#3b82f6', linewidth=2, markersize=4)
-        plt.axhline(y=session.best_lap/1000, color='#22c55e', linestyle='--', linewidth=1, label='Best')
-        plt.title("Evolución de Carrera", fontsize=11, fontweight='bold', color='#1e293b')
-        plt.xlabel("Vuelta", fontsize=9)
-        plt.ylabel("Tiempo (s)", fontsize=9)
-        plt.grid(True, linestyle='--', alpha=0.3)
-        plt.tight_layout()
-        chart_buf = io.BytesIO()
-        plt.savefig(chart_buf, format='png', transparent=True)
-        plt.close()
-        chart_buf.seek(0)
-        evo_img = Image(chart_buf, width=8.5*cm, height=5*cm)
-    except: evo_img = Paragraph("Gráfico no disponible", styles['Normal'])
 
-    try:
-        if best_telemetry:
-            points = [p['n'] * 100 for p in best_telemetry]
-            speeds = [p['s'] for p in best_telemetry]
+    plt = _get_matplotlib()
+    if not plt:
+        evo_img = Paragraph("Gr?fico no disponible (matplotlib no instalado)", styles['Normal'])
+        tel_img = Paragraph("Gr?fico no disponible (matplotlib no instalado)", styles['Normal'])
+    else:
+        try:
             plt.figure(figsize=(5, 3), dpi=100)
-            plt.fill_between(points, speeds, color='#3b82f6', alpha=0.15)
-            plt.plot(points, speeds, color='#3b82f6', linewidth=1.5)
-            plt.title("Perfil de Velocidad (Mejor Vuelta)", fontsize=11, fontweight='bold', color='#1e293b')
-            plt.xlabel("Posición Pista (%)", fontsize=9)
-            plt.ylabel("Velocidad (km/h)", fontsize=9)
+            plt.plot(range(1, len(lap_times) + 1), [t/1000 for t in lap_times], marker='o', color='#3b82f6', linewidth=2, markersize=4)
+            plt.axhline(y=session.best_lap/1000, color='#22c55e', linestyle='--', linewidth=1, label='Best')
+            plt.title("Evoluci?n de Carrera", fontsize=11, fontweight='bold', color='#1e293b')
+            plt.xlabel("Vuelta", fontsize=9)
+            plt.ylabel("Tiempo (s)", fontsize=9)
             plt.grid(True, linestyle='--', alpha=0.3)
             plt.tight_layout()
-            tel_buf = io.BytesIO()
-            plt.savefig(tel_buf, format='png', transparent=True)
+            chart_buf = io.BytesIO()
+            plt.savefig(chart_buf, format='png', transparent=True)
             plt.close()
-            tel_buf.seek(0)
-            tel_img = Image(tel_buf, width=8.5*cm, height=5*cm)
-        else: tel_img = Paragraph("Telemetría no grabada", styles['Normal'])
-    except: tel_img = Paragraph("Gráfico no disponible", styles['Normal'])
+            chart_buf.seek(0)
+            evo_img = Image(chart_buf, width=8.5*cm, height=5*cm)
+        except:
+            evo_img = Paragraph("Gr?fico no disponible", styles['Normal'])
+
+        try:
+            if best_telemetry:
+                points = [p['n'] * 100 for p in best_telemetry]
+                speeds = [p['s'] for p in best_telemetry]
+                plt.figure(figsize=(5, 3), dpi=100)
+                plt.fill_between(points, speeds, color='#3b82f6', alpha=0.15)
+                plt.plot(points, speeds, color='#3b82f6', linewidth=1.5)
+                plt.title("Perfil de Velocidad (Mejor Vuelta)", fontsize=11, fontweight='bold', color='#1e293b')
+                plt.xlabel("Posici?n Pista (%)", fontsize=9)
+                plt.ylabel("Velocidad (km/h)", fontsize=9)
+                plt.grid(True, linestyle='--', alpha=0.3)
+                plt.tight_layout()
+                tel_buf = io.BytesIO()
+                plt.savefig(tel_buf, format='png', transparent=True)
+                plt.close()
+                tel_buf.seek(0)
+                tel_img = Image(tel_buf, width=8.5*cm, height=5*cm)
+            else:
+                tel_img = Paragraph("Telemetr?a no grabada", styles['Normal'])
+        except:
+            tel_img = Paragraph("Gr?fico no disponible", styles['Normal'])
 
     charts_table = Table([[evo_img, tel_img]], colWidths=[9*cm, 9*cm])
     elements.append(charts_table)
@@ -337,7 +350,7 @@ def get_session_pdf(session_id: int, db: Session = Depends(database.get_db)):
 @router.get("/map/{track_name}")
 def get_track_map(track_name: str, db: Session = Depends(database.get_db)):
     """Get track map image for a specific track."""
-    mods_dir = STORAGE_DIR / "mods"
+    mods_dir = PUBLIC_STORAGE_DIR / "mods"
     if not mods_dir.exists():
         raise HTTPException(status_code=404, detail="Mods directory not found")
         

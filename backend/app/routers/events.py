@@ -9,11 +9,13 @@ logger = logging.getLogger(__name__)
 
 from .. import models, schemas, database
 from . import tournament
-from .auth import get_current_active_user
+from .auth import require_admin, require_admin_or_public_token
+from ..security.license import require_license_module
 
 router = APIRouter(
     prefix="/events",
-    tags=["events"]
+    tags=["events"],
+    dependencies=[Depends(require_license_module("events"))],
 )
 
 @router.get("/", response_model=List[schemas.Event])
@@ -23,7 +25,8 @@ def list_events(
     status: Optional[str] = None,
     name: Optional[str] = None,
     championship_id: Optional[int] = None,
-    db: Session = Depends(database.get_db)
+    db: Session = Depends(database.get_db),
+    _auth: object = Depends(require_admin_or_public_token)
 ):
     query = db.query(models.Event)
 
@@ -43,7 +46,7 @@ def list_events(
     return events
 
 @router.post("/", response_model=schemas.Event)
-def create_event(event: schemas.EventCreate, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_active_user)):
+def create_event(event: schemas.EventCreate, db: Session = Depends(database.get_db), _auth: object = Depends(require_admin)):
     try:
         new_event = models.Event(
             name=event.name,
@@ -67,7 +70,7 @@ def create_event(event: schemas.EventCreate, db: Session = Depends(database.get_
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/{event_id}", response_model=schemas.Event)
-def update_event(event_id: int, event_update: schemas.EventCreate, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_active_user)):
+def update_event(event_id: int, event_update: schemas.EventCreate, db: Session = Depends(database.get_db), _auth: object = Depends(require_admin)):
     event = db.query(models.Event).filter(models.Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -92,7 +95,7 @@ def update_event_config(
     event_id: int, 
     config: dict, 
     db: Session = Depends(database.get_db), 
-    current_user: models.User = Depends(get_current_active_user)
+    _auth: object = Depends(require_admin)
 ):
     event = db.query(models.Event).filter(models.Event.id == event_id).first()
     if not event:
@@ -107,7 +110,7 @@ def update_event_config(
     return {"status": "updated", "config": config}
 
 @router.delete("/{event_id}")
-def delete_event(event_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_active_user)):
+def delete_event(event_id: int, db: Session = Depends(database.get_db), _auth: object = Depends(require_admin)):
     event = db.query(models.Event).filter(models.Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -118,7 +121,7 @@ def delete_event(event_id: int, db: Session = Depends(database.get_db), current_
     return {"message": "Event deleted successfully"}
 
 @router.post("/{event_id}/results/manual", response_model=schemas.Event)
-def submit_manual_results(event_id: int, results: schemas.EventResultManual, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_active_user)):
+def submit_manual_results(event_id: int, results: schemas.EventResultManual, db: Session = Depends(database.get_db), _auth: object = Depends(require_admin)):
     event = db.query(models.Event).filter(models.Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -174,7 +177,7 @@ def submit_manual_results(event_id: int, results: schemas.EventResultManual, db:
     return event
 
 @router.get("/active", response_model=Optional[schemas.Event])
-def get_active_event(db: Session = Depends(database.get_db)):
+def get_active_event(db: Session = Depends(database.get_db), _auth: object = Depends(require_admin_or_public_token)):
     # Find event where current time is between start and end
     now = datetime.now()
     active_filter = or_(
@@ -193,7 +196,7 @@ def get_active_event(db: Session = Depends(database.get_db)):
     )
 
 @router.post("/{event_id}/generate_bracket")
-def generate_bracket(event_id: int, size: int = 8, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_active_user)):
+def generate_bracket(event_id: int, size: int = 8, db: Session = Depends(database.get_db), _auth: object = Depends(require_admin)):
     """
     Generate a single-elimination bracket for the top N players.
     Size must be a power of 2 (2, 4, 8, 16...).
@@ -231,7 +234,7 @@ def generate_bracket(event_id: int, size: int = 8, db: Session = Depends(databas
     return bracket
 
 @router.get("/{event_id}/bracket")
-def get_bracket(event_id: int, db: Session = Depends(database.get_db)):
+def get_bracket(event_id: int, db: Session = Depends(database.get_db), _auth: object = Depends(require_admin_or_public_token)):
     event = db.query(models.Event).filter(models.Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -250,7 +253,7 @@ def set_match_winner(
     score2: int = 0,
     event_id: Optional[int] = None,
     db: Session = Depends(database.get_db),
-    current_user: models.User = Depends(get_current_active_user)
+    _auth: object = Depends(require_admin)
 ):
     events = []
     if event_id is not None:
@@ -274,14 +277,14 @@ def set_match_winner(
     raise HTTPException(status_code=404, detail="Match not found")
 
 @router.get("/{event_id}", response_model=schemas.Event)
-def get_event(event_id: int, db: Session = Depends(database.get_db)):
+def get_event(event_id: int, db: Session = Depends(database.get_db), _auth: object = Depends(require_admin_or_public_token)):
     event = db.query(models.Event).filter(models.Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     return event
 
 @router.post("/{championship_id}/events/{event_id}")
-def add_event_to_championship(championship_id: int, event_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_active_user)):
+def add_event_to_championship(championship_id: int, event_id: int, db: Session = Depends(database.get_db), _auth: object = Depends(require_admin)):
     try:
         event = db.query(models.Event).filter(models.Event.id == event_id).first()
         if not event:
@@ -301,7 +304,8 @@ def add_event_to_championship(championship_id: int, event_id: int, db: Session =
 def get_event_leaderboard(
     event_id: int,
     limit: int = 50,
-    db: Session = Depends(database.get_db)
+    db: Session = Depends(database.get_db),
+    _auth: object = Depends(require_admin_or_public_token)
 ):
     event = db.query(models.Event).filter(models.Event.id == event_id).first()
     if not event:
@@ -350,7 +354,7 @@ def get_event_leaderboard(
 
 
 @router.post("/{event_id}/process_results")
-def process_event_results(event_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_active_user)):
+def process_event_results(event_id: int, db: Session = Depends(database.get_db), _auth: object = Depends(require_admin)):
     """
     Finalize event results:
     1. Calculate and Update ELO for all participants.

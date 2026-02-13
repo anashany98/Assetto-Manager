@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guía de Instalación - Assetto Manager</title>
+    <meta name="description"
+        content="Guía rápida de instalación de Assetto Manager en LAN: servidor master, agentes en simuladores, puertos y activación de licencia por módulos.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #020617;
+            color: white;
+            overflow-x: hidden;
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .grid-pattern {
+            background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+        }
+
+        pre {
+            background: #0f172a;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            overflow-x: auto;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            color: #a5b4fc;
+            font-size: 12px;
+            line-height: 1.55;
+        }
+
+        code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            background: rgba(255, 255, 255, 0.08);
+            padding: 0.15rem 0.35rem;
+            border-radius: 0.35rem;
+        }
+    </style>
+</head>
+
+<body class="antialiased">
+
+    <!-- Background -->
+    <div class="fixed inset-0 grid-pattern z-0 pointer-events-none"></div>
+    <div class="fixed top-0 left-0 w-full h-[500px] bg-gradient-to-b from-blue-900/20 to-transparent z-0 pointer-events-none">
+    </div>
+
+    <!-- Navbar -->
+    <nav class="fixed w-full z-50 backdrop-blur-md border-b border-white/5 bg-black/50">
+        <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+            <a href="index.html" class="flex items-center gap-2">
+                <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                    <i data-lucide="zap" class="text-white w-4 h-4"></i>
+                </div>
+                <span class="font-bold text-xl tracking-tight">Assetto<span class="text-blue-500">Manager</span></span>
+            </a>
+            <div class="hidden md:flex items-center gap-8 text-sm font-medium text-gray-400">
+                <a href="features.html" class="hover:text-white transition">Características</a>
+                <a href="roi.html" class="hover:text-white transition">Ingresos</a>
+                <a href="wiki.html" class="hover:text-white transition">Wiki</a>
+                <a href="login.html" class="hover:text-white transition">Login</a>
+            </div>
+            <a href="index.html#pricing"
+                class="px-5 py-2 bg-blue-600 rounded-full font-bold text-sm hover:bg-blue-500 transition">Planes</a>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <header class="pt-32 pb-16 relative z-10">
+        <div class="max-w-5xl mx-auto px-6 text-center">
+            <div
+                class="inline-flex items-center gap-2 px-4 py-2 rounded-full glass border border-blue-500/30 text-xs font-bold text-blue-400 mb-8">
+                <i data-lucide="rocket" class="w-4 h-4"></i>
+                GUÍA RÁPIDA DE INSTALACIÓN
+            </div>
+            <h1 class="text-5xl md:text-6xl font-black mb-6 tracking-tight">
+                Instala Assetto Manager en <span class="text-blue-400">LAN</span> con garantías
+            </h1>
+            <p class="text-lg md:text-xl text-gray-400 max-w-3xl mx-auto leading-relaxed">
+                Este documento resume el despliegue típico: <b>PC Master</b> (backend + panel) y <b>Agentes</b> en cada simulador.
+                Para detalles avanzados, usa la <a href="wiki.html" class="text-blue-400 font-bold hover:text-white">Wiki</a>.
+            </p>
+        </div>
+    </header>
+
+    <main class="relative z-10 pb-24">
+        <div class="max-w-5xl mx-auto px-6 space-y-10">
+
+            <!-- Step 1 -->
+            <section class="glass p-8 rounded-3xl border border-white/5">
+                <div class="flex items-start gap-4">
+                    <div class="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-400 font-black text-lg">
+                        01
+                    </div>
+                    <div class="flex-1">
+                        <h2 class="text-2xl font-bold mb-2">Servidor Master (Recepción)</h2>
+                        <p class="text-gray-400 mb-6">
+                            El Master aloja la API (puerto <code>8000</code>) y el panel web (puerto <code>3010</code>).
+                        </p>
+                        <div class="grid md:grid-cols-2 gap-6">
+                            <div class="bg-black/30 p-6 rounded-2xl border border-white/5">
+                                <h3 class="font-bold text-white mb-3 flex items-center gap-2">
+                                    <i data-lucide="download" class="w-4 h-4 text-blue-400"></i> Instalar dependencias
+                                </h3>
+                                <pre>cd C:\AssettoManager
+install_dependencies.bat</pre>
+                                <p class="text-xs text-gray-500 mt-3">
+                                    Requiere Node.js y Python (ver wiki).
+                                </p>
+                            </div>
+                            <div class="bg-black/30 p-6 rounded-2xl border border-white/5">
+                                <h3 class="font-bold text-white mb-3 flex items-center gap-2">
+                                    <i data-lucide="play" class="w-4 h-4 text-green-400"></i> Arrancar el sistema
+                                </h3>
+                                <pre>start_system.bat</pre>
+                                <div class="text-xs text-gray-500 mt-3 space-y-1">
+                                    <div>API: <code>http://127.0.0.1:8000</code></div>
+                                    <div>Panel: <code>http://127.0.0.1:3010</code></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-6 bg-blue-500/10 border border-blue-500/20 p-5 rounded-2xl text-sm text-gray-300">
+                            <b>LAN:</b> para que los agentes conecten, el backend debe escuchar en tu IP LAN y el firewall debe permitir el puerto <code>8000</code>.
+                            Ver detalles en <a href="wiki.html#lan" class="text-blue-300 font-bold hover:text-white">Wiki &raquo; LAN y Puertos</a>.
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Step 2 -->
+            <section class="glass p-8 rounded-3xl border border-white/5">
+                <div class="flex items-start gap-4">
+                    <div class="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-300 font-black text-lg">
+                        02
+                    </div>
+                    <div class="flex-1">
+                        <h2 class="text-2xl font-bold mb-2">Agentes (cada simulador)</h2>
+                        <p class="text-gray-400 mb-6">
+                            El agente mantiene el simulador controlado: estado online, telemetría, comandos remotos y sincronización.
+                        </p>
+                        <div class="grid md:grid-cols-2 gap-6">
+                            <div class="bg-black/30 p-6 rounded-2xl border border-white/5">
+                                <h3 class="font-bold text-white mb-3 flex items-center gap-2">
+                                    <i data-lucide="folder" class="w-4 h-4 text-indigo-300"></i> Copiar carpeta
+                                </h3>
+                                <p class="text-sm text-gray-400 mb-3">
+                                    Copia <code>agent/</code> al PC del simulador, por ejemplo:
+                                </p>
+                                <pre>C:\AssettoManager\agent\</pre>
+                            </div>
+                            <div class="bg-black/30 p-6 rounded-2xl border border-white/5">
+                                <h3 class="font-bold text-white mb-3 flex items-center gap-2">
+                                    <i data-lucide="settings" class="w-4 h-4 text-yellow-300"></i> Configurar y arrancar
+                                </h3>
+                                <p class="text-sm text-gray-400 mb-3">
+                                    Ejecuta el instalador del agente (crea venv, instala deps y genera <code>config.json</code>):
+                                </p>
+                                <pre>cd C:\AssettoManager\agent
+setup.bat</pre>
+                            </div>
+                        </div>
+                        <div class="mt-6 bg-amber-500/10 border border-amber-500/20 p-5 rounded-2xl text-sm text-gray-300">
+                            <b>Importante:</b> en <code>config.json</code> el <code>server_url</code> debe ser la IP del Master,
+                            por ejemplo <code>http://192.168.1.50:8000</code>.
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Step 3 -->
+            <section class="glass p-8 rounded-3xl border border-white/5">
+                <div class="flex items-start gap-4">
+                    <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-300 font-black text-lg">
+                        03
+                    </div>
+                    <div class="flex-1">
+                        <h2 class="text-2xl font-bold mb-2">Licencia por módulos</h2>
+                        <p class="text-gray-400 mb-6">
+                            Assetto Manager funciona por <b>módulos licenciados</b>. Sin licencia válida, la app ocultará módulos no autorizados.
+                        </p>
+                        <div class="grid md:grid-cols-2 gap-6">
+                            <div class="bg-black/30 p-6 rounded-2xl border border-white/5">
+                                <h3 class="font-bold text-white mb-3 flex items-center gap-2">
+                                    <i data-lucide="key" class="w-4 h-4 text-emerald-300"></i> Activar licencia
+                                </h3>
+                                <p class="text-sm text-gray-400 mb-3">
+                                    Pega el token de licencia en el panel:
+                                </p>
+                                <pre>Configuración → Licencia</pre>
+                                <p class="text-xs text-gray-500 mt-3">
+                                    La licencia es un JWT firmado (RS256). No se envían datos de telemetría al exterior.
+                                </p>
+                            </div>
+                            <div class="bg-black/30 p-6 rounded-2xl border border-white/5">
+                                <h3 class="font-bold text-white mb-3 flex items-center gap-2">
+                                    <i data-lucide="layout-grid" class="w-4 h-4 text-blue-300"></i> Ver módulos activos
+                                </h3>
+                                <p class="text-sm text-gray-400 mb-3">
+                                    Desde el panel puedes comprobar qué módulos están habilitados por licencia.
+                                </p>
+                                <pre>API: GET /license</pre>
+                            </div>
+                        </div>
+                        <div class="mt-6 text-sm text-gray-500">
+                            Más detalles en <a href="wiki.html#licensing" class="text-blue-400 font-bold hover:text-white">Wiki &raquo; Licencias</a>.
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- CTA -->
+            <section class="text-center pt-6">
+                <h2 class="text-3xl md:text-4xl font-black mb-6">¿Quieres que lo dejemos listo en tu local?</h2>
+                <p class="text-gray-400 mb-8 max-w-2xl mx-auto">
+                    Ofrecemos instalación asistida, plantilla de red y hardening básico para operar sin sobresaltos.
+                </p>
+                <a href="mailto:soporte@assettomanager.com"
+                    class="inline-flex items-center gap-2 px-8 py-4 bg-white text-black font-bold rounded-full hover:scale-105 transition-transform">
+                    Contactar soporte <i data-lucide="mail" class="w-5 h-5"></i>
+                </a>
+            </section>
+        </div>
+    </main>
+
+    <footer class="py-10 border-t border-white/5 bg-black/40 text-xs text-gray-500 relative z-10">
+        <div class="max-w-5xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div>&copy; 2026 Assetto Manager Systems</div>
+            <div class="flex gap-4">
+                <a href="wiki.html" class="hover:text-blue-400">Wiki</a>
+                <a href="legal.html#terms" class="hover:text-blue-400">Legal</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+
+</html>
+

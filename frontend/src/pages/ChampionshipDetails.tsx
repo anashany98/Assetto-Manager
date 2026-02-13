@@ -386,13 +386,14 @@ export default function ChampionshipDetails() {
                                         <div className="text-[10px] font-black text-gray-600 uppercase mb-1">Status</div>
                                         <div className={cn(
                                             "text-sm font-bold uppercase",
-                                            event.results && event.results.length > 0 ? "text-green-500" : "text-yellow-500"
+                                            event.status === 'completed' ? "text-green-500" : "text-yellow-500"
                                         )}>
-                                            {event.results && event.results.length > 0 ? 'Con Resultados' : 'Pendiente'}
+                                            {event.status === 'completed' ? 'Completado' : 'Pendiente'}
                                         </div>
                                     </div>
 
                                     <button
+                                        data-testid={`championship-link-sessions-${event.id}`}
                                         onClick={() => setLinkingToEvent(event.id)}
                                         className="bg-white/5 hover:bg-yellow-500 hover:text-black text-white p-3 rounded-xl border border-white/10 transition-all flex items-center gap-2 group/btn"
                                     >

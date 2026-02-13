@@ -57,7 +57,6 @@ export default function MassLaunchModal({ onClose, initialCar, initialTrack, ini
     const handleLaunch = async () => {
         setIsLaunching(true);
         try {
-            // @ts-ignore
             await massLaunch({
                 station_ids: selectedStationIds,
                 car: selectedCar,
@@ -65,8 +64,9 @@ export default function MassLaunchModal({ onClose, initialCar, initialTrack, ini
                 mode: mode,
                 duration_minutes: initialDuration || 15,
                 laps: initialLaps || 5,
-                name: `Lanzamiento Masivo ${new Date().toLocaleTimeString()}`,
-                event_id: forcedEventId
+                name: forcedEventId
+                    ? `Evento ${forcedEventId} - Lanzamiento Masivo ${new Date().toLocaleTimeString()}`
+                    : `Lanzamiento Masivo ${new Date().toLocaleTimeString()}`,
             });
             alert("¡Lanzamiento completado con éxito!");
             onClose();

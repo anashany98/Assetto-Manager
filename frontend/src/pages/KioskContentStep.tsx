@@ -17,7 +17,6 @@ interface ContentStepProps {
 }
 
 export const ContentStep: React.FC<ContentStepProps> = ({
-    selectedScenario,
     currentSelection,
     onSelectionChange,
     onNext,
@@ -53,7 +52,7 @@ export const ContentStep: React.FC<ContentStepProps> = ({
     const [trackIndex, setTrackIndex] = useState(0);
 
     // 3. Filtering
-    const allCars = carsToUse.filter((c: any) => true);
+    const allCars = carsToUse;
     // Get Unique Brands
     const uniqueBrands = Array.from(new Set(allCars.map((c: any) => c.brand || 'Unknown'))).sort();
     // Filter cars by brand
@@ -61,7 +60,7 @@ export const ContentStep: React.FC<ContentStepProps> = ({
         selectedBrand ? (c.brand || 'Unknown') === selectedBrand : true
     );
 
-    const allTracks = tracksToUse.filter((t: any) => true);
+    const allTracks = tracksToUse;
 
     // Helper to deduce country if missing
     const getTrackCountry = (t: any) => {
@@ -233,7 +232,7 @@ export const ContentStep: React.FC<ContentStepProps> = ({
     } else if (phase === 'country') {
         bgImage = 'https://www.gran-turismo.com/gtsport/images/c/map_spa_francorchamps.jpg';
     } else if (currentItem) {
-        bgImage = resolveAssetUrl(currentItem.image_url || '');
+        bgImage = resolveAssetUrl(currentItem.image_url || '') || '';
         if (phase === 'track') bgImageFallback = "https://www.gran-turismo.com/gtsport/images/c/map_spa_francorchamps.jpg";
     }
 

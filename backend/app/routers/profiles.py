@@ -2,10 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 from typing import List, Any
 from .. import models, schemas, database
+from .auth import require_admin
+from ..security.license import require_license_module
 
 router = APIRouter(
     prefix="/profiles",
-    tags=["profiles"]
+    tags=["profiles"],
+    dependencies=[Depends(require_admin), Depends(require_license_module("profiles"))]
 )
 
 @router.post("/", response_model=schemas.Profile)

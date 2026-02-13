@@ -374,7 +374,7 @@ function BattleArena({ query }: { query: URLSearchParams }) {
     return (
         <div className="min-h-screen bg-black text-white overflow-hidden flex flex-col relative">
             {/* GLOBAL DECORATION */}
-            <div className="absolute inset-0 bg-[url('/grid-dark.png')] opacity-10 pointer-events-none"></div>
+            <div className="absolute inset-0 opacity-10 pointer-events-none bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.15)_1px,transparent_0)] [background-size:28px_28px]"></div>
 
             {/* HEADER */}
             <header className="relative z-10 p-6 flex justify-between items-center border-b border-white/5 bg-gray-900/50 backdrop-blur-md">

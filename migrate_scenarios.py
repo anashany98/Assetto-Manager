@@ -6,7 +6,12 @@ from dotenv import load_dotenv
 # Explicitly load .env from backend folder
 load_dotenv("backend/.env")
 
-DB_URL = os.getenv("SUPABASE_DB_URL") or os.getenv("DATABASE_URL") or os.getenv("DB_URL") or "postgresql://postgres.qwnckkraoxncjhmvdtih:OjELaIFdYjNA9bLZ@aws-1-eu-west-1.pooler.supabase.com:6543/postgres"
+DB_URL = os.getenv("SUPABASE_DB_URL") or os.getenv("DATABASE_URL") or os.getenv("DB_URL")
+
+if not DB_URL:
+    raise SystemExit(
+        "DATABASE_URL is not set. Provide SUPABASE_DB_URL, DATABASE_URL, or DB_URL before running migrations."
+    )
 
 def migrate():
     try:

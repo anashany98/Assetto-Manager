@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { User, Trophy, Clock, Car, MapPin, Award, TrendingUp, Mail, ArrowLeft } from 'lucide-react';
 import api from '../api/client';
 

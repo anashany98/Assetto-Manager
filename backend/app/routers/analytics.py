@@ -6,11 +6,17 @@ from datetime import datetime, timedelta, timezone
 from ..database import get_db
 from .. import models
 from ..models import Session as SessionModel, SessionResult
+from ..security.license import require_license_module
+from ..security.permissions import require_permission
 
 router = APIRouter(
     prefix="/analytics",
     tags=["Analytics"],
     responses={404: {"description": "Not found"}},
+    dependencies=[
+        Depends(require_permission("analytics")),
+        Depends(require_license_module("analytics")),
+    ],
 )
 
 @router.get("/overview")

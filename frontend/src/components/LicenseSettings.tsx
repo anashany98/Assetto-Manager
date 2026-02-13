@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useLicense } from '../context/LicenseContext';
 
 export function LicenseSettings() {

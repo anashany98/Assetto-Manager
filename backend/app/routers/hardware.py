@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from ..database import get_db
 from ..models import Station
-from ..routers.auth import require_agent_token, require_admin, require_admin_or_public_token
+from ..routers.auth import require_agent_token_scoped, require_admin, require_admin_or_public_token
 
 router = APIRouter(
     prefix="/hardware",
@@ -78,7 +78,7 @@ def _ensure_aware(value: Optional[datetime]) -> Optional[datetime]:
     return value
 
 
-@router.post("/report", dependencies=[Depends(require_agent_token)])
+@router.post("/report", dependencies=[Depends(require_agent_token_scoped("agent:report"))])
 async def report_health(report: StationHealthReport, db: Session = Depends(get_db)):
     """
     Endpoint for agents to report station health.

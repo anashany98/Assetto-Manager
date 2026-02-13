@@ -17,6 +17,10 @@ separate Windows stations running the Agent.
 - Set AGENT_TOKEN (Agent auth).
 - Set UPDATE_SIGNING_KEY (HMAC for agent update verification).
 - Set PUBLIC_API_TOKEN / PUBLIC_WS_TOKEN (public kiosk or display access).
+- Set ALLOW_PUBLIC_TOKEN_QUERY=false (avoid tokens in query params).
+- Set ALLOW_WS_TOKEN_QUERY=false (WebSocket auth should use identify frame, not query params).
+- Keep ALLOW_INSECURE_QUERY_TOKENS=false.
+- Set UVICORN_WORKERS=1 (single worker required for WebSockets/in-memory state).
 - If using push notifications: set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY.
 - If using license verification: set LICENSE_PUBLIC_KEY_PATH or LICENSE_PUBLIC_KEY.
   - Helper: scripts/setup_license_keys.ps1
@@ -27,13 +31,39 @@ Example values are listed in the template.
 Or run the one-click script:
   scripts/deploy_prod.ps1 -DatabaseUrl "postgresql://..." 
   scripts/deploy_prod.ps1 -UseSqlite
+Set REQUIRE_SECRETS=true to enforce strict validation at startup.
+
+## 2b) Create frontend/.env.production (public tokens)
+If you use kiosk/public screens in production, the frontend must send a client token.
+Create frontend/.env.production with:
+  VITE_PUBLIC_API_TOKEN=<PUBLIC_API_TOKEN or a scoped CLIENT_TOKENS token>
+  VITE_PUBLIC_WS_TOKEN=<PUBLIC_WS_TOKEN or same as above>
+  VITE_USE_WS_QUERY_TOKEN=false
+Then rebuild the frontend (the token is baked at build time).
+
+## 2c) LAN low-latency streaming profile (recommended for 4 stations)
+- Set a central media endpoint and WebRTC fallback in backend/.env:
+  - STREAM_BASE_URL=http://<MEDIA_SERVER_IP>:8889/live
+  - STREAM_FALLBACK_MODE=webrtc
+- In each station agent config, set:
+  - stream_url=http://<MEDIA_SERVER_IP>:8889/live/stationX
+- OBS encoder profile per station:
+  - Resolution: 1280x720 @ 60fps (or 1920x1080 @ 30fps if GPU is tight)
+  - Rate control: CBR
+  - Bitrate: 4500-6000 kbps
+  - Keyframe interval: 1s
+  - Encoder preset/tune: low latency
 
 ## 3) First-time DB init
 Two options (pick ONE):
-- Option A (recommended for quick start): set AUTO_SCHEMA=true for first run.
-  Start the server once, then set AUTO_SCHEMA=false.
-- Option B: run migration scripts if you have a defined migration flow.
-  Example: python migrate_db.py (project root)
+- Option A (recommended): bootstrap schema explicitly (safe for fresh DBs).
+  Run once from repo root:
+    python bootstrap_db.py
+  Notes:
+  - AUTO_SCHEMA is Dev Only (it will NOT run when ENVIRONMENT=production).
+  - The Alembic folder currently contains incremental migrations but not a full initial migration.
+- Option B: use an existing database that already has the tables (no bootstrap needed).
+  If your DB is already live, skip bootstrap and just start the server.
 
 ## 4) Build and run (production)
 - Run start_server_prod.bat (foreground, shows logs)
@@ -61,9 +91,23 @@ The production UI is served by the backend:
 
 ## 7) Post-deploy checks
 - /health returns {"status":"ok"}
+- /health/live returns {"status":"ok"}
+- /health/ready returns {"status":"ok"}
 - Dashboard loads at http://<server-ip>:8000
 - Station registration works (Agent online)
 - Kiosk pairing works (kiosk code)
+
+## 7b) Operational observability/alerts
+- Use `GET /system/metrics` (admin) for runtime counters, rolling latency/error SLOs, station summary, WS status, scheduler status, and computed alerts.
+- Use `GET /system/alerts` (admin) as a lightweight alert feed for dashboards/monitoring integrations.
+- Tune thresholds in `backend/.env`:
+  - `ALERT_MIN_REQUESTS`
+  - `ALERT_ERROR_RATE_WARN` / `ALERT_ERROR_RATE_CRIT`
+  - `ALERT_SERVER_ERROR_RATE_WARN` / `ALERT_SERVER_ERROR_RATE_CRIT`
+  - `ALERT_P95_WARN_MS` / `ALERT_P95_CRIT_MS`
+  - `ALERT_STATIONS_MIN_TOTAL`
+  - `ALERT_STATION_OFFLINE_WARN_RATIO` / `ALERT_STATION_OFFLINE_CRIT_RATIO`
+  - `ALERT_EXPECT_SCHEDULER`
 
 ## 8) Backups
 - Run scripts/backup_db.ps1 to create a DB backup.

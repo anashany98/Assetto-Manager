@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Calendar, Clock, User, Phone, Mail, Check, CheckCircle, X, ChevronLeft, ChevronRight, Loader2, Users, Timer } from 'lucide-react';
 import axios from 'axios';
@@ -72,7 +72,7 @@ export default function BookingsPage() {
     const weekStart = getWeekStart(selectedDate);
 
     // Fetch week calendar
-    const { data: weekData, isLoading } = useQuery({
+    const { data: weekData, isLoading, isError: weekError, error: weekErrorObj } = useQuery({
         queryKey: ['bookings-week', weekStart.toISOString().split('T')[0]],
         queryFn: async () => {
             const res = await axios.get(`${API_URL}/bookings/calendar/week`, {
@@ -83,7 +83,7 @@ export default function BookingsPage() {
     });
 
     // Fetch available slots for booking form
-    const { data: availability } = useQuery({
+    const { data: availability, isError: availabilityError } = useQuery({
         queryKey: ['slots-availability', selectedDate.toISOString().split('T')[0]],
         queryFn: async () => {
             const res = await axios.get(`${API_URL}/bookings/available`, {
@@ -125,12 +125,41 @@ export default function BookingsPage() {
         setSelectedDate(newDate);
     };
 
+    const isPastDay = (value: Date) => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const check = new Date(value);
+        check.setHours(0, 0, 0, 0);
+        return check < today;
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!selectedSlot || !formData.customer_name) return;
+        const trimmedName = formData.customer_name.trim();
+        if (!trimmedName) {
+            alert('El nombre del cliente es obligatorio.');
+            return;
+        }
+        if (!selectedSlot) {
+            alert('Selecciona un horario disponible.');
+            return;
+        }
+        if (isPastDay(selectedDate)) {
+            alert('La fecha no puede estar en el pasado.');
+            return;
+        }
+        if (formData.num_players < 1) {
+            alert('El número de jugadores debe ser al menos 1.');
+            return;
+        }
+        if (formData.duration_minutes < 15) {
+            alert('La duración mínima es de 15 minutos.');
+            return;
+        }
 
         createBooking.mutate({
             ...formData,
+            customer_name: trimmedName,
             date: selectedDate.toISOString().split('T')[0],
             time_slot: selectedSlot
         });
@@ -182,6 +211,10 @@ export default function BookingsPage() {
             {isLoading ? (
                 <div className="flex items-center justify-center py-12">
                     <Loader2 data-testid="bookings-loader" className="animate-spin text-blue-500" size={32} />
+                </div>
+            ) : weekError ? (
+                <div className="bg-red-900/30 border border-red-500/50 rounded-xl p-4 text-red-400 text-sm">
+                    Error cargando reservas: {(weekErrorObj as Error)?.message || 'Inténtalo de nuevo'}
                 </div>
             ) : (
                 <div className="grid grid-cols-7 gap-3">
@@ -384,6 +417,11 @@ export default function BookingsPage() {
                                 <label className="text-xs text-gray-500 uppercase font-bold block mb-2">
                                     <Clock size={14} className="inline mr-1" /> Horario
                                 </label>
+                                {availabilityError && (
+                                    <div className="bg-red-900/30 border border-red-500/50 rounded-lg p-2 text-red-400 text-xs mb-2">
+                                        Error cargando horarios disponibles.
+                                    </div>
+                                )}
                                 <div className="grid grid-cols-4 gap-2">
                                     {availability?.slots?.map((slot: SlotAvailability) => (
                                         <button
@@ -531,3 +569,4 @@ export default function BookingsPage() {
         </div>
     );
 }
+

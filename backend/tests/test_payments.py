@@ -11,8 +11,8 @@ def _payload():
     }
 
 
-def test_payments_requires_token(client):
-    res = client.post("/payments/checkout", json=_payload())
+def test_payments_requires_token(client_no_auth):
+    res = client_no_auth.post("/payments/checkout", json=_payload())
     assert res.status_code in (401, 403)
 
 

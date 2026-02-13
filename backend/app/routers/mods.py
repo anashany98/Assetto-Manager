@@ -1,16 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from typing import List
-from .auth import get_current_active_user
+from .auth import require_admin_or_public_token
 import shutil
 import zipfile
 import os
 import json
-import patoolib
 from pathlib import Path
 import re
-from ..paths import STORAGE_DIR
+from ..paths import PUBLIC_STORAGE_DIR
 from .. import models, schemas, database
+from ..utils.uploads import sanitize_filename, ensure_allowed_extension, save_upload_file
+from ..security.license import require_license_module
+from ..security.permissions import require_permission
 # Import shared hashing module (needs sys path adjustment or package install, using relative import for now if possible or dynamic)
 import logging
 import sys
@@ -23,16 +25,21 @@ logger = logging.getLogger("api.mods")
 
 router = APIRouter(
     prefix="/mods",
-    tags=["mods"]
+    tags=["mods"],
+    dependencies=[Depends(require_license_module("mods"))],
 )
 
-MODS_DIR = STORAGE_DIR / "mods"
+MODS_DIR = PUBLIC_STORAGE_DIR / "mods"
 MODS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 # --- KIOSK CONTENT ENDPOINT ---
 @router.get("/station/{station_id}/content")
-def get_station_content(station_id: int, db: Session = Depends(database.get_db)):
+def get_station_content(
+    station_id: int,
+    db: Session = Depends(database.get_db),
+    _auth: object = Depends(require_admin_or_public_token)
+):
     """
     Return cached cars/tracks for a specific station.
     This is used by the Kiosk UI to show real installed content.
@@ -65,10 +72,20 @@ def _sanitize_name(value: str, fallback: str) -> str:
 
 def _safe_extract_zip(zip_ref: zipfile.ZipFile, extract_dir: Path) -> None:
     extract_root = extract_dir.resolve()
+    max_files = int(os.getenv("MAX_MOD_EXTRACT_FILES", "20000"))
+    max_bytes = int(os.getenv("MAX_MOD_EXTRACT_MB", "4096")) * 1024 * 1024
+    total_bytes = 0
+    file_count = 0
     for member in zip_ref.infolist():
         member_path = (extract_root / member.filename).resolve()
         if not str(member_path).startswith(str(extract_root)):
             raise HTTPException(status_code=400, detail="Invalid archive contents")
+        file_count += 1
+        if file_count > max_files:
+            raise HTTPException(status_code=413, detail="Archive contains too many files")
+        total_bytes += member.file_size
+        if member.file_size > max_bytes or total_bytes > max_bytes:
+            raise HTTPException(status_code=413, detail="Archive uncompressed size exceeds limit")
     zip_ref.extractall(extract_root)
 
 def process_mod_file(file_path: Path, original_filename: str, db: Session, user_provided_name: str = None, user_provided_type: str = None, user_provided_version: str = None):
@@ -113,16 +130,8 @@ def process_mod_file(file_path: Path, original_filename: str, db: Session, user_
     extract_dir.mkdir(exist_ok=True)
     
     try:
-        if filename_lower.endswith('.zip'):
-            with zipfile.ZipFile(final_archive_path, 'r') as zip_ref:
-                _safe_extract_zip(zip_ref, extract_dir)
-        else:
-            # RAR / 7Z via patool
-            try:
-                patoolib.extract_archive(str(final_archive_path), outdir=str(extract_dir), verbosity=-1)
-            except Exception as e:
-                logger.error(f"Extraction failed: {e}")
-                raise Exception(f"Error al descomprimir: {str(e)}")
+        with zipfile.ZipFile(final_archive_path, 'r') as zip_ref:
+            _safe_extract_zip(zip_ref, extract_dir)
             
         # --- SMART DETECTION START ---
         # Recursively search for ui_car.json or ui_track.json to identify content
@@ -250,10 +259,6 @@ def _apply_auto_tags(db, mod, type_str, name):
     except Exception as e:
         logger.error(f"Auto-tagging failed: {e}")
 
-
-    except Exception as e:
-        logger.error(f"Auto-tagging failed: {e}")
-
 # --- HELPER: Find Preview URL ---
 def _find_preview_url(mod_path: Path, mod_name: str, mod_type: str) -> str:
     """
@@ -261,7 +266,7 @@ def _find_preview_url(mod_path: Path, mod_name: str, mod_type: str) -> str:
     This logic was previously in get_mod_metadata but is now pre-calculated.
     """
     try:
-        storage_root = STORAGE_DIR.resolve()
+        storage_root = PUBLIC_STORAGE_DIR.resolve()
         
         # Determine likely UI path
         # Try finding 'ui' folder first
@@ -324,7 +329,7 @@ def _find_preview_url(mod_path: Path, mod_name: str, mod_type: str) -> str:
 
 # --- MAINTENANCE: Migrate Previews ---
 @router.post("/maintenance/migrate_previews")
-def migrate_mod_previews(db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_active_user)):
+def migrate_mod_previews(db: Session = Depends(database.get_db), _auth: object = Depends(require_permission("mods"))):
     """
     Scans all mods in DB and populates the 'preview_url' column.
     Use this once after updating the schema.
@@ -363,12 +368,12 @@ def upload_mod(
     type: str = Form(None), 
     version: str = Form(None), 
     db: Session = Depends(database.get_db),
-    current_user: models.User = Depends(get_current_active_user)
+    _auth: object = Depends(require_permission("mods"))
 ):
     # Validation logic
     filename_lower = file.filename.lower()
-    if not (filename_lower.endswith('.zip') or filename_lower.endswith('.rar') or filename_lower.endswith('.7z')):
-        raise HTTPException(status_code=400, detail="Formato no soportado")
+    if not filename_lower.endswith('.zip'):
+        raise HTTPException(status_code=400, detail="Formato no soportado. Solo .zip")
 
     total, used, free = shutil.disk_usage(MODS_DIR)
     if free < 2 * 1024 * 1024 * 1024: 
@@ -377,10 +382,9 @@ def upload_mod(
     # Temp save location before processing
     temp_dir = MODS_DIR / "temp_uploads"
     temp_dir.mkdir(exist_ok=True)
-    temp_path = temp_dir / _sanitize_name(Path(file.filename).name, "upload")
-    
-    with open(temp_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    temp_path = temp_dir / sanitize_filename(file.filename, fallback="upload.zip")
+    max_bytes = int(os.getenv("MAX_MOD_UPLOAD_MB", "2048")) * 1024 * 1024
+    save_upload_file(file, temp_path, max_bytes)
         
     try:
         mod = process_mod_file(temp_path, file.filename, db, name, type, version)
@@ -392,7 +396,7 @@ def upload_mod(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/{mod_id}")
-def delete_mod(mod_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_active_user)):
+def delete_mod(mod_id: int, db: Session = Depends(database.get_db), _auth: object = Depends(require_permission("mods"))):
     mod = db.query(models.Mod).filter(models.Mod.id == mod_id).first()
     if not mod:
         raise HTTPException(status_code=404, detail="Mod not found")
@@ -403,8 +407,8 @@ def delete_mod(mod_id: int, db: Session = Depends(database.get_db), current_user
         storage_root = MODS_DIR.resolve()
         if str(mod_path).startswith(str(storage_root)):
             shutil.rmtree(mod_path.parent, ignore_errors=True)
-        elif mod_path.exists():
-            shutil.rmtree(mod_path, ignore_errors=True)
+        else:
+            logger.warning(f"Refusing to delete mod outside storage: {mod_path}")
     except Exception as e:
         logger.error(f"Error deleting files for mod {mod_id}: {e}")
         # We continue to delete from DB even if file deletion fails/partial
@@ -416,7 +420,7 @@ def delete_mod(mod_id: int, db: Session = Depends(database.get_db), current_user
     return {"status": "deleted", "id": mod_id}
 
 @router.put("/{mod_id}/toggle")
-def toggle_mod(mod_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_active_user)):
+def toggle_mod(mod_id: int, db: Session = Depends(database.get_db), _auth: object = Depends(require_permission("mods"))):
     mod = db.query(models.Mod).filter(models.Mod.id == mod_id).first()
     if not mod:
         raise HTTPException(status_code=404, detail="Mod not found")
@@ -435,7 +439,8 @@ def list_mods(
     only_universal: bool = False,
     skip: int = 0, 
     limit: int = 100, 
-    db: Session = Depends(database.get_db)
+    db: Session = Depends(database.get_db),
+    _auth: object = Depends(require_admin_or_public_token)
 ):
     query = db.query(models.Mod)
     
@@ -522,7 +527,7 @@ def add_mod_dependency(
     mod_id: int, 
     dependency_ids: List[int], 
     db: Session = Depends(database.get_db),
-    current_user: models.User = Depends(get_current_active_user)
+    _auth: object = Depends(require_permission("mods"))
 ):
     mod = db.query(models.Mod).filter(models.Mod.id == mod_id).first()
     if not mod:
@@ -544,7 +549,11 @@ def add_mod_dependency(
     return mod
 
 @router.get("/{mod_id}/metadata")
-def get_mod_metadata(mod_id: int, db: Session = Depends(database.get_db)):
+def get_mod_metadata(
+    mod_id: int,
+    db: Session = Depends(database.get_db),
+    _auth: object = Depends(require_admin_or_public_token)
+):
     mod = db.query(models.Mod).filter(models.Mod.id == mod_id).first()
     if not mod:
         raise HTTPException(status_code=404, detail="Mod not found")
@@ -593,7 +602,7 @@ def get_mod_metadata(mod_id: int, db: Session = Depends(database.get_db)):
     # We need relative path from "backend/storage" to ui_path
     # storage_root is "backend/storage"
     
-    storage_root = STORAGE_DIR.resolve()
+    storage_root = PUBLIC_STORAGE_DIR.resolve()
     try:
         # Try to calculate relative path. If ui_path is outside storage (dev mode?), this might fail.
         # But mod.source_path is usually inside storage/mods/...
@@ -665,7 +674,7 @@ def get_mod_metadata(mod_id: int, db: Session = Depends(database.get_db)):
     return metadata
 
 @router.get("/disk_usage")
-def get_disk_usage(db: Session = Depends(database.get_db)):
+def get_disk_usage(db: Session = Depends(database.get_db), _auth: object = Depends(require_permission("mods"))):
     total_size = 0
     for dirpath, dirnames, filenames in os.walk(MODS_DIR):
         for f in filenames:
@@ -681,7 +690,7 @@ def get_disk_usage(db: Session = Depends(database.get_db)):
 # --- TAGS ENDPOINTS ---
 
 @router.post("/tags", response_model=schemas.Tag)
-def create_tag(tag: schemas.TagCreate, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_active_user)):
+def create_tag(tag: schemas.TagCreate, db: Session = Depends(database.get_db), _auth: object = Depends(require_permission("mods"))):
     # Check if exists
     existing = db.query(models.Tag).filter(models.Tag.name == tag.name).first()
     if existing:
@@ -694,11 +703,11 @@ def create_tag(tag: schemas.TagCreate, db: Session = Depends(database.get_db), c
     return new_tag
 
 @router.get("/tags", response_model=List[schemas.Tag])
-def list_tags(db: Session = Depends(database.get_db)):
+def list_tags(db: Session = Depends(database.get_db), _auth: object = Depends(require_permission("mods"))):
     return db.query(models.Tag).all()
 
 @router.post("/{mod_id}/tags/{tag_id}", response_model=schemas.Mod)
-def add_tag_to_mod(mod_id: int, tag_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_active_user)):
+def add_tag_to_mod(mod_id: int, tag_id: int, db: Session = Depends(database.get_db), _auth: object = Depends(require_permission("mods"))):
     mod = db.query(models.Mod).filter(models.Mod.id == mod_id).first()
     tag = db.query(models.Tag).filter(models.Tag.id == tag_id).first()
     
@@ -713,7 +722,7 @@ def add_tag_to_mod(mod_id: int, tag_id: int, db: Session = Depends(database.get_
     return mod
 
 @router.delete("/{mod_id}/tags/{tag_id}", response_model=schemas.Mod)
-def remove_tag_from_mod(mod_id: int, tag_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_active_user)):
+def remove_tag_from_mod(mod_id: int, tag_id: int, db: Session = Depends(database.get_db), _auth: object = Depends(require_permission("mods"))):
     mod = db.query(models.Mod).filter(models.Mod.id == mod_id).first()
     tag = db.query(models.Tag).filter(models.Tag.id == tag_id).first()
     
@@ -728,7 +737,7 @@ def remove_tag_from_mod(mod_id: int, tag_id: int, db: Session = Depends(database
     return mod
 
 @router.post("/bulk/delete")
-def bulk_delete_mods(mod_ids: List[int], db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_active_user)):
+def bulk_delete_mods(mod_ids: List[int], db: Session = Depends(database.get_db), _auth: object = Depends(require_permission("mods"))):
     deleted = []
     failed = []
     for mod_id in mod_ids:
@@ -742,7 +751,8 @@ def bulk_delete_mods(mod_ids: List[int], db: Session = Depends(database.get_db),
             if str(mod_path).startswith(str(storage_root)):
                 shutil.rmtree(mod_path.parent, ignore_errors=True)
             else:
-                shutil.rmtree(mod_path, ignore_errors=True)
+                logger.warning(f"Refusing to delete mod outside storage: {mod_path}")
+                raise HTTPException(status_code=400, detail="Invalid mod path")
             db.delete(mod)
             deleted.append(mod_id)
         except Exception as e:
@@ -755,7 +765,7 @@ def bulk_delete_mods(mod_ids: List[int], db: Session = Depends(database.get_db),
 def bulk_toggle_mods(
     data: schemas.ModBulkToggle,
     db: Session = Depends(database.get_db),
-    current_user: models.User = Depends(get_current_active_user)
+    _auth: object = Depends(require_permission("mods"))
 ):
     mods = db.query(models.Mod).filter(models.Mod.id.in_(data.mod_ids)).all()
     for mod in mods:

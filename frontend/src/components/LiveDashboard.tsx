@@ -20,7 +20,9 @@ export const LiveDashboard = ({ data, isActive, variant = 'overlay' }: LiveDashb
     const steer = data.steer || 0;
     const gLat = data.g_lat || 0;
     const gLon = data.g_lon || 0;
-    const tyreTemp = data.tyre_temp || 0;
+    const tyreTemp = Array.isArray(data.tyre_temp) && data.tyre_temp.length > 0
+        ? data.tyre_temp.reduce((sum, t) => sum + t, 0) / data.tyre_temp.length
+        : 0;
 
     const steerRot = steer * 90;
 

@@ -1,15 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from .. import database, models
 from .auth import require_admin, get_current_active_user
+from ..security.license import require_license_module
 
 router = APIRouter(
     prefix="/users",
     tags=["users"],
-    dependencies=[Depends(require_admin)]
+    dependencies=[Depends(require_admin), Depends(require_license_module("users"))]
 )
 
 class UserPermissionsUpdate(BaseModel):
@@ -22,8 +23,7 @@ class UserResponse(BaseModel):
     is_active: bool
     permissions: Optional[List[str]] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 @router.get("/", response_model=List[UserResponse])
 def list_users(db: Session = Depends(database.get_db)):

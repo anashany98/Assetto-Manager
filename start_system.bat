@@ -9,6 +9,10 @@ echo.
 set REPO_ROOT=%~dp0
 cd /d %REPO_ROOT%
 
+set "PY_EXE=py -3.11"
+%PY_EXE% -c "import sys" >nul 2>&1
+if errorlevel 1 set "PY_EXE=py"
+
 :: 1. Iniciar Base de Datos (SQLite)
 echo [1/3] Verificando Base de Datos...
 if not exist "backend\ac_manager.db" (
@@ -17,11 +21,11 @@ if not exist "backend\ac_manager.db" (
 
 :: 2. Lanzar Backend (Python/Uvicorn)
 echo [2/3] Iniciando Servidor Backend (Puerto 8000)...
-start /min "AM_BACKEND" cmd /c "cd backend && python -m uvicorn app.main:app --reload --port 8000"
+start /min "AM_BACKEND" cmd /c "cd backend && %PY_EXE% -m uvicorn app.main:app --reload --port 8000"
 
 :: 3. Lanzar Frontend (Vite)
 echo [3/3] Iniciando Interfaz Frontend (Puerto 3010)...
-start /min "AM_FRONTEND" cmd /c "cd frontend && npm run dev -- --port 3010"
+start /min "AM_FRONTEND" cmd /c "cd frontend && if not exist node_modules (call npm install) && npm run dev -- --port 3010"
 
 echo.
 echo ==========================================

@@ -8,10 +8,12 @@ import shutil
 import os
 import subprocess
 from pathlib import Path
+from .auth import require_admin
 
 router = APIRouter(
     prefix="/deploy",
-    tags=["deploy"]
+    tags=["deploy"],
+    dependencies=[Depends(require_admin)]
 )
 
 logger = logging.getLogger("api.deploy")

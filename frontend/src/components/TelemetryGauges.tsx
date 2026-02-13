@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 
 export interface TelemetryData {
-    station_id: string;
+    station_id: number;
     driver: string;
     car: string;
     track: string;

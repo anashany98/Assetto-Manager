@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
     BarChart, Bar, PieChart, Pie, Cell,
@@ -42,6 +43,13 @@ const TIER_COLORS: Record<string, string> = {
 };
 
 export default function AnalyticsPanel() {
+    const [chartsReady, setChartsReady] = useState(false);
+
+    useEffect(() => {
+        const raf = window.requestAnimationFrame(() => setChartsReady(true));
+        return () => window.cancelAnimationFrame(raf);
+    }, []);
+
     const { data, isLoading, error } = useQuery<AnalyticsData>({
         queryKey: ['analytics'],
         queryFn: async () => {
@@ -82,7 +90,7 @@ export default function AnalyticsPanel() {
     }));
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 min-w-0">
             {/* Header */}
             <div className="flex items-center justify-between">
                 <h2 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tight flex items-center gap-2">
@@ -93,7 +101,7 @@ export default function AnalyticsPanel() {
             </div>
 
             {/* Quick Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 gap-4">
                 <QuickStat
                     label="Sesiones Hoy"
                     value={summary.sessions_today}
@@ -125,23 +133,25 @@ export default function AnalyticsPanel() {
                 <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">
                     Sesiones últimos 14 días
                 </h3>
-                <div className="h-48">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={sessionsPerDay}>
-                            <XAxis dataKey="day" tick={{ fill: '#6b7280', fontSize: 10 }} axisLine={false} tickLine={false} />
-                            <YAxis tick={{ fill: '#6b7280', fontSize: 10 }} axisLine={false} tickLine={false} />
-                            <Tooltip
-                                contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px', color: '#fff' }}
-                                labelStyle={{ color: '#fff' }}
-                            />
-                            <Bar dataKey="sessions" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                    </ResponsiveContainer>
+                <div className="h-48 min-w-0">
+                    {chartsReady && (
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={sessionsPerDay}>
+                                <XAxis dataKey="day" tick={{ fill: '#6b7280', fontSize: 10 }} axisLine={false} tickLine={false} />
+                                <YAxis tick={{ fill: '#6b7280', fontSize: 10 }} axisLine={false} tickLine={false} />
+                                <Tooltip
+                                    contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px', color: '#fff' }}
+                                    labelStyle={{ color: '#fff' }}
+                                />
+                                <Bar dataKey="sessions" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    )}
                 </div>
             </div>
 
             {/* Two Column Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6">
                 {/* Top Drivers */}
                 <div className="bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 shadow-sm dark:shadow-none">
                     <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
@@ -179,7 +189,7 @@ export default function AnalyticsPanel() {
                         <MapPin className="text-green-500" size={16} />
                         Circuitos Populares
                     </h3>
-                    <div className="h-48">
+                    <div className="h-48 min-w-0">
                         {popularTracks.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={popularTracks} layout="vertical">
@@ -201,7 +211,7 @@ export default function AnalyticsPanel() {
                         <Car className="text-red-500" size={16} />
                         Coches Populares
                     </h3>
-                    <div className="h-48">
+                    <div className="h-48 min-w-0">
                         {popularCars.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={popularCars} layout="vertical">
@@ -223,7 +233,7 @@ export default function AnalyticsPanel() {
                         <Star className="text-amber-500" size={16} />
                         Distribución de Niveles
                     </h3>
-                    <div className="h-48 flex items-center justify-center">
+                    <div className="h-48 min-w-0 flex items-center justify-center">
                         {tierData.some(t => t.value > 0) ? (
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
@@ -264,7 +274,7 @@ export default function AnalyticsPanel() {
             {/* Bookings Summary */}
             <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 border border-blue-200 dark:border-blue-500/20 rounded-2xl p-6 shadow-sm dark:shadow-none">
                 <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">Resumen Reservas</h3>
-                <div className="grid grid-cols-4 gap-4 text-center">
+                <div className="grid grid-cols-2 gap-4 text-center">
                     <div>
                         <div className="text-3xl font-black text-gray-900 dark:text-white">{bookings.total}</div>
                         <div className="text-xs text-gray-500 dark:text-gray-400">Total</div>

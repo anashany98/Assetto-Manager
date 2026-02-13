@@ -12,6 +12,13 @@ export interface Scenario {
     is_active: boolean;
     created_at?: string;
     updated_at?: string;
+    expected_updated_at?: string;
+}
+
+export interface DeleteScenarioResponse {
+    status: string;
+    message: string;
+    deleted?: Scenario;
 }
 
 export const getScenarios = async (): Promise<Scenario[]> => {
@@ -34,6 +41,9 @@ export const updateScenario = async (id: number, scenario: Partial<Scenario>): P
     return response.data;
 };
 
-export const deleteScenario = async (id: number): Promise<void> => {
-    await axios.delete(`${API_URL}/scenarios/${id}`);
+export const deleteScenario = async (id: number, confirmName?: string): Promise<DeleteScenarioResponse> => {
+    const response = await axios.delete(`${API_URL}/scenarios/${id}`, {
+        params: confirmName ? { confirm_name: confirmName } : undefined,
+    });
+    return response.data;
 };

@@ -12,9 +12,12 @@ from sqlalchemy import event, inspect, text
 logger = logging.getLogger(__name__)
 
 # Supabase (PostgreSQL) by default; tests may override with SQLite.
-ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+ENVIRONMENT = (os.getenv("ENVIRONMENT", "development") or "development").lower().strip()
+STRICT_CONFIG = os.getenv("REQUIRE_SECRETS", "false").lower() in {"1", "true", "yes"}
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 if not SQLALCHEMY_DATABASE_URL:
+    if ENVIRONMENT == "production" or STRICT_CONFIG:
+        raise RuntimeError("DATABASE_URL is required in production or strict config mode.")
     # Fallback to local SQLite if no DATABASE_URL is provided in .env
     SQLALCHEMY_DATABASE_URL = "sqlite:///./ac_manager_local.db"
     logger.warning("DATABASE_URL not set. Falling back to local SQLite: %s", SQLALCHEMY_DATABASE_URL)
@@ -124,6 +127,47 @@ def ensure_user_schema(db_engine):
                     )
                 )
             logger.info("Added missing column users.%s", name)
+
+def ensure_championship_schema(db_engine):
+    inspector = inspect(db_engine)
+    if "championships" not in inspector.get_table_names():
+        return
+
+    existing = {col["name"] for col in inspector.get_columns("championships")}
+    is_postgres = db_engine.dialect.name == "postgresql"
+
+    with db_engine.begin() as conn:
+        if "created_at" not in existing:
+            if is_postgres:
+                conn.execute(
+                    text(
+                        "ALTER TABLE championships "
+                        "ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE"
+                    )
+                )
+                conn.execute(text("UPDATE championships SET created_at = NOW() WHERE created_at IS NULL"))
+                conn.execute(text("ALTER TABLE championships ALTER COLUMN created_at SET DEFAULT NOW()"))
+                conn.execute(text("ALTER TABLE championships ALTER COLUMN created_at SET NOT NULL"))
+            else:
+                conn.execute(
+                    text(
+                        "ALTER TABLE championships "
+                        "ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP"
+                    )
+                )
+            logger.info("Added missing column championships.created_at")
+
+        if "updated_at" not in existing:
+            if is_postgres:
+                conn.execute(
+                    text(
+                        "ALTER TABLE championships "
+                        "ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE"
+                    )
+                )
+            else:
+                conn.execute(text("ALTER TABLE championships ADD COLUMN updated_at DATETIME"))
+            logger.info("Added missing column championships.updated_at")
 
 def ensure_table_schema(db_engine):
     inspector = inspect(db_engine)

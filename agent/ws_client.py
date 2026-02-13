@@ -10,7 +10,7 @@ from config import AGENT_TOKEN, logger, OBS_HOST, OBS_PORT, OBS_PASSWORD, STREAM
 from scanner import scan_ac_content
 from commands import (
     launch_session_logic, create_lobby_server, join_lobby_client, 
-    stop_lobby_server, install_mod_logic, restart_agent_process, 
+    stop_lobby_server, install_mod_logic, restart_agent_process, set_weather_logic,
     watchdog
 )
 from utils import get_system_info
@@ -135,6 +135,10 @@ class AgentWSClient(threading.Thread):
                     watchdog.stop()
                     os.system("taskkill /F /IM acs.exe")
                 
+                elif command == "stop_session":
+                    watchdog.stop()
+                    os.system("taskkill /F /IM acs.exe")
+                
                 elif command == "launch_session":
                     threading.Thread(target=launch_session_logic, args=(data, self.station_id)).start()
                 
@@ -160,6 +164,9 @@ class AgentWSClient(threading.Thread):
                      
                 elif command == "restart_agent":
                     threading.Thread(target=restart_agent_process).start()
+
+                elif command == "set_weather":
+                    threading.Thread(target=set_weather_logic, args=(data.get("value"),)).start()
 
             except websockets.ConnectionClosed:
                 break

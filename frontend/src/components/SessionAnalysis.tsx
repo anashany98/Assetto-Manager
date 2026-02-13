@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
     Trophy,
     AlertTriangle,
@@ -6,59 +7,56 @@ import {
     Zap,
     Info
 } from 'lucide-react';
+import { getLapTelemetry } from '../api/telemetry';
 import { analyzeRaceTelemetry, type RaceAnalysisResult, type TelemetrySample } from '../lib/telemetry-analyzer';
-import { API_URL } from '../config';
-import axios from 'axios';
 
 interface SessionAnalysisProps {
     lapId: number;
 }
 
 export default function SessionAnalysis({ lapId }: SessionAnalysisProps) {
-    const [result, setResult] = useState<RaceAnalysisResult | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const { data: telemetry, isLoading, error } = useQuery({
+        queryKey: ['lapTelemetry', lapId],
+        queryFn: () => getLapTelemetry(lapId),
+        enabled: Number.isFinite(lapId) && lapId > 0,
+        // Telemetry payload is effectively immutable once recorded.
+        staleTime: 1000 * 60 * 60,
+    });
 
-    useEffect(() => {
-        const analyze = async () => {
-            try {
-                setLoading(true);
-                // Fetch raw telemetry from backend
-                const response = await axios.get(`${API_URL}/telemetry/lap/${lapId}/telemetry`);
+    const { result, parseError } = useMemo(() => {
+        if (!telemetry) return { result: null as RaceAnalysisResult | null, parseError: null as string | null };
 
-                // Transform backend data (short keys) to Analyzer format (full keys) if needed
-                // Backend: t, s, r, g, n, x, z...
-                // Analyzer: timestamp, speed, rpm, gear, etc.
-                const samples: TelemetrySample[] = response.data.map((p: { t: number; s: number; r: number; g: number; str?: number; gas?: number; brk?: number; n: number }) => ({
-                    timestamp: p.t / 1000,
-                    speed: p.s / 3.6, // km/h to m/s
-                    rpm: p.r,
-                    gear: p.g,
-                    steer: p.str || 0, // Assuming backend sends steering in future
-                    throttle: p.gas || 0,
-                    brake: p.brk || 0,
-                    spline: p.n
-                }));
+        // Backend may return a list directly or a JSON-parsed array.
+        const raw = Array.isArray(telemetry) ? telemetry : [];
 
-                if (samples.length === 0) {
-                    throw new Error("No hay datos de telemetría disponibles para esta vuelta");
-                }
+        // Transform backend data (short keys) to Analyzer format (full keys).
+        // Backend: t, s, r, g, n, x, z...
+        // Analyzer: timestamp, speed, rpm, gear, etc.
+        const samples: TelemetrySample[] = raw.map((p: { t: number; s: number; r: number; g: number; str?: number; gas?: number; brk?: number; n: number }) => ({
+            timestamp: (p.t || 0) / 1000,
+            speed: (p.s || 0) / 3.6, // km/h to m/s
+            rpm: p.r || 0,
+            gear: p.g || 0,
+            steer: p.str || 0,
+            throttle: p.gas || 0,
+            brake: p.brk || 0,
+            spline: p.n || 0
+        }));
 
-                const analysis = analyzeRaceTelemetry(samples);
-                setResult(analysis);
-            } catch (err) {
-                console.error(err);
-                setError("No se pudo analizar la sesión.");
-            } finally {
-                setLoading(false);
-            }
-        };
+        if (samples.length === 0) {
+            return { result: null, parseError: "No hay datos de telemetría disponibles para esta vuelta" };
+        }
 
-        if (lapId) analyze();
-    }, [lapId]);
+        try {
+            return { result: analyzeRaceTelemetry(samples), parseError: null };
+        } catch {
+            return { result: null, parseError: "No se pudo analizar la sesión." };
+        }
+    }, [telemetry]);
 
-    if (loading) return <div className="p-8 text-center animate-pulse">Analizando conducción...</div>;
-    if (error) return <div className="p-8 text-center text-red-400">{error}</div>;
+    if (isLoading) return <div className="p-8 text-center animate-pulse">Analizando conducciÃ³n...</div>;
+    if (error) return <div className="p-8 text-center text-red-400">No se pudo analizar la sesión.</div>;
+    if (parseError) return <div className="p-8 text-center text-red-400">{parseError}</div>;
     if (!result) return null;
 
     // Color logic based on score
@@ -78,7 +76,7 @@ export default function SessionAnalysis({ lapId }: SessionAnalysisProps) {
                     </div>
                 </div>
 
-                <h2 className="text-2xl font-bold text-white mb-1">Análisis de Pilotaje</h2>
+                <h2 className="text-2xl font-bold text-white mb-1">AnÃ¡lisis de Pilotaje</h2>
                 <div className="inline-block px-3 py-1 rounded-full bg-white/10 text-blue-300 text-sm font-bold border border-white/5">
                     Estilo: {result.style}
                 </div>
@@ -113,7 +111,7 @@ export default function SessionAnalysis({ lapId }: SessionAnalysisProps) {
             {/* IMPROVEMENTS: A Mejorar */}
             <div className="p-6 border-t border-gray-800 bg-red-500/5">
                 <h3 className="text-orange-400 font-bold flex items-center gap-2 mb-4 uppercase text-sm tracking-wider">
-                    <AlertTriangle size={18} /> Áreas de mejora
+                    <AlertTriangle size={18} /> Ãreas de mejora
                 </h3>
 
                 {result.warnings.length > 0 || result.tips.length > 0 ? (
@@ -132,7 +130,7 @@ export default function SessionAnalysis({ lapId }: SessionAnalysisProps) {
                         ))}
                     </ul>
                 ) : (
-                    <p className="text-gray-500 text-sm italic">¡Vaya! Una vuelta muy limpia.</p>
+                    <p className="text-gray-500 text-sm italic">Â¡Vaya! Una vuelta muy limpia.</p>
                 )}
             </div>
 
@@ -149,7 +147,7 @@ export default function SessionAnalysis({ lapId }: SessionAnalysisProps) {
                     label="Frenada"
                     val={result.metrics.brakeConsistency}
                     goodLimit={0.1}
-                    unit="σ"
+                    unit="Ïƒ"
                     inverse
                 />
                 <MetricBadge

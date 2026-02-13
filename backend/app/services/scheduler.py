@@ -12,6 +12,7 @@ import logging
 
 from .. import database, models
 from ..services.email_service import send_email
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
@@ -148,8 +149,7 @@ async def check_and_send_reminders():
         
         # Find confirmed bookings for tomorrow that haven't been reminded yet
         bookings = db.query(models.Booking).filter(
-            models.Booking.date >= datetime.combine(tomorrow, datetime.min.time()),
-            models.Booking.date < datetime.combine(tomorrow + timedelta(days=1), datetime.min.time()),
+            func.date(models.Booking.date) == tomorrow,
             models.Booking.status.in_(["pending", "confirmed"]),
             models.Booking.customer_email.isnot(None),
             models.Booking.customer_email != ""
@@ -180,32 +180,92 @@ from ..routers.websockets import manager as ws_manager
 async def sync_station_content():
     """Trigger content scan on all active stations"""
     logger.info("Triggering hourly content sync for active stations...")
+    db = database.SessionLocal()
     try:
         active_count = 0
-        for station_id, ws in list(ws_manager.active_agents.items()):
-            db = None
+        stations = db.query(models.Station).filter(models.Station.is_online == True).all()
+        for station in stations:
             try:
-                # We need to get the AC path for this station to send it back?
-                # The agent knows its path, but the command expects it?
-                # Looking at control.py: get_station_content sends "ac_path".
-                # We can fetch it from DB.
-                db = database.SessionLocal()
-                station = db.query(models.Station).filter(models.Station.id == station_id).first()
-                if station and station.ac_path:
-                    await ws.send_text(json.dumps({
-                        "command": "scan_content",
-                        "ac_path": station.ac_path
-                    }))
+                if not station.ac_path:
+                    continue
+                ok = await ws_manager.send_command(station.id, {"command": "scan_content", "ac_path": station.ac_path})
+                if ok:
                     active_count += 1
             except Exception as ex:
-                logger.error(f"Failed to sync station {station_id}: {ex}")
-            finally:
-                if db:
-                    db.close()
-        
+                logger.error(f"Failed to sync station {station.id}: {ex}")
+
         logger.info(f"Content sync triggered for {active_count} stations")
     except Exception as e:
         logger.error(f"Error in global content sync: {e}")
+    finally:
+        db.close()
+
+
+def mark_stale_stations_offline():
+    """
+    Make DB `stations.is_online` reflect reality when heartbeats stop.
+
+    WS disconnects are best-effort (process crashes happen). This sweep makes sure
+    we don't keep "online" stations forever if they stop reporting.
+    """
+    grace_seconds = int(os.getenv("STATION_OFFLINE_AFTER_SECONDS", os.getenv("STATION_COMMAND_MAX_AGE_SECONDS", "120")))
+    cutoff = datetime.now(timezone.utc) - timedelta(seconds=grace_seconds)
+
+    db: Session = database.SessionLocal()
+    updated = 0
+    try:
+        stations = db.query(models.Station).filter(models.Station.is_online == True).all()
+        for station in stations:
+            if station.status == "archived":
+                continue
+            last_seen = station.last_seen
+            if last_seen is None or last_seen < cutoff:
+                station.is_online = False
+                station.is_streaming = False
+                if station.status != "archived":
+                    station.status = "offline"
+                updated += 1
+        if updated:
+            db.commit()
+        if updated:
+            logger.info("Marked %s stale stations offline (cutoff %s)", updated, cutoff.isoformat())
+    except Exception as e:
+        logger.error(f"Error marking stale stations offline: {e}")
+    finally:
+        db.close()
+
+
+def cleanup_orphan_lobbies():
+    """
+    Cancel lobbies whose host goes offline or stops reporting.
+    """
+    grace_seconds = int(os.getenv("LOBBY_ORPHAN_SECONDS", "120"))
+    cutoff = datetime.now(timezone.utc) - timedelta(seconds=grace_seconds)
+
+    db: Session = database.SessionLocal()
+    updated = 0
+    try:
+        lobbies = db.query(models.Lobby).filter(models.Lobby.status.in_(["waiting", "starting", "running"])).all()
+        for lobby in lobbies:
+            host = db.query(models.Station).filter(models.Station.id == lobby.host_station_id).first()
+            if not host:
+                lobby.status = "cancelled"
+                lobby.finished_at = datetime.now(timezone.utc)
+                updated += 1
+                continue
+            last_seen = host.last_seen
+            if host.is_online is False or (last_seen and last_seen < cutoff):
+                lobby.status = "cancelled"
+                lobby.finished_at = datetime.now(timezone.utc)
+                updated += 1
+        if updated:
+            db.commit()
+        if updated:
+            logger.info("Cancelled %s orphan lobbies (cutoff %s)", updated, cutoff.isoformat())
+    except Exception as e:
+        logger.error(f"Error cleaning up orphan lobbies: {e}")
+    finally:
+        db.close()
 
 def archive_ghost_stations():
     """Archive inactive/ghost stations that have not been seen recently."""
@@ -259,6 +319,24 @@ def start_scheduler():
         'interval',
         minutes=60,
         id="content_sync",
+        replace_existing=True
+    )
+
+    # Keep station online status sane even if WS processes crash.
+    scheduler.add_job(
+        mark_stale_stations_offline,
+        'interval',
+        seconds=int(os.getenv("STATION_OFFLINE_SWEEP_SECONDS", "30")),
+        id="station_offline_sweep",
+        replace_existing=True
+    )
+
+    # Periodic orphan lobby cleanup (instead of only on-request).
+    scheduler.add_job(
+        cleanup_orphan_lobbies,
+        'interval',
+        seconds=int(os.getenv("LOBBY_CLEANUP_INTERVAL_SECONDS", "30")),
+        id="lobby_orphan_cleanup",
         replace_existing=True
     )
 

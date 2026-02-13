@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-// useSearchParams removed
+import { useSearchParams } from 'react-router-dom';
 
 import { useIdleTimer } from 'react-idle-timer';
 import {
@@ -24,6 +24,7 @@ import { type PaymentProvider, type PaymentStatus } from '../api/payments';
 import { calculatePrice, getPricingConfig } from '../utils/pricing';
 import { useLanguage } from '../contexts/useLanguage';
 import { resolveAssetUrl } from '../lib/utils';
+import { soundManager } from '../utils/sound';
 // LiveSessionMonitor import removed
 
 // RaceMode is now used directly from KioskSteps, LiveSessionMonitor import removed if unused,
@@ -38,17 +39,27 @@ import {
 import type { KioskSelection } from './KioskSteps';
 
 // Driver creation is handled inline for now. Backend may provide endpoint.
-const clientTokenHeaders: Record<string, string> = PUBLIC_API_TOKEN ? { 'X-Client-Token': PUBLIC_API_TOKEN } : {};
+const baseClientTokenHeaders: Record<string, string> = PUBLIC_API_TOKEN ? { 'X-Client-Token': PUBLIC_API_TOKEN } : {};
 
 import { ContentStep } from './KioskContentStep';
-import StationPairing, { getPairedStationId, clearPairedStationId } from '../components/StationPairing';
+import StationPairing from '../components/StationPairing';
+import {
+    clearPairedStationId,
+    getPairedKioskCode,
+    getPairedStationId,
+    setPairedStation
+} from '../utils/stationPairing';
 
 export default function KioskMode() {
-    // searchParams removed
+    const [searchParams] = useSearchParams();
 
     // Station Pairing State
     const [stationId, setStationId] = useState<number>(() => getPairedStationId() || 0);
     const [showPairing, setShowPairing] = useState<boolean>(() => !getPairedStationId());
+    const [pairedKioskCode, setPairedKioskCode] = useState<string | null>(() => getPairedKioskCode());
+    const [pairingByCode, setPairingByCode] = useState(false);
+    const [pairingCodeError, setPairingCodeError] = useState<string | null>(null);
+    const pairingFromUrlAttemptedRef = useRef(false);
 
     const [step, setStep] = useState<number>(1);
     const [driver, setDriver] = useState<{ id: number, name: string } | null>(null);
@@ -90,6 +101,15 @@ export default function KioskMode() {
     const noPaymentHandledRef = useRef(false);
     const [launchingNoPayment, setLaunchingNoPayment] = useState(false);
     // lastHardwareSnapshot removed
+
+    const clientTokenHeaders = useMemo<Record<string, string>>(() => {
+        const headers: Record<string, string> = { ...baseClientTokenHeaders };
+        const normalizedCode = pairedKioskCode?.trim().toUpperCase();
+        if (normalizedCode) {
+            headers['X-Kiosk-Code'] = normalizedCode;
+        }
+        return headers;
+    }, [pairedKioskCode]);
 
 
     // Queries
@@ -262,13 +282,65 @@ export default function KioskMode() {
         enabled: !!stationId
     });
 
+    const kioskCodeFromUrl = useMemo(() => {
+        const raw = searchParams.get('kiosk');
+        return raw ? raw.trim().toUpperCase() : '';
+    }, [searchParams]);
+
+    useEffect(() => {
+        if (!kioskCodeFromUrl || pairingFromUrlAttemptedRef.current) {
+            return;
+        }
+
+        pairingFromUrlAttemptedRef.current = true;
+        setPairingByCode(true);
+        setPairingCodeError(null);
+
+        axios.post(
+            `${API_URL}/settings/kiosk/pair`,
+            { code: kioskCodeFromUrl },
+            { headers: baseClientTokenHeaders }
+        )
+            .then((res) => {
+                const pairedId = Number(res.data?.station_id);
+                if (!Number.isFinite(pairedId) || pairedId <= 0) {
+                    throw new Error('Invalid station response');
+                }
+                setPairedStation(pairedId, kioskCodeFromUrl);
+                setStationId(pairedId);
+                setPairedKioskCode(kioskCodeFromUrl);
+                setShowPairing(false);
+            })
+            .catch(() => {
+                setPairingCodeError('No se pudo enlazar automaticamente con ese codigo.');
+                setShowPairing(true);
+            })
+            .finally(() => {
+                setPairingByCode(false);
+            });
+    }, [kioskCodeFromUrl]);
+
 
     // --- RENDER PAIRING SCREEN ---
+    if (pairingByCode) {
+        return (
+            <div className="h-screen w-screen bg-gray-950 text-white flex items-center justify-center">
+                <div className="text-center px-6">
+                    <div className="text-4xl font-black uppercase tracking-tight mb-2">Enlazando tablet</div>
+                    <p className="text-gray-400">Validando codigo de kiosko...</p>
+                </div>
+            </div>
+        );
+    }
+
     if (showPairing || !stationId) {
         return (
             <StationPairing
-                onPaired={(id) => {
+                initialCode={kioskCodeFromUrl}
+                errorMessage={pairingCodeError || undefined}
+                onPaired={(id, kioskCode) => {
                     setStationId(id);
+                    setPairedKioskCode(kioskCode?.trim().toUpperCase() || null);
                     setShowPairing(false);
                 }}
             />
@@ -527,6 +599,7 @@ export default function KioskMode() {
                 onUnpair={() => {
                     if (window.confirm('¿Desvincular esta tablet del simulador?')) {
                         clearPairedStationId();
+                        setPairedKioskCode(null);
                         window.location.reload();
                     }
                 }}
@@ -743,7 +816,7 @@ export default function KioskMode() {
                             {!isLaunched && step > 1 && (
                                 <button
                                     onClick={() => {
-                                        import('../utils/sound').then(m => m.soundManager.playClick());
+                                        soundManager.playClick();
                                         setStep(step - 1);
                                     }}
                                     className="bg-gray-800 hover:bg-gray-700 text-white p-3 rounded-full transition-all border border-gray-700 hover:border-gray-500"

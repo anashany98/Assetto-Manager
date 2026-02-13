@@ -28,6 +28,24 @@ class SessionType(str, Enum):
     traffic = "traffic"
     overtake = "overtake"
 
+
+def _normalize_session_type_value(value):
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        mapping = {
+            "p": "practice",
+            "q": "qualify",
+            "r": "race",
+            "h": "hotlap",
+            "d": "drift",
+            "t": "trackday",
+            "o": "overtake",
+            # Backward compatibility for legacy/manual imports.
+            "race_manual": "race",
+        }
+        return mapping.get(normalized, normalized)
+    return value
+
 class StationBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=50)
     ip_address: str 
@@ -83,11 +101,14 @@ class SessionStart(BaseModel):
     price: float = 0.0
     is_vr: bool = False
     payment_method: str = "cash" # cash, card_nayax, online
+    notes: Optional[str] = None
 
 class SessionResponse(SessionStart):
     id: int
+    station_name: Optional[str] = None
     start_time: datetime
     end_time: Optional[datetime] = None
+    remaining_minutes: Optional[float] = None
     status: str
     is_paid: bool
     notes: Optional[str] = None
@@ -241,19 +262,7 @@ class SessionResultCreate(BaseModel):
     @field_validator("session_type", mode="before")
     @classmethod
     def normalize_session_type(cls, value):
-        if isinstance(value, str):
-            normalized = value.strip().lower()
-            mapping = {
-                "p": "practice",
-                "q": "qualify",
-                "r": "race",
-                "h": "hotlap",
-                "d": "drift",
-                "t": "trackday",
-                "o": "overtake",
-            }
-            return mapping.get(normalized, normalized)
-        return value
+        return _normalize_session_type_value(value)
 
 class SessionResult(BaseModel):
     id: int
@@ -269,6 +278,11 @@ class SessionResult(BaseModel):
     track_config: Optional[str] = None
     event_id: Optional[int] = None
     total_score: int = 0
+
+    @field_validator("session_type", mode="before")
+    @classmethod
+    def normalize_session_type(cls, value):
+        return _normalize_session_type_value(value)
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -325,6 +339,8 @@ class Event(EventBase):
 class ChampionshipBase(BaseModel):
     name: str
     description: Optional[str] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
     scoring_rules: Optional[Any] = None # Dict[int, int] but JSON often comes as str keys
     is_active: bool = True
 
@@ -335,6 +351,7 @@ class Championship(ChampionshipBase):
     id: int
     created_at: datetime
     updated_at: Optional[datetime] = None
+    events: Optional[List[Event]] = None
 
     model_config = ConfigDict(from_attributes=True)
 
