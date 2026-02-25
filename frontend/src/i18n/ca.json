@@ -104,29 +104,36 @@
         "scanQr": "Escaneja per veure el passaport digital"
     },
     "kiosk": {
-        "chooseCompetition": "TRIA LA TEVA COMPETICIÓ",
+        "chooseCompetition": "TRIA LA TEVA COMPETICIO",
         "liveLobbies": "SALES MULTIJUGADOR EN VIU",
         "specialEvents": "ESDEVENIMENTS ESPECIALS",
         "pickDuration": "TRIA DURADA:",
         "select": "SELECCIONAR",
+        "touchToStart": "TOCA PER COMENCAR",
         "welcomeDriver": "BENVINGUT PILOT",
         "identifyToSave": "Identifica't per guardar els teus temps",
         "driverName": "NOM DEL PILOT",
         "emailOptional": "EMAIL (Opcional)",
-        "start": "COMENÇAR",
+        "start": "COMENCAR",
         "topTimes": "MILLORS TEMPS",
-        "beatRecord": "Pots batre el rècord?",
-        "payAndLaunch": "PAGAR I LLANÇAR",
-        "paymentNote": "Simulador #{stationId} • El pagament es fa en aquesta pantalla.",
+        "beatRecord": "Pots batre el record?",
+        "payAndLaunch": "PAGAR I LLANCAR",
+        "paymentNote": "Simulador #{stationId} - El pagament es fa en aquesta pantalla.",
         "paymentTitle": "PAGAMENT AL QUIOSC",
-        "paymentSubtitle": "Tria el mètode i escaneja el QR per pagar.",
+        "paymentSubtitle": "Tria el metode i escaneja el QR per pagar.",
         "durationLabel": "Durada",
         "totalLabel": "Total",
-        "scanToPay": "Escaneja amb el mòbil per pagar.",
+        "scanToPay": "Escaneja amb el mobil per pagar.",
         "payWithBizum": "Paga amb Bizum",
-        "bizumPending": "Esperant configuració de Bizum.",
-        "waitingPayment": "Esperant confirmació de pagament...",
+        "bizumPending": "Esperant configuracio de Bizum.",
+        "waitingPayment": "Esperant confirmacio de pagament...",
         "retryPayment": "Reintentar pagament"
+    },
+    "attract": {
+        "sessionRecord": "Record de la sessio",
+        "localRecord": "Record local",
+        "anyCarAnyTrack": "Qualsevol cotxe / qualsevol pista",
+        "canYouBeatIt": "El pots superar?"
     },
     "theme": {
         "dark": "Mode Fosc",
@@ -135,3 +142,4 @@
         "switchToDark": "Canviar a mode fosc"
     }
 }
+

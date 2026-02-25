@@ -349,10 +349,14 @@ def get_session_pdf(session_id: int, db: Session = Depends(database.get_db)):
 
 @router.get("/map/{track_name}")
 def get_track_map(track_name: str, db: Session = Depends(database.get_db)):
-    """Get track map image for a specific track."""
+    """Get track map image for a specific track.
+
+    Returns 204 when there is no available map so the frontend can gracefully
+    fall back without polluting logs with avoidable 404s.
+    """
     mods_dir = PUBLIC_STORAGE_DIR / "mods"
     if not mods_dir.exists():
-        raise HTTPException(status_code=404, detail="Mods directory not found")
+        return Response(status_code=204)
         
     for mod_folder in os.listdir(mods_dir):
         if track_name.lower() in mod_folder.lower():
@@ -362,8 +366,8 @@ def get_track_map(track_name: str, db: Session = Depends(database.get_db)):
                 for file in files:
                     if file.lower() in ["map.png", "map.jpg", "preview.png", "preview.jpg"]:
                         return FileResponse(os.path.join(root, file))
-    
-    raise HTTPException(status_code=404, detail="Map not found for track")
+
+    return Response(status_code=204)
 
 
 @router.get("/coach/{lap_id}", response_model=schemas.CoachAnalysis)

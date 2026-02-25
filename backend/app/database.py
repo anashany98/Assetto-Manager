@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
+import warnings
 
 load_dotenv()
 load_dotenv(dotenv_path=Path(__file__).resolve().parents[1] / ".env")
@@ -55,7 +56,51 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
 
+# =============================================================================
+# DEPRECATED: Manual Schema Migration Functions
+# =============================================================================
+# These functions are DEPRECATED and will be removed in a future version.
+# 
+# Please use Alembic for all database migrations:
+#   - Create migration: alembic revision --autogenerate -m "description"
+#   - Apply migrations: alembic upgrade head
+#   - Rollback: alembic downgrade -1
+#
+# The manual functions below are kept only for backward compatibility with
+# existing databases that may have been created before Alembic was set up.
+# =============================================================================
+
+_DEPRECATION_WARNING_SHOWN = False
+
+def _show_migration_deprecation_warning():
+    """Show deprecation warning for manual migration functions."""
+    global _DEPRECATION_WARNING_SHOWN
+    if not _DEPRECATION_WARNING_SHOWN:
+        _DEPRECATION_WARNING_SHOWN = True
+        warnings.warn(
+            "Manual schema migration functions (ensure_*_schema) are deprecated. "
+            "Use Alembic migrations instead. Run 'alembic upgrade head' to apply migrations.",
+            DeprecationWarning,
+            stacklevel=3
+        )
+        logger.warning(
+            "DEPRECATED: Manual schema migration functions are being used. "
+            "Please migrate to Alembic: 'alembic upgrade head'. "
+            "These functions will be removed in a future version."
+        )
+
+
 def ensure_station_schema(db_engine):
+    """
+    DEPRECATED: Use Alembic migrations instead.
+    
+    This function is kept for backward compatibility only.
+    It will be removed in a future version.
+    
+    To migrate, run: alembic upgrade head
+    """
+    _show_migration_deprecation_warning()
+    
     inspector = inspect(db_engine)
     if "stations" not in inspector.get_table_names():
         return
@@ -77,6 +122,11 @@ def ensure_station_schema(db_engine):
     if not missing:
         return
 
+    logger.warning(
+        "Manual schema modification detected for stations table. "
+        "Columns %s should be added via Alembic migration.", missing
+    )
+
     with db_engine.begin() as conn:
         for name in missing:
             col_type, default_pg, default_sqlite = column_specs[name]
@@ -96,6 +146,16 @@ def ensure_station_schema(db_engine):
             logger.info("Added missing column stations.%s", name)
 
 def ensure_user_schema(db_engine):
+    """
+    DEPRECATED: Use Alembic migrations instead.
+    
+    This function is kept for backward compatibility only.
+    It will be removed in a future version.
+    
+    To migrate, run: alembic upgrade head
+    """
+    _show_migration_deprecation_warning()
+    
     inspector = inspect(db_engine)
     if "users" not in inspector.get_table_names():
         return
@@ -109,6 +169,11 @@ def ensure_user_schema(db_engine):
     missing = [name for name in column_specs if name not in existing]
     if not missing:
         return
+
+    logger.warning(
+        "Manual schema modification detected for users table. "
+        "Columns %s should be added via Alembic migration.", missing
+    )
 
     with db_engine.begin() as conn:
         for name in missing:
@@ -129,12 +194,28 @@ def ensure_user_schema(db_engine):
             logger.info("Added missing column users.%s", name)
 
 def ensure_championship_schema(db_engine):
+    """
+    DEPRECATED: Use Alembic migrations instead.
+    
+    This function is kept for backward compatibility only.
+    It will be removed in a future version.
+    
+    To migrate, run: alembic upgrade head
+    """
+    _show_migration_deprecation_warning()
+    
     inspector = inspect(db_engine)
     if "championships" not in inspector.get_table_names():
         return
 
     existing = {col["name"] for col in inspector.get_columns("championships")}
     is_postgres = db_engine.dialect.name == "postgresql"
+
+    if "created_at" not in existing or "updated_at" not in existing:
+        logger.warning(
+            "Manual schema modification detected for championships table. "
+            "Columns should be added via Alembic migration."
+        )
 
     with db_engine.begin() as conn:
         if "created_at" not in existing:

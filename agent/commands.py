@@ -12,6 +12,7 @@ from config import SERVER_URL, AGENT_TOKEN, LOBBY_ADMIN_PASSWORD, logger
 from networking import get_agent_headers
 from utils import launch_ac, get_system_info
 from watchdog import watchdog
+from idle_display import start_idle_display
 
 # Use a global stop event for session timer
 session_stop_event = threading.Event()
@@ -327,9 +328,12 @@ PASSWORD=
         if launch_ac(ac_path):
              # Start watchdog
              watchdog.start({"ac_path": ac_path})
+        else:
+             start_idle_display()
              
     except Exception as e:
         logger.error(f"Failed to join lobby: {e}")
+        start_idle_display()
 
 def stop_lobby_server():
     try:
@@ -494,3 +498,5 @@ NAME={weather_preset}
     # 4. Launch
     if launch_ac(ac_path):
         watchdog.start({"ac_path": ac_path, "car": car, "track": track})
+    else:
+        start_idle_display()

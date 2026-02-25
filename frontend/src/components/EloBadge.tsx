@@ -7,20 +7,29 @@ interface EloProps {
     size?: 'sm' | 'md' | 'lg';
 }
 
+interface EloRankingEntry {
+    name: string;
+    elo_rating: number;
+    tier: string;
+    tier_color: string;
+    total_wins: number;
+}
+
 export const EloBadge = ({ driverName, size = 'sm' }: EloProps) => {
-    const { data } = useQuery({
-        queryKey: ['elo', driverName],
+    const { data: rankings } = useQuery<EloRankingEntry[]>({
+        queryKey: ['elo-rankings-badges'],
         queryFn: async () => {
             try {
-                const res = await axios.get(`${API_URL}/elo/driver/${encodeURIComponent(driverName)}`);
+                const res = await axios.get(`${API_URL}/elo/rankings?limit=500`);
                 return res.data;
             } catch {
-                return null;
+                return [];
             }
         },
-        staleTime: 60000
+        staleTime: 5 * 60 * 1000
     });
 
+    const data = rankings?.find((entry) => entry.name === driverName);
     if (!data) return null;
 
     const sizeClasses = {

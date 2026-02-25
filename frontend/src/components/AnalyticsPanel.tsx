@@ -95,7 +95,7 @@ export default function AnalyticsPanel() {
             <div className="flex items-center justify-between">
                 <h2 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tight flex items-center gap-2">
                     <TrendingUp className="text-green-500" size={24} />
-                    Analytics Dashboard
+                    Panel de Analitica
                 </h2>
                 <span className="text-xs text-gray-500 dark:text-gray-400">Actualizado cada 30s</span>
             </div>

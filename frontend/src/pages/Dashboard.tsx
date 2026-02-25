@@ -6,7 +6,9 @@ import {
     HardDrive,
     Zap,
     Play,
-    Glasses
+    Glasses,
+    Rocket,
+    ArrowRight
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getDashboardStats, type DashboardStats } from '../api/dashboard';
@@ -15,7 +17,6 @@ import AnalyticsPanel from '../components/AnalyticsPanel';
 import SessionTimer from '../components/SessionTimer';
 import StartSessionModal from '../components/StartSessionModal';
 import MassLaunchModal from '../components/MassLaunchModal';
-import { Rocket } from 'lucide-react';
 import { FEATURES } from '../config/features';
 
 export default function Dashboard() {
@@ -35,8 +36,24 @@ export default function Dashboard() {
         refetchInterval: 5000
     });
 
+    const sessionsCount = activeSessions?.length ?? 0;
+
     return (
         <div className="space-y-6 pb-6">
+            <div className="px-4 md:px-6 pt-1 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+                <div>
+                    <h1 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">Panel de control</h1>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Estado operativo y acciones rápidas del centro.</p>
+                </div>
+                <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold border ${sessionsCount > 0
+                    ? 'border-emerald-200 text-emerald-700 bg-emerald-50 dark:border-emerald-500/30 dark:text-emerald-300 dark:bg-emerald-500/10'
+                    : 'border-gray-200 text-gray-500 bg-gray-50 dark:border-white/10 dark:text-gray-400 dark:bg-white/5'
+                    }`}>
+                    <Activity size={14} />
+                    {sessionsCount} sesiones activas
+                </div>
+            </div>
+
             {/* STATS GRID */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 px-4 md:px-6 pt-0">
                 <StatCard
@@ -77,9 +94,12 @@ export default function Dashboard() {
                     className="block p-5 rounded-xl border border-gray-200 dark:border-white/5 bg-white dark:bg-white/5 backdrop-blur-sm shadow-sm dark:shadow-lg transition-all duration-300 group hover:-translate-y-1 hover:shadow-md dark:hover:shadow-xl hover:border-red-500/50 hover:bg-red-50 dark:hover:bg-red-500/10 hover:shadow-red-500/10 text-left"
                 >
                     <h3 className="font-bold text-gray-900 dark:text-white mb-1 group-hover:translate-x-1 transition-transform flex items-center gap-2 text-lg">
-                        <Rocket size={20} className="text-red-500" /> LANZAMIENTO
+                        <Rocket size={20} className="text-red-500" /> Lanzamiento masivo
                     </h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Despliegue masivo en simuladores</p>
+                    <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-red-600 dark:text-red-300">
+                        Abrir panel <ArrowRight size={14} />
+                    </span>
                 </button>
 
                 {FEATURES.profiles && (
@@ -114,9 +134,17 @@ export default function Dashboard() {
             <div className="px-4 md:px-6 grid grid-cols-1 xl:grid-cols-3 gap-6">
                 {/* ACTIVE SESSIONS LIST */}
                 <div className="xl:col-span-2 space-y-4 min-w-0">
-                    <h2 className="text-xl font-bold flex items-center gap-2">
-                        <Play size={20} className="text-green-500" /> Sesiones en Curso
-                    </h2>
+                    <div className="flex items-center justify-between gap-3">
+                        <h2 className="text-xl font-bold flex items-center gap-2">
+                            <Play size={20} className="text-green-500" /> Sesiones en Curso
+                        </h2>
+                        <span className={`text-xs font-bold uppercase tracking-wide px-2.5 py-1 rounded-full border ${sessionsCount > 0
+                            ? 'text-emerald-700 border-emerald-200 bg-emerald-50 dark:text-emerald-300 dark:border-emerald-500/30 dark:bg-emerald-500/10'
+                            : 'text-gray-500 border-gray-200 bg-gray-50 dark:text-gray-400 dark:border-white/10 dark:bg-white/5'
+                            }`}>
+                            {sessionsCount} activas
+                        </span>
+                    </div>
 
                     {activeSessions && activeSessions.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -138,7 +166,7 @@ export default function Dashboard() {
                                     <div className="mt-4 pt-4 border-t border-gray-100 dark:border-white/5 flex gap-2">
                                         {session.is_vr && <Glasses size={16} className="text-blue-400" />}
                                         <span className="text-xs text-gray-400 uppercase font-bold tracking-tighter">
-                                            {session.payment_method} • {session.is_paid ? 'PAGADO' : 'PENDIENTE'}
+                                            {session.payment_method} - {session.is_paid ? 'PAGADO' : 'PENDIENTE'}
                                         </span>
                                     </div>
                                 </div>
@@ -148,18 +176,23 @@ export default function Dashboard() {
                         <div className="p-12 text-center bg-gray-50 dark:bg-white/5 rounded-3xl border-2 border-dashed border-gray-200 dark:border-white/10">
                             <Activity size={40} className="mx-auto mb-4 text-gray-300 dark:text-gray-600" />
                             <p className="text-gray-500">No hay sesiones activas en este momento</p>
-                            <button
-                                onClick={() => setShowLaunchModal(true)}
-                                className="mt-4 text-sm font-bold text-red-500 hover:underline"
-                            >
-                                Iniciar sesión manual &rarr;
-                            </button>
+                            <div className="mt-5 flex items-center justify-center gap-3">
+                                <button
+                                    onClick={() => setShowLaunchModal(true)}
+                                    className="inline-flex items-center gap-1 text-sm font-bold text-red-500 hover:underline"
+                                >
+                                    Abrir lanzamiento <ArrowRight size={14} />
+                                </button>
+                                <Link to="/bookings" className="inline-flex items-center gap-1 text-sm font-bold text-blue-600 dark:text-blue-400 hover:underline">
+                                    Ver reservas <ArrowRight size={14} />
+                                </Link>
+                            </div>
                         </div>
                     )}
                 </div>
 
                 {/* SIDEBAR ANALYTICS */}
-                <div className="space-y-6 min-w-0">
+                <div className="space-y-6 min-w-0 xl:sticky xl:top-6 self-start">
                     <AnalyticsPanel />
                 </div>
             </div>
@@ -208,12 +241,18 @@ function StatCard({ label, value, subvalue, icon: Icon, color, animate }: StatCa
     };
 
     const c = colors[color] || colors.gray;
+    const isStringValue = typeof value === 'string';
 
     return (
         <div className={`p-6 flex items-start justify-between border rounded-xl transition-all ${c.border} ${c.glow} shadow-sm bg-white dark:bg-white/5`}>
             <div>
                 <p className="text-gray-500 dark:text-gray-400 font-bold uppercase text-xs tracking-wider mb-2">{label}</p>
-                <h3 className="text-3xl font-black text-gray-900 dark:text-white mb-1 tracking-tight">{value}</h3>
+                <h3
+                    title={String(value)}
+                    className={`${isStringValue ? 'text-2xl leading-tight' : 'text-3xl'} font-black text-gray-900 dark:text-white mb-1 tracking-tight break-words`}
+                >
+                    {value}
+                </h3>
                 <p className="text-xs text-gray-400 dark:text-gray-500 font-medium">{subvalue}</p>
             </div>
             <div className={`p-4 rounded-xl ${c.icon} ${animate ? 'animate-pulse' : ''}`}>
@@ -235,6 +274,9 @@ function QuickAction({ to, title, desc, color }: { to: string; title: string; de
         <Link to={to} className={`block p-5 rounded-xl border border-gray-200 dark:border-white/5 bg-white dark:bg-white/5 backdrop-blur-sm shadow-sm dark:shadow-lg transition-all duration-300 group hover:-translate-y-1 hover:shadow-md ${colors[color]}`}>
             <h3 className="font-bold text-gray-900 dark:text-white mb-1 group-hover:translate-x-1 transition-transform">{title}</h3>
             <p className="text-sm text-gray-500 dark:text-gray-400">{desc}</p>
+            <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-gray-500 dark:text-gray-300">
+                Abrir <ArrowRight size={14} />
+            </span>
         </Link>
     )
 }

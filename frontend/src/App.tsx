@@ -36,6 +36,8 @@ const EliminationAdmin = lazy(() => import('./pages/EliminationAdmin'));
 const HardwareMonitor = lazy(() => import('./pages/HardwareMonitor'));
 const ScenariosManager = lazy(() => import('./pages/ScenariosManager'));
 const KioskMode = lazy(() => import('./pages/KioskMode'));
+const KioskModern = lazy(() => import('./pages/KioskModern'));
+const KioskRacing = lazy(() => import('./pages/KioskRacing'));
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
 const PilotPortal = lazy(() => import('./pages/PilotPortal'));
 const ManageBooking = lazy(() => import('./pages/ManageBooking'));
@@ -99,6 +101,8 @@ function App() {
                 <Route path="/leaderboard" element={<Leaderboard />} />
                 <Route path="/hall-of-fame" element={<HallOfFame />} />
                 <Route path="/kiosk" element={<KioskMode />} />
+                <Route path="/kiosk-modern" element={<KioskModern />} />
+                <Route path="/kiosk-racing" element={<KioskRacing />} />
                 <Route path="/battle" element={<BattleMode />} />
                 <Route path="/live-map" element={<LiveMapPage />} />
                 <Route path="/tv" element={<TVMode />} />

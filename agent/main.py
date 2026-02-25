@@ -22,6 +22,7 @@ from proxy import image_proxy
 from sync import synchronize_content, send_heartbeat, register_agent
 from ws_client import AgentWSClient
 from updater import check_for_updates
+from idle_display import start_idle_display
 
 # Enable telemetry results handling
 import telemetry 
@@ -60,6 +61,9 @@ def main():
     
     if station_ac_path:
         image_proxy.start(station_ac_path)
+
+    # Show station idle video while simulator is not running.
+    start_idle_display()
     
     # Iniciar Cliente WebSocket (TelemetrÃ­a + Comandos)
     ws_client = AgentWSClient(station_id, SERVER_URL)

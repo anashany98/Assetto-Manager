@@ -11,6 +11,10 @@
   "obs_port": 4455,
   "obs_password": "",
   "stream_url": "http://<media-server-ip>:8889/live/station1",
+  "idle_display_enabled": true,
+  "idle_display_url": "http://<server-ip>:8000/station-display",
+  "idle_display_browser_path": "C:/Program Files/Google/Chrome/Application/chrome.exe",
+  "idle_display_browser_args": "--kiosk --autoplay-policy=no-user-gesture-required --disable-infobars --disable-session-crashed-bubble --disable-restore-session-state",
   "lobby_admin_password": "change-me",
   "update_signing_key": "change-me"
 }

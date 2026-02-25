@@ -104,29 +104,36 @@
         "scanQr": "Escanea para ver el pasaporte digital"
     },
     "kiosk": {
-        "chooseCompetition": "ELIGE TU COMPETICIÓN",
+        "chooseCompetition": "ELIGE TU COMPETICION",
         "liveLobbies": "SALAS MULTIJUGADOR EN VIVO",
         "specialEvents": "EVENTOS ESPECIALES",
-        "pickDuration": "ELIGE DURACIÓN:",
+        "pickDuration": "ELIGE DURACION:",
         "select": "SELECCIONAR",
+        "touchToStart": "TOCA PARA EMPEZAR",
         "welcomeDriver": "BIENVENIDO PILOTO",
-        "identifyToSave": "Identifícate para guardar tus tiempos",
+        "identifyToSave": "Identificate para guardar tus tiempos",
         "driverName": "NOMBRE DE PILOTO",
         "emailOptional": "EMAIL (Opcional)",
         "start": "COMENZAR",
         "topTimes": "MEJORES TIEMPOS",
-        "beatRecord": "¿Podrás batir el récord?",
+        "beatRecord": "Podras batir el record?",
         "payAndLaunch": "PAGAR Y LANZAR",
-        "paymentNote": "Simulador #{stationId} • El pago se realiza en esta pantalla.",
+        "paymentNote": "Simulador #{stationId} - El pago se realiza en esta pantalla.",
         "paymentTitle": "PAGO EN KIOSKO",
-        "paymentSubtitle": "Selecciona el método y escanea el QR para pagar.",
-        "durationLabel": "Duración",
+        "paymentSubtitle": "Selecciona el metodo y escanea el QR para pagar.",
+        "durationLabel": "Duracion",
         "totalLabel": "Total",
-        "scanToPay": "Escanea con tu móvil para pagar.",
+        "scanToPay": "Escanea con tu movil para pagar.",
         "payWithBizum": "Paga por Bizum",
-        "bizumPending": "Esperando configuración de Bizum.",
-        "waitingPayment": "Esperando confirmación de pago...",
+        "bizumPending": "Esperando configuracion de Bizum.",
+        "waitingPayment": "Esperando confirmacion de pago...",
         "retryPayment": "Reintentar pago"
+    },
+    "attract": {
+        "sessionRecord": "Record de la sesion",
+        "localRecord": "Record local",
+        "anyCarAnyTrack": "Cualquier coche / cualquier pista",
+        "canYouBeatIt": "Puedes superarlo?"
     },
     "theme": {
         "dark": "Modo Oscuro",
@@ -135,3 +142,4 @@
         "switchToDark": "Cambiar a modo oscuro"
     }
 }
+

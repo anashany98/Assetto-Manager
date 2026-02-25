@@ -6,6 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { ThemeProvider } from '../contexts/ThemeContext';
 import { LanguageProvider } from '../contexts/LanguageContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AuthProvider } from '../context/AuthContext';
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -17,11 +18,13 @@ const queryClient = new QueryClient({
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
     <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-            <LanguageProvider>
-                {children}
-            </LanguageProvider>
-        </ThemeProvider>
+        <AuthProvider>
+            <ThemeProvider>
+                <LanguageProvider>
+                    {children}
+                </LanguageProvider>
+            </ThemeProvider>
+        </AuthProvider>
     </QueryClientProvider>
 );
 

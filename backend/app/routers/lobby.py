@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime, timezone, timedelta
@@ -6,19 +6,42 @@ import logging
 import os
 
 from .. import models, schemas, database
-from .auth import require_admin
+from .auth import require_admin_or_public_token
 from .websockets import manager
+from ..security.api_keys import is_client_token_allowed
 
 logger = logging.getLogger("api.lobby")
 
 router = APIRouter(
     prefix="/lobby",
     tags=["lobby"],
-    dependencies=[Depends(require_admin)]
 )
 
 def get_db():
     return database.get_db()
+
+
+def _is_admin(user_or_client: object) -> bool:
+    return hasattr(user_or_client, "role") and getattr(user_or_client, "role") == "admin"
+
+
+def _require_client_scope(user_or_client: object, required_scope: str) -> None:
+    if _is_admin(user_or_client):
+        return
+    token = None if user_or_client in (None, "public") else str(user_or_client)
+    if not is_client_token_allowed(token=token, required_scopes=(required_scope,)):
+        raise HTTPException(status_code=403, detail="Client token missing required scope")
+
+
+def _require_kiosk_access(station: Optional[models.Station], kiosk_code: Optional[str], user_or_client: object) -> None:
+    if _is_admin(user_or_client):
+        return
+    if not station:
+        raise HTTPException(status_code=404, detail="Station not found")
+    if not station.is_kiosk_mode:
+        raise HTTPException(status_code=403, detail="Kiosk mode disabled for station")
+    if not kiosk_code or station.kiosk_code != kiosk_code:
+        raise HTTPException(status_code=403, detail="Invalid kiosk code")
 
 def _cleanup_orphan_lobbies(db: Session) -> int:
     """
@@ -56,7 +79,9 @@ def _cleanup_orphan_lobbies(db: Session) -> int:
 async def create_lobby(
     lobby_data: schemas.LobbyCreate,
     host_station_id: Optional[int] = None,
-    db: Session = Depends(database.get_db)
+    db: Session = Depends(database.get_db),
+    user_or_client: models.User | str = Depends(require_admin_or_public_token),
+    kiosk_code: Optional[str] = Header(None, alias="X-Kiosk-Code"),
 ):
     """
     Create a new multiplayer lobby. The host station will run acServer.exe.
@@ -70,6 +95,10 @@ async def create_lobby(
     host = db.query(models.Station).filter(models.Station.id == active_host_id).first()
     if not host:
         raise HTTPException(status_code=404, detail=f"Station {active_host_id} not found")
+
+    _require_client_scope(user_or_client, "kiosk:control")
+    _require_kiosk_access(host, kiosk_code, user_or_client)
+
     if not host.is_online:
         raise HTTPException(status_code=400, detail="Host station must be online")
     if not host.ip_address:
@@ -127,7 +156,8 @@ async def create_lobby(
 @router.get("/list", response_model=List[schemas.Lobby])
 async def list_lobbies(
     status: str = "active",
-    db: Session = Depends(database.get_db)
+    db: Session = Depends(database.get_db),
+    _auth: object = Depends(require_admin_or_public_token),
 ):
     """
     List available lobbies. Default 'active' shows waiting and running.
@@ -139,7 +169,7 @@ async def list_lobbies(
     elif status != "all":
         query = query.filter(models.Lobby.status == status)
     
-    lobbies = query.order_by(models.Lobby.created_at.desc()).limit(20).all()
+    lobbies = query.order_by(models.Lobby.created_at.desc()).all()
     
     result = []
     for lobby in lobbies:
@@ -165,14 +195,16 @@ async def list_lobbies(
 
 
 @router.get("/{lobby_id}", response_model=schemas.Lobby)
-async def get_lobby(lobby_id: int, db: Session = Depends(database.get_db)):
+async def get_lobby(
+    lobby_id: int,
+    db: Session = Depends(database.get_db),
+    _auth: object = Depends(require_admin_or_public_token),
+):
     """Get detailed lobby info including players."""
     _cleanup_orphan_lobbies(db)
     lobby = db.query(models.Lobby).filter(models.Lobby.id == lobby_id).first()
     if not lobby:
         raise HTTPException(status_code=404, detail="Lobby not found")
-    
-    first_player = lobby.players[0] if lobby.players else None
     
     # Query association table for extra data? 
     # SQLAlchemy handles association attributes via the association object if mapped properly, 
@@ -218,13 +250,19 @@ async def toggle_ready(
     lobby_id: int,
     station_id: int,
     is_ready: bool,
-    db: Session = Depends(database.get_db)
+    db: Session = Depends(database.get_db),
+    user_or_client: models.User | str = Depends(require_admin_or_public_token),
+    kiosk_code: Optional[str] = Header(None, alias="X-Kiosk-Code"),
 ):
     """Toggle ready status for a station in the lobby."""
     # Verify lobby exists
     lobby = db.query(models.Lobby).filter(models.Lobby.id == lobby_id).first()
     if not lobby:
         raise HTTPException(status_code=404, detail="Lobby not found")
+
+    station = db.query(models.Station).filter(models.Station.id == station_id).first()
+    _require_client_scope(user_or_client, "kiosk:control")
+    _require_kiosk_access(station, kiosk_code, user_or_client)
 
     # Update association table
     stmt = models.lobby_players.update().where(
@@ -245,7 +283,9 @@ async def toggle_ready(
 async def join_lobby(
     lobby_id: int,
     join_data: schemas.LobbyJoin,
-    db: Session = Depends(database.get_db)
+    db: Session = Depends(database.get_db),
+    user_or_client: models.User | str = Depends(require_admin_or_public_token),
+    kiosk_code: Optional[str] = Header(None, alias="X-Kiosk-Code"),
 ):
     """Join an existing lobby."""
     lobby = db.query(models.Lobby).filter(models.Lobby.id == lobby_id).first()
@@ -254,16 +294,17 @@ async def join_lobby(
     
     if lobby.status not in ["waiting", "running"]:
         raise HTTPException(status_code=400, detail="Lobby is not accepting players")
-    
-    if len(lobby.players) >= lobby.max_players:
-        raise HTTPException(status_code=400, detail="Lobby is full")
-    
+
     station = db.query(models.Station).filter(models.Station.id == join_data.station_id).first()
     if not station:
         raise HTTPException(status_code=404, detail="Station not found")
+
+    _require_client_scope(user_or_client, "kiosk:control")
+    _require_kiosk_access(station, kiosk_code, user_or_client)
+
     if not station.is_online:
         raise HTTPException(status_code=400, detail="Station is offline")
-    
+
     # Check if already in lobby
     if station in lobby.players:
         # If running, we might want to "re-join" (send command again) just in case
@@ -275,16 +316,17 @@ async def join_lobby(
         else:
              return {"status": "already_joined", "lobby_id": lobby_id}
     else:
+        if len(lobby.players) >= lobby.max_players:
+            raise HTTPException(status_code=400, detail="Lobby is full")
         lobby.players.append(station)
         db.commit()
     
     logger.info(f"Station {station.name} joined lobby {lobby.name} (Status: {lobby.status})")
 
     # If lobby is already running, send join command immediately
+    slot_idx = next((idx for idx, p in enumerate(lobby.players) if p.id == station.id), len(lobby.players) - 1)
     if lobby.status == "running":
-        # Calculate slot (might be append)
-        # Note: Entry list is static on server, so slot number effectively maps to CAR_x
-        slot_idx = len(lobby.players) - 1
+        # Rejoin uses the player's real slot; late joiners get appended slot.
         ok = await manager.send_command(station.id, {
             "command": "join_lobby",
             "lobby_id": lobby.id,
@@ -299,14 +341,16 @@ async def join_lobby(
         else:
             logger.warning(f"Station {station.id} has no active Agent connection for late join")
 
-    return {"status": "joined", "lobby_id": lobby_id, "slot": len(lobby.players) - 1}
+    return {"status": "joined", "lobby_id": lobby_id, "slot": slot_idx}
 
 
 @router.post("/{lobby_id}/start")
 async def start_lobby(
     lobby_id: int,
     requesting_station_id: int,
-    db: Session = Depends(database.get_db)
+    db: Session = Depends(database.get_db),
+    user_or_client: models.User | str = Depends(require_admin_or_public_token),
+    kiosk_code: Optional[str] = Header(None, alias="X-Kiosk-Code"),
 ):
     """
     Start the race. Only host can start.
@@ -315,6 +359,10 @@ async def start_lobby(
     lobby = db.query(models.Lobby).filter(models.Lobby.id == lobby_id).first()
     if not lobby:
         raise HTTPException(status_code=404, detail="Lobby not found")
+
+    requesting_station = db.query(models.Station).filter(models.Station.id == requesting_station_id).first()
+    _require_client_scope(user_or_client, "kiosk:control")
+    _require_kiosk_access(requesting_station, kiosk_code, user_or_client)
     
     if lobby.host_station_id != requesting_station_id:
         raise HTTPException(status_code=403, detail="Only host can start the race")
@@ -322,14 +370,9 @@ async def start_lobby(
     if lobby.status != "waiting":
         raise HTTPException(status_code=400, detail="Lobby already started or finished")
     
-    if len(lobby.players) < 1:
-        raise HTTPException(status_code=400, detail="Need at least 1 player to start")
-    
-    # Update status
-    lobby.status = "starting"
-    lobby.started_at = datetime.now(timezone.utc)
-    db.commit()
-    
+    if len(lobby.players) < 2:
+        raise HTTPException(status_code=400, detail="Need at least 2 players to start")
+
     # Get host station
     host = db.query(models.Station).filter(models.Station.id == lobby.host_station_id).first()
     if not host or not host.is_online:
@@ -344,8 +387,8 @@ async def start_lobby(
 
     if host.id not in [p.id for p in ready_players]:
         raise HTTPException(status_code=400, detail="Host must be ready to start")
-    if len(ready_players) < 1:
-        raise HTTPException(status_code=400, detail="Need at least 1 ready player to start")
+    if len(ready_players) < 2:
+        raise HTTPException(status_code=400, detail="Need at least 2 ready players to start")
 
     # Remove unready players from lobby before starting
     if unready_players:
@@ -355,6 +398,11 @@ async def start_lobby(
             except Exception:
                 pass
         db.commit()
+
+    # Update status only after all pre-start validations pass.
+    lobby.status = "starting"
+    lobby.started_at = datetime.now(timezone.utc)
+    db.commit()
     
     # Send create_lobby command to host agent
     ok = await manager.send_command(host.id, {
@@ -430,12 +478,18 @@ async def start_lobby(
 async def cancel_lobby(
     lobby_id: int,
     requesting_station_id: int,
-    db: Session = Depends(database.get_db)
+    db: Session = Depends(database.get_db),
+    user_or_client: models.User | str = Depends(require_admin_or_public_token),
+    kiosk_code: Optional[str] = Header(None, alias="X-Kiosk-Code"),
 ):
     """Cancel/delete a lobby. Only host can cancel."""
     lobby = db.query(models.Lobby).filter(models.Lobby.id == lobby_id).first()
     if not lobby:
         raise HTTPException(status_code=404, detail="Lobby not found")
+
+    requesting_station = db.query(models.Station).filter(models.Station.id == requesting_station_id).first()
+    _require_client_scope(user_or_client, "kiosk:control")
+    _require_kiosk_access(requesting_station, kiosk_code, user_or_client)
     
     if lobby.host_station_id != requesting_station_id:
         raise HTTPException(status_code=403, detail="Only host can cancel")

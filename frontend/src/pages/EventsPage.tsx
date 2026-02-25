@@ -83,7 +83,7 @@ export default function EventsPage() {
         }
     };
     const handleDelete = (id: number) => {
-        if (confirm('Â¿EstÃ¡s seguro de que quieres eliminar este evento?')) {
+        if (confirm('¿Estás seguro de que quieres eliminar este evento?')) {
             deleteMutation.mutate(id);
         }
     };
@@ -103,8 +103,8 @@ export default function EventsPage() {
     if (isError) return (
         <div className="p-8 text-red-500 min-h-[400px] flex flex-col items-center justify-center text-center">
             <MonitorPlay size={48} className="text-red-500/50 mb-4" />
-            <p className="font-bold text-red-400 uppercase tracking-widest text-sm mb-2">Error al cargar la programaciÃ³n</p>
-            <p className="text-gray-500 text-xs mb-6 max-w-xs">No se ha podido sincronizar con el calendario de carreras. Revisa la conexiÃ³n al servidor.</p>
+            <p className="font-bold text-red-400 uppercase tracking-widest text-sm mb-2">Error al cargar la programación</p>
+            <p className="text-gray-500 text-xs mb-6 max-w-xs">No se ha podido sincronizar con el calendario de carreras. Revisa la conexión al servidor.</p>
             <button onClick={() => queryClient.invalidateQueries({ queryKey: ['events'] })} className="bg-red-500 text-white px-6 py-2 rounded-xl font-bold text-sm uppercase transition-all hover:bg-red-600 shadow-lg shadow-red-500/20">Reintentar</button>
         </div>
     );
@@ -269,7 +269,7 @@ export default function EventsPage() {
                     {/* UPCOMING */}
                     <section>
                         <h2 className="text-xl font-bold flex items-center text-gray-500 dark:text-gray-300 mb-4 uppercase tracking-wider">
-                            <CalendarIcon className="mr-2" /> PrÃ³ximos Eventos
+                            <CalendarIcon className="mr-2" /> Próximos Eventos
                         </h2>
                         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {upcomingEvents.length === 0 ? (
@@ -320,7 +320,7 @@ export default function EventsPage() {
                         >
                             <ChevronLeft />
                         </button>
-                        <span className="text-gray-500 dark:text-gray-400 font-mono">PÃ¡gina {page + 1}</span>
+                        <span className="text-gray-500 dark:text-gray-400 font-mono">Página {page + 1}</span>
                         <button
                             onClick={() => setPage(p => p + 1)}
                             disabled={!events || events.length < pageSize}
@@ -404,7 +404,7 @@ function EventCard({ event, isActive, isPast, onEdit, onDelete, onComplete, onTo
                     {isActive && <span className="px-2 py-0.5 bg-green-500/20 text-green-600 dark:text-green-400 text-xs font-bold rounded-full uppercase animate-pulse">En Vivo</span>}
                 </div>
 
-                <p className="text-gray-500 dark:text-gray-400 text-sm mb-6 line-clamp-2 min-h-[40px] font-medium leading-relaxed">{event.description || "Sin descripciÃ³n"}</p>
+                <p className="text-gray-500 dark:text-gray-400 text-sm mb-6 line-clamp-2 min-h-[40px] font-medium leading-relaxed">{event.description || "Sin descripción"}</p>
 
                 <div className="space-y-3 text-sm text-gray-500 font-bold">
                     <div className="flex items-center">
@@ -421,7 +421,7 @@ function EventCard({ event, isActive, isPast, onEdit, onDelete, onComplete, onTo
 
                 <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center">
                     <span className="text-xs font-mono text-gray-400 dark:text-gray-600 uppercase">ID: #{event.id}</span>
-                    <Link onMouseEnter={prefetchDetails} to={`/events/${event.id}` } className="text-blue-600 dark:text-blue-400 text-sm font-bold hover:text-blue-500 dark:hover:text-blue-300 transition-colors">Ver Detalles â†’</Link>
+                    <Link onMouseEnter={prefetchDetails} to={`/events/${event.id}` } className="text-blue-600 dark:text-blue-400 text-sm font-bold hover:text-blue-500 dark:hover:text-blue-300 transition-colors">Ver Detalles →</Link>
                 </div>
             </div>
         </div>

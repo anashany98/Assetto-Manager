@@ -36,7 +36,34 @@ def _allow_ws_query_token() -> bool:
     return _is_truthy(os.getenv("ALLOW_WS_TOKEN_QUERY", default))
 
 
+def _get_environment() -> str:
+    """Get current environment with safe default."""
+    return (os.getenv("ENVIRONMENT", "development") or "development").lower().strip()
+
+
+def _require_ws_auth_in_dev() -> bool:
+    """
+    Determine if WebSocket authentication is required in development.
+    Default: True (secure by default).
+    Set WS_DEV_REQUIRE_AUTH=false to allow unauthenticated connections in dev.
+    """
+    env = _get_environment()
+    if env == "production":
+        return True  # Always required in production
+    
+    # In development, require auth by default unless explicitly disabled
+    return _is_truthy(os.getenv("WS_DEV_REQUIRE_AUTH", "true"))
+
+
 async def _authenticate_public_client(websocket: WebSocket) -> bool:
+    """
+    Authenticate a public WebSocket client.
+    
+    Security model:
+    - Production: ALWAYS requires valid token
+    - Development: Requires token by default (WS_DEV_REQUIRE_AUTH=true)
+    - Legacy dev mode: Set WS_DEV_REQUIRE_AUTH=false to allow unauthenticated (NOT RECOMMENDED)
+    """
     query_token = websocket.query_params.get("token")
     if query_token and _allow_ws_query_token() and _is_public_ws_allowed(query_token):
         return True
@@ -45,6 +72,11 @@ async def _authenticate_public_client(websocket: WebSocket) -> bool:
     try:
         raw_data = await asyncio.wait_for(websocket.receive_text(), timeout=identify_timeout)
     except asyncio.TimeoutError:
+        # SECURITY FIX: Only allow unauthenticated access if explicitly permitted in dev
+        if _require_ws_auth_in_dev():
+            logger.warning("WebSocket client timed out without authentication - rejecting")
+            return False
+        # Legacy behavior: allow if tokens not configured (only when WS_DEV_REQUIRE_AUTH=false)
         return _is_public_ws_allowed(None)
     except WebSocketDisconnect:
         # Client closed before identify; treat as unauthenticated without noisy stack traces.
@@ -53,17 +85,30 @@ async def _authenticate_public_client(websocket: WebSocket) -> bool:
     try:
         data = json.loads(raw_data)
     except json.JSONDecodeError:
+        if _require_ws_auth_in_dev():
+            logger.warning("WebSocket client sent invalid JSON - rejecting")
+            return False
         return _is_public_ws_allowed(None)
 
     if not isinstance(data, dict) or data.get("type") != "identify":
+        if _require_ws_auth_in_dev():
+            logger.warning("WebSocket client did not send identify message - rejecting")
+            return False
         return _is_public_ws_allowed(None)
 
     token = data.get("token")
     if token is not None and not isinstance(token, str):
         return False
 
+    # Empty/whitespace-only token is treated as no token
     normalized = token.strip() if isinstance(token, str) else None
     normalized = normalized or None
+    
+    # If no token provided after identify
+    if normalized is None and _require_ws_auth_in_dev():
+        logger.warning("WebSocket client identified without token - rejecting")
+        return False
+    
     return _is_public_ws_allowed(normalized)
 
 
@@ -100,22 +145,69 @@ class ConnectionManager:
         }
 
     async def start_pubsub(self) -> None:
+        """
+        Start the pubsub system for cross-worker communication.
+        
+        In production with multiple workers, Redis pubsub is REQUIRED for:
+        - Broadcasting messages to clients connected to other workers
+        - Sending commands to agents connected to other workers
+        - Maintaining consistent state across all workers
+        
+        In development with a single worker, pubsub is optional.
+        """
+        environment = _get_environment()
         mode = (os.getenv("WS_PUBSUB", "none") or "none").lower().strip()
+        
+        # Check if we're in a multi-worker setup
+        worker_count = int(os.getenv("UVICORN_WORKERS", "1"))
+        is_multi_worker = worker_count > 1
+        
         if mode not in {"redis", "none"}:
             logger.warning("Unknown WS_PUBSUB=%s; defaulting to none", mode)
             mode = "none"
+        
+        # PRODUCTION SAFETY: Require Redis for multi-worker setups
+        if environment == "production" and is_multi_worker and mode != "redis":
+            logger.error(
+                "CRITICAL: Multi-worker production deployment detected (UVICORN_WORKERS=%d) "
+                "but WS_PUBSUB is not set to 'redis'. WebSocket state will NOT be shared "
+                "between workers. Set WS_PUBSUB=redis and REDIS_URL to fix this.",
+                worker_count
+            )
+            # In production, this is a critical misconfiguration
+            # We'll continue but log prominently
+            logger.error(
+                "WebSocket functionality will be BROKEN: messages will only reach clients "
+                "connected to the same worker. Multi-station lobbies will NOT work."
+            )
+        
         if mode != "redis":
+            if environment == "production":
+                logger.warning(
+                    "Production deployment without Redis pubsub. "
+                    "WebSocket features will be limited to single-worker mode."
+                )
             return
 
         url = (os.getenv("REDIS_URL") or "").strip()
         if not url:
             logger.error("WS_PUBSUB=redis requires REDIS_URL")
+            if environment == "production":
+                raise RuntimeError(
+                    "REDIS_URL is required when WS_PUBSUB=redis in production. "
+                    "Cannot start WebSocket manager without Redis for cross-worker communication."
+                )
             return
 
         try:
             import redis.asyncio as redis_async  # type: ignore
         except Exception:
             logger.error("Redis pubsub requested but dependency 'redis' is not installed")
+            if environment == "production":
+                raise RuntimeError(
+                    "Redis dependency is required for WS_PUBSUB=redis. "
+                    "Install with: pip install redis"
+                )
             return
 
         try:
@@ -133,6 +225,11 @@ class ConnectionManager:
         except Exception as exc:
             logger.error("Failed to start WS redis pubsub: %s", exc)
             self._pubsub_enabled = False
+            if environment == "production":
+                raise RuntimeError(
+                    f"Failed to connect to Redis for WebSocket pubsub: {exc}. "
+                    "Check REDIS_URL and ensure Redis server is running."
+                )
 
     async def stop_pubsub(self) -> None:
         task = self._pubsub_task

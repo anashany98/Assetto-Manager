@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { useAuth } from '../context/useAuth';
@@ -13,46 +13,91 @@ type User = {
     permissions: string[];
 };
 
-const MODULES = [
+type PermissionModule = {
+    key: string;
+    label: string;
+};
+
+const FALLBACK_MODULES: PermissionModule[] = [
     { key: 'dashboard', label: 'Dashboard' },
-    { key: 'stations', label: 'Estaciones' },
-    { key: 'mods', label: 'Mods' },
-    { key: 'events', label: 'Eventos' },
-    { key: 'leaderboard', label: 'Clasificación' },
-    { key: 'users', label: 'Usuarios' },
-    { key: 'reservations', label: 'Reservas' },
     { key: 'settings', label: 'Ajustes' },
-    { key: 'tv_control', label: 'Control TV' },
-    { key: 'kiosk', label: 'Kiosko' },
+    { key: 'stations', label: 'Estaciones' },
+    { key: 'users', label: 'Usuarios' },
+    { key: 'profiles', label: 'Perfiles' },
+    { key: 'editor', label: 'Editor AC' },
+    { key: 'drivers', label: 'Pilotos' },
+    { key: 'championships', label: 'Campeonatos' },
+    { key: 'history', label: 'Historial' },
+    { key: 'mods', label: 'Libreria Mods' },
+    { key: 'events', label: 'Eventos/Torneos' },
+    { key: 'kiosk', label: 'Modo Kiosko' },
+    { key: 'bookings', label: 'Reservas Simuladores' },
+    { key: 'tables', label: 'Reservas Mesas' },
+    { key: 'analytics', label: 'Analitica/Ingresos' },
+    { key: 'online_reservations', label: 'Reservas Online' },
+    { key: 'lap_comparison', label: 'Comparar Vueltas' },
+    { key: 'leaderboard', label: 'Clasificacion en Vivo' },
+    { key: 'passport', label: 'Pasaporte Piloto' },
+    { key: 'live_map', label: 'Mapa en Vivo' },
+    { key: 'tv', label: 'Modo TV' },
+    { key: 'hall_of_fame', label: 'Salon de la Fama' },
+    { key: 'battle', label: 'Modo Batalla' },
+    { key: 'tv_remote', label: 'Mando TV' },
+    { key: 'tv_spectator', label: 'Espectador TV' },
 ];
 
 export default function UserManagement() {
     const { user: currentUser } = useAuth();
     const queryClient = useQueryClient();
     const [editingId, setEditingId] = useState<number | null>(null);
+    const authHeader = { Authorization: `Bearer ${localStorage.getItem('token')}` };
 
     const { data: users, isLoading } = useQuery({
         queryKey: ['users'],
         queryFn: async () => {
             const res = await axios.get(`${API_URL}/users/`, {
-                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+                headers: authHeader,
             });
             return res.data as User[];
-        }
+        },
     });
+
+    const { data: modules = FALLBACK_MODULES } = useQuery({
+        queryKey: ['user_permission_modules'],
+        queryFn: async () => {
+            const res = await axios.get(`${API_URL}/users/modules`, {
+                headers: authHeader,
+            });
+            return res.data as PermissionModule[];
+        },
+        initialData: FALLBACK_MODULES,
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const moduleLabelByKey = useMemo(
+        () => new Map(modules.map((item) => [item.key, item.label])),
+        [modules],
+    );
 
     const updatePermissionsMutation = useMutation({
         mutationFn: async ({ id, permissions }: { id: number; permissions: string[] }) => {
             await axios.put(`${API_URL}/users/${id}/permissions`, { permissions }, {
-                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+                headers: authHeader,
             });
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['users'] });
             setEditingId(null);
-            alert("Permisos actualizados correctamente");
+            alert('Permisos actualizados correctamente');
         },
-        onError: () => alert("Error al actualizar permisos")
+        onError: (error: any) => {
+            const invalid = error?.response?.data?.detail?.invalid_keys;
+            if (Array.isArray(invalid) && invalid.length > 0) {
+                alert(`Permisos invalidos: ${invalid.join(', ')}`);
+                return;
+            }
+            alert('Error al actualizar permisos');
+        },
     });
 
     if (isLoading) return <div className="p-8 text-white">Cargando usuarios...</div>;
@@ -61,15 +106,15 @@ export default function UserManagement() {
         return <div className="p-8 text-red-500">Acceso denegado. Requiere permisos de administrador.</div>;
     }
 
-    const editingUser = editingId !== null ? (users?.find(u => u.id === editingId) ?? null) : null;
+    const editingUser = editingId !== null ? (users?.find((u) => u.id === editingId) ?? null) : null;
 
     return (
         <div className="p-8 max-w-7xl mx-auto">
             <div className="flex items-center gap-3 mb-8">
                 <Shield className="text-blue-500" size={32} />
                 <div>
-                    <h1 className="text-3xl font-bold text-white">Gestión de Usuarios</h1>
-                    <p className="text-slate-400">Configura visibilidad de módulos por usuario</p>
+                    <h1 className="text-3xl font-bold text-white">Gestion de Usuarios</h1>
+                    <p className="text-slate-400">Configura visibilidad de modulos por usuario</p>
                 </div>
             </div>
 
@@ -79,7 +124,7 @@ export default function UserManagement() {
                         <tr>
                             <th className="p-4 text-slate-400 font-medium">Usuario</th>
                             <th className="p-4 text-slate-400 font-medium">Rol</th>
-                            <th className="p-4 text-slate-400 font-medium">Módulos Visibles</th>
+                            <th className="p-4 text-slate-400 font-medium">Modulos Visibles</th>
                             <th className="p-4 text-slate-400 font-medium text-right">Acciones</th>
                         </tr>
                     </thead>
@@ -98,10 +143,12 @@ export default function UserManagement() {
                                     </div>
                                 </td>
                                 <td className="p-4">
-                                    <span className={`px-2 py-1 rounded text-xs font-medium border ${u.role === 'admin'
+                                    <span
+                                        className={`px-2 py-1 rounded text-xs font-medium border ${u.role === 'admin'
                                             ? 'bg-purple-500/10 text-purple-400 border-purple-500/20'
                                             : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                                        }`}>
+                                            }`}
+                                    >
                                         {u.role.toUpperCase()}
                                     </span>
                                 </td>
@@ -111,9 +158,9 @@ export default function UserManagement() {
                                     ) : (
                                         <div className="flex flex-wrap gap-1">
                                             {u.permissions?.length === 0 && <span className="text-red-400 text-sm">Sin acceso</span>}
-                                            {u.permissions?.map(p => (
+                                            {u.permissions?.map((p) => (
                                                 <span key={p} className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-xs border border-slate-700">
-                                                    {MODULES.find(m => m.key === p)?.label || p}
+                                                    {moduleLabelByKey.get(p) || p}
                                                 </span>
                                             ))}
                                         </div>
@@ -135,10 +182,10 @@ export default function UserManagement() {
                 </table>
             </div>
 
-            {/* Permission Editor Modal */}
             {editingUser && (
                 <PermissionEditor
                     user={editingUser}
+                    modules={modules}
                     onClose={() => setEditingId(null)}
                     onSave={(perms) => updatePermissionsMutation.mutate({ id: editingUser.id, permissions: perms })}
                 />
@@ -147,11 +194,29 @@ export default function UserManagement() {
     );
 }
 
-function PermissionEditor({ user, onClose, onSave }: { user: User, onClose: () => void, onSave: (p: string[]) => void }) {
+function PermissionEditor({
+    user,
+    modules,
+    onClose,
+    onSave,
+}: {
+    user: User,
+    modules: PermissionModule[],
+    onClose: () => void,
+    onSave: (p: string[]) => void,
+}) {
     const [selected, setSelected] = useState<string[]>(user.permissions || []);
 
+    const availableModules = useMemo(() => {
+        const known = new Set(modules.map((mod) => mod.key));
+        const legacy = selected
+            .filter((key) => !known.has(key))
+            .map((key) => ({ key, label: `${key} (legacy)` }));
+        return [...modules, ...legacy];
+    }, [modules, selected]);
+
     const toggle = (key: string) => {
-        if (selected.includes(key)) setSelected(selected.filter(k => k !== key));
+        if (selected.includes(key)) setSelected(selected.filter((k) => k !== key));
         else setSelected([...selected, key]);
     };
 
@@ -160,17 +225,17 @@ function PermissionEditor({ user, onClose, onSave }: { user: User, onClose: () =
             <div className="bg-slate-900 rounded-2xl border border-slate-700 max-w-lg w-full overflow-hidden shadow-2xl">
                 <div className="p-6 border-b border-slate-800">
                     <h2 className="text-xl font-bold text-white">Permisos: {user.username}</h2>
-                    <p className="text-slate-400 text-sm mt-1">Selecciona los módulos visibles para este usuario.</p>
+                    <p className="text-slate-400 text-sm mt-1">Selecciona los modulos visibles para este usuario.</p>
                 </div>
 
                 <div className="p-6 grid grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto">
-                    {MODULES.map(mod => (
+                    {availableModules.map((mod) => (
                         <button
                             key={mod.key}
                             onClick={() => toggle(mod.key)}
                             className={`flex items-center justify-between p-3 rounded-xl border transition-all ${selected.includes(mod.key)
-                                    ? 'bg-blue-500/20 border-blue-500/50 text-blue-400'
-                                    : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'
+                                ? 'bg-blue-500/20 border-blue-500/50 text-blue-400'
+                                : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'
                                 }`}
                         >
                             <span className="font-medium">{mod.label}</span>

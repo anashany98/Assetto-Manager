@@ -17,6 +17,7 @@ from utils import get_system_info
 import ac_telemetry
 import telemetry # The existing telemetry module for saving results
 from obs_controller import handle_obs_command
+from idle_display import start_idle_display, stop_idle_display
 
 class AgentWSClient(threading.Thread):
     def __init__(self, station_id, server_url):
@@ -132,24 +133,32 @@ class AgentWSClient(threading.Thread):
                         os.system("shutdown /r /t 5")
                 
                 elif command == "panic":
+                    stop_idle_display()
                     watchdog.stop()
                     os.system("taskkill /F /IM acs.exe")
+                    start_idle_display()
                 
                 elif command == "stop_session":
+                    stop_idle_display()
                     watchdog.stop()
                     os.system("taskkill /F /IM acs.exe")
+                    start_idle_display()
                 
                 elif command == "launch_session":
+                    stop_idle_display()
                     threading.Thread(target=launch_session_logic, args=(data, self.station_id)).start()
                 
                 elif command == "create_lobby":
+                    stop_idle_display()
                     threading.Thread(target=create_lobby_server, args=(data,)).start()
                     
                 elif command == "join_lobby":
+                    stop_idle_display()
                     threading.Thread(target=join_lobby_client, args=(data,)).start()
                     
                 elif command == "stop_lobby":
                     stop_lobby_server()
+                    start_idle_display()
                     
                 elif command == "install_mod":
                     threading.Thread(target=install_mod_logic, args=(data,)).start()

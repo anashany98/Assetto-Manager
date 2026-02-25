@@ -83,13 +83,20 @@ export const ContentStep: React.FC<ContentStepProps> = ({
         selectedCountry ? getTrackCountry(t) === selectedCountry : true
     );
 
-    // Flag Emojis Helper
-    const getFlag = (country: string) => {
+    // Country code badge helper (avoids broken emoji rendering on kiosk tablets)
+    const getCountryCode = (country: string) => {
         const map: Record<string, string> = {
-            'Belgium': '🇧🇪', 'Germany': '🇩🇪', 'Italy': '🇮🇹', 'UK': '🇬🇧',
-            'Spain': '🇪🇸', 'Japan': '🇯🇵', 'USA': '🇺🇸', 'Austria': '🇦🇹', 'International': '🌍'
+            Belgium: 'BE',
+            Germany: 'DE',
+            Italy: 'IT',
+            UK: 'UK',
+            Spain: 'ES',
+            Japan: 'JP',
+            USA: 'US',
+            Austria: 'AT',
+            International: 'INT'
         };
-        return map[country] || '🏁';
+        return map[country] || country.slice(0, 3).toUpperCase();
     };
 
     // 4. Effects
@@ -214,8 +221,8 @@ export const ContentStep: React.FC<ContentStepProps> = ({
     if (isLoading) {
         return (
             <div className="h-full flex flex-col items-center justify-center animate-pulse">
-                <div className="w-24 h-24 border-8 border-blue-600 border-t-transparent rounded-full animate-spin mb-8" />
-                <h2 className="text-4xl font-black text-white italic">PREPARANDO GARAJE...</h2>
+                <div className="w-24 h-24 border-8 border-red-500 border-t-transparent rounded-full animate-spin mb-8" />
+                <h2 className="text-3xl md:text-4xl font-racing uppercase tracking-[0.2em] text-white">PREPARANDO GARAJE</h2>
             </div>
         );
     }
@@ -237,10 +244,10 @@ export const ContentStep: React.FC<ContentStepProps> = ({
     }
 
     return (
-        <div className="h-full w-full flex flex-col relative overflow-hidden bg-black">
+        <div className="h-full w-full flex flex-col relative overflow-hidden bg-slate-950/90">
             {/* FULL SCREEN BACKGROUND */}
             <div className="absolute inset-0 z-0">
-                <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-gray-900/80 to-transparent z-10" />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/80 to-transparent z-10" />
                 {(phase === 'car' || phase === 'track') && currentItem && (
                     <img
                         key={currentItem.id} // Force re-render for transition
@@ -251,23 +258,23 @@ export const ContentStep: React.FC<ContentStepProps> = ({
                                 target.src = bgImageFallback;
                             }
                         }}
-                        className="w-full h-full object-cover animate-in fade-in zoom-in duration-700 opacity-60 filter saturate-120"
+                        className="w-full h-full object-cover animate-in fade-in zoom-in duration-700 opacity-45 filter saturate-110"
                         alt="Background"
                     />
                 )}
                 {(phase === 'brand' || phase === 'country') && (
-                    <div className="w-full h-full bg-[url('/bg-kiosk.jpg')] bg-cover bg-center opacity-40 animate-pulse-slow" />
+                    <div className="w-full h-full bg-[url('/bg-kiosk.jpg')] bg-cover bg-center opacity-25" />
                 )}
             </div>
 
             {/* HEADER */}
-            <div className="relative z-20 pt-8 px-12 flex justify-between items-center">
+            <div className="relative z-20 pt-6 md:pt-8 px-4 md:px-12 flex justify-between items-center">
                 <div className="flex items-center gap-4">
-                    <div className={cn("px-4 py-2 rounded-lg font-black text-xl border-2 transition-all", (phase === 'brand' || phase === 'car') ? "bg-blue-600 border-blue-500 text-white" : "bg-gray-800/50 border-gray-700 text-gray-500")}>
-                        1. VEHÍCULO
+                    <div className={cn("px-4 py-2 rounded-lg font-black text-xl border transition-all", (phase === 'brand' || phase === 'car') ? "bg-red-500/90 border-red-400 text-black" : "bg-slate-900/60 border-white/10 text-slate-500")}>
+                        1. VEHICULO
                     </div>
                     <div className="w-12 h-1 bg-gray-800 rounded-full" />
-                    <div className={cn("px-4 py-2 rounded-lg font-black text-xl border-2 transition-all", phase === 'track' ? "bg-green-600 border-green-500 text-white" : "bg-gray-800/50 border-gray-700 text-gray-500")}>
+                    <div className={cn("px-4 py-2 rounded-lg font-black text-xl border transition-all", phase === 'track' ? "bg-amber-400 border-amber-300 text-black" : "bg-slate-900/60 border-white/10 text-slate-500")}>
                         2. CIRCUITO
                     </div>
                 </div>
@@ -279,7 +286,7 @@ export const ContentStep: React.FC<ContentStepProps> = ({
                 {/* --- PHASE 1: BRAND SELECTION --- */}
                 {phase === 'brand' && (
                     <div className="w-full max-w-6xl animate-in fade-in slide-in-from-bottom duration-500">
-                        <h2 className="text-4xl md:text-6xl font-black text-white text-center mb-12 italic uppercase tracking-tighter">
+                        <h2 className="text-3xl md:text-5xl font-racing text-white text-center mb-10 uppercase tracking-[0.2em]">
                             Selecciona una Marca
                         </h2>
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 p-4">
@@ -288,14 +295,14 @@ export const ContentStep: React.FC<ContentStepProps> = ({
                                     key={brand}
                                     onMouseEnter={() => soundManager.playHover()}
                                     onClick={() => { soundManager.playClick(); selectBrand(brand); }}
-                                    className="group relative bg-white/5 hover:bg-white/20 border border-white/10 hover:border-blue-500/50 backdrop-blur-md rounded-2xl p-8 transition-all hover:scale-105 flex flex-col items-center justify-center gap-4 aspect-video"
+                                    className="group relative bg-slate-950/60 hover:bg-slate-900/60 border border-white/10 hover:border-red-400/50 backdrop-blur-md rounded-2xl p-6 transition-all hover:scale-105 flex flex-col items-center justify-center gap-4 aspect-video"
                                 >
                                     {/* Mock Logo Placeholder - In production use actual brand logos */}
-                                    <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-blue-600 transition-colors">
+                                    <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-red-500 transition-colors">
                                         <CarIcon size={32} className="text-white" />
                                     </div>
                                     <span className="text-xl md:text-2xl font-black text-white tracking-widest uppercase">{brand}</span>
-                                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-blue-900/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-red-900/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                                 </button>
                             ))}
                         </div>
@@ -305,8 +312,8 @@ export const ContentStep: React.FC<ContentStepProps> = ({
                 {/* --- PHASE 3: COUNTRY SELECTION --- */}
                 {phase === 'country' && (
                     <div className="w-full max-w-6xl animate-in fade-in slide-in-from-bottom duration-500">
-                        <h2 className="text-4xl md:text-6xl font-black text-white text-center mb-12 italic uppercase tracking-tighter">
-                            Selecciona un País
+                        <h2 className="text-3xl md:text-5xl font-racing text-white text-center mb-10 uppercase tracking-[0.2em]">
+                            Selecciona un Pais
                         </h2>
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 p-4">
                             {uniqueCountries.map((country) => (
@@ -314,13 +321,13 @@ export const ContentStep: React.FC<ContentStepProps> = ({
                                     key={country}
                                     onMouseEnter={() => soundManager.playHover()}
                                     onClick={() => { soundManager.playClick(); selectCountry(country); }}
-                                    className="group relative bg-white/5 hover:bg-white/20 border border-white/10 hover:border-green-500/50 backdrop-blur-md rounded-2xl p-8 transition-all hover:scale-105 flex flex-col items-center justify-center gap-4 aspect-video"
+                                    className="group relative bg-slate-950/40 hover:bg-white/20 border border-white/10 hover:border-amber-400/50 backdrop-blur-md rounded-2xl p-6 md:p-8 transition-all hover:scale-105 flex flex-col items-center justify-center gap-4 aspect-video"
                                 >
-                                    <div className="text-6xl group-hover:scale-110 transition-transform">
-                                        {getFlag(country)}
+                                    <div className="text-3xl group-hover:scale-110 transition-transform bg-white/10 border border-white/20 rounded-xl px-4 py-2 font-black tracking-[0.2em] text-amber-200">
+                                        {getCountryCode(country)}
                                     </div>
                                     <span className="text-xl md:text-2xl font-black text-white tracking-widest uppercase">{country}</span>
-                                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-green-900/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-amber-900/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                                 </button>
                             ))}
                         </div>
@@ -331,7 +338,7 @@ export const ContentStep: React.FC<ContentStepProps> = ({
                 {phase !== 'brand' && currentItem && (
                     <div className="flex items-center justify-center w-full h-full">
                         {/* LEFT ARROW */}
-                        <button onClick={() => { soundManager.playClick(); prevItem(); }} className="p-4 md:p-8 rounded-full bg-white/5 hover:bg-white/20 border border-white/10 hover:border-white/50 backdrop-blur-md transition-all group mr-2 md:mr-8 touch-manipulation z-30">
+                        <button onClick={() => { soundManager.playClick(); prevItem(); }} className="p-3 md:p-8 rounded-full bg-slate-950/40 hover:bg-white/20 border border-white/10 hover:border-white/50 backdrop-blur-md transition-all group mr-2 md:mr-8 touch-manipulation z-30">
                             <ChevronLeft size={48} className="text-white md:w-16 md:h-16 group-hover:scale-110 transition-transform" />
                         </button>
 
@@ -340,10 +347,10 @@ export const ContentStep: React.FC<ContentStepProps> = ({
                             <div className="relative z-10 transform transition-all duration-500">
                                 {/* Title & Brand */}
                                 <div className="mb-0 text-center drop-shadow-2xl px-4 w-full max-w-4xl mx-auto overflow-hidden">
-                                    <h2 className="text-4xl md:text-5xl lg:text-7xl font-black text-white italic tracking-tighter uppercase leading-none text-outline-blue line-clamp-2" style={{ wordBreak: 'break-word' }}>
+                                    <h2 className="text-3xl md:text-4xl lg:text-5xl font-black text-white italic tracking-tighter uppercase leading-none text-outline-red line-clamp-2" style={{ wordBreak: 'break-word' }}>
                                         {currentItem.name.replace(/_/g, ' ')}
                                     </h2>
-                                    <p className="text-xl md:text-2xl text-blue-400 font-bold uppercase tracking-[0.2em] mt-4">
+                                    <p className="text-lg md:text-xl text-amber-300 font-bold uppercase tracking-[0.2em] mt-3">
                                         {phase === 'car' ? (currentItem.brand || 'RACING') : (currentItem.layout || 'OFFICIAL CIRCUIT')}
                                     </p>
                                 </div>
@@ -354,23 +361,23 @@ export const ContentStep: React.FC<ContentStepProps> = ({
                                         {(() => {
                                             const specs = getSpecs(currentItem); return specs ? (
                                                 <>
-                                                    <div className="bg-black/60 backdrop-blur-md border border-white/10 rounded-2xl md:rounded-3xl p-4 md:p-8 flex flex-col items-center gap-2 md:gap-4">
+                                                    <div className="bg-slate-950/60 backdrop-blur-md border border-white/10 rounded-2xl md:rounded-3xl p-4 md:p-8 flex flex-col items-center gap-2 md:gap-4">
                                                         <Zap className="text-yellow-400 w-8 h-8 md:w-12 md:h-12" />
                                                         <span className="text-white font-black text-2xl md:text-4xl">{specs.bhp}</span>
                                                         <span className="text-gray-400 text-[10px] md:text-sm uppercase tracking-widest font-bold">Potencia</span>
                                                     </div>
-                                                    <div className="bg-black/60 backdrop-blur-md border border-white/10 rounded-2xl md:rounded-3xl p-4 md:p-8 flex flex-col items-center gap-2 md:gap-4">
+                                                    <div className="bg-slate-950/60 backdrop-blur-md border border-white/10 rounded-2xl md:rounded-3xl p-4 md:p-8 flex flex-col items-center gap-2 md:gap-4">
                                                         <Weight className="text-gray-400 w-8 h-8 md:w-12 md:h-12" />
                                                         <span className="text-white font-black text-2xl md:text-4xl">{specs.weight}</span>
                                                         <span className="text-gray-400 text-[10px] md:text-sm uppercase tracking-widest font-bold">Peso</span>
                                                     </div>
-                                                    <div className="bg-black/60 backdrop-blur-md border border-white/10 rounded-2xl md:rounded-3xl p-4 md:p-8 flex flex-col items-center gap-2 md:gap-4">
+                                                    <div className="bg-slate-950/60 backdrop-blur-md border border-white/10 rounded-2xl md:rounded-3xl p-4 md:p-8 flex flex-col items-center gap-2 md:gap-4">
                                                         <Gauge className="text-red-500 w-8 h-8 md:w-12 md:h-12" />
                                                         <span className="text-white font-black text-2xl md:text-4xl">{specs.top_speed}</span>
                                                         <span className="text-gray-400 text-[10px] md:text-sm uppercase tracking-widest font-bold">V. Punta</span>
                                                     </div>
-                                                    <div className="bg-black/60 backdrop-blur-md border border-white/10 rounded-2xl md:rounded-3xl p-4 md:p-8 flex flex-col items-center gap-2 md:gap-4">
-                                                        <CarIcon className="text-blue-500 w-8 h-8 md:w-12 md:h-12" />
+                                                    <div className="bg-slate-950/60 backdrop-blur-md border border-white/10 rounded-2xl md:rounded-3xl p-4 md:p-8 flex flex-col items-center gap-2 md:gap-4">
+                                                        <CarIcon className="text-red-400 w-8 h-8 md:w-12 md:h-12" />
                                                         <span className="text-white font-black text-2xl md:text-4xl">{specs.acceleration || '2.9s'}</span>
                                                         <span className="text-gray-400 text-[10px] md:text-sm uppercase tracking-widest font-bold">0-100 km/h</span>
                                                     </div>
@@ -383,17 +390,17 @@ export const ContentStep: React.FC<ContentStepProps> = ({
                                 {/* TRACK MAP & LEADERBOARD (Only for Track) */}
                                 {phase === 'track' && (
                                     <div className="mt-8 md:mt-12 flex flex-col md:flex-row items-center gap-8 justify-center">
-                                        <div className="bg-white/5 backdrop-blur-xl border border-white/20 rounded-[2rem] md:rounded-[4rem] p-8 md:p-12 flex-1 max-w-xl">
+                                        <div className="bg-slate-950/40 backdrop-blur-xl border border-white/20 rounded-[2rem] md:rounded-[4rem] p-8 md:p-12 flex-1 max-w-xl">
                                             <img
                                                 src={resolveAssetUrl(currentItem.map_url) || "https://upload.wikimedia.org/wikipedia/commons/thumb/6/67/Circuit_de_Spa-Francorchamps_trace.svg/1200px-Circuit_de_Spa-Francorchamps_trace.svg.png"}
                                                 className="h-40 md:h-64 mx-auto object-contain filter invert drop-shadow-[0_0_25px_rgba(255,255,255,0.5)]"
                                                 alt="Track Map"
                                             />
                                         </div>
-                                        <div className="bg-black/60 backdrop-blur-md border border-white/10 rounded-2xl p-6 w-full md:w-80">
+                                        <div className="bg-slate-950/60 backdrop-blur-md border border-white/10 rounded-2xl p-6 w-full md:w-80">
                                             <div className="flex items-center gap-2 mb-4 text-yellow-400">
                                                 <Gauge size={24} />
-                                                <h3 className="font-black text-xl uppercase italic">Récords Locales</h3>
+                                                <h3 className="font-black text-xl uppercase italic">Records Locales</h3>
                                             </div>
                                             <div className="space-y-3">
                                                 {getTrackRecords(currentItem.id).map((rec, i) => (
@@ -402,7 +409,7 @@ export const ContentStep: React.FC<ContentStepProps> = ({
                                                             <div className="text-white font-bold">{rec.name}</div>
                                                             <div className="text-gray-500 text-xs truncate w-24">{rec.car}</div>
                                                         </div>
-                                                        <div className="font-mono text-blue-400 font-bold text-lg">{rec.time}</div>
+                                                        <div className="font-mono text-amber-300 font-bold text-lg">{rec.time}</div>
                                                     </div>
                                                 ))}
                                             </div>
@@ -415,7 +422,7 @@ export const ContentStep: React.FC<ContentStepProps> = ({
                                     onClick={() => { soundManager.playClick(); confirmSelection(); }}
                                     className="absolute inset-0 z-50 flex items-end justify-center pb-20 opacity-0 hover:opacity-100 transition-opacity cursor-pointer md:hidden"
                                 >
-                                    <div className="bg-blue-600 text-white font-bold py-2 px-6 rounded-full shadow-lg animate-bounce">
+                                    <div className="bg-red-500 text-black font-bold py-2 px-6 rounded-full shadow-lg animate-bounce">
                                         SELECCIONAR
                                     </div>
                                 </div>
@@ -423,7 +430,7 @@ export const ContentStep: React.FC<ContentStepProps> = ({
                         </div>
 
                         {/* RIGHT ARROW */}
-                        <button onClick={() => { soundManager.playClick(); nextItem(); }} className="p-4 md:p-8 rounded-full bg-white/5 hover:bg-white/20 border border-white/10 hover:border-white/50 backdrop-blur-md transition-all group mr-2 md:mr-8 touch-manipulation z-30">
+                        <button onClick={() => { soundManager.playClick(); nextItem(); }} className="p-3 md:p-8 rounded-full bg-slate-950/40 hover:bg-white/20 border border-white/10 hover:border-white/50 backdrop-blur-md transition-all group mr-2 md:mr-8 touch-manipulation z-30">
                             <ChevronRight size={48} className="text-white md:w-16 md:h-16 group-hover:scale-110 transition-transform" />
                         </button>
                     </div>
@@ -431,7 +438,7 @@ export const ContentStep: React.FC<ContentStepProps> = ({
             </div>
 
             {/* FOOTER ACTIONS */}
-            <div className="relative z-30 pb-8 px-8 md:px-12 flex flex-col md:flex-row justify-between items-end gap-4 w-full bg-gradient-to-t from-black via-black/50 to-transparent pt-12 mt-auto">
+            <div className="relative z-30 pb-6 md:pb-8 px-4 md:px-12 flex flex-col md:flex-row justify-between items-end gap-4 w-full bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent pt-8 md:pt-12 mt-auto">
                 <div className="flex gap-2 order-2 md:order-1">
                     {/* Index Indicators (Hide in Brand/Country Phase) */}
                     {(phase === 'car' || phase === 'track') && (
@@ -439,7 +446,7 @@ export const ContentStep: React.FC<ContentStepProps> = ({
                             {(phase === 'car' ? filteredCars : filteredTracks).map((_: any, idx: number) => (
                                 <div
                                     key={idx}
-                                    className={cn("w-12 h-2 rounded-full transition-all", idx === (phase === 'car' ? carIndex : trackIndex) ? "bg-blue-500" : "bg-gray-700")}
+                                    className={cn("w-12 h-2 rounded-full transition-all", idx === (phase === 'car' ? carIndex : trackIndex) ? "bg-red-400" : "bg-gray-700")}
                                 />
                             ))}
                         </div>
@@ -451,33 +458,37 @@ export const ContentStep: React.FC<ContentStepProps> = ({
                         <button
                             onMouseEnter={() => soundManager.playHover()}
                             onClick={() => { soundManager.playClick(); goBack(); }}
-                            className="bg-gray-800 hover:bg-gray-700 text-white font-bold text-lg px-6 py-4 rounded-xl border-2 border-gray-700 hidden md:block"
+                            className="bg-slate-900/70 hover:bg-slate-800 text-white font-bold text-lg px-6 py-4 rounded-xl border border-white/10 hidden md:block"
                         >
-                            {phase === 'car' ? 'CAMBIAR MARCA' : (phase === 'country' ? 'VOLVER A COCHES' : 'CAMBIAR PAÍS')}
+                            {phase === 'car' ? 'CAMBIAR MARCA' : (phase === 'country' ? 'VOLVER A COCHES' : 'CAMBIAR PAIS')}
                         </button>
                     )}
                     {phase !== 'brand' && phase !== 'country' && (
                         <button
                             onMouseEnter={() => soundManager.playHover()}
                             onClick={() => { soundManager.playConfirm(); confirmSelection(); }}
-                            className="w-full md:w-auto bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-black text-xl md:text-2xl px-8 py-4 rounded-xl shadow-[0_0_30px_rgba(37,99,235,0.5)] hover:shadow-[0_0_50px_rgba(37,99,235,0.8)] transition-all transform hover:scale-105"
+                            className="w-full md:w-auto bg-gradient-to-r from-red-500 to-amber-400 hover:from-red-400 hover:to-amber-300 text-white font-black text-xl md:text-2xl px-8 py-4 rounded-xl shadow-[0_0_30px_rgba(239,68,68,0.45)] hover:shadow-[0_0_50px_rgba(239,68,68,0.75)] transition-all transform hover:scale-105"
                         >
-                            {phase === 'car' ? 'CONFIRMAR COCHE' : 'CORRER AQUÍ'}
+                            {phase === 'car' ? 'CONFIRMAR COCHE' : 'CORRER AQUI'}
                         </button>
                     )}
                 </div>
             </div>
 
             <style>{`
-                .text-outline-blue {
+                .text-outline-red {
                     -webkit-text-stroke: 2px transparent;
-                    background: linear-gradient(to bottom, #ffffff 0%, #a5b4fc 100%);
+                    background: linear-gradient(to bottom, #ffffff 0%, #fca5a5 100%);
                     -webkit-background-clip: text;
                     background-clip: text;
-                    color: transparent; 
-                    filter: drop-shadow(0 0 20px rgba(59, 130, 246, 0.5));
+                    color: transparent;
+                    filter: drop-shadow(0 0 18px rgba(239, 68, 68, 0.45));
                 }
             `}</style>
         </div >
     );
 };
+
+
+
+

@@ -1,7 +1,64 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey, Table, JSON, Index
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, declared_attr
+from sqlalchemy.ext.declarative import declared_attr
 from .database import Base
 from datetime import datetime, timezone
+from typing import Optional
+
+
+# =============================================================================
+# Soft Delete Mixin - Add soft delete capability to any model
+# =============================================================================
+
+class SoftDeleteMixin:
+    """
+    Mixin to add soft delete functionality to SQLAlchemy models.
+    
+    Usage:
+        class MyModel(Base, SoftDeleteMixin):
+            __tablename__ = "my_table"
+            id = Column(Integer, primary_key=True)
+            name = Column(String)
+    
+    This adds:
+        - deleted_at: DateTime column (nullable)
+        - is_deleted: Property to check if soft deleted
+        - soft_delete(): Method to soft delete the record
+        - restore(): Method to restore a soft deleted record
+    
+    Query filtering:
+        - Use Model.not_deleted() to filter out soft deleted records
+        - Use Model.with_deleted() to include all records
+    """
+    
+    deleted_at = Column(DateTime(timezone=True), nullable=True, index=True)
+    
+    @property
+    def is_deleted(self) -> bool:
+        """Check if this record has been soft deleted."""
+        return self.deleted_at is not None
+    
+    def soft_delete(self) -> None:
+        """Mark this record as deleted without removing it from the database."""
+        if self.deleted_at is None:
+            self.deleted_at = datetime.now(timezone.utc)
+    
+    def restore(self) -> None:
+        """Restore a soft deleted record."""
+        self.deleted_at = None
+    
+    @classmethod
+    @declared_attr
+    def not_deleted(cls):
+        """Return a filter expression for records that are not soft deleted."""
+        return cls.deleted_at.is_(None)
+    
+    @classmethod
+    @declared_attr
+    def with_deleted(cls):
+        """Return all records including soft deleted ones (no filter)."""
+        return True  # No filter applied
+
 
 # Association Tables
 profile_mods = Table(
@@ -36,13 +93,21 @@ lobby_players = Table(
     Column("joined_at", DateTime(timezone=True)),
 )
 
-class Driver(Base):
+class Driver(Base, SoftDeleteMixin):
+    """
+    Driver model with soft delete support.
+    
+    Soft delete ensures that:
+    - Driver history (SessionResult records) is preserved
+    - Driver can be restored if deleted by mistake
+    - Historical data and analytics remain accurate
+    """
     __tablename__ = "drivers"
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, index=True)
+    name = Column(String, index=True)  # Removed unique=True to allow soft-deleted duplicates
     country = Column(String, nullable=True)
     metadata_json = Column(JSON, nullable=True) 
-    vms_id = Column(String, unique=True, index=True, nullable=True)
+    vms_id = Column(String, index=True, nullable=True)  # Removed unique for soft delete
     email = Column(String, nullable=True)
     phone = Column(String, nullable=True)  # For contact/reservations
     photo_path = Column(String, nullable=True)  # Profile photo for digital card
@@ -60,18 +125,32 @@ class Driver(Base):
     total_points_earned = Column(Integer, default=0)
     membership_tier = Column(String, default="bronze")  # bronze, silver, gold, platinum
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    
+    # Note: deleted_at is inherited from SoftDeleteMixin
 
-class Station(Base):
+    __table_args__ = (
+        Index('ix_drivers_name_not_deleted', 'name', postgresql_where=deleted_at.is_(None)),
+    )
+
+class Station(Base, SoftDeleteMixin):
+    """
+    Station model with soft delete support.
+    
+    Soft delete ensures that:
+    - Historical session data remains linked to the station
+    - Station can be restored if deleted by mistake
+    - Audit trail is maintained
+    """
     __tablename__ = "stations"
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, index=True)
+    name = Column(String, index=True)  # Removed unique for soft delete
     ip_address = Column(String)
-    mac_address = Column(String, unique=True)
+    mac_address = Column(String, index=True)  # Removed unique for soft delete
     hostname = Column(String)
     is_active = Column(Boolean, default=True)
     is_online = Column(Boolean, default=False)
     is_kiosk_mode = Column(Boolean, default=False)
-    kiosk_code = Column(String, unique=True, index=True, nullable=True)
+    kiosk_code = Column(String, index=True, nullable=True)  # Removed unique for soft delete
     is_locked = Column(Boolean, default=False) # Cyber-Lock status
     is_tv_mode = Column(Boolean, default=False)
     is_streaming = Column(Boolean, default=False)
@@ -89,6 +168,13 @@ class Station(Base):
     
     active_profile_id = Column(Integer, ForeignKey("profiles.id"), nullable=True)
     active_profile = relationship("Profile")
+    
+    # Note: deleted_at is inherited from SoftDeleteMixin
+
+    __table_args__ = (
+        Index('ix_stations_name_not_deleted', 'name', postgresql_where=deleted_at.is_(None)),
+        Index('ix_stations_mac_not_deleted', 'mac_address', postgresql_where=deleted_at.is_(None)),
+    )
 
 
 class Lobby(Base):

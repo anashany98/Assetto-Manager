@@ -1,5 +1,5 @@
 
-from datetime import timedelta
+from datetime import timedelta, datetime, timezone
 from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Header, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -175,28 +175,174 @@ def require_admin_or_agent(
 
 # ... (Helpers remain sync)
 
+# Track failed login attempts for progressive rate limiting
+# Format: {ip_or_username: {"count": int, "first_attempt": datetime, "blocked_until": datetime}}
+_failed_login_attempts: dict[str, dict] = {}
+import threading
+_failed_attempts_lock = threading.Lock()
+
+# Progressive rate limiting configuration
+MAX_FAILED_ATTEMPTS_BEFORE_LOCKOUT = 5
+LOCKOUT_DURATION_MINUTES = 15
+PROGRESSIVE_DELAYS = [0, 1, 2, 5, 10]  # Seconds to wait after each failed attempt
+
+
+def _get_client_identifier(request: Request, username: str) -> str:
+    """Get a unique identifier for rate limiting (IP + username combo)."""
+    client_ip = request.client.host if request.client else "unknown"
+    return f"{client_ip}:{username}"
+
+
+def _check_progressive_lockout(identifier: str) -> tuple[bool, int]:
+    """
+    Check if an identifier is currently locked out.
+    Returns (is_locked_out, remaining_seconds).
+    """
+    with _failed_attempts_lock:
+        if identifier not in _failed_login_attempts:
+            return False, 0
+        
+        entry = _failed_login_attempts[identifier]
+        blocked_until = entry.get("blocked_until")
+        if blocked_until and datetime.now(timezone.utc) < blocked_until:
+            remaining = int((blocked_until - datetime.now(timezone.utc)).total_seconds())
+            return True, remaining
+        
+        return False, 0
+
+
+def _record_failed_attempt(identifier: str) -> int:
+    """
+    Record a failed login attempt and return the delay in seconds before next attempt is allowed.
+    Implements progressive delays and eventual lockout.
+    """
+    with _failed_attempts_lock:
+        now = datetime.now(timezone.utc)
+        
+        if identifier not in _failed_login_attempts:
+            _failed_login_attempts[identifier] = {"count": 0, "first_attempt": now}
+        
+        entry = _failed_login_attempts[identifier]
+        entry["count"] += 1
+        entry["last_attempt"] = now
+        
+        # Check for lockout
+        if entry["count"] >= MAX_FAILED_ATTEMPTS_BEFORE_LOCKOUT:
+            blocked_until = now + timedelta(minutes=LOCKOUT_DURATION_MINUTES)
+            entry["blocked_until"] = blocked_until
+            logger.warning(
+                "Login lockout triggered for %s after %d failed attempts. Locked until %s",
+                identifier, entry["count"], blocked_until
+            )
+            return -1  # Special value indicating lockout
+        
+        # Return progressive delay
+        delay_index = min(entry["count"] - 1, len(PROGRESSIVE_DELAYS) - 1)
+        return PROGRESSIVE_DELAYS[delay_index]
+
+
+def _clear_failed_attempts(identifier: str) -> None:
+    """Clear failed attempts after successful login."""
+    with _failed_attempts_lock:
+        _failed_login_attempts.pop(identifier, None)
+
+
+def _cleanup_old_attempts() -> None:
+    """Clean up old failed attempt records (called periodically)."""
+    now = datetime.now(timezone.utc)
+    with _failed_attempts_lock:
+        to_remove = []
+        for identifier, entry in _failed_login_attempts.items():
+            # Remove entries older than 1 hour or with expired lockouts
+            last_attempt = entry.get("last_attempt", entry.get("first_attempt", now))
+            blocked_until = entry.get("blocked_until")
+            
+            if blocked_until and now > blocked_until:
+                to_remove.append(identifier)
+            elif (now - last_attempt).total_seconds() > 3600:  # 1 hour
+                to_remove.append(identifier)
+        
+        for identifier in to_remove:
+            del _failed_login_attempts[identifier]
+
+
 @router.post("/token")
-@limiter.limit("5/minute")
+@limiter.limit("10/minute")  # Base rate limit
 def login_for_access_token(
     request: Request,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     db: Session = Depends(database.get_db)
 ):
+    """
+    Login endpoint with progressive rate limiting:
+    - Base limit: 10 attempts per minute per IP
+    - Progressive delays: 0s, 1s, 2s, 5s, 10s after each failed attempt
+    - Lockout: 15 minutes after 5 consecutive failed attempts
+    - Audit logging of all failed attempts
+    """
+    identifier = _get_client_identifier(request, form_data.username)
+    
+    # Check for lockout first
+    is_locked, remaining = _check_progressive_lockout(identifier)
+    if is_locked:
+        logger.warning(
+            "Login attempt blocked for locked out identifier %s. Remaining: %ds",
+            identifier, remaining
+        )
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Account temporarily locked. Try again in {remaining} seconds.",
+            headers={"Retry-After": str(remaining)}
+        )
+    
     user = db.query(models.User).filter(models.User.username == form_data.username).first()
+    
     if not user or not verify_password(form_data.password, user.hashed_password):
+        # Record failed attempt and get delay
+        delay = _record_failed_attempt(identifier)
+        
+        # Log the failed attempt
+        client_ip = request.client.host if request.client else "unknown"
+        logger.warning(
+            "Failed login attempt - username: %s, IP: %s, attempt count: %d",
+            form_data.username, client_ip,
+            _failed_login_attempts.get(identifier, {}).get("count", 1)
+        )
+        
+        if delay == -1:
+            # Account locked out
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Too many failed attempts. Account locked for {LOCKOUT_DURATION_MINUTES} minutes.",
+                headers={"Retry-After": str(LOCKOUT_DURATION_MINUTES * 60)}
+            )
+        
+        if delay > 0:
+            import time
+            time.sleep(delay)  # Progressive delay
+        
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    
     if not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
+    
+    # Clear failed attempts on successful login
+    _clear_failed_attempts(identifier)
     
     access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": user.username, "role": user.role},
         expires_delta=access_token_expires
     )
+    
+    # Log successful login
+    client_ip = request.client.host if request.client else "unknown"
+    logger.info("Successful login - username: %s, IP: %s", user.username, client_ip)
+    
     return {"access_token": access_token, "token_type": "bearer"}
 
 @router.get("/users/me")

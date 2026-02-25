@@ -12,317 +12,156 @@
     --foreground: 222.2 84% 4.9%;
 
     /* Racing Accent Colors */
-    --accent-primary: 220 100% 50%;
-    --accent-secondary: 280 100% 60%;
-    --accent-success: 142 76% 46%;
-    --accent-warning: 38 92% 50%;
-    --accent-danger: 0 84% 60%;
-
-    /* Glassmorphism - Light Mode */
-    --glass-bg: rgba(255, 255, 255, 0.7);
-    --glass-border: rgba(226, 232, 240, 0.4);
-    --glass-shadow: 0 8px 32px rgba(100, 116, 139, 0.1);
-
-    /* Body Background - Light Mode */
-    --body-gradient: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
-
-    /* Racing Gradients */
-    --gradient-racing: linear-gradient(135deg, #0ea5e9 0%, #6366f1 50%, #a855f7 100%);
-    --gradient-gold: linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%);
-    --gradient-fire: linear-gradient(135deg, #ef4444 0%, #f97316 50%, #fbbf24 100%);
-    --gradient-dark: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
-
-    --card-bg: rgba(255, 255, 255, 0.8);
-    --sidebar-bg: rgba(255, 255, 255, 0.95);
-    --navbar-bg: rgba(255, 255, 255, 0.9);
-
-    /* Component Colors - Light Mode Defaults */
-    --input-bg: rgba(255, 255, 255, 0.8);
-    --input-border: rgba(226, 232, 240, 0.6);
-    --input-text: #0f172a;
-
-    --table-header-color: #64748b;
-    --table-row-bg: rgba(255, 255, 255, 0.6);
-    --table-row-hover: rgba(255, 255, 255, 0.9);
-    --table-text: #0f172a;
-    --table-border: rgba(226, 232, 240, 0.6);
+    --racing-red: #ff3b30;
+    --racing-yellow: #ffcc00;
+    --racing-green: #34c759;
+    --neon-blue: #00f3ff;
+    --carbon-fiber: repeating-linear-gradient(
+        45deg,
+        #1a1a1a 0px,
+        #1a1a1a 2px,
+        #111 2px,
+        #111 4px
+    );
+    --asphalt: url('/assets/asphalt-texture.png'); /* Placeholder if needed, or use noise */
   }
 
-  .dark {
-    /* Core Colors - Dark Mode */
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+  /* ... dark mode overrides ... */
+}
 
-    /* Component Colors - Dark Mode */
-    --input-bg: rgba(30, 41, 59, 0.5);
-    --input-border: rgba(148, 163, 184, 0.2);
-    --input-text: white;
+/* ============================================
+   RACING THEME UTILITIES
+   ============================================ */
 
-    --table-header-color: #94a3b8;
-    --table-row-bg: rgba(30, 41, 59, 0.5);
-    --table-row-hover: rgba(51, 65, 85, 0.7);
-    --table-text: white;
-    --table-border: rgba(148, 163, 184, 0.1);
+.font-racing {
+    font-family: 'Orbitron', sans-serif;
+}
 
-    /* Glassmorphism - Dark Mode */
-    --glass-bg: rgba(15, 23, 42, 0.8);
-    --glass-border: rgba(148, 163, 184, 0.1);
-    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+.skew-box {
+    transform: skewX(-15deg);
+}
 
-    /* Body Background - Dark Mode */
-    --body-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+.skew-content-inverse {
+    transform: skewX(15deg);
+}
 
-    --gradient-dark: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+.hud-border {
+    border: 1px solid var(--neon-blue);
+    position: relative;
+    background: rgba(0, 20, 40, 0.8);
+    box-shadow: 0 0 10px var(--neon-blue), inset 0 0 20px rgba(0, 243, 255, 0.1);
+}
 
-    --card-bg: rgba(15, 23, 42, 0.7);
-    --sidebar-bg: rgba(15, 23, 42, 0.95);
-    --navbar-bg: rgba(15, 23, 42, 0.9);
-  }
+.hud-border::before {
+    content: '';
+    position: absolute;
+    top: -2px; left: -2px;
+    width: 20px; height: 20px;
+    border-top: 2px solid var(--neon-blue);
+    border-left: 2px solid var(--neon-blue);
+}
 
-  /* Global Styles */
-  body {
-    background: var(--body-gradient);
-    background-attachment: fixed;
-    color: hsl(var(--foreground));
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
+.hud-border::after {
+    content: '';
+    position: absolute;
+    bottom: -2px; right: -2px;
+    width: 20px; height: 20px;
+    border-bottom: 2px solid var(--neon-blue);
+    border-right: 2px solid var(--neon-blue);
+}
 
-  /* Selection Color */
-  ::selection {
-    background: rgba(99, 102, 241, 0.4);
+.bg-carbon {
+    background: var(--carbon-fiber);
+}
+
+.text-neon {
+    color: var(--neon-blue);
+    text-shadow: 0 0 5px var(--neon-blue);
+}
+
+.btn-race-start {
+    background: linear-gradient(90deg, #ff3b30, #ff0000);
     color: white;
-  }
+    font-family: 'Orbitron', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    transform: skewX(-15deg);
+    transition: all 0.2s;
+    border: none;
+    box-shadow: 5px 5px 0px rgba(0,0,0,0.5);
+}
+
+.btn-race-start:hover {
+    transform: skewX(-15deg) translate(-2px, -2px);
+    box-shadow: 7px 7px 0px rgba(0,0,0,0.5);
+    filter: brightness(1.2);
+}
+
+.btn-race-start:active {
+    transform: skewX(-15deg) translate(2px, 2px);
+    box-shadow: 3px 3px 0px rgba(0,0,0,0.5);
 }
 
 /* ============================================
-   ANIMATIONS
+   KIOSK TABLET THEME
    ============================================ */
 
-@keyframes marquee {
-  0% {
-    transform: translateX(100%);
-  }
-
-  100% {
-    transform: translateX(-100%);
-  }
+.kiosk-shell {
+  background: #0b0f17;
+  color: #f8fafc;
 }
 
-@keyframes pulse-glow {
-
-  0%,
-  100% {
-    box-shadow: 0 0 5px currentColor, 0 0 10px currentColor, 0 0 20px currentColor;
-    opacity: 1;
-  }
-
-  50% {
-    box-shadow: 0 0 10px currentColor, 0 0 20px currentColor, 0 0 40px currentColor;
-    opacity: 0.8;
-  }
+.kiosk-bg {
+  background:
+    radial-gradient(900px circle at 10% -10%, rgba(239, 68, 68, 0.18), transparent 55%),
+    radial-gradient(700px circle at 90% 10%, rgba(20, 184, 166, 0.15), transparent 50%),
+    linear-gradient(120deg, rgba(2, 6, 23, 0.95), rgba(15, 23, 42, 0.85), rgba(2, 6, 23, 0.98));
 }
 
-@keyframes slide-up {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes slide-in-right {
-  from {
-    opacity: 0;
-    transform: translateX(20px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes fade-in {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-
-  100% {
-    background-position: 200% 0;
-  }
-}
-
-@keyframes float {
-
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-
-  50% {
-    transform: translateY(-10px);
-  }
-}
-
-@keyframes race-stripe {
-  0% {
-    background-position: 0 0;
-  }
-
-  100% {
-    background-position: 50px 0;
-  }
-}
-
-@keyframes spin-slow {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* Animation Classes */
-.animate-marquee {
-  animation: marquee var(--marquee-duration, 80s) linear infinite;
-  min-width: 100%;
-}
-
-.animate-pulse-glow {
-  animation: pulse-glow 2s ease-in-out infinite;
-}
-
-.animate-slide-up {
-  animation: slide-up 0.4s ease-out forwards;
-}
-
-.animate-slide-in-right {
-  animation: slide-in-right 0.3s ease-out forwards;
-}
-
-.animate-fade-in {
-  animation: fade-in 0.3s ease-out forwards;
-}
-
-.animate-shimmer {
-  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.1) 50%, transparent 100%);
-  background-size: 200% 100%;
-  animation: shimmer 2s infinite;
-}
-
-.animate-float {
-  animation: float 3s ease-in-out infinite;
-}
-
-.animate-spin-slow {
-  animation: spin-slow 8s linear infinite;
-}
-
-/* ============================================
-   GLASSMORPHISM COMPONENTS
-   ============================================ */
-
-.glass-card {
-  background: var(--card-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--glass-border);
-  border-radius: 16px;
-  box-shadow: var(--glass-shadow);
-}
-
-.glass-card-hover {
-  transition: all 0.3s ease;
-}
-
-.glass-card-hover:hover {
-  border-color: rgba(99, 102, 241, 0.3);
-  box-shadow: 0 12px 40px rgba(99, 102, 241, 0.15);
-  transform: translateY(-2px);
-}
-
-.dark .glass-card-hover:hover {
-  background: rgba(30, 41, 59, 0.8);
-}
-
-.light .glass-card-hover:hover {
-  background: rgba(255, 255, 255, 0.9);
-}
-
-.glass-sidebar {
-  background: var(--sidebar-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-right: 1px solid var(--glass-border);
-  color: hsl(var(--foreground));
-}
-
-.glass-navbar {
-  background: var(--navbar-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--glass-border);
-}
-
-/* ============================================
-   RACING-THEMED COMPONENTS
-   ============================================ */
-
-.racing-stripe {
-  background: repeating-linear-gradient(45deg,
-      transparent,
-      transparent 10px,
-      rgba(255, 255, 255, 0.03) 10px,
-      rgba(255, 255, 255, 0.03) 20px);
-}
-
-.checkered-flag {
+.kiosk-grid {
   background-image:
-    linear-gradient(45deg, #1e293b 25%, transparent 25%),
-    linear-gradient(-45deg, #1e293b 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #1e293b 75%),
-    linear-gradient(-45deg, transparent 75%, #1e293b 75%);
-  background-size: 20px 20px;
-  background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+    linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: linear-gradient(180deg, transparent 0%, black 12%, black 80%, transparent 100%);
 }
 
-.position-gold {
-  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+.kiosk-panel {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  backdrop-filter: blur(10px);
 }
 
-.position-silver {
-  background: linear-gradient(135deg, #e2e8f0 0%, #94a3b8 50%, #64748b 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+.kiosk-chip {
+  background: rgba(248, 113, 113, 0.12);
+  color: #fecaca;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  border-radius: 999px;
 }
 
-.position-bronze {
-  background: linear-gradient(135deg, #fbbf24 0%, #b45309 50%, #78350f 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+.kiosk-primary {
+  background: #ef4444;
+  color: #0b0f17;
+  box-shadow: 0 20px 40px rgba(239, 68, 68, 0.35);
+}
+
+.kiosk-secondary {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.kiosk-title {
+  letter-spacing: 0.35em;
+}
+
+@media (max-width: 1100px) {
+  .kiosk-shell {
+    font-size: 14px;
+  }
+  .kiosk-panel {
+    border-radius: 20px;
+  }
 }
 
 /* ============================================

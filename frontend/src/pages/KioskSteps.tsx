@@ -1,11 +1,11 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 
 import axios from 'axios';
 import { soundManager } from '../utils/sound';
 import {
-    ChevronRight, Trophy,
+    ChevronLeft, ChevronRight, Trophy,
     Sun, Sunset, Cloud, CloudRain,
     Activity, ShieldCheck, Clock, Play, LogOut,
     Zap, TrendingUp, Gauge, CloudFog
@@ -21,6 +21,7 @@ import type { Scenario } from '../api/scenarios';
 import { getPaymentStatus, createPaymentCheckout } from '../api/payments';
 import type { PaymentProvider } from '../api/payments';
 import { startSession } from '../api/sessions';
+import IdleVideoBackground from '../components/IdleVideoBackground';
 
 // Wallpaper Background removed for Tablet Kiosk (now on StationDisplay)
 
@@ -48,26 +49,23 @@ interface AttractModeProps {
 }
 
 export const AttractMode: React.FC<AttractModeProps> = ({ isIdle, scenarios, t, onUnpair }) => {
-    const [slide, setSlide] = useState(0);
-
-    useEffect(() => {
-        if (!isIdle) return;
-        const timer = setInterval(() => {
-            setSlide(prev => (prev + 1) % 3); // Now 3 slides
-        }, 6000);
-        return () => clearInterval(timer);
-    }, [isIdle]);
-
     if (!isIdle) return null;
+    const tx = (key: string, fallback: string) => {
+        const value = t?.(key);
+        return !value || value === key ? fallback : value;
+    };
 
     return (
         <div
             onClick={() => soundManager.playConfirm()}
-            className="fixed inset-0 z-50 bg-black flex items-center justify-center overflow-hidden animate-in fade-in duration-1000 cursor-pointer"
+            className="fixed inset-0 z-50 bg-slate-950 text-white overflow-hidden animate-in fade-in duration-700 cursor-pointer"
         >
-            <div className="absolute inset-0 opacity-60">
-                <div className="w-full h-full bg-cover bg-center" style={{ backgroundImage: "url('/bg-kiosk.jpg')" }} />
+            <div className="absolute inset-0 bg-[radial-gradient(1200px_circle_at_10%_0%,rgba(251,191,36,0.18),transparent_60%),radial-gradient(800px_circle_at_90%_20%,rgba(20,184,166,0.18),transparent_55%)]" />
+            <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(2,6,23,0.95),rgba(15,23,42,0.9),rgba(2,6,23,0.95))]" />
+            <div className="absolute inset-0 opacity-30">
+                <IdleVideoBackground className="w-full h-full object-cover" />
             </div>
+            <div className="absolute inset-0 bg-[linear-gradient(0deg,rgba(2,6,23,0.9),transparent_45%)]" />
 
             {/* UNPAIR BUTTON (Hidden/Discreet) */}
             <div
@@ -75,62 +73,88 @@ export const AttractMode: React.FC<AttractModeProps> = ({ isIdle, scenarios, t, 
                     e.stopPropagation();
                     onUnpair?.();
                 }}
-                className="absolute top-0 left-0 p-8 z-50 opacity-0 active:opacity-100"
+                className="absolute top-0 left-0 p-4 md:p-8 z-50 opacity-0 active:opacity-100"
             >
                 <div className="text-white text-xs bg-red-600 px-2 py-1 rounded">Desvincular</div>
             </div>
 
-            {/* LOGO DEL BAR OVERLAY */}
-            <div className="absolute top-10 right-10 z-20 pointer-events-none animate-in fade-in duration-1000">
+            <div className="absolute top-4 md:top-8 right-4 md:right-8 z-20 pointer-events-none">
                 <img
                     src="/logo.png"
                     alt="Logo Bar"
-                    className="w-48 h-auto drop-shadow-2xl opacity-90"
+                    className="w-28 md:w-44 h-auto drop-shadow-2xl opacity-90"
                 />
             </div>
-            <div className="relative z-10 text-center space-y-8 max-w-4xl mx-auto px-4">
-                {slide === 0 ? (
-                    <div className="animate-in slide-in-from-bottom-10 duration-700 fade-in">
-                        <h1 className="text-9xl font-black text-white italic tracking-tighter drop-shadow-2xl mb-4">RACE READY</h1>
-                        <p className="text-4xl text-blue-400 font-bold tracking-[1em] uppercase mb-12">Kiosk Mode</p>
-                        <div className="bg-white/10 backdrop-blur-md px-12 py-6 rounded-full border border-white/20 inline-block animate-pulse">
-                            <p className="text-2xl text-white font-bold">TOCA LA PANTALLA PARA EMPEZAR</p>
+            <div className="relative z-10 h-full w-full p-4 md:p-16 grid grid-cols-1 lg:grid-cols-[1.2fr_1fr_1.1fr] gap-4 md:gap-8">
+                <div className="flex flex-col justify-between">
+                    <div className="space-y-6">
+                        <div className="inline-flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-2xl bg-amber-400 text-black font-black flex items-center justify-center">AC</div>
+                            <div className="text-xs uppercase tracking-[0.5em] text-amber-200/80">SIM STUDIO</div>
+                        </div>
+                        <div>
+                            <h1 className="text-4xl md:text-8xl font-racing uppercase italic tracking-tight text-white drop-shadow-[0_10px_40px_rgba(0,0,0,0.45)]">
+                                DRIVE LAB
+                            </h1>
+                            <p className="text-lg md:text-xl text-slate-300 max-w-md mt-3">
+                                Ajusta tu setup, elige tu reto y entra a pista en segundos.
+                            </p>
+                        </div>
+                        <div className="inline-flex items-center gap-3 rounded-full bg-white/10 px-6 py-3 border border-white/20 backdrop-blur">
+                            <span className="text-xs uppercase tracking-[0.35em] text-amber-200">{t('kiosk.touchToStart') || 'TOCA PARA EMPEZAR'}</span>
+                            <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
                         </div>
                     </div>
-                ) : slide === 1 ? (
-                    <div className="animate-in slide-in-from-bottom-10 duration-700 fade-in">
-                        <h2 className="text-6xl font-black text-white italic mb-12 drop-shadow-lg">EVENTOS DE HOY</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
-                            {scenarios.slice(0, 4).map(sc => (
-                                <div key={sc.id} className="bg-black/50 backdrop-blur-md p-6 rounded-2xl border border-white/10 flex items-center justify-between">
-                                    <div>
-                                        <h3 className="text-2xl font-bold text-white mb-2">{sc.name}</h3>
-                                        <span className="text-blue-400 font-mono text-xl font-bold">{sc.allowed_durations?.[0]} min</span>
-                                    </div>
-                                    <div className="bg-white/20 p-3 rounded-full">
-                                        <ChevronRight className="text-white" size={32} />
-                                    </div>
+                    <div className="grid grid-cols-2 gap-4 text-xs text-slate-300 mt-8">
+                        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                            <div className="text-amber-200 uppercase tracking-widest text-[10px]">Sesion</div>
+                            <div className="text-2xl font-mono font-bold text-white">LIVE</div>
+                        </div>
+                        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                            <div className="text-emerald-200 uppercase tracking-widest text-[10px]">Control</div>
+                            <div className="text-2xl font-mono font-bold text-white">OK</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="rounded-[28px] border border-white/10 bg-white/5 backdrop-blur-md p-6 flex flex-col">
+                    <div className="flex items-center justify-between mb-5">
+                        <h2 className="text-lg uppercase tracking-[0.35em] text-slate-200">Eventos Rapidos</h2>
+                        <span className="text-xs text-amber-200 uppercase">Hoy</span>
+                    </div>
+                    <div className="space-y-4">
+                        {scenarios.slice(0, 3).map(sc => (
+                            <div key={sc.id} className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 flex items-center justify-between">
+                                <div>
+                                    <div className="text-white font-bold uppercase tracking-tight">{sc.name}</div>
+                                    <div className="text-[11px] text-slate-400 mt-1">Duracion {sc.allowed_durations?.[0] || 10} min</div>
                                 </div>
-                            ))}
-                        </div>
+                                <div className="w-10 h-10 rounded-full bg-amber-400 text-black flex items-center justify-center">
+                                    <ChevronRight size={18} />
+                                </div>
+                            </div>
+                        ))}
+                        {scenarios.length === 0 && (
+                            <div className="text-sm text-slate-400">Sin eventos disponibles.</div>
+                        )}
                     </div>
-                ) : (
-                    <div className="animate-in zoom-in duration-700 fade-in">
-                        <h2 className="text-5xl font-black text-yellow-400 italic mb-4 drop-shadow-lg">{t('attract.sessionRecord') || 'RÉCORD DE LA SESIÓN'}</h2>
-                        <div className="bg-black/60 backdrop-blur-xl p-8 rounded-[3rem] border-2 border-yellow-500/50 inline-block shadow-[0_0_50px_rgba(234,179,8,0.3)]">
-                            <div className="text-8xl font-black text-white tabular-nums mb-2 font-mono">1:44.210</div>
-                            <div className="text-2xl font-bold text-gray-300 uppercase tracking-widest">{t('attract.localRecord') || 'REGISTRO LOCAL'}</div>
-                            <div className="text-sm text-yellow-500 mt-2 font-bold uppercase tracking-tight">{t('attract.anyCarAnyTrack') || 'CUALQUIER VEHÍCULO / CUALQUIER PISTA'}</div>
-                        </div>
-                        <p className="text-white font-bold mt-8 text-xl animate-pulse tracking-widest">{t('attract.canYouBeatIt') || '¿PUEDES SUPERARLO?'}</p>
+                </div>
+
+                <div className="flex flex-col justify-between">
+                    <div className="rounded-[32px] border border-amber-400/30 bg-gradient-to-b from-amber-300/10 via-slate-950/60 to-slate-950/90 p-5 md:p-8 shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
+                        <div className="text-amber-300 uppercase tracking-[0.35em] text-xs">{tx('attract.sessionRecord', 'RECORD')}</div>
+                        <div className="text-4xl md:text-7xl font-mono font-black text-white tabular-nums mt-4">1:44.210</div>
+                        <div className="text-xs text-slate-400 uppercase tracking-widest mt-3">{tx('attract.localRecord', 'LOCAL')}</div>
+                        <div className="text-xs text-amber-200 uppercase tracking-wide mt-2">{tx('attract.anyCarAnyTrack', 'ANY CAR / ANY TRACK')}</div>
                     </div>
-                )}
+                    <div className="text-right text-sm text-slate-300 mt-6">
+                        <div className="text-amber-200 uppercase tracking-[0.3em] text-xs">{tx('attract.canYouBeatIt', 'CAN YOU BEAT IT?')}</div>
+                    </div>
+                </div>
             </div>
         </div>
     );
 };
-
-import { Flag } from 'lucide-react';
 
 // --- SCENARIO STEP ---
 interface ScenarioStepProps {
@@ -143,62 +167,42 @@ interface ScenarioStepProps {
 }
 
 export const ScenarioStep: React.FC<ScenarioStepProps> = ({
-    t, scenarios, setSelection, setStep, setSelectedScenario, setDuration
+    scenarios, setSelection, setStep, setSelectedScenario, setDuration
 }) => {
-    // 1. Fetch Active Lobbies
     const { data: lobbies = [] } = useQuery({
         queryKey: ['lobbies'],
         queryFn: () => axios.get(`${API_URL}/lobby/list?status=active`).then(r => r.data),
         refetchInterval: 5000
     });
+    const displayLobbies = Array.isArray(lobbies) ? lobbies : [];
+    const SCENARIOS_PER_PAGE = 4;
+    const LOBBIES_PER_PAGE = 4;
 
-    const handleSurpriseMe = () => {
-        soundManager.playClick();
-        if (scenarios.length > 0) {
-            const randomScenario = scenarios[Math.floor(Math.random() * scenarios.length)];
-            const randomCar = randomScenario.allowed_cars?.[Math.floor(Math.random() * randomScenario.allowed_cars.length)] || 'ks_mercedes_amg_gt3';
-            const randomTrack = randomScenario.allowed_tracks?.[Math.floor(Math.random() * randomScenario.allowed_tracks.length)] || 'spa';
-            const sessionType = (randomScenario.session_type as any) || 'practice';
+    const [scenarioPage, setScenarioPage] = useState(0);
+    const [lobbyPage, setLobbyPage] = useState(0);
 
-            setSelection({
-                type: sessionType,
-                scenarioId: randomScenario.id,
-                track: randomTrack,
-                car: randomCar,
-                time: 10,
-                isLobby: true,
-                isHost: true
-            });
-            setDuration(10);
-            setStep(2);
-        } else {
-            alert("No hay escenarios disponibles para aleatorizar.");
-        }
-    };
+    const scenarioPages = Math.max(1, Math.ceil(scenarios.length / SCENARIOS_PER_PAGE));
+    const lobbyPages = Math.max(1, Math.ceil(displayLobbies.length / LOBBIES_PER_PAGE));
 
-    const getDailyChallenge = () => {
-        if (scenarios.length === 0) return null;
-        const today = new Date();
-        const seed = today.getFullYear() * 1000 + (today.getMonth() + 1) * 31 + today.getDate();
-        const scenario = scenarios[seed % scenarios.length];
-        const carIndex = seed % (scenario.allowed_cars?.length || 1);
-        const trackIndex = seed % (scenario.allowed_tracks?.length || 1);
+    useEffect(() => {
+        setScenarioPage((prev) => Math.min(prev, scenarioPages - 1));
+    }, [scenarioPages]);
 
-        return {
-            ...scenario,
-            selectedCar: scenario.allowed_cars?.[carIndex] || 'ks_mercedes_amg_gt3',
-            selectedTrack: scenario.allowed_tracks?.[trackIndex] || 'spa'
-        };
-    };
-    const dailyScenario = getDailyChallenge();
+    useEffect(() => {
+        setLobbyPage((prev) => Math.min(prev, lobbyPages - 1));
+    }, [lobbyPages]);
 
-    const [expandedId, setExpandedId] = useState<number | null>(null);
+    const scenarioStart = scenarioPage * SCENARIOS_PER_PAGE;
+    const lobbyStart = lobbyPage * LOBBIES_PER_PAGE;
+
+    const quickScenarios = scenarios.slice(scenarioStart, scenarioStart + SCENARIOS_PER_PAGE);
+    const visibleLobbies = displayLobbies.slice(lobbyStart, lobbyStart + LOBBIES_PER_PAGE);
 
     const handleSelect = (scenario: Scenario, time: number) => {
         soundManager.playClick();
-        setSelectedScenario(scenario);
         const sessionType = (scenario.session_type as any) || 'practice';
 
+        setSelectedScenario(scenario);
         setSelection({
             type: sessionType,
             scenarioId: scenario.id!,
@@ -212,171 +216,188 @@ export const ScenarioStep: React.FC<ScenarioStepProps> = ({
         setStep(2);
     };
 
-
-
     const handleJoinLobby = (lobby: any) => {
+        if (!lobby?.id || lobby.id <= 0) {
+            window.alert('Sala no valida. Recarga la lista de salas en vivo.');
+            return;
+        }
         soundManager.playClick();
+        const duration = Number(lobby?.duration_minutes ?? lobby?.duration) || 10;
         setSelection({
             type: 'race',
-            track: lobby.track,
-            car: lobby.car,
+            track: lobby.track || '',
+            car: lobby.car || '',
             isLobby: true,
             isHost: false,
             lobbyId: lobby.id,
-            time: lobby.duration
+            time: duration
         });
-        setDuration(lobby.duration);
+        setDuration(duration);
         setStep(3); // Go to Driver Registration directly
     };
 
-    return (
-        <div className="h-full flex flex-col animate-in zoom-in duration-300">
-            <h2 className="text-3xl md:text-5xl font-black text-white italic tracking-tighter mb-4 md:mb-8 text-center drop-shadow-lg">
-                {t('kiosk.chooseCompetition')}
-            </h2>
+    const getDurationLabel = (scenario: Scenario) => {
+        const durations = scenario.allowed_durations?.slice(0, 3);
+        if (!durations || durations.length === 0) return '10/15 min';
+        return `${durations.join('/')} min`;
+    };
 
-            <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-8 md:space-y-12 custom-scrollbar">
-                <div className="mb-8">
-                    <h3 className="text-xl md:text-2xl font-black text-blue-400 mb-4 md:mb-6 flex items-center gap-3 border-b border-blue-900/50 pb-2">
-                        <Activity className="animate-pulse" /> {t('kiosk.liveLobbies')}
-                    </h3>
-                    {lobbies.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                            {lobbies.map((l: any) => (
-                                <button
-                                    key={l.id}
-                                    onMouseEnter={() => soundManager.playHover()}
-                                    onClick={() => handleJoinLobby(l)}
-                                    className="bg-blue-900/20 border-2 border-blue-500/30 hover:bg-blue-900/40 hover:border-blue-500 transition-all p-4 rounded-2xl text-left group"
-                                >
-                                    <div className="flex justify-between items-start mb-2">
-                                        <span className="bg-blue-600 text-white text-[10px] uppercase font-bold px-2 py-1 rounded-md">{l.name}</span>
-                                        <span className="text-blue-300 font-mono text-xs">{l.players_count}/10</span>
-                                    </div>
-                                    <h4 className="font-bold text-white text-lg">{l.track}</h4>
-                                    <p className="text-sm text-gray-400">{l.car}</p>
-                                </button>
-                            ))}
+    return (
+        <div className="h-full min-h-0 flex flex-col px-3 md:px-5 py-2 md:py-3 animate-in fade-in duration-500 overflow-hidden">
+            <h2 className="text-xl md:text-3xl font-racing uppercase tracking-[0.15em] text-amber-200 text-center mb-1">
+                SELECCIONA TU EXPERIENCIA
+            </h2>
+            <p className="text-center text-xs md:text-sm text-slate-400 mb-3 md:mb-4">
+                Elige un evento rapido o entra en una sala en vivo.
+            </p>
+
+            <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[1.45fr_1fr] gap-3 md:gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 min-h-0">
+                    <div className="sm:col-span-2 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-950/50 px-3 py-2">
+                        <div className="text-[11px] md:text-xs font-black uppercase tracking-[0.2em] text-slate-300">
+                            Eventos {scenarioPage + 1}/{scenarioPages}
                         </div>
-                    ) : (
-                        <div className="w-full bg-blue-900/10 border border-blue-900/30 rounded-2xl p-6 text-center">
-                            <p className="text-blue-300/50 font-bold italic">{t('kiosk.noActiveTournaments') || 'No hay torneos activos en este momento.'}</p>
-                            <p className="text-xs text-blue-400/30 mt-1">{t('kiosk.createBelow') || '¡Crea uno nuevo abajo!'}</p>
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (scenarioPage <= 0) return;
+                                    soundManager.playClick();
+                                    setScenarioPage((prev) => Math.max(0, prev - 1));
+                                }}
+                                disabled={scenarioPage <= 0}
+                                className="h-10 md:h-11 px-3 md:px-4 rounded-xl border border-white/15 bg-slate-900/70 text-slate-100 font-black text-xs md:text-sm uppercase tracking-wider disabled:opacity-35 disabled:cursor-not-allowed active:scale-[0.98] transition-all flex items-center gap-2"
+                            >
+                                <ChevronLeft size={16} />
+                                Anterior
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (scenarioPage >= scenarioPages - 1) return;
+                                    soundManager.playClick();
+                                    setScenarioPage((prev) => Math.min(scenarioPages - 1, prev + 1));
+                                }}
+                                disabled={scenarioPage >= scenarioPages - 1}
+                                className="h-10 md:h-11 px-3 md:px-4 rounded-xl border border-amber-300/35 bg-amber-500/20 text-amber-100 font-black text-xs md:text-sm uppercase tracking-wider disabled:opacity-35 disabled:cursor-not-allowed active:scale-[0.98] transition-all flex items-center gap-2"
+                            >
+                                Siguiente
+                                <ChevronRight size={16} />
+                            </button>
+                        </div>
+                    </div>
+
+                    {quickScenarios.map((scenario) => {
+                        const preferredDuration = scenario.allowed_durations?.[0] || 10;
+                        return (
+                            <button
+                                key={scenario.id}
+                                onMouseEnter={() => soundManager.playHover()}
+                                onClick={() => handleSelect(scenario, preferredDuration)}
+                                className="text-left rounded-3xl border border-white/10 bg-slate-950/65 hover:bg-slate-900/70 hover:border-amber-300/50 p-3 md:p-4 transition-all flex flex-col justify-between min-h-[170px] md:min-h-[190px]"
+                            >
+                                <div>
+                                    <div className="flex items-center justify-between gap-2 mb-2">
+                                        <span className="text-[10px] uppercase tracking-widest text-amber-200 font-black">
+                                            {getDurationLabel(scenario)}
+                                        </span>
+                                        <ChevronRight size={18} className="text-amber-300" />
+                                    </div>
+                                    <h3 className="text-lg md:text-xl font-black text-white uppercase leading-tight line-clamp-2">
+                                        {scenario.name}
+                                    </h3>
+                                    <p className="text-xs md:text-sm text-slate-400 mt-2 line-clamp-3">
+                                        {scenario.description || 'Competicion estandar de alto ritmo.'}
+                                    </p>
+                                </div>
+                                <div className="mt-3 flex gap-2">
+                                    {(scenario.allowed_durations?.length ? scenario.allowed_durations : [10, 15]).slice(0, 2).map((mins: number) => (
+                                        <span key={mins} className="inline-flex items-center rounded-lg border border-white/10 bg-black/25 px-2.5 py-1 text-[11px] text-slate-300 font-bold">
+                                            {mins} min
+                                        </span>
+                                    ))}
+                                </div>
+                            </button>
+                        );
+                    })}
+
+                    {quickScenarios.length === 0 && (
+                        <div className="sm:col-span-2 rounded-3xl border border-white/10 bg-slate-950/60 p-6 text-center text-slate-400">
+                            No hay eventos configurados todavia.
                         </div>
                     )}
+
                 </div>
 
-
-                <div className="mb-8">
-                    <h3 className="text-xl md:text-2xl font-black text-yellow-500 mb-4 md:mb-6 flex items-center gap-3 border-b border-yellow-900/30 pb-2">
-                        <Trophy className="text-yellow-500" /> {t('kiosk.specialEvents')}
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                        {dailyScenario && (
-                            <div
-                                onClick={() => {
-                                    soundManager.playClick();
-                                    setSelection({
-                                        type: (dailyScenario.session_type as any) || 'practice',
-                                        scenarioId: dailyScenario.id!,
-                                        track: dailyScenario.selectedTrack,
-                                        car: dailyScenario.selectedCar,
-                                        time: 10,
-                                        isLobby: true,
-                                        isHost: true
-                                    });
-                                    setDuration(10);
-                                    setStep(2);
-                                }}
-                                onMouseEnter={() => soundManager.playHover()}
-                                className="group relative bg-gradient-to-br from-yellow-600 to-orange-700 rounded-3xl p-4 md:p-6 cursor-pointer border-4 border-yellow-400/50 hover:border-white shadow-2xl hover:scale-[1.03] transition-all overflow-hidden flex flex-col justify-between h-64 md:h-80"
-                            >
-                                <div className="absolute top-0 right-0 bg-yellow-400 text-black font-black text-xs px-3 py-1 rounded-bl-xl z-20">RETO DEL DÍA</div>
-                                <div className="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition-all z-0" />
-                                <div className="relative z-10 text-center mt-4 flex-1 flex flex-col items-center justify-center">
-                                    <Trophy size={48} className="mx-auto text-yellow-200 mb-4 drop-shadow-lg animate-bounce md:w-16 md:h-16" />
-                                    <h3 className="text-2xl md:text-3xl font-black text-white leading-none uppercase">RETO<br />DIARIO</h3>
-                                    <p className="mt-2 text-yellow-200 font-bold uppercase text-sm md:text-base">{dailyScenario.selectedTrack} • {dailyScenario.selectedCar}</p>
-                                </div>
-                            </div>
-                        )}
-
-                        <div
-                            onMouseEnter={() => soundManager.playHover()}
-                            onClick={handleSurpriseMe}
-                            className="group relative bg-gradient-to-br from-purple-600 to-pink-600 rounded-3xl p-4 md:p-6 cursor-pointer border-4 border-white/10 hover:border-white shadow-2xl hover:scale-[1.03] transition-all overflow-hidden flex flex-col justify-between h-64 md:h-80"
-                        >
-                            <div className="absolute inset-0 flex flex-col items-center justify-center opacity-20 z-0">
-                                <div className="text-7xl md:text-9xl font-black text-white">?</div>
-                            </div>
-                            <div className="relative z-10 flex flex-col items-center justify-center h-full text-center">
-                                <Gauge size={64} className="text-white mb-6 drop-shadow-lg group-hover:rotate-180 transition-transform duration-700 md:w-20 md:h-20" />
-                                <h3 className="text-3xl md:text-4xl font-black text-white leading-tight">¡SORPRÉNDEME!</h3>
-                            </div>
+                <div className="rounded-3xl border border-red-500/30 bg-gradient-to-b from-red-950/20 to-slate-950/70 p-3 md:p-4 flex flex-col min-h-0">
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                        <h3 className="text-sm md:text-lg font-black text-white flex items-center gap-2 uppercase tracking-widest">
+                            <Activity className="text-emerald-400" size={16} />
+                            SALAS EN VIVO
+                        </h3>
+                        <div className="text-[11px] md:text-xs font-black uppercase tracking-[0.2em] text-slate-300">
+                            {lobbyPage + 1}/{lobbyPages}
                         </div>
                     </div>
-                </div>
-
-                <div>
-                    <h3 className="text-xl md:text-2xl font-black text-gray-400 mb-4 md:mb-6 flex items-center gap-3 border-b border-gray-800 pb-2">
-                        <Flag /> PRÁCTICA LIBRE
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-                        {scenarios.map(scenario => {
-                            const isExpanded = expandedId === scenario.id;
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (lobbyPage <= 0) return;
+                                soundManager.playClick();
+                                setLobbyPage((prev) => Math.max(0, prev - 1));
+                            }}
+                            disabled={lobbyPage <= 0}
+                            className="h-10 rounded-xl border border-white/15 bg-slate-900/70 text-slate-100 font-black text-[11px] md:text-xs uppercase tracking-wider disabled:opacity-35 disabled:cursor-not-allowed active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                        >
+                            <ChevronLeft size={15} />
+                            Anterior
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (lobbyPage >= lobbyPages - 1) return;
+                                soundManager.playClick();
+                                setLobbyPage((prev) => Math.min(lobbyPages - 1, prev + 1));
+                            }}
+                            disabled={lobbyPage >= lobbyPages - 1}
+                            className="h-10 rounded-xl border border-amber-300/35 bg-amber-500/20 text-amber-100 font-black text-[11px] md:text-xs uppercase tracking-wider disabled:opacity-35 disabled:cursor-not-allowed active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                        >
+                            Siguiente
+                            <ChevronRight size={15} />
+                        </button>
+                    </div>
+                    <div className="space-y-2.5">
+                        {visibleLobbies.length > 0 ? visibleLobbies.map((lobby: any) => {
                             return (
-                                <div
-                                    key={scenario.id}
+                                <button
+                                    key={lobby.id}
                                     onMouseEnter={() => soundManager.playHover()}
-                                    onClick={() => {
-                                        if (!isExpanded) {
-                                            soundManager.playClick();
-                                            setExpandedId(scenario.id!);
-                                        }
-                                    }}
-                                    className={`relative bg-gradient-to-br from-gray-800 to-gray-900 rounded-3xl p-6 md: p-8 border-4 transition-all shadow-2xl group overflow-hidden ${isExpanded ? 'border-blue-500 scale-105 z-10 cursor-default' : 'border-gray-700 hover:border-gray-500 hover:scale-[1.02] cursor-pointer'} `}
+                                    onClick={() => handleJoinLobby(lobby)}
+                                    className="w-full text-left rounded-xl border border-white/10 bg-black/35 hover:bg-black/55 hover:border-amber-300/50 p-3 transition-all"
                                 >
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className="bg-gray-700 p-2 md:p-3 rounded-2xl">
-                                            <Flag size={24} className={`md: w-8 md: h-8 ${isExpanded ? "text-blue-400" : "text-gray-400"} `} />
-                                        </div>
+                                    <div className="flex items-center justify-between gap-2 mb-1">
+                                        <span className="text-xs md:text-sm font-black text-white line-clamp-1">
+                                            {lobby.name}
+                                        </span>
+                                        <span className="text-[10px] text-amber-300 font-mono">{lobby.player_count ?? lobby.players_count ?? 0}/{lobby.max_players ?? 10}</span>
                                     </div>
-                                    <h3 className="text-2xl md:text-3xl font-black text-white mb-2 uppercase leading-none">{scenario.name}</h3>
-                                    <p className="text-gray-400 mb-6 min-h-[3rem] text-sm line-clamp-2">{scenario.description || 'Competición abierta'}</p>
-                                    {isExpanded ? (
-                                        <div
-                                            className="space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-300 cursor-default"
-                                            onClick={(e) => e.stopPropagation()}
-                                        >
-                                            <p className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-2">{t('kiosk.pickDuration')}</p>
-                                            <div className="grid grid-cols-2 gap-3">
-                                                {(scenario.allowed_durations?.length ? scenario.allowed_durations : [10, 15, 20]).map((mins: number) => (
-                                                    <button
-                                                        key={mins}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleSelect(scenario, mins);
-                                                        }}
-                                                        onMouseEnter={() => soundManager.playHover()}
-                                                        className="relative z-50 pointer-events-auto bg-blue-600 hover:bg-blue-500 text-white font-black py-3 rounded-xl border border-blue-400/30 flex items-center justify-center gap-2 transition-transform active:scale-95 text-sm md:text-base hover:shadow-lg hover:shadow-blue-500/20"
-                                                    >
-                                                        <Clock size={16} /> {mins}m
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="mt-4 flex items-center gap-2 text-gray-500 font-bold group-hover:text-white transition-colors">
-                                            <span>{t('kiosk.select')}</span> <ChevronRight />
-                                        </div>
-                                    )}
-                                </div>
+                                    <div className="text-xs text-slate-400 line-clamp-1">{lobby.track}</div>
+                                    <div className="text-[11px] text-slate-500 line-clamp-1">{lobby.car}</div>
+                                </button>
                             );
-                        })}
+                        }) : (
+                            <div className="rounded-xl border border-white/10 bg-black/25 p-4 text-sm text-slate-400">
+                                No hay salas activas ahora mismo.
+                            </div>
+                        )}
+                    </div>
+                    <div className="mt-auto pt-3 text-[11px] text-slate-500">
+                        Flujo optimizado para tablet 10". Sin scroll y botones grandes.
                     </div>
                 </div>
-            </div >
-        </div >
+            </div>
+        </div>
     );
 };
 
@@ -412,7 +433,7 @@ interface DifficultyStepProps {
 
 export const DifficultyStep: React.FC<DifficultyStepProps> = ({
     t, selection, selectedCarObj, selectedTrackObj,
-    timeOfDay, setTimeOfDay, weather, setWeather,
+    timeOfDay, setTimeOfDay, weather, setWeather, transmission, setTransmission,
     difficulty, setDifficulty,
     paymentEnabled, setStep,
     setPaymentInfo, setPaymentError, launchWithoutPayment,
@@ -435,112 +456,139 @@ export const DifficultyStep: React.FC<DifficultyStepProps> = ({
         || "https://upload.wikimedia.org/wikipedia/commons/thumb/6/67/Circuit_de_Spa-Francorchamps_trace.svg/1200px-Circuit_de_Spa-Francorchamps_trace.svg.png";
 
     return (
-        <div className="h-full flex flex-col items-center justify-center animate-in zoom-in duration-300 max-w-4xl mx-auto w-full custom-scrollbar overflow-y-auto px-4 py-8">
-            <h2 className="text-3xl md:text-5xl font-black text-white mb-6 md:mb-8 uppercase tracking-tighter text-center">
-                CONFIGURA TU SESIÓN
+        <div className="h-full w-full min-h-0 flex flex-col animate-in zoom-in duration-300 max-w-6xl mx-auto px-3 md:px-5 py-2 md:py-3 overflow-hidden">
+            <h2 className="text-3xl md:text-5xl font-racing uppercase tracking-[0.18em] text-amber-200 mb-4 md:mb-5 text-center">
+                CONFIGURA TU SESION
             </h2>
 
-            <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8 text-left">
-                <div className="bg-gray-800/60 border border-gray-700 rounded-3xl p-4 md:p-6 flex flex-col relative overflow-hidden group">
-                    <h4 className="text-gray-400 font-bold text-xs tracking-widest uppercase mb-4">VEHÍCULO</h4>
-                    {carImageUrl && <img src={carImageUrl} className="w-full h-32 md:h-40 object-cover rounded-2xl mb-4 border border-gray-700/60" alt="" />}
-                    <div className="text-xl md:text-2xl font-black text-white mb-1 truncate">{selectedCarObj?.name || selection?.car}</div>
-                    <div className="grid grid-cols-3 gap-2 md:gap-4 mt-auto">
-                        <div className="bg-black/30 rounded-xl p-2 md:p-3 text-center">
-                            <div className="text-gray-500 text-[8px] md:text-[10px] uppercase">{t('kiosk.power') || 'Potencia'}</div>
+            <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 text-left">
+                <div className="bg-slate-950/65 border border-white/10 rounded-3xl p-4 md:p-5 flex flex-col relative overflow-hidden group min-h-[170px] md:min-h-[200px]">
+                    <h4 className="text-slate-400 font-bold text-xs md:text-sm tracking-widest uppercase mb-2">VEHICULO</h4>
+                    {carImageUrl && <img src={carImageUrl} className="w-full h-24 md:h-28 object-cover rounded-2xl mb-3 border border-gray-700/60" alt="" />}
+                    <div className="text-xl md:text-2xl font-black text-white mb-3 truncate">{selectedCarObj?.name || selection?.car}</div>
+                    <div className="grid grid-cols-3 gap-2.5 mt-auto">
+                        <div className="bg-black/30 rounded-xl p-2.5 md:p-3.5 text-center">
+                            <div className="text-gray-500 text-[9px] md:text-[11px] uppercase">{t('kiosk.power') || 'Potencia'}</div>
                             <div className="text-white font-black text-sm md:text-base">{specs.bhp}</div>
                         </div>
-                        <div className="bg-black/30 rounded-xl p-2 md:p-3 text-center">
-                            <div className="text-gray-500 text-[8px] md:text-[10px] uppercase">Peso</div>
+                        <div className="bg-black/30 rounded-xl p-2.5 md:p-3.5 text-center">
+                            <div className="text-gray-500 text-[9px] md:text-[11px] uppercase">Peso</div>
                             <div className="text-white font-black text-sm md:text-base">{specs.weight}</div>
                         </div>
-                        <div className="bg-black/30 rounded-xl p-2 md:p-3 text-center">
-                            <div className="text-gray-500 text-[8px] md:text-[10px] uppercase">{t('kiosk.topSpeed') || 'Top Speed'}</div>
+                        <div className="bg-black/30 rounded-xl p-2.5 md:p-3.5 text-center">
+                            <div className="text-gray-500 text-[9px] md:text-[11px] uppercase">{t('kiosk.topSpeed') || 'Top Speed'}</div>
                             <div className="text-white font-black text-sm md:text-base">{specs.top_speed}</div>
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-gray-800/60 border border-gray-700 rounded-3xl p-4 md:p-6 flex flex-col relative overflow-hidden">
-                    <h4 className="text-gray-400 font-bold text-xs tracking-widest uppercase mb-1">CIRCUITO</h4>
-                    <div className="text-lg md:text-xl font-black text-white mb-4 truncate">{selectedTrackObj?.name || selection?.track}</div>
-                    {trackImageUrl && <img src={trackImageUrl} className="w-full h-24 md:h-32 object-cover rounded-2xl mb-4 border border-gray-700/60" alt="" />}
+                <div className="bg-slate-950/65 border border-white/10 rounded-3xl p-4 md:p-5 flex flex-col relative overflow-hidden min-h-[170px] md:min-h-[200px]">
+                    <h4 className="text-slate-400 font-bold text-xs md:text-sm tracking-widest uppercase mb-1">CIRCUITO</h4>
+                    <div className="text-xl md:text-2xl font-black text-white mb-3 truncate">{selectedTrackObj?.name || selection?.track}</div>
+                    {trackImageUrl && <img src={trackImageUrl} className="w-full h-24 md:h-28 object-cover rounded-2xl mb-3 border border-gray-700/60" alt="" />}
                     <div className="flex-1 flex items-center justify-center">
                         <img src={mapUrl} className="h-16 md:h-24 w-auto object-contain brightness-200 filter invert" alt="" />
                     </div>
                 </div>
             </div>
 
-            <div className="w-full mb-6 md:mb-8 text-left">
-                <p className="text-gray-400 font-bold mb-4 uppercase text-xs tracking-widest">CONDICIONES</p>
-                <div className={`bg-gray-800/50 p-2 rounded-2xl grid grid-cols-3 gap-2`}>
-                    <button
-                        onMouseEnter={() => soundManager.playHover()}
-                        onClick={() => { soundManager.playClick(); setTimeOfDay('noon'); }}
-                        className={`p-3 rounded-xl flex flex-col items-center gap-2 transition-all ${timeOfDay === 'noon' ? 'bg-yellow-500 text-black shadow-lg' : 'hover:bg-gray-700 text-gray-400'} `}
-                    >
-                        <Sun size={20} className="md:w-6 md:h-6" /> <span className="text-[10px] md:text-xs font-bold">{t('weather.noon') || 'MEDIODÍA'}</span>
-                    </button>
-                    <button
-                        onMouseEnter={() => soundManager.playHover()}
-                        onClick={() => { soundManager.playClick(); setTimeOfDay('evening'); }}
-                        className={`p-3 rounded-xl flex flex-col items-center gap-2 transition-all ${timeOfDay === 'evening' ? 'bg-orange-500 text-white shadow-lg' : 'hover:bg-gray-700 text-gray-400'} `}
-                    >
-                        <Sunset size={20} className="md:w-6 md:h-6" /> <span className="text-[10px] md:text-xs font-bold">{t('weather.sunset') || 'OCASO'}</span>
-                    </button>
-
-                    {/* WEATHER OPTIONS */}
-                    <button
-                        onMouseEnter={() => soundManager.playHover()}
-                        onClick={() => { soundManager.playClick(); setWeather('sun'); }}
-                        className={`p-3 rounded-xl flex flex-col items-center gap-2 transition-all ${weather === 'sun' ? 'bg-blue-400 text-white shadow-lg' : 'hover:bg-gray-700 text-gray-400'} `}
-                    >
-                        <Sun size={20} className="md:w-6 md:h-6" /> <span className="text-[10px] md:text-xs font-bold">{t('weather.clear') || 'DESPEJADO'}</span>
-                    </button>
-                    <button
-                        onMouseEnter={() => soundManager.playHover()}
-                        onClick={() => { soundManager.playClick(); setWeather('cloud'); }}
-                        className={`p-3 rounded-xl flex flex-col items-center gap-2 transition-all ${weather === 'cloud' ? 'bg-gray-500 text-white shadow-lg' : 'hover:bg-gray-700 text-gray-400'} `}
-                    >
-                        <Cloud size={20} className="md:w-6 md:h-6" /> <span className="text-[10px] md:text-xs font-bold">{t('weather.cloudy') || 'NUBLADO'}</span>
-                    </button>
-                    <button
-                        onMouseEnter={() => soundManager.playHover()}
-                        onClick={() => { soundManager.playClick(); setWeather('fog'); }}
-                        className={`p-3 rounded-xl flex flex-col items-center gap-2 transition-all ${weather === 'fog' ? 'bg-gray-400 text-white shadow-lg' : 'hover:bg-gray-700 text-gray-400'} `}
-                    >
-                        <CloudFog size={20} className="md:w-6 md:h-6" /> <span className="text-[10px] md:text-xs font-bold">{t('weather.fog') || 'NIEBLA'}</span>
-                    </button>
-                    {rainEnabled && (
+            <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-4 text-left items-start">
+                <div className="bg-slate-950/65 border border-white/10 rounded-2xl p-4 min-h-[210px] md:min-h-[245px]">
+                    <p className="text-slate-400 font-bold mb-3 uppercase text-xs tracking-widest">CONDICIONES</p>
+                    <div className="grid grid-cols-2 gap-2.5 mb-2.5">
                         <button
                             onMouseEnter={() => soundManager.playHover()}
-                            onClick={() => { soundManager.playClick(); setWeather('rain'); }}
-                            className={`p-3 rounded-xl flex flex-col items-center gap-2 transition-all ${weather === 'rain' ? 'bg-blue-600 text-white shadow-lg' : 'hover:bg-gray-700 text-gray-400'} `}
+                            onClick={() => { soundManager.playClick(); setTimeOfDay('noon'); }}
+                            className={`p-3 rounded-xl min-h-[52px] flex items-center justify-center gap-2 transition-all text-sm font-bold ${timeOfDay === 'noon' ? 'bg-amber-400 text-black shadow-lg' : 'bg-slate-900/60 hover:bg-slate-800 text-slate-300'} `}
                         >
-                            <CloudRain size={20} className="md:w-6 md:h-6" /> <span className="text-[10px] md:text-xs font-bold">{t('weather.rain') || 'LLUVIA'}</span>
+                            <Sun size={16} /> {t('weather.noon') || 'MEDIODIA'}
                         </button>
-                    )}
+                        <button
+                            onMouseEnter={() => soundManager.playHover()}
+                            onClick={() => { soundManager.playClick(); setTimeOfDay('evening'); }}
+                            className={`p-3 rounded-xl min-h-[52px] flex items-center justify-center gap-2 transition-all text-sm font-bold ${timeOfDay === 'evening' ? 'bg-orange-500 text-white shadow-lg' : 'bg-slate-900/60 hover:bg-slate-800 text-slate-300'} `}
+                        >
+                            <Sunset size={16} /> {t('weather.sunset') || 'OCASO'}
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2.5">
+                        <button
+                            onMouseEnter={() => soundManager.playHover()}
+                            onClick={() => { soundManager.playClick(); setWeather('sun'); }}
+                            className={`p-2.5 md:p-3 rounded-xl min-h-[68px] flex flex-col items-center justify-center gap-1.5 transition-all ${weather === 'sun' ? 'bg-amber-400 text-black shadow-lg' : 'bg-slate-900/60 hover:bg-slate-800 text-slate-400'} `}
+                        >
+                            <Sun size={16} /> <span className="text-[11px] font-bold">{t('weather.clear') || 'DESPEJADO'}</span>
+                        </button>
+                        <button
+                            onMouseEnter={() => soundManager.playHover()}
+                            onClick={() => { soundManager.playClick(); setWeather('cloud'); }}
+                            className={`p-2.5 md:p-3 rounded-xl min-h-[68px] flex flex-col items-center justify-center gap-1.5 transition-all ${weather === 'cloud' ? 'bg-gray-500 text-white shadow-lg' : 'bg-slate-900/60 hover:bg-slate-800 text-slate-400'} `}
+                        >
+                            <Cloud size={16} /> <span className="text-[11px] font-bold">{t('weather.cloudy') || 'NUBLADO'}</span>
+                        </button>
+                        <button
+                            onMouseEnter={() => soundManager.playHover()}
+                            onClick={() => { soundManager.playClick(); setWeather('fog'); }}
+                            className={`p-2.5 md:p-3 rounded-xl min-h-[68px] flex flex-col items-center justify-center gap-1.5 transition-all ${weather === 'fog' ? 'bg-gray-400 text-white shadow-lg' : 'bg-slate-900/60 hover:bg-slate-800 text-slate-400'} `}
+                        >
+                            <CloudFog size={16} /> <span className="text-[11px] font-bold">{t('weather.fog') || 'NIEBLA'}</span>
+                        </button>
+                        {rainEnabled && (
+                            <button
+                                onMouseEnter={() => soundManager.playHover()}
+                                onClick={() => { soundManager.playClick(); setWeather('rain'); }}
+                                className={`p-2.5 md:p-3 rounded-xl min-h-[58px] flex flex-col items-center justify-center gap-1 transition-all col-span-3 ${weather === 'rain' ? 'bg-red-500 text-white shadow-lg' : 'bg-slate-900/60 hover:bg-slate-800 text-slate-400'} `}
+                            >
+                                <CloudRain size={16} /> <span className="text-[11px] font-bold">{t('weather.rain') || 'LLUVIA'}</span>
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                <div className="bg-slate-950/65 border border-white/10 rounded-2xl p-4 min-h-[210px] md:min-h-[245px]">
+                    <p className="text-slate-400 font-bold mb-3 uppercase text-xs tracking-widest">TRANSMISION</p>
+                    <div className="grid grid-cols-2 gap-2.5">
+                        <button
+                            onMouseEnter={() => soundManager.playHover()}
+                            onClick={() => { soundManager.playClick(); setTransmission('automatic'); }}
+                            className={`p-4 rounded-xl min-h-[96px] border-2 flex flex-col items-center justify-center gap-2 transition-all ${transmission === 'automatic' ? 'border-amber-300 bg-amber-400 text-black' : 'border-white/10 bg-slate-900/60 text-slate-300'} `}
+                        >
+                            <Gauge className="w-5 h-5" />
+                            <span className="font-black text-sm uppercase">AUTOMATICO</span>
+                        </button>
+                        <button
+                            onMouseEnter={() => soundManager.playHover()}
+                            onClick={() => { soundManager.playClick(); setTransmission('manual'); }}
+                            className={`p-4 rounded-xl min-h-[96px] border-2 flex flex-col items-center justify-center gap-2 transition-all ${transmission === 'manual' ? 'border-amber-300 bg-amber-400 text-black' : 'border-white/10 bg-slate-900/60 text-slate-300'} `}
+                        >
+                            <Zap className="w-5 h-5" />
+                            <span className="font-black text-sm uppercase">MANUAL</span>
+                        </button>
+                    </div>
+                    <p className="text-sm text-slate-500 mt-3">
+                        {transmission === 'manual' ? 'Cambios por levas/palanca.' : 'Cambios automaticos activados.'}
+                    </p>
+                </div>
+
+                <div className="bg-slate-950/65 border border-white/10 rounded-2xl p-4 min-h-[210px] md:min-h-[245px]">
+                    <p className="text-slate-400 font-bold mb-3 uppercase text-xs tracking-widest">AYUDAS</p>
+                    <div className="grid grid-cols-3 gap-2.5">
+                        {['novice', 'amateur', 'pro'].map(lv => (
+                            <button
+                                key={lv}
+                                onMouseEnter={() => soundManager.playHover()}
+                                onClick={() => { soundManager.playClick(); setDifficulty(lv as any); }}
+                                className={`p-3.5 min-h-[96px] rounded-xl border-2 flex flex-col items-center justify-center gap-2 transition-all ${difficulty === lv ? 'border-red-400 bg-red-500/10 text-white' : 'border-gray-700 bg-gray-800/50 text-slate-300'} `}
+                            >
+                                {lv === 'novice' ? <ShieldCheck className="w-5 h-5" /> : lv === 'amateur' ? <Activity className="w-5 h-5" /> : <Trophy className="w-5 h-5" />}
+                                <span className="font-black text-xs uppercase">{lv}</span>
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </div>
 
-            <div className="w-full mb-8 text-left">
-                <p className="text-gray-400 font-bold mb-4 uppercase text-xs tracking-widest">AYUDAS</p>
-                <div className="grid grid-cols-3 gap-4">
-                    {['novice', 'amateur', 'pro'].map(lv => (
-                        <button
-                            key={lv}
-                            onMouseEnter={() => soundManager.playHover()}
-                            onClick={() => { soundManager.playClick(); setDifficulty(lv as any); }}
-                            className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${difficulty === lv ? 'border-blue-500 bg-blue-500/10' : 'border-gray-700 bg-gray-800/50'} `}
-                        >
-                            {lv === 'novice' ? <ShieldCheck className="md:w-8 md:h-8" /> : lv === 'amateur' ? <Activity className="md:w-8 md:h-8" /> : <Trophy className="md:w-8 md:h-8" />}
-                            <span className="font-black text-xs md:text-sm uppercase">{lv}</span>
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            <div className="w-full pb-8">
+            <div className="w-full pt-4 md:pt-5">
                 <button
                     onClick={() => {
                         soundManager.playClick();
@@ -552,11 +600,11 @@ export const DifficultyStep: React.FC<DifficultyStepProps> = ({
                         else launchWithoutPayment();
                     }}
                     disabled={launchingNoPayment}
-                    className="w-full bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-black text-xl md:text-2xl py-4 md:py-6 rounded-2xl shadow-xl active:scale-95 transition-all flex items-center justify-center gap-4 disabled:opacity-50 touch-manipulation"
+                    className="w-full bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-black text-xl md:text-3xl py-4 md:py-5 rounded-2xl shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50 touch-manipulation"
                 >
                     {paymentEnabled ? t('kiosk.payAndLaunch') : 'LANZAR'} <Play fill="currentColor" size={24} />
                 </button>
-                <p className="text-center text-gray-500 mt-4 text-xs">{paymentNote}</p>
+                <p className="text-center text-gray-500 mt-2.5 text-xs md:text-sm">{paymentNote}</p>
             </div>
         </div>
     );
@@ -591,6 +639,14 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
     clientTokenHeaders, sessionPrice, paymentHandledRef, setStep,
     launchSessionMutation, buildLaunchPayload
 }) => {
+    const resolveApiError = (error: unknown, fallback: string) => {
+        if (axios.isAxiosError(error)) {
+            const detail = (error.response?.data as any)?.detail;
+            if (typeof detail === 'string' && detail.trim()) return detail;
+        }
+        return fallback;
+    };
+
     const createCheckout = useMutation({
         mutationFn: async (provider: PaymentProvider) => {
             return createPaymentCheckout({
@@ -606,7 +662,7 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
             setPaymentInfo(data);
             setPaymentError(null);
         },
-        onError: () => setPaymentError('No se pudo iniciar el pago. Revisa la configuración.')
+        onError: () => setPaymentError('No se pudo iniciar el pago. Revisa la configuracion.')
     });
 
     const createLobbyMutation = useMutation({
@@ -618,17 +674,18 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
                 car: selection?.car,
                 duration: duration,
                 max_players: 10
-            });
+            }, { headers: clientTokenHeaders });
             return res.data;
         },
         onSuccess: (data) => {
-            setSelection((prev: any) => ({ ...prev, lobbyId: data.id }));
+            const lobbyId = Number(data?.id ?? data?.lobby_id);
+            setSelection((prev: any) => ({ ...prev, lobbyId: Number.isFinite(lobbyId) ? lobbyId : prev?.lobbyId }));
+            setPaymentError(null);
             setStep(6);
         },
         onError: (err) => {
             console.error("Failed to create lobby:", err);
-            alert("Error al crear la sala.");
-            setStep(1);
+            setPaymentError(resolveApiError(err, 'No se pudo crear la sala multijugador.'));
         }
     });
 
@@ -636,13 +693,15 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
         mutationFn: async () => {
             await axios.post(`${API_URL}/lobby/${selection?.lobbyId}/join`, {
                 station_id: stationId
-            });
+            }, { headers: clientTokenHeaders });
         },
-        onSuccess: () => setStep(6),
+        onSuccess: () => {
+            setPaymentError(null);
+            setStep(6);
+        },
         onError: (err) => {
             console.error("Failed to join lobby:", err);
-            alert("Error al unirse a la sala. Puede que esté llena o ya no exista.");
-            setStep(1);
+            setPaymentError(resolveApiError(err, 'No se pudo acceder a la sala multijugador.'));
         }
     });
 
@@ -661,7 +720,7 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
         if (paymentStatus) {
             setPaymentInfo(paymentStatus);
         }
-        if (paymentStatus?.status === 'paid' && !paymentHandledRef.current) {
+        if (paymentStatus?.status === 'paid' && !paymentHandledRef.current && !paymentError) {
             paymentHandledRef.current = true;
             (async () => {
                 try {
@@ -672,16 +731,16 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
                         price: paymentStatus.amount,
                         payment_method: paymentStatus.provider,
                         is_vr: false
-                    });
+                    }, { headers: clientTokenHeaders });
                 } catch (err) {
                     console.error('Error creating session:', err);
                 }
 
                 if (selection?.isLobby) {
                     if (selection.isHost) {
-                        createLobbyMutation.mutate();
+                        await createLobbyMutation.mutateAsync();
                     } else {
-                        joinLobbyMutation.mutate();
+                        await joinLobbyMutation.mutateAsync();
                     }
                     return;
                 }
@@ -690,27 +749,29 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
                     await launchSessionMutation.mutateAsync(buildLaunchPayload());
                 } catch (err) {
                     console.error('Error launching session:', err);
+                    setPaymentError(resolveApiError(err, 'Pago confirmado, pero no se pudo lanzar la sesion.'));
                 }
             })();
         }
-    }, [paymentStatus]);
+    }, [paymentStatus, paymentError]);
 
     const displayAmount = paymentInfo?.amount ?? sessionPrice;
     const currency = paymentInfo?.currency || 'EUR';
+    const isPaid = paymentStatus?.status === 'paid' || paymentInfo?.status === 'paid';
 
     return (
         <div className="h-full flex flex-col items-center justify-center animate-in zoom-in duration-300 max-w-4xl mx-auto w-full">
             <h2 className="text-3xl md:text-4xl font-black text-white mb-4">{t('kiosk.paymentTitle')}</h2>
-            <p className="text-gray-400 mb-6 text-center">{t('kiosk.paymentSubtitle')}</p>
+            <p className="text-slate-400 mb-6 text-center">{t('kiosk.paymentSubtitle')}</p>
 
-            <div className="bg-gray-900/60 border border-gray-700 rounded-2xl p-6 w-full mb-6 text-left">
-                <div className="flex items-center justify-between text-sm text-gray-400 uppercase font-bold">
+            <div className="bg-slate-950/60 border border-white/10 rounded-2xl p-6 w-full mb-6 text-left">
+                <div className="flex items-center justify-between text-sm text-slate-400 uppercase font-bold">
                     <span>{t('kiosk.durationLabel')}</span>
                     <span className="text-white">{duration} min</span>
                 </div>
-                <div className="flex items-center justify-between text-sm text-gray-400 uppercase font-bold mt-2">
+                <div className="flex items-center justify-between text-sm text-slate-400 uppercase font-bold mt-2">
                     <span>{t('kiosk.totalLabel')}</span>
-                    <span className="text-white text-2xl">€{displayAmount} {currency}</span>
+                    <span className="text-white text-2xl">EUR {displayAmount} {currency}</span>
                 </div>
             </div>
 
@@ -725,25 +786,25 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
                             setPaymentError(null);
                         }}
                         onMouseEnter={() => soundManager.playHover()}
-                        className={`flex-1 px-4 py-3 md:px-6 md:py-4 rounded-xl font-black border-2 transition-all text-sm md:text-base ${paymentProvider === p ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'}`}
+                        className={`flex-1 px-4 py-3 md:px-6 md:py-4 rounded-xl font-black border transition-all text-sm md:text-base ${paymentProvider === p ? 'bg-red-500 border-red-400 text-black' : 'bg-slate-950/60 border-white/10 text-slate-300 hover:border-red-400/50'}`}
                     >
                         {p === 'stripe_qr' ? 'Stripe QR' : 'Bizum'}
                     </button>
                 ))}
             </div>
 
-            <div className="bg-gray-900/40 border border-gray-700 rounded-2xl p-6 w-full flex flex-col items-center gap-4">
+            <div className="bg-slate-950/50 border border-white/10 rounded-2xl p-6 w-full flex flex-col items-center gap-4">
                 {paymentError && <div className="text-red-400 font-bold">{paymentError}</div>}
                 {!paymentError && paymentProvider === 'stripe_qr' && paymentInfo?.checkout_url && (
                     <>
                         <QRCodeCanvas value={paymentInfo.checkout_url} size={200} level="H" />
-                        <p className="text-xs text-gray-400">{t('kiosk.scanToPay')}</p>
+                        <p className="text-xs text-slate-400">{t('kiosk.scanToPay')}</p>
                     </>
                 )}
                 {!paymentError && paymentProvider === 'bizum' && (
                     <div className="text-center text-gray-300 space-y-2">
                         <p className="font-bold">{t('kiosk.payWithBizum')}</p>
-                        <p className="text-sm text-gray-400">{paymentInfo?.instructions || t('kiosk.bizumPending')}</p>
+                        <p className="text-sm text-slate-400">{paymentInfo?.instructions || t('kiosk.bizumPending')}</p>
                         {paymentInfo?.reference && <div className="text-lg font-black text-white">{paymentInfo.reference}</div>}
                     </div>
                 )}
@@ -760,10 +821,18 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
                 </button>
                 <button
                     onMouseEnter={() => soundManager.playHover()}
-                    onClick={() => { soundManager.playClick(); createCheckout.mutate(paymentProvider); }}
-                    className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl touch-manipulation"
+                    onClick={() => {
+                        soundManager.playClick();
+                        setPaymentError(null);
+                        if (isPaid) {
+                            paymentHandledRef.current = false;
+                            return;
+                        }
+                        createCheckout.mutate(paymentProvider);
+                    }}
+                    className="flex-1 bg-red-500 hover:bg-red-400 text-white font-bold py-4 rounded-xl touch-manipulation"
                 >
-                    {t('kiosk.retryPayment')}
+                    {isPaid ? 'Reintentar acceso a sala' : t('kiosk.retryPayment')}
                 </button>
             </div>
         </div>
@@ -787,8 +856,8 @@ export const NoPaymentStep: React.FC<NoPaymentStepProps> = ({
 
     return (
         <div className="h-full flex flex-col items-center justify-center animate-in zoom-in duration-300 max-w-3xl mx-auto w-full text-center px-4">
-            <h2 className="text-3xl font-black text-white mb-3">Iniciando sesión</h2>
-            <p className="text-gray-400">El pago está desactivado. Lanzando la sesión...</p>
+            <h2 className="text-3xl font-black text-white mb-3">Iniciando sesion</h2>
+            <p className="text-slate-400">El pago esta desactivado. Lanzando la sesion...</p>
         </div>
     );
 };
@@ -798,40 +867,68 @@ interface WaitingRoomProps {
     selection: KioskSelection | null;
     stationId: number;
     setIsLaunched: (l: boolean) => void;
+    clientTokenHeaders: Record<string, string>;
 }
 
-export const WaitingRoom: React.FC<WaitingRoomProps> = ({ selection, stationId, setIsLaunched }) => {
-    const { data: lobbyData, refetch } = useQuery({
-        queryKey: ['lobby', selection?.lobbyId],
-        queryFn: () => axios.get(`${API_URL}/lobby/${selection?.lobbyId}`).then(res => res.data),
+export const WaitingRoom: React.FC<WaitingRoomProps> = ({ selection, stationId, setIsLaunched, clientTokenHeaders }) => {
+    const [lobbyError, setLobbyError] = useState<string | null>(null);
+    const resolveApiError = (error: unknown, fallback: string) => {
+        if (axios.isAxiosError(error)) {
+            const detail = (error.response?.data as any)?.detail;
+            if (typeof detail === 'string' && detail.trim()) return detail;
+        }
+        return fallback;
+    };
+    const lobbyId = selection?.lobbyId && selection.lobbyId > 0 ? selection.lobbyId : null;
+    const { data: fetchedLobbyData, refetch } = useQuery({
+        queryKey: ['lobby', lobbyId],
+        queryFn: () => axios.get(`${API_URL}/lobby/${lobbyId}`, { headers: clientTokenHeaders }).then(res => res.data),
         refetchInterval: 1000,
-        enabled: !!selection?.isLobby && !!selection?.lobbyId
+        enabled: !!selection?.isLobby && !!lobbyId
     });
+    const lobbyData = fetchedLobbyData;
+
+    useEffect(() => {
+        if (selection?.isLobby && !lobbyId) {
+            setLobbyError('Sala no valida. Vuelve a seleccionar una sala en vivo.');
+        }
+    }, [selection?.isLobby, lobbyId]);
 
     const StartRaceMutation = useMutation({
         mutationFn: async () => {
-            await axios.post(`${API_URL}/lobby/${selection?.lobbyId}/start`, {}, {
-                params: { requesting_station_id: stationId }
+            if (!lobbyId) throw new Error('Missing lobby id');
+            await axios.post(`${API_URL}/lobby/${lobbyId}/start`, {}, {
+                params: { requesting_station_id: stationId },
+                headers: clientTokenHeaders
             });
-        }
+        },
+        onSuccess: () => setLobbyError(null),
+        onError: (error) => setLobbyError(resolveApiError(error, 'No se pudo iniciar la carrera.'))
     });
 
     const ReadyMutation = useMutation({
         mutationFn: async (isReady: boolean) => {
-            await axios.post(`${API_URL}/lobby/${selection?.lobbyId}/ready`, {}, {
-                params: { station_id: stationId, is_ready: isReady }
+            if (!lobbyId) throw new Error('Missing lobby id');
+            await axios.post(`${API_URL}/lobby/${lobbyId}/ready`, {}, {
+                params: { station_id: stationId, is_ready: isReady },
+                headers: clientTokenHeaders
             });
             refetch();
-        }
+        },
+        onSuccess: () => setLobbyError(null),
+        onError: (error) => setLobbyError(resolveApiError(error, 'No se pudo actualizar tu estado LISTO.'))
     });
 
     useEffect(() => {
         if (lobbyData?.status === 'running') setIsLaunched(true);
-    }, [lobbyData?.status]);
+    }, [lobbyData?.status, setIsLaunched]);
 
     const isHost = stationId === lobbyData?.host_station_id;
     const myPlayer = lobbyData?.players?.find((p: any) => p.station_id === stationId);
     const isReady = myPlayer?.ready || false;
+    const players = Array.isArray(lobbyData?.players) ? lobbyData.players : [];
+    const readyPlayersCount = players.filter((p: any) => p?.ready).length;
+    const canHostStart = isReady && readyPlayersCount >= 2;
 
     const [timeLeft, setTimeLeft] = useState(180);
 
@@ -851,7 +948,7 @@ export const WaitingRoom: React.FC<WaitingRoomProps> = ({ selection, stationId, 
 
             setTimeLeft(remaining);
 
-            if (remaining === 0 && isHost && lobbyData.status === 'waiting' && !StartRaceMutation.isPending) {
+            if (remaining === 0 && isHost && lobbyData.status === 'waiting' && canHostStart && !StartRaceMutation.isPending) {
                 // Auto-start when timer hits zero
                 StartRaceMutation.mutate();
             }
@@ -863,7 +960,7 @@ export const WaitingRoom: React.FC<WaitingRoomProps> = ({ selection, stationId, 
         // Interval for display update
         const timer = setInterval(updateTimer, 1000);
         return () => clearInterval(timer);
-    }, [lobbyData?.created_at, lobbyData?.status, isHost, lobbyData?.duration_minutes]);
+    }, [lobbyData?.created_at, lobbyData?.status, isHost, lobbyData?.duration_minutes, canHostStart]);
 
     const formatTime = (seconds: number) => {
         const m = Math.floor(seconds / 60);
@@ -871,71 +968,98 @@ export const WaitingRoom: React.FC<WaitingRoomProps> = ({ selection, stationId, 
         return `${m}:${s.toString().padStart(2, '0')}`;
     };
 
+    const visiblePlayers = players.slice(0, 6);
+
     return (
-        <div className="h-full flex flex-col items-center p-8 animate-in zoom-in duration-300 max-w-6xl mx-auto w-full text-left">
-            <div className="w-full flex justify-between items-end mb-8 border-b border-gray-800 pb-6">
+        <div className="h-full min-h-0 flex flex-col items-center p-3 md:p-5 animate-in zoom-in duration-300 max-w-6xl mx-auto w-full text-left overflow-hidden">
+            <div className="w-full flex justify-between items-end mb-4 border-b border-gray-800 pb-3">
                 <div>
-                    <span className="bg-purple-600 text-white px-4 py-1 rounded-full font-bold text-sm tracking-widest mb-4 inline-block shadow-lg shadow-purple-900/50">SALA DE ESPERA</span>
-                    <h2 className="text-5xl font-black text-white">{lobbyData?.name || 'Cargando...'}</h2>
-                    <p className="text-gray-400 mt-2 font-mono text-xl">{lobbyData?.track} | {lobbyData?.car}</p>
+                    <span className="bg-purple-600 text-white px-3 py-1 rounded-full font-bold text-[11px] tracking-widest mb-2 inline-block shadow-lg shadow-purple-900/50">SALA DE ESPERA</span>
+                    <h2 className="text-2xl md:text-3xl font-black text-white line-clamp-1">{lobbyData?.name || 'Cargando...'}</h2>
+                    <p className="text-slate-400 mt-1 font-mono text-xs md:text-sm line-clamp-1">{lobbyData?.track} | {lobbyData?.car}</p>
                 </div>
                 <div className="text-right flex flex-col items-end">
-                    <p className="text-gray-500 font-bold uppercase tracking-widest mb-1">INICIO AUTOMÁTICO EN</p>
-                    <p className={`text-4xl font-black font-mono ${timeLeft <= 10 ? 'text-red-500 animate-pulse' : 'text-white'}`}>{formatTime(timeLeft)}</p>
+                    <p className="text-gray-500 font-bold uppercase tracking-widest mb-1 text-[10px] md:text-xs">INICIO EN</p>
+                    <p className={`text-2xl md:text-4xl font-black font-mono ${timeLeft <= 10 ? 'text-red-500 animate-pulse' : 'text-white'}`}>{formatTime(timeLeft)}</p>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full flex-1 overflow-y-auto mb-8 min-h-[200px]">
-                {lobbyData?.players?.map((player: any, idx: number) => {
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full flex-1 min-h-0 mb-4 content-start">
+                {visiblePlayers.map((player: any, idx: number) => {
                     const isMe = player.station_id === stationId;
                     return (
-                        <div key={player.station_id} className={`p-6 rounded-2xl border-2 flex items-center justify-between ${isMe ? 'bg-blue-900/20 border-blue-500' : 'bg-gray-800/50 border-gray-700'}`}>
-                            <div className="flex items-center gap-4">
-                                <div className={`w-12 h-12 rounded-full flex items-center justify-center font-black text-xl ${player.ready ? 'bg-green-500 text-black' : 'bg-gray-700 text-gray-400'}`}>{idx + 1}</div>
+                        <div key={player.station_id} className={`p-3 md:p-4 rounded-2xl border-2 flex items-center justify-between ${isMe ? 'bg-red-950/30 border-red-400' : 'bg-gray-800/50 border-gray-700'}`}>
+                            <div className="flex items-center gap-3">
+                                <div className={`w-9 h-9 rounded-full flex items-center justify-center font-black text-sm ${player.ready ? 'bg-green-500 text-black' : 'bg-gray-700 text-slate-400'}`}>{idx + 1}</div>
                                 <div>
-                                    <p className={`font-bold text-xl ${isMe ? 'text-white' : 'text-gray-300'}`}>{player.station_name} {isMe && '(YO)'}</p>
-                                    <p className="text-sm text-gray-500">Slot {player.slot}</p>
+                                    <p className={`font-bold text-sm md:text-base ${isMe ? 'text-white' : 'text-gray-300'}`}>{player.station_name} {isMe && '(YO)'}</p>
+                                    <p className="text-[11px] text-gray-500">Slot {player.slot}</p>
                                 </div>
                             </div>
                             {player.ready ? (
-                                <span className="bg-green-500/20 text-green-400 px-4 py-2 rounded-lg font-bold border border-green-500/50 flex items-center gap-2"><ShieldCheck size={20} /> LISTO</span>
+                                <span className="bg-green-500/20 text-green-400 px-2.5 py-1.5 rounded-lg font-bold border border-green-500/50 flex items-center gap-2 text-xs"><ShieldCheck size={14} /> LISTO</span>
                             ) : (
-                                <span className="bg-gray-700/50 text-gray-500 px-4 py-2 rounded-lg font-bold border border-gray-600 flex items-center gap-2"><Clock size={20} /> ESPERANDO</span>
+                                <span className="bg-gray-700/50 text-gray-500 px-2.5 py-1.5 rounded-lg font-bold border border-gray-600 flex items-center gap-2 text-xs"><Clock size={14} /> ESPERANDO</span>
                             )}
                         </div>
                     );
                 })}
+                {players.length > visiblePlayers.length && (
+                    <div className="md:col-span-2 text-center text-xs text-slate-500 border border-white/10 rounded-xl py-2 bg-black/20">
+                        +{players.length - visiblePlayers.length} pilotos adicionales conectados.
+                    </div>
+                )}
             </div>
 
-            <div className="w-full flex gap-4">
+            <div className="w-full flex gap-3">
                 {!isReady ? (
                     <button
                         onMouseEnter={() => soundManager.playHover()}
-                        onClick={() => { soundManager.playClick(); ReadyMutation.mutate(true); }}
-                        className="flex-1 bg-green-600 hover:bg-green-500 text-white font-black py-6 rounded-2xl text-2xl shadow-xl shadow-green-600/20 transition-all flex items-center justify-center gap-3"
+                        onClick={() => {
+                            soundManager.playClick();
+                            setLobbyError(null);
+                            ReadyMutation.mutate(true);
+                        }}
+                        className="flex-1 bg-green-600 hover:bg-green-500 text-white font-black py-4 rounded-2xl text-base md:text-xl shadow-xl shadow-green-600/20 transition-all flex items-center justify-center gap-2"
                     >
-                        ESTOY LISTO <ShieldCheck size={32} />
+                        ESTOY LISTO <ShieldCheck size={20} />
                     </button>
                 ) : (
                     <button
                         onMouseEnter={() => soundManager.playHover()}
-                        onClick={() => { soundManager.playClick(); ReadyMutation.mutate(false); }}
-                        className="flex-1 bg-orange-600 hover:bg-orange-500 text-white font-black py-6 rounded-2xl text-2xl shadow-xl shadow-orange-600/20 transition-all flex items-center justify-center gap-3"
+                        onClick={() => {
+                            soundManager.playClick();
+                            setLobbyError(null);
+                            ReadyMutation.mutate(false);
+                        }}
+                        className="flex-1 bg-orange-600 hover:bg-orange-500 text-white font-black py-4 rounded-2xl text-base md:text-xl shadow-xl shadow-orange-600/20 transition-all flex items-center justify-center gap-2"
                     >
-                        CANCELAR LISTO <Clock size={32} />
+                        CANCELAR LISTO <Clock size={20} />
                     </button>
                 )}
                 {isHost && (
                     <button
                         onMouseEnter={() => soundManager.playHover()}
-                        onClick={() => { soundManager.playClick(); StartRaceMutation.mutate(); }}
-                        disabled={(lobbyData?.players?.length || 0) < 2}
-                        className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-black py-6 rounded-2xl text-2xl shadow-xl shadow-blue-600/20 transition-all flex items-center justify-center gap-3"
+                        onClick={() => {
+                            soundManager.playClick();
+                            setLobbyError(null);
+                            StartRaceMutation.mutate();
+                        }}
+                        disabled={!canHostStart || StartRaceMutation.isPending}
+                        className="flex-1 bg-red-500 hover:bg-red-400 disabled:opacity-50 text-white font-black py-4 rounded-2xl text-base md:text-xl shadow-xl shadow-red-500/30 transition-all flex items-center justify-center gap-2"
                     >
-                        COMENZAR CARRERA <Play size={32} fill="currentColor" />
+                        COMENZAR CARRERA <Play size={20} fill="currentColor" />
                     </button>
                 )}
             </div>
+            {isHost && !canHostStart && (
+                <p className="w-full text-center text-xs text-slate-500 mt-2">
+                    Necesitas 2 pilotos listos y el host en LISTO para iniciar.
+                </p>
+            )}
+            {lobbyError && (
+                <p className="w-full text-center text-xs md:text-sm text-red-400 mt-2">{lobbyError}</p>
+            )}
         </div >
     );
 };
@@ -966,7 +1090,7 @@ export const DriverStep: React.FC<DriverStepProps> = ({
         name: entry.driver_name || 'Unknown',
         time: formatTime(entry.best_time || 0),
         car: entry.car_model || 'Unknown Car'
-    }));
+    })).slice(0, 8);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -975,28 +1099,28 @@ export const DriverStep: React.FC<DriverStepProps> = ({
     };
 
     return (
-        <div className="flex items-center justify-center h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 w-full max-w-5xl text-left">
-                <div className="flex flex-col items-center justify-center">
-                    <h1 className="text-5xl font-black text-white italic mb-2 tracking-tighter">{t('kiosk.welcomeDriver')}</h1>
-                    <p className="text-xl text-gray-400 mb-8">{t('kiosk.identifyToSave')}</p>
-                    <form onSubmit={handleSubmit} className="w-full max-w-lg space-y-6">
-                        <div className="space-y-2">
-                            <label className="text-gray-400 font-bold ml-1">{t('kiosk.driverName')}</label>
+        <div className="h-full min-h-0 flex items-center justify-center animate-in fade-in slide-in-from-bottom-4 duration-500 px-2 md:px-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 w-full max-w-6xl h-full min-h-0 text-left">
+                <div className="flex flex-col justify-center min-h-0">
+                    <h1 className="text-3xl md:text-5xl font-racing uppercase tracking-[0.16em] md:tracking-[0.2em] text-amber-200 mb-2">{t('kiosk.welcomeDriver')}</h1>
+                    <p className="text-sm md:text-lg text-slate-300 mb-4 md:mb-6">{t('kiosk.identifyToSave')}</p>
+                    <form onSubmit={handleSubmit} className="w-full max-w-xl space-y-4">
+                        <div className="space-y-1.5">
+                            <label className="text-slate-400 font-bold ml-1">{t('kiosk.driverName')}</label>
                             <input
                                 type="text"
-                                className="w-full bg-gray-800 border-2 border-gray-700 focus:border-blue-500 rounded-2xl px-6 py-4 text-2xl text-white font-bold outline-none transition-all focus:scale-[1.02] placeholder:text-gray-600"
+                                className="w-full bg-slate-950/70 border border-white/10 focus:border-amber-400/60 rounded-2xl px-4 py-3 text-lg md:text-2xl text-white font-bold outline-none transition-all focus:scale-[1.01] placeholder:text-slate-600"
                                 placeholder="Ej. Max Verstappen"
                                 value={driverName}
                                 onChange={e => setDriverName(e.target.value)}
                                 required
                             />
                         </div>
-                        <div className="space-y-2">
-                            <label className="text-gray-400 font-bold ml-1">{t('kiosk.emailOptional')}</label>
+                        <div className="space-y-1.5">
+                            <label className="text-slate-400 font-bold ml-1">{t('kiosk.emailOptional')}</label>
                             <input
                                 type="email"
-                                className="w-full bg-gray-800 border-2 border-gray-700 focus:border-blue-500 rounded-2xl px-6 py-4 text-2xl text-white font-bold outline-none transition-all focus:scale-[1.02] placeholder:text-gray-600"
+                                className="w-full bg-slate-950/70 border border-white/10 focus:border-amber-400/60 rounded-2xl px-4 py-3 text-lg md:text-2xl text-white font-bold outline-none transition-all focus:scale-[1.01] placeholder:text-slate-600"
                                 placeholder="max@redbull.com"
                                 value={driverEmail}
                                 onChange={e => setDriverEmail(e.target.value)}
@@ -1005,27 +1129,32 @@ export const DriverStep: React.FC<DriverStepProps> = ({
                         <button
                             type="submit"
                             onMouseEnter={() => soundManager.playHover()}
-                            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-black text-2xl py-6 rounded-2xl shadow-xl shadow-blue-600/20 active:scale-95 hover:scale-[1.02] transition-all flex items-center justify-center gap-3"
+                            className="w-full bg-amber-400 hover:bg-amber-300 text-black font-black text-lg md:text-2xl py-4 md:py-5 rounded-2xl shadow-xl shadow-amber-500/30 active:scale-95 hover:scale-[1.01] transition-all flex items-center justify-center gap-3"
                         >
-                            {t('kiosk.start')} <ChevronRight size={32} />
+                            {t('kiosk.start')} <ChevronRight size={24} />
                         </button>
                     </form>
                 </div>
-                <div className="bg-black/40 rounded-3xl border border-gray-800 p-6 backdrop-blur-sm animate-in slide-in-from-right-8 duration-700">
-                    <h3 className="text-2xl font-black text-white mb-4 flex items-center gap-3">
-                        <Trophy className="text-yellow-400" /> {t('kiosk.topTimes')}
+                <div className="bg-slate-950/60 rounded-3xl border border-white/10 p-4 md:p-5 backdrop-blur-sm animate-in slide-in-from-right-8 duration-700 min-h-0 overflow-hidden">
+                    <h3 className="text-base md:text-xl font-bold text-white mb-3 flex items-center gap-2 uppercase tracking-widest">
+                        <Trophy className="text-amber-300" /> {t('kiosk.topTimes')}
                     </h3>
-                    <div className="space-y-3 text-left">
+                    <div className="space-y-2 text-left">
+                        {topTimes.length === 0 && (
+                            <div className="rounded-xl border border-white/10 bg-slate-900/40 p-3 text-sm text-slate-400">
+                                Aun no hay tiempos registrados para esta combinacion.
+                            </div>
+                        )}
                         {topTimes.map((entry, idx) => (
-                            <div key={entry.pos} className={`flex items-center gap-4 p-3 rounded-xl transition-all ${idx === 0 ? 'bg-yellow-500/10 border border-yellow-500/30' : 'bg-gray-800/50'}`}>
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black ${idx === 0 ? 'bg-yellow-500 text-black' : idx === 1 ? 'bg-gray-400 text-black' : idx === 2 ? 'bg-orange-700 text-white' : 'bg-gray-700 text-gray-300'}`}>
+                            <div key={entry.pos} className={`flex items-center gap-3 p-2.5 rounded-xl transition-all ${idx === 0 ? 'bg-yellow-500/10 border border-yellow-500/30' : 'bg-gray-800/50'}`}>
+                                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black ${idx === 0 ? 'bg-yellow-500 text-black' : idx === 1 ? 'bg-gray-400 text-black' : idx === 2 ? 'bg-orange-700 text-white' : 'bg-gray-700 text-gray-300'}`}>
                                     {entry.pos}
                                 </div>
                                 <div className="flex-1">
-                                    <p className="font-bold text-white">{entry.name}</p>
+                                    <p className="font-bold text-white text-sm truncate">{entry.name}</p>
                                     <p className="text-xs text-gray-500">{entry.car}</p>
                                 </div>
-                                <div className={`font-mono font-bold text-lg ${idx === 0 ? 'text-yellow-400' : 'text-green-400'}`}>
+                                <div className={`font-mono font-bold text-sm md:text-base ${idx === 0 ? 'text-yellow-400' : 'text-green-400'}`}>
                                     {entry.time}
                                 </div>
                             </div>
@@ -1053,10 +1182,10 @@ export const CoachSection: React.FC<CoachSectionProps> = ({ lapId }) => {
         enabled: !!lapId
     });
 
-    if (isLoading) return <div className="bg-gray-800/20 p-8 rounded-3xl border border-gray-700 animate-pulse text-center text-gray-400">Analizando telemetría...</div>;
+    if (isLoading) return <div className="bg-gray-800/20 p-8 rounded-3xl border border-gray-700 animate-pulse text-center text-slate-400">Analizando telemetria...</div>;
     if (!coachAnalysis || coachAnalysis.tips.length === 0) return (
         <div className="bg-gray-800/20 p-6 rounded-3xl border border-gray-700 text-center">
-            <p className="text-gray-400 italic">No hay suficientes datos para el análisis comparativo todavía.</p>
+            <p className="text-slate-400 italic">No hay suficientes datos para el analisis comparativo todavia.</p>
         </div>
     );
 
@@ -1079,7 +1208,7 @@ export const CoachSection: React.FC<CoachSectionProps> = ({ lapId }) => {
                         </div>
                         <div>
                             <h5 className="font-bold text-white uppercase text-xs mb-1 tracking-wider">
-                                {tip.type === 'braking' ? 'Punto de frenada' : tip.type === 'apex' ? 'Velocidad en el vértice' : 'Tracción/Salida'}
+                                {tip.type === 'braking' ? 'Punto de frenada' : tip.type === 'apex' ? 'Velocidad en el vertice' : 'Traccion/Salida'}
                             </h5>
                             <p className="text-sm text-gray-300 leading-tight">{tip.message}</p>
                         </div>
@@ -1093,7 +1222,7 @@ export const CoachSection: React.FC<CoachSectionProps> = ({ lapId }) => {
                         <Activity size={18} className="text-green-400" /> VELOCIDAD VS GHOST ({coachAnalysis.reference_driver_name})
                     </h4>
                     <div className="flex gap-4 text-xs font-bold">
-                        <div className="flex items-center gap-1"><div className="w-3 h-3 bg-blue-500 rounded-full"></div> TÚ</div>
+                        <div className="flex items-center gap-1"><div className="w-3 h-3 bg-amber-400 rounded-full"></div> TU</div>
                         <div className="flex items-center gap-1"><div className="w-3 h-3 bg-green-500 rounded-full"></div> GHOST</div>
                     </div>
                 </div>
@@ -1122,6 +1251,7 @@ interface RaceModeProps {
     remainingSeconds: number;
     selection: KioskSelection | null;
     driver: { name: string } | null;
+    transmission?: string;
     setIsLaunched: (l: boolean) => void;
     setStep: (s: number) => void;
     setDriver: (d: any) => void;
@@ -1135,102 +1265,375 @@ interface RaceModeProps {
 }
 
 export const RaceMode: React.FC<RaceModeProps> = ({
-    remainingSeconds, selection, driver, setIsLaunched, setStep, setDriver, setDriverName, setDriverEmail,
+    remainingSeconds, selection, driver, transmission, setIsLaunched, setStep, setDriver, setDriverName, setDriverEmail,
     noPaymentHandledRef, paymentHandledRef, stationId, clientTokenHeaders, setSelection
 }) => {
     const minutes = Math.floor(remainingSeconds / 60);
     const seconds = remainingSeconds % 60;
     const isLowTime = remainingSeconds < 60;
 
+    // Fetch live telemetry for user feedback
+    const { data: telemetry } = useQuery({
+        queryKey: ['telemetry-live', stationId],
+        queryFn: async () => {
+            const res = await axios.get(`${API_URL}/telemetry/live/${stationId}`);
+            return res.data;
+        },
+        refetchInterval: 500, // Poll every 500ms
+        retry: false
+    });
+
+    const bestLapRaw = telemetry?.laps?.best ?? '--:--.---';
+    const lastLapRaw = telemetry?.laps?.last ?? '--:--.---';
+    const fuelRaw = telemetry?.physics?.fuel ?? telemetry?.fuel ?? 0;
+
+    const toMs = (value: any): number | null => {
+        if (typeof value === 'number') {
+            if (!Number.isFinite(value) || value <= 0) return null;
+            if (value >= 1000) return value;
+            if (value >= 20) return Math.round(value * 1000);
+            return null;
+        }
+        if (typeof value === 'string') {
+            const raw = value.trim();
+            if (!raw || raw === '--:--.---') return null;
+            if (/^\d+(\.\d+)?$/.test(raw)) {
+                const num = Number(raw);
+                if (!Number.isFinite(num) || num <= 0) return null;
+                return num >= 1000 ? num : Math.round(num * 1000);
+            }
+            const match = raw.match(/^(\d+):(\d{1,2})(?:\.(\d{1,3}))?$/);
+            if (match) {
+                const mins = Number(match[1]);
+                const secs = Number(match[2]);
+                const millis = Number((match[3] || '0').padEnd(3, '0'));
+                if (!Number.isFinite(mins) || !Number.isFinite(secs) || !Number.isFinite(millis)) return null;
+                return (mins * 60 * 1000) + (secs * 1000) + millis;
+            }
+        }
+        return null;
+    };
+
+    const toSectorMs = (value: any): number | null => {
+        if (typeof value === 'number') {
+            if (!Number.isFinite(value) || value <= 0) return null;
+            return value >= 1000 ? value : Math.round(value * 1000);
+        }
+        if (typeof value === 'string') {
+            const numeric = Number(value);
+            if (!Number.isFinite(numeric) || numeric <= 0) return null;
+            return numeric >= 1000 ? numeric : Math.round(numeric * 1000);
+        }
+        return null;
+    };
+
+    const pickSectors = (source: any): (number | null)[] | null => {
+        if (!source) return null;
+        if (Array.isArray(source)) {
+            const parsed = source.slice(0, 3).map((v) => toSectorMs(v));
+            if (parsed.some((v) => v !== null)) return parsed;
+            return null;
+        }
+        if (typeof source === 'object') {
+            const parsed = [
+                toSectorMs(source.s1 ?? source.sector1 ?? source.sector_1 ?? source[0]),
+                toSectorMs(source.s2 ?? source.sector2 ?? source.sector_2 ?? source[1]),
+                toSectorMs(source.s3 ?? source.sector3 ?? source.sector_3 ?? source[2])
+            ];
+            if (parsed.some((v) => v !== null)) return parsed;
+        }
+        return null;
+    };
+
+    const formatLapMs = (ms: number | null): string => {
+        if (ms === null) return '--:--.---';
+        const minutesPart = Math.floor(ms / 60000);
+        const secondsPart = ((ms % 60000) / 1000).toFixed(3);
+        return `${minutesPart}:${secondsPart.padStart(6, '0')}`;
+    };
+
+    const formatSectorMs = (ms: number | null): string => {
+        if (ms === null) return '--.---';
+        return `${(ms / 1000).toFixed(3)}s`;
+    };
+
+    const formatDeltaMs = (ms: number | null): string => {
+        if (ms === null) return '--.---';
+        const sign = ms >= 0 ? '+' : '-';
+        return `${sign}${Math.abs(ms / 1000).toFixed(3)}s`;
+    };
+
+    const normalizeLapDisplay = (raw: any, parsedMs: number | null): string => {
+        if (typeof raw === 'string') {
+            const trimmed = raw.trim();
+            if (!trimmed || trimmed === '--:--.---') return '--:--.---';
+            if (/^\d+(\.\d+)?$/.test(trimmed)) {
+                return formatLapMs(toMs(trimmed));
+            }
+            return trimmed;
+        }
+        return formatLapMs(parsedMs);
+    };
+
+    const bestLapMs = toMs(bestLapRaw);
+    const lastLapMs = toMs(lastLapRaw);
+    const currentLapMs = [
+        telemetry?.laps?.current_time,
+        telemetry?.laps?.current_lap_time,
+        telemetry?.laps?.current_ms,
+        telemetry?.physics?.lap_time_ms,
+        telemetry?.lap_time_ms,
+        telemetry?.laps?.current
+    ].map((v) => toMs(v)).find((v) => v !== null) ?? null;
+
+    const bestLapDisplay = normalizeLapDisplay(bestLapRaw, bestLapMs);
+    const lastLapDisplay = normalizeLapDisplay(lastLapRaw, lastLapMs);
+    const deltaMs = (bestLapMs !== null && currentLapMs !== null) ? (currentLapMs - bestLapMs) : null;
+    const deltaClass = deltaMs === null ? 'text-slate-500' : deltaMs <= 0 ? 'text-emerald-400' : 'text-red-400';
+
+    const currentSectors = pickSectors(
+        telemetry?.laps?.current_sectors
+        || telemetry?.laps?.sectors_current
+        || telemetry?.laps?.sectors
+        || telemetry?.sectors
+        || telemetry?.physics?.sectors
+        || telemetry?.laps?.last_sectors
+        || telemetry?.laps?.splits
+    ) || [null, null, null];
+
+    const bestSectors = pickSectors(
+        telemetry?.laps?.best_sectors
+        || telemetry?.laps?.sectors_best
+        || telemetry?.best_sectors
+        || telemetry?.bestSectors
+    ) || [null, null, null];
+
+    const fuelValue = typeof fuelRaw === 'number' ? fuelRaw : Number.parseFloat(String(fuelRaw));
+    const safeFuel = Number.isFinite(fuelValue) ? fuelValue : 0;
+    const referenceLapMs = lastLapMs ?? bestLapMs;
+    const explicitFuelPerLap = [
+        telemetry?.physics?.fuel_per_lap,
+        telemetry?.physics?.fuelPerLap,
+        telemetry?.fuel_per_lap
+    ].map((v) => Number(v)).find((v) => Number.isFinite(v) && v > 0) ?? null;
+    const fuelRatePerSec = [
+        telemetry?.physics?.fuel_rate_l_per_s,
+        telemetry?.physics?.fuelRateLps,
+        telemetry?.physics?.fuel_rate,
+        telemetry?.fuel_rate_l_per_s
+    ].map((v) => Number(v)).find((v) => Number.isFinite(v) && v > 0) ?? null;
+    const estimatedFuelPerLap = explicitFuelPerLap
+        ?? ((fuelRatePerSec && referenceLapMs) ? fuelRatePerSec * (referenceLapMs / 1000) : null)
+        ?? 2.6;
+    const estimatedLapsLeft = safeFuel > 0 && estimatedFuelPerLap > 0
+        ? safeFuel / estimatedFuelPerLap
+        : null;
+
+    const HOLD_TO_CANCEL_MS = 1300;
+    const [cancelHoldProgress, setCancelHoldProgress] = useState(0);
+    const [isHoldingCancel, setIsHoldingCancel] = useState(false);
+    const [isCancelling, setIsCancelling] = useState(false);
+    const holdIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const holdStartRef = useRef<number | null>(null);
+    const holdTriggeredRef = useRef(false);
+
+    useEffect(() => {
+        return () => {
+            if (holdIntervalRef.current) {
+                clearInterval(holdIntervalRef.current);
+                holdIntervalRef.current = null;
+            }
+        };
+    }, []);
+
+    const clearCancelHold = () => {
+        if (holdIntervalRef.current) {
+            clearInterval(holdIntervalRef.current);
+            holdIntervalRef.current = null;
+        }
+    };
+
+    const performCancelSession = async () => {
+        if (isCancelling) return;
+        setIsCancelling(true);
+        soundManager.playConfirm();
+        try {
+            await axios.post(`${API_URL}/control/station/${stationId}/panic`, null, { headers: clientTokenHeaders });
+        } catch (e) {
+            console.error('Error sending panic:', e);
+        } finally {
+            setIsLaunched(false);
+            setStep(1);
+            setSelection(null);
+            setDriver(null);
+            setDriverName('');
+            setDriverEmail('');
+            noPaymentHandledRef.current = false;
+            paymentHandledRef.current = false;
+            setIsCancelling(false);
+        }
+    };
+
+    const startCancelHold = () => {
+        if (isCancelling || holdIntervalRef.current) return;
+        holdTriggeredRef.current = false;
+        holdStartRef.current = Date.now();
+        setIsHoldingCancel(true);
+        setCancelHoldProgress(0);
+
+        holdIntervalRef.current = setInterval(() => {
+            const startedAt = holdStartRef.current;
+            if (!startedAt) return;
+            const elapsed = Date.now() - startedAt;
+            const progress = Math.min(100, (elapsed / HOLD_TO_CANCEL_MS) * 100);
+            setCancelHoldProgress(progress);
+
+            if (progress >= 100 && !holdTriggeredRef.current) {
+                holdTriggeredRef.current = true;
+                clearCancelHold();
+                setIsHoldingCancel(false);
+                setCancelHoldProgress(100);
+                void performCancelSession();
+            }
+        }, 40);
+    };
+
+    const stopCancelHold = () => {
+        if (holdTriggeredRef.current) return;
+        clearCancelHold();
+        setIsHoldingCancel(false);
+        setCancelHoldProgress(0);
+    };
+
     return (
-        <div className="h-full flex flex-col animate-in fade-in duration-500">
-            <div className={`text-center py-4 rounded-2xl mb-6 transition-all duration-500 ${isLowTime ? 'bg-red-600 shadow-[0_0_30px_rgba(220,38,38,0.4)] animate-[pulse_1s_cubic-bezier(0.4,0,0.6,1)_infinite]' : 'bg-blue-500/10'}`}>
-                <div className={`text-7xl font-numeric font-black ${isLowTime ? 'text-white' : 'text-blue-400'}`}>
-                    <Clock className={cn("inline-block mr-3 -mt-2", isLowTime ? "text-white" : "text-blue-400")} size={56} />
+        <div className="h-full w-full min-h-0 grid grid-rows-[auto_auto_1fr_auto] gap-3 md:gap-4 animate-in fade-in duration-500 text-white bg-[radial-gradient(120%_120%_at_0%_0%,rgba(30,41,59,0.45),transparent_55%),radial-gradient(120%_140%_at_100%_0%,rgba(127,29,29,0.24),transparent_50%),linear-gradient(180deg,#020617,#020b1c)] p-3 md:p-4 rounded-2xl border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
+            <div className={`text-center py-2.5 rounded-2xl transition-all duration-500 ${isLowTime ? 'bg-red-600 shadow-[0_0_30px_rgba(220,38,38,0.4)] animate-[pulse_1s_cubic-bezier(0.4,0,0.6,1)_infinite]' : 'bg-slate-950/70 border border-red-500/35'}`}>
+                <div className={`text-4xl md:text-6xl font-numeric font-black ${isLowTime ? 'text-white' : 'text-amber-300'}`}>
+                    <Clock className={cn("inline-block mr-2 -mt-1", isLowTime ? "text-white" : "text-amber-300")} size={34} />
                     {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
                 </div>
-                <p className={`text-sm font-black uppercase tracking-[0.3em] mt-2 ${isLowTime ? 'text-white' : 'text-gray-500'}`}>
-                    {isLowTime ? '¡ÚLTIMO MINUTO-FINALIZANDO SESIÓN!' : 'TIEMPO RESTANTE'}
+                <p className={`text-[11px] md:text-xs font-black uppercase tracking-[0.25em] mt-1 ${isLowTime ? 'text-white' : 'text-gray-500'}`}>
+                    {isLowTime ? 'ULTIMO MINUTO' : 'TIEMPO RESTANTE'}
                 </p>
             </div>
 
-            <div className="flex justify-between items-center mb-8 border-b border-gray-800 pb-6">
-                <div>
-                    <h2 className="text-3xl font-black text-white">{selection?.track.toUpperCase()}</h2>
-                    <p className="text-xl text-blue-400 font-bold">{driver?.name}</p>
+            <div className="flex justify-between items-center gap-3 border-b border-gray-800 pb-2">
+                <div className="min-w-0">
+                    <h2 className="text-xl md:text-2xl font-black text-white truncate">{selection?.track?.toUpperCase() || 'CIRCUITO'}</h2>
+                    <p className="text-sm md:text-base text-amber-300 font-bold truncate">{driver?.name || 'PILOTO'}</p>
                 </div>
-                <button
-                    onClick={() => {
-                        if (confirm("¿Finalizar sesión y volver al menú?")) {
-                            setIsLaunched(false);
-                            setStep(1);
-                            setDriver(null);
-                            setDriverName('');
-                            setDriverEmail('');
-                            noPaymentHandledRef.current = false;
-                            paymentHandledRef.current = false;
-                        }
-                    }}
-                    className="bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white px-6 py-3 rounded-xl border border-red-500/50 font-bold flex items-center gap-2 transition-all"
-                >
-                    <LogOut size={20} /> SALIR
-                </button>
+                <div className="shrink-0 text-right">
+                    <p className="text-[10px] md:text-xs uppercase tracking-[0.22em] text-slate-500">Sesion activa</p>
+                    <p className="text-[11px] md:text-xs font-bold text-emerald-300">Salida segura con pulsacion larga</p>
+                </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-8 flex-1">
-                <div className="bg-black/40 rounded-3xl border border-gray-800 p-8 flex items-center justify-center relative overflow-hidden">
-                    <div className="text-center">
-                        <h3 className="text-6xl font-numeric text-white mb-2">1:45.302</h3>
-                        <p className="text-green-400 font-bold text-xl uppercase tracking-widest">Mejor Vuelta</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 min-h-0">
+                <div className="grid grid-rows-2 gap-3 md:gap-4 min-h-0">
+                    <div className="bg-slate-950/75 rounded-3xl border border-slate-700/70 p-4 md:p-5 flex items-center justify-center relative overflow-hidden">
+                        <div className="text-center z-10">
+                            <h3 className="text-3xl md:text-5xl font-numeric text-white mb-1">{bestLapDisplay}</h3>
+                            <p className="text-green-400 font-bold text-sm md:text-base uppercase tracking-widest">Mejor Vuelta</p>
+                        </div>
                     </div>
-                    <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-blue-500/10 to-transparent">
-                        <svg className="w-full h-full" preserveAspectRatio="none">
-                            <path d="M0,100 C150,50 300,80 450,20 L450,150 L0,150 Z" fill="rgba(59, 130, 246, 0.2)" />
-                        </svg>
-                    </div>
-                </div>
-
-                <div className="space-y-4">
-                    <h3 className="text-xl font-bold text-gray-400 mb-2">INGENIERO DE PISTA</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                        <button className="bg-red-900/40 border-2 border-red-600/50 hover:bg-red-600 hover:text-white text-red-400 p-6 rounded-2xl font-black text-xl transition-all">SOFT</button>
-                        <button className="bg-yellow-900/40 border-2 border-yellow-600/50 hover:bg-yellow-600 hover:text-white text-yellow-400 p-6 rounded-2xl font-black text-xl transition-all">MEDIUM</button>
-                        <button className="bg-white/10 border-2 border-gray-500/50 hover:bg-gray-100 hover:text-black text-gray-300 p-6 rounded-2xl font-black text-xl transition-all">HARD</button>
-                        <button className="bg-blue-900/40 border-2 border-blue-600/50 hover:bg-blue-600 hover:text-white text-blue-400 p-6 rounded-2xl font-black text-xl transition-all">WET</button>
-                    </div>
-                    <div className="mt-8">
-                        <h3 className="text-xl font-bold text-gray-400 mb-2">COMBUSTIBLE</h3>
-                        <div className="flex gap-4">
-                            <button className="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-bold py-4 rounded-xl border border-gray-700">+ 10L</button>
-                            <button className="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-bold py-4 rounded-xl border border-gray-700">LLENAR</button>
+                    <div className="bg-slate-950/75 rounded-3xl border border-slate-700/70 p-4 md:p-5 flex items-center justify-center relative overflow-hidden">
+                        <div className="text-center z-10">
+                            <h3 className="text-3xl md:text-4xl font-numeric text-gray-300 mb-1">{lastLapDisplay}</h3>
+                            <p className="text-gray-500 font-bold text-xs uppercase tracking-widest">Ultima Vuelta</p>
                         </div>
                     </div>
                 </div>
+
+                <div className="grid grid-rows-[auto_auto_auto_1fr] gap-3 md:gap-4 min-h-0">
+                    <div className="bg-slate-950/70 p-3 md:p-4 rounded-2xl border border-slate-700/70 flex justify-between items-center">
+                        <div>
+                            <h3 className="text-sm md:text-base font-bold text-slate-400 mb-1">COMBUSTIBLE</h3>
+                            <div className="text-2xl md:text-3xl font-black text-white">{safeFuel.toFixed(1)} L</div>
+                            <p className="text-[11px] md:text-xs text-slate-500 mt-1">
+                                {estimatedLapsLeft !== null ? `~ ${estimatedLapsLeft.toFixed(1)} vueltas restantes` : 'Sin estimacion de consumo'}
+                            </p>
+                        </div>
+                        <button className="px-3 py-2 bg-slate-800 rounded-lg text-[10px] md:text-xs font-bold text-slate-400 border border-slate-600/60" disabled>
+                            REQUEST PIT
+                        </button>
+                    </div>
+
+                    <div className="bg-slate-950/70 p-3 md:p-4 rounded-2xl border border-slate-700/70 flex items-center justify-between gap-3">
+                        <div>
+                            <h3 className="text-sm md:text-base font-bold text-slate-400 mb-1">TRANSMISION</h3>
+                            <div className="text-lg md:text-xl font-black text-white">
+                                {transmission === 'manual' ? 'MANUAL' : 'AUTOMATICO'}
+                            </div>
+                        </div>
+                        <div className="text-right text-xs text-slate-500">
+                            <div>{selection?.car || 'CAR'}</div>
+                        </div>
+                    </div>
+
+                    <div className="bg-slate-950/70 p-3 md:p-4 rounded-2xl border border-slate-700/70">
+                        <div className="flex items-center justify-between gap-2">
+                            <h3 className="text-sm md:text-base font-bold text-slate-400">RITMO EN VIVO</h3>
+                            <div className={`text-sm md:text-base font-black font-mono ${deltaClass}`}>
+                                {formatDeltaMs(deltaMs)}
+                            </div>
+                        </div>
+                        <p className="text-[10px] md:text-xs text-slate-500 mt-0.5">DELTA VS MEJOR</p>
+                        <div className="grid grid-cols-3 gap-2 mt-2.5">
+                            {[0, 1, 2].map((idx) => {
+                                const current = currentSectors[idx] ?? null;
+                                const best = bestSectors[idx] ?? null;
+                                const sectorClass = current === null || best === null
+                                    ? 'text-slate-400 border-slate-700'
+                                    : current <= best
+                                        ? 'text-emerald-400 border-emerald-500/40'
+                                        : (current - best) < 200
+                                            ? 'text-amber-300 border-amber-500/40'
+                                            : 'text-red-400 border-red-500/40';
+                                return (
+                                    <div key={idx} className={`rounded-xl border bg-black/25 px-2.5 py-2 text-center ${sectorClass}`}>
+                                        <div className="text-[10px] font-black tracking-widest">S{idx + 1}</div>
+                                        <div className="text-xs md:text-sm font-mono font-black">{formatSectorMs(current)}</div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    <div className="min-h-0">
+                        <h3 className="text-sm md:text-base font-bold text-slate-400 mb-2">INGENIERO DE PISTA (SIMULADO)</h3>
+                        <div className="grid grid-cols-2 gap-2 md:gap-3">
+                            <button className="bg-red-900/20 border border-red-600/30 text-red-400/50 p-2.5 md:p-3 rounded-xl font-black text-xs md:text-sm cursor-not-allowed">SOFT</button>
+                            <button className="bg-yellow-900/20 border border-yellow-600/30 text-yellow-400/50 p-2.5 md:p-3 rounded-xl font-black text-xs md:text-sm cursor-not-allowed">MEDIUM</button>
+                            <button className="bg-white/10 border border-gray-500/30 text-gray-500 p-2.5 md:p-3 rounded-xl font-black text-xs md:text-sm cursor-not-allowed">HARD</button>
+                            <button className="bg-red-950/30 border border-red-500/30 text-amber-300/50 p-2.5 md:p-3 rounded-xl font-black text-xs md:text-sm cursor-not-allowed">WET</button>
+                        </div>
+                        <p className="text-center text-[10px] text-gray-600 mt-2">Controles de boxes deshabilitados en modo kiosko simplificado.</p>
+                    </div>
+                </div>
             </div>
 
-            <div className="mt-8 border-t border-gray-800 pt-6">
+            <div>
                 <button
-                    onClick={async () => {
-                        if (confirm('¿Seguro que quieres CANCELAR la sesión? El juego se cerrará.')) {
-                            try {
-                                await axios.post(`${API_URL}/control/station/${stationId}/panic`, null, { headers: clientTokenHeaders });
-                            } catch (e) {
-                                console.error('Error sending panic:', e);
-                            }
-                            setIsLaunched(false);
-                            setStep(1);
-                            setSelection(null);
-                            setDriver(null);
-                            setDriverName('');
-                            setDriverEmail('');
-                            noPaymentHandledRef.current = false;
-                            paymentHandledRef.current = false;
-                        }
-                    }}
-                    className="w-full bg-red-600/20 hover:bg-red-600 border-2 border-red-600/50 text-red-400 hover:text-white font-black text-2xl py-6 rounded-2xl transition-all flex items-center justify-center gap-4"
+                    onPointerDown={startCancelHold}
+                    onPointerUp={stopCancelHold}
+                    onPointerLeave={stopCancelHold}
+                    onPointerCancel={stopCancelHold}
+                    onContextMenu={(e) => e.preventDefault()}
+                    disabled={isCancelling}
+                    className="relative w-full overflow-hidden bg-red-900/40 hover:bg-red-600 border-2 border-red-500/60 text-red-200 hover:text-white font-black text-base md:text-xl py-3 md:py-4 rounded-2xl transition-all flex items-center justify-center gap-3 disabled:opacity-60"
                 >
-                    <LogOut size={28} /> CANCELAR SESIÓN
+                    <div
+                        className="absolute inset-y-0 left-0 bg-red-500/50 transition-[width] duration-75"
+                        style={{ width: `${cancelHoldProgress}%` }}
+                    />
+                    <span className="relative z-10 flex items-center justify-center gap-3">
+                        <LogOut size={20} />
+                        {isCancelling ? 'CANCELANDO...' : 'CANCELAR SESION'}
+                    </span>
                 </button>
+                <p className="text-center text-[10px] md:text-xs text-slate-500 mt-1.5">
+                    {isHoldingCancel ? 'Manten pulsado para confirmar cancelacion...' : 'Manten pulsado 1.3s para cancelar la sesion'}
+                </p>
             </div>
         </div>
     );
@@ -1292,30 +1695,30 @@ export const ResultsStep: React.FC<ResultsStepProps> = ({ driver, selection }) =
             <div className="h-full flex flex-col items-center justify-center animate-pulse">
                 <Trophy size={80} className="text-gray-600 mb-6" />
                 <h2 className="text-4xl font-black text-white">PROCESANDO RESULTADOS...</h2>
-                <p className="text-gray-400 mt-2">Recibiendo telemetría del coche...</p>
+                <p className="text-slate-400 mt-2">Recibiendo telemetria del coche...</p>
             </div>
         );
     }
 
     return (
-        <div className="h-full flex flex-col p-8 animate-in zoom-in duration-500 max-w-7xl mx-auto w-full">
+        <div className="h-full flex flex-col p-4 md:p-8 animate-in zoom-in duration-500 max-w-7xl mx-auto w-full">
             <div className="text-center mb-8">
-                <h2 className="text-5xl font-black text-white italic tracking-tighter mb-2">RESULTADOS DE SESIÓN</h2>
-                <p className="text-xl text-gray-400">{session?.track_name} • {session?.car_model}</p>
+                <h2 className="text-3xl md:text-5xl font-black text-white italic tracking-tighter mb-2">RESULTADOS DE SESION</h2>
+                <p className="text-xl text-slate-400">{session?.track_name} - {session?.car_model}</p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 flex-1 min-h-0">
                 <div className="lg:col-span-1 space-y-6">
                     <div className="bg-gray-800/50 p-6 rounded-3xl border border-gray-700 text-center">
-                        <div className="text-gray-400 font-bold mb-2">MEJOR VUELTA</div>
+                        <div className="text-slate-400 font-bold mb-2">MEJOR VUELTA</div>
                         <div className="text-6xl font-numeric text-white">{formatTime(session?.best_lap || 0)}</div>
                     </div>
                     <div className="bg-gray-800/50 p-6 rounded-3xl border border-gray-700 flex flex-col items-center">
-                        <h4 className="text-gray-400 font-bold mb-4">CONSISTENCIA</h4>
+                        <h4 className="text-slate-400 font-bold mb-4">CONSISTENCIA</h4>
                         <div className="relative w-40 h-40 flex items-center justify-center">
                             <svg className="w-full h-full transform -rotate-90">
                                 <circle cx="80" cy="80" r="70" stroke="#374151" strokeWidth="12" fill="none" />
-                                <circle cx="80" cy="80" r="70" stroke="#3b82f6" strokeWidth="12" fill="none" strokeDasharray="440" strokeDashoffset={440 - (440 * (session?.consistency || 85)) / 100} strokeLinecap="round" className="transition-all duration-1000" />
+                                <circle cx="80" cy="80" r="70" stroke="#ef4444" strokeWidth="12" fill="none" strokeDasharray="440" strokeDashoffset={440 - (440 * (session?.consistency || 85)) / 100} strokeLinecap="round" className="transition-all duration-1000" />
                             </svg>
                             <div className="absolute inset-0 flex flex-col items-center justify-center">
                                 <span className="text-4xl font-black text-white">{session?.consistency || 85}%</span>
@@ -1326,7 +1729,7 @@ export const ResultsStep: React.FC<ResultsStepProps> = ({ driver, selection }) =
                 <div className="lg:col-span-2 space-y-8 flex flex-col">
                     <div className="bg-gray-800/50 p-6 rounded-3xl border border-gray-700 flex-1">
                         <h4 className="text-white font-bold mb-6 flex items-center gap-2">
-                            <TrendingUp className="text-blue-400" /> PROGRESO DE VUELTAS
+                            <TrendingUp className="text-amber-300" /> PROGRESO DE VUELTAS
                         </h4>
                         <div className="h-64 w-full">
                             <ResponsiveContainer width="100%" height="100%">
@@ -1335,24 +1738,24 @@ export const ResultsStep: React.FC<ResultsStepProps> = ({ driver, selection }) =
                                     <XAxis dataKey="lap" stroke="#9ca3af" />
                                     <YAxis stroke="#9ca3af" domain={['auto', 'auto']} />
                                     <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '12px', color: '#fff' }} />
-                                    <Line type="monotone" dataKey="time" stroke="#3b82f6" strokeWidth={4} dot={{ r: 6, fill: '#3b82f6' }} activeDot={{ r: 8 }} />
+                                    <Line type="monotone" dataKey="time" stroke="#ef4444" strokeWidth={4} dot={{ r: 6, fill: '#ef4444' }} activeDot={{ r: 8 }} />
                                 </LineChart>
                             </ResponsiveContainer>
                         </div>
                     </div>
-                    <div className="bg-blue-600/10 border border-blue-500/30 p-8 rounded-3xl">
+                    <div className="bg-red-500/10 border border-red-500/30 p-8 rounded-3xl">
                         <div className="flex items-center gap-4 mb-6">
-                            <div className="bg-blue-600 p-3 rounded-2xl"><Activity className="text-white" size={32} /></div>
+                            <div className="bg-red-500 p-3 rounded-2xl"><Activity className="text-white" size={32} /></div>
                             <div>
                                 <h3 className="text-2xl font-black text-white">AI COACH ANALYSIS</h3>
-                                <p className="text-blue-400 font-bold uppercase tracking-widest text-xs">Comparativa con el récord del circuito</p>
+                                <p className="text-amber-300 font-bold uppercase tracking-widest text-xs">Comparativa con el record del circuito</p>
                             </div>
                         </div>
                         <CoachSection lapId={session?.best_lap_id} />
                     </div>
                 </div>
             </div>
-            <div className="mt-8 flex gap-8 items-center bg-gray-900 border border-gray-800 p-6 rounded-3xl">
+            <div className="mt-8 flex flex-col md:flex-row gap-6 md:gap-8 items-start md:items-center bg-gray-900 border border-gray-800 p-4 md:p-6 rounded-3xl">
                 <div className="bg-white p-4 rounded-xl shadow-lg">
                     <QRCodeCanvas
                         value={`${window.location.origin}/p/${encodeURIComponent(driver?.name || '')}`}
@@ -1362,11 +1765,11 @@ export const ResultsStep: React.FC<ResultsStepProps> = ({ driver, selection }) =
                     />
                 </div>
                 <div className="flex-1">
-                    <h3 className="text-3xl font-black text-white italic uppercase tracking-tighter mb-2">¡LLEVATE TUS DATOS!</h3>
-                    <p className="text-gray-400 text-lg mb-4">Escanea este código para guardar tu telemetría, comparar con tus amigos y ver tu nivel de piloto en tu móvil.</p>
+                    <h3 className="text-3xl font-black text-white italic uppercase tracking-tighter mb-2">!LLEVATE TUS DATOS!</h3>
+                    <p className="text-slate-400 text-lg mb-4">Escanea este codigo para guardar tu telemetria, comparar con tus amigos y ver tu nivel de piloto en tu movil.</p>
                     <div className="flex gap-4">
                         <button onClick={() => window.location.reload()} className="px-8 py-4 bg-gray-800 hover:bg-gray-700 text-white font-bold rounded-2xl border border-gray-600 transition-all">
-                            Cerrar Sesión
+                            Cerrar Sesion
                         </button>
                     </div>
                 </div>
@@ -1374,3 +1777,10 @@ export const ResultsStep: React.FC<ResultsStepProps> = ({ driver, selection }) =
         </div>
     );
 };
+
+
+
+
+
+
+

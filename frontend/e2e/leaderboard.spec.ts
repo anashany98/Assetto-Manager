@@ -1,44 +1,55 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Leaderboard Page', () => {
-
     test('should display leaderboard on TV mode', async ({ page }) => {
         await page.goto('/tv/leaderboard');
 
-        // Should show leaderboard table OR empty state
         const table = page.getByRole('table');
-        const emptyState = page.getByText(/esperando tiempos|sin tiempos|waiting/i);
+        const emptyState = page.getByText(/sin tiempos registrados|esperando tiempos|waiting/i);
 
-        await expect(table.or(emptyState)).toBeVisible({ timeout: 10000 });
+        await expect(table.or(emptyState).first()).toBeVisible({ timeout: 10000 });
 
-        // If table exists, check headers
-        if (await table.isVisible()) {
-            await expect(page.getByText(/rank|posición/i)).toBeVisible();
-            await expect(page.getByText(/piloto|driver/i)).toBeVisible();
-            await expect(page.getByText(/tiempo|time/i)).toBeVisible();
+        if (await table.first().isVisible()) {
+            await expect(page.getByRole('columnheader', { name: /rank|posic/i })).toBeVisible();
+            await expect(page.getByRole('columnheader', { name: /piloto|driver/i })).toBeVisible();
+            await expect(page.getByRole('columnheader', { name: /tiempo|time/i })).toBeVisible();
+            return;
         }
+
+        await expect(emptyState.first()).toBeVisible();
     });
 
-
     test('should display track map', async ({ page }) => {
-        await page.goto('/tv/leaderboard');
-        // Map is on a tab usually? Or always visible in TV logic?
-        // Actually LeaderboardPage.tsx might NOT show map by default in TV mode unless tabbed?
-        // Adjusting test to be safe: check for map-container or tab button if exists
-        // If not found, skip.
+        await page.goto('/leaderboard');
+
+        const mapImage = page.locator('img[alt="Circuit Map"]');
+        const mapFallback = page.getByText(/mapa no disponible/i);
+
+        await expect(mapImage.or(mapFallback).first()).toBeVisible({ timeout: 10000 });
     });
 
     test('should filter by period (Desktop Mode)', async ({ page }) => {
         await page.goto('/leaderboard');
 
-        // Find period filters
-        const periodButtons = page.getByRole('button', { name: /hoy|semana|mes|histórico/i });
-        // assert count > 0 if possible, or just visible
+        const todayButton = page.getByRole('button', { name: /hoy/i });
+        const historyButton = page.getByRole('button', { name: /hist/i });
+
+        await expect(historyButton).toBeVisible();
+        await expect(todayButton).toBeVisible();
+
+        const todayRequest = page.waitForRequest((request) => {
+            const url = request.url();
+            return url.includes('/telemetry/leaderboard') && url.includes('period=today');
+        });
+
+        await todayButton.click();
+        await todayRequest;
+
+        await expect(todayButton).toHaveClass(/bg-blue-6/);
     });
 
     test('should show mobile leaderboard', async ({ page }) => {
         await page.goto('/mobile');
-        // Check for App Title
         await expect(page.getByText(/simracing bar/i)).toBeVisible();
     });
 });

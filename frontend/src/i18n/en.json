@@ -109,6 +109,7 @@
         "specialEvents": "SPECIAL EVENTS",
         "pickDuration": "CHOOSE DURATION:",
         "select": "SELECT",
+        "touchToStart": "TOUCH TO START",
         "welcomeDriver": "WELCOME DRIVER",
         "identifyToSave": "Identify yourself to save your times",
         "driverName": "DRIVER NAME",
@@ -117,7 +118,7 @@
         "topTimes": "TOP TIMES",
         "beatRecord": "Can you beat the record?",
         "payAndLaunch": "PAY & LAUNCH",
-        "paymentNote": "Simulator #{stationId} • Payment is completed on this screen.",
+        "paymentNote": "Simulator #{stationId} - Payment is completed on this screen.",
         "paymentTitle": "KIOSK PAYMENT",
         "paymentSubtitle": "Choose a method and scan the QR to pay.",
         "durationLabel": "Duration",
@@ -128,6 +129,12 @@
         "waitingPayment": "Waiting for payment confirmation...",
         "retryPayment": "Retry payment"
     },
+    "attract": {
+        "sessionRecord": "Session record",
+        "localRecord": "Local record",
+        "anyCarAnyTrack": "Any car / any track",
+        "canYouBeatIt": "Can you beat it?"
+    },
     "theme": {
         "dark": "Dark Mode",
         "light": "Light Mode",
@@ -135,3 +142,4 @@
         "switchToDark": "Switch to dark mode"
     }
 }
+

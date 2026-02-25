@@ -1,0 +1,61 @@
+{
+  "job_id": "cbe1507b9d954c0fa503cbd8032a9704",
+  "status": "failed_preflight",
+  "created_at": "2026-02-18T17:40:30.038602+00:00",
+  "started_at": null,
+  "finished_at": "2026-02-18T17:40:30.042841+00:00",
+  "requested_by": "admin",
+  "source_job_id": null,
+  "request": {
+    "deploy_map": {
+      "video": "test.ini"
+    },
+    "station_ids": [
+      5
+    ],
+    "group_names": null,
+    "hardware_target": null,
+    "strict": false
+  },
+  "station_results": {
+    "5": {
+      "station_id": 5,
+      "station_name": "DESKTOP-PESSNDT",
+      "status": "preflight_failed",
+      "preflight": {
+        "station_id": 5,
+        "station_name": "DESKTOP-PESSNDT",
+        "ok": false,
+        "errors": [
+          "Share not reachable: \\\\192.168.1.45\\AC_Config\\"
+        ],
+        "warnings": [
+          "Station reported offline (deploy may still work via SMB)"
+        ],
+        "checks": {
+          "is_active": true,
+          "is_online": false,
+          "has_ip": true,
+          "share_reachable": false,
+          "write_access": false,
+          "source_profiles_ok": true
+        }
+      },
+      "started_at": null,
+      "finished_at": null,
+      "error": null,
+      "warnings": [],
+      "applied": [],
+      "rollback_applied": false,
+      "rollback_errors": []
+    }
+  },
+  "summary": {
+    "total": 1,
+    "queued": 0,
+    "running": 0,
+    "success": 0,
+    "failed": 1,
+    "preflight_failed": 1
+  }
+}

@@ -194,8 +194,24 @@ export default function KioskMode() {
     const isKioskDisabled = hardwareStatus?.is_kiosk_mode === false;
     const hardwareWarning = !hardwareStatus?.is_online;
 
-    const selectedCarObj = useMemo(() => cars.find((c: any) => c.model === selection?.car), [cars, selection]);
-    const selectedTrackObj = useMemo(() => tracks.find((t: any) => t.name === selection?.track), [tracks, selection]);
+    const selectedCarObj = useMemo(
+        () =>
+            cars.find((c: any) =>
+                String(c.id) === String(selection?.car) ||
+                c.model === selection?.car ||
+                c.name === selection?.car
+            ),
+        [cars, selection]
+    );
+    const selectedTrackObj = useMemo(
+        () =>
+            tracks.find((t: any) =>
+                String(t.id) === String(selection?.track) ||
+                t.name === selection?.track ||
+                t.layout === selection?.track
+            ),
+        [tracks, selection]
+    );
 
     const { data: leaderboard = [] } = useQuery({
         queryKey: ['leaderboard', selection?.track, selection?.car],
@@ -232,6 +248,14 @@ export default function KioskMode() {
         onSuccess: () => setIsLaunched(true)
     });
 
+    const resolveApiError = (error: unknown, fallback: string) => {
+        if (axios.isAxiosError(error)) {
+            const detail = (error.response?.data as any)?.detail;
+            if (typeof detail === 'string' && detail.trim()) return detail;
+        }
+        return fallback;
+    };
+
     const launchWithoutPayment = async () => {
         // Session launch initiated
         setLaunchingNoPayment(true);
@@ -248,20 +272,24 @@ export default function KioskMode() {
                         car: selection.car,
                         duration: duration,
                         max_players: 10
-                    });
-                    setSelection(prev => prev ? ({ ...prev, lobbyId: res.data.id }) : null);
+                    }, { headers: clientTokenHeaders });
+                    const lobbyId = Number(res.data?.id ?? res.data?.lobby_id);
+                    setSelection(prev => prev ? ({ ...prev, lobbyId: Number.isFinite(lobbyId) ? lobbyId : prev.lobbyId }) : null);
                     setStep(6); // Go to Waiting Room
                 } else {
                     // Join Lobby
                     if (!selection.lobbyId) throw new Error("Missing Lobby ID");
                     await axios.post(`${API_URL}/lobby/${selection.lobbyId}/join`, {
                         station_id: stationId
-                    });
+                    }, { headers: clientTokenHeaders });
                     setStep(6); // Go to Waiting Room
                 }
             } catch (e) {
                 console.error("Lobby Error:", e);
-                alert("Error al acceder a la sala. Inténtalo de nuevo.");
+                const fallback = selection.isHost
+                    ? 'No se pudo crear la sala multijugador.'
+                    : 'No se pudo acceder a la sala multijugador.';
+                window.alert(resolveApiError(e, fallback));
             } finally {
                 setLaunchingNoPayment(false);
             }
@@ -281,6 +309,10 @@ export default function KioskMode() {
         queryFn: () => getScenarios(),
         enabled: !!stationId
     });
+    const activeScenarios = useMemo(
+        () => (Array.isArray(scenarios) ? scenarios.filter((scenario: any) => scenario?.is_active !== false) : []),
+        [scenarios]
+    );
 
     const kioskCodeFromUrl = useMemo(() => {
         const raw = searchParams.get('kiosk');
@@ -354,7 +386,7 @@ export default function KioskMode() {
                     return (
                         <ScenarioStep
                             t={t}
-                            scenarios={scenarios}
+                            scenarios={activeScenarios}
                             setSelection={setSelection}
                             setStep={setStep}
                             setSelectedScenario={setSelectedScenario}
@@ -456,6 +488,7 @@ export default function KioskMode() {
                             selection={selection}
                             stationId={stationId}
                             setIsLaunched={setIsLaunched}
+                            clientTokenHeaders={clientTokenHeaders}
                         />
                     );
                 case 7:
@@ -464,7 +497,7 @@ export default function KioskMode() {
                     return (
                         <ScenarioStep
                             t={t}
-                            scenarios={scenarios}
+                            scenarios={activeScenarios}
                             setSelection={setSelection}
                             setStep={setStep}
                             setSelectedScenario={setSelectedScenario}
@@ -509,7 +542,7 @@ export default function KioskMode() {
                     <div className="mt-6 flex flex-col items-center gap-3">
                         <button
                             onClick={() => refetchHardware()}
-                            className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-black uppercase tracking-widest rounded-xl"
+                            className="px-6 py-3 bg-red-500 hover:bg-red-400 text-black font-black uppercase tracking-widest rounded-xl"
                         >
                             {hardwareFetching ? 'Reintentando...' : 'Reintentar'}
                         </button>
@@ -552,15 +585,7 @@ export default function KioskMode() {
         );
     }
 
-    // Missing imports fix (needs to be at top of file, but replacing here for context)
-    // I will use a clever way to access recharts if not imported: 
-    // Actually, I can't inject imports easily without replacing top of file.
-    // I must update imports first.
-
-
-
-    // If launched, show Live Monitor instead of steps
-    // If launched, show Race Mode (User View) instead of Live Monitor (Admin View)
+    // If launched, show Race Mode (User View) instead of kiosk steps.
     if (isLaunched) {
         return (
             <AnimatePresence>
@@ -568,12 +593,13 @@ export default function KioskMode() {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="h-full w-full"
+                    className="h-screen w-screen overflow-hidden bg-[radial-gradient(140%_140%_at_0%_0%,rgba(15,23,42,0.7),transparent_55%),linear-gradient(180deg,#020617,#020b1c)] p-2 md:p-3"
                 >
                     <RaceMode
                         remainingSeconds={remainingSeconds}
                         selection={selection}
                         driver={driver}
+                        transmission={transmission}
                         setIsLaunched={setIsLaunched}
                         setStep={setStep}
                         setDriver={setDriver}
@@ -591,227 +617,28 @@ export default function KioskMode() {
     }
 
     return (
-        <div className="h-full w-full flex flex-col relative">
+        <div className="kiosk-shell h-screen w-screen flex flex-col relative overflow-hidden font-racing">
             <AttractMode
                 isIdle={isIdle()}
-                scenarios={scenarios}
+                scenarios={activeScenarios}
                 t={t}
                 onUnpair={() => {
-                    if (window.confirm('¿Desvincular esta tablet del simulador?')) {
+                    if (window.confirm('Desvincular esta tablet del simulador?')) {
                         clearPairedStationId();
                         setPairedKioskCode(null);
                         window.location.reload();
                     }
                 }}
             />
-            {/* BACKGROUND VIDEO/IMAGE */}
-            <div className="absolute inset-0 overflow-hidden">
-                {/* Dynamic Background Image (Bottom Layer) */}
-                {/* Dynamic Background Image (Bottom Layer) */}
-                {/* Dynamic Background Image (Bottom Layer) */}
-                {(() => {
-                    let filterClass = "filter-none";
-                    if (step === 4) {
-                        switch (weather) {
-                            case 'rain': filterClass = "grayscale brightness-75 contrast-125 saturate-50"; break;
-                            case 'cloud': filterClass = "grayscale brightness-90 contrast-75"; break;
-                            case 'fog': filterClass = "grayscale brightness-90 contrast-50 blur-sm"; break;
-                        }
-                        if (timeOfDay === 'night' || timeOfDay === 'evening') {
-                            filterClass += " brightness-50";
-                        }
-                    }
-
-                    return (
-                        <>
-                            <div
-                                className={`absolute inset-0 bg-cover bg-center transition-all duration-1000 ease-in-out transform scale-105 z-0 ${filterClass}`}
-                                style={{ backgroundImage: `url('/bg-kiosk.jpg')` }}
-                            />
-
-                            {/* LOGO DEL BAR OVERLAY */}
-                            <div className="absolute top-10 right-10 z-20 pointer-events-none animate-in fade-in slide-in-from-top-4 duration-1000">
-                                <img
-                                    src="/logo.png"
-                                    alt="Logo Bar"
-                                    className="w-48 h-auto drop-shadow-2xl opacity-90"
-                                />
-                            </div>
-                        </>
-                    );
-                })()}
-
-                {/* LAYER 1: Time of Day Tint (Gradient Overlay) - Controls Lighting */}
-                {(() => {
-                    let timeGradient = "from-gray-950 via-gray-900/50 to-transparent"; // Default Noon/Day
-                    let opacity = "opacity-40";
-
-                    if (step === 4) {
-                        switch (timeOfDay) {
-                            case 'evening':
-                                timeGradient = "from-purple-900/80 via-orange-900/40 to-orange-500/10";
-                                opacity = "opacity-60";
-                                break;
-                            case 'night':
-                                timeGradient = "from-black via-gray-950/90 to-blue-950/50";
-                                opacity = "opacity-90";
-                                break;
-                            case 'noon':
-                            default:
-                                timeGradient = "from-gray-950 via-gray-900/40 to-blue-400/5";
-                                opacity = "opacity-40";
-                                break;
-                        }
-                    }
-                    return <div className={`absolute inset-0 bg-gradient-to-t ${timeGradient} ${opacity} z-10 transition-all duration-1000`} />;
-                })()}
-
-                {/* VISUAL WEATHER OVERLAYS (Sun, Rain, Clouds, Fog) - TOP LAYER (z-10) */}
-                {step === 4 && (
-                    <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden">
-                        {/* SUN OVERLAY - GOD RAYS */}
-                        {weather === 'sun' && timeOfDay !== 'night' && (
-                            <div className={`transition-opacity duration-1000 ${timeOfDay === 'evening' ? 'opacity-50' : 'opacity-100'}`}>
-                                {/* Rotating Rays Container */}
-                                <div className="absolute top-[-250px] right-[-250px] w-[1000px] h-[1000px] animate-spin-very-slow opacity-30 origin-center pointer-events-none z-0">
-                                    {/* Beams */}
-                                    <div className="absolute top-1/2 left-1/2 w-full h-[200px] bg-gradient-to-r from-transparent via-yellow-100/40 to-transparent transform -translate-x-1/2 -translate-y-1/2 rotate-0 blur-3xl" />
-                                    <div className="absolute top-1/2 left-1/2 w-full h-[150px] bg-gradient-to-r from-transparent via-yellow-100/30 to-transparent transform -translate-x-1/2 -translate-y-1/2 rotate-45 blur-3xl" />
-                                    <div className="absolute top-1/2 left-1/2 w-full h-[200px] bg-gradient-to-r from-transparent via-yellow-100/40 to-transparent transform -translate-x-1/2 -translate-y-1/2 rotate-90 blur-3xl" />
-                                    <div className="absolute top-1/2 left-1/2 w-full h-[150px] bg-gradient-to-r from-transparent via-yellow-100/30 to-transparent transform -translate-x-1/2 -translate-y-1/2 rotate-135 blur-3xl" />
-                                </div>
-
-                                {/* Glow Core */}
-                                <div className="absolute top-[-50px] right-[-50px] w-[300px] h-[300px] bg-yellow-400/50 blur-[80px] rounded-full animate-pulse-slow z-10" />
-                                <div className="absolute top-[20px] right-[20px] w-[150px] h-[150px] bg-white/70 blur-[40px] rounded-full z-10" />
-                            </div>
-                        )}
-
-                        {/* RAIN OVERLAY - OPTIMIZED */}
-                        {weather === 'rain' && (
-                            <div className="absolute inset-0 w-full h-full z-20 overflow-hidden rain-container">
-                                {/* Generated Rain Drops - Reduced count */}
-                                {Array.from({ length: 25 }).map((_, i) => {
-                                    const randoHundo = Math.floor(Math.random() * 98) + 1;
-                                    const randoFiver = Math.floor(Math.random() * 4) + 2;
-                                    const increment = Math.floor(Math.random() * 100);
-                                    const delay = `0.${randoHundo}s`;
-
-                                    return (
-                                        <div
-                                            key={i}
-                                            className="drop"
-                                            style={{
-                                                left: `${increment}%`,
-                                                bottom: `${(randoFiver + randoFiver - 1 + 100)}%`,
-                                                animationDelay: delay,
-                                                animationDuration: '1s' // Faster fall
-                                            }}
-                                        >
-                                            <div className="stem" style={{ animationDelay: delay, animationDuration: '1s' }} />
-                                            {/* Removed Splat for Performance */}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-
-                        {/* CLOUDS OVERLAY */}
-                        {(weather === 'cloud' || weather === 'rain') && (
-                            <div className={`absolute top-0 left-0 w-full h-[60vh] transition-opacity duration-1000 ${weather === 'rain' ? 'opacity-90' : 'opacity-70'}`}>
-                                <div className="absolute top-[-50px] left-10 w-[600px] h-[200px] bg-gray-400/40 blur-[60px] rounded-full animate-float-slow" />
-                                <div className="absolute top-20 right-[-100px] w-[700px] h-[300px] bg-gray-500/40 blur-[80px] rounded-full animate-float-slower" />
-                            </div>
-                        )}
-
-                        {/* FOG OVERLAY - STATIC CSS BLUR instead of heavy anims if possible, but keeping drift for now as only 2 divs */}
-                        {weather === 'fog' && (
-                            <div className="absolute inset-0 bg-gray-300/20 backdrop-blur-[2px] z-10 overflow-hidden">
-                                {/* Drifting Fog Layers */}
-                                <div className="absolute bottom-0 left-0 w-[200%] h-[60vh] bg-gradient-to-t from-gray-200/50 via-gray-300/20 to-transparent blur-2xl animate-fog-drift" />
-                                <div className="absolute bottom-[-50px] left-[-50%] w-[200%] h-[50vh] bg-gradient-to-t from-gray-100/40 via-gray-200/10 to-transparent blur-3xl animate-fog-drift-reverse" />
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* CSS Animations style tag */}
-                <style>{`
-                    .rain-container {
-                        transform: rotate(10deg);
-                    }
-                    .drop {
-                      position: absolute;
-                      bottom: 100%;
-                      width: 15px;
-                      height: 120px;
-                      pointer-events: none;
-                      animation: drop 0.5s linear infinite;
-                    }
-
-                    @keyframes drop {
-                      0% { transform: translateY(0vh); }
-                      75% { transform: translateY(90vh); }
-                      100% { transform: translateY(90vh); }
-                    }
-
-                    .stem {
-                      width: 2px; /* Thicker for visibility with fewer drops */
-                      height: 60%;
-                      margin-left: 7px;
-                      background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.4));
-                      animation: stem 0.5s linear infinite;
-                    }
-
-                    @keyframes stem {
-                      0% { opacity: 1; }
-                      65% { opacity: 1; }
-                      75% { opacity: 0; }
-                      100% { opacity: 0; }
-                    }
-                    
-                    @keyframes float-slow {
-                        0%, 100% { transform: translate(0, 0); }
-                        50% { transform: translate(30px, 15px); }
-                    }
-                    @keyframes float-slower {
-                        0%, 100% { transform: translate(0, 0); }
-                        50% { transform: translate(-40px, 20px); }
-                    }
-
-                    @keyframes spin-very-slow {
-                        from { transform: rotate(0deg); }
-                        to { transform: rotate(360deg); }
-                    }
-                    .animate-spin-very-slow {
-                        animation: spin-very-slow 60s linear infinite;
-                    }
-
-                    @keyframes fog-drift {
-                        0% { transform: translateX(0); }
-                        50% { transform: translateX(-50px); }
-                        100% { transform: translateX(0); }
-                    }
-                    .animate-fog-drift {
-                        animation: fog-drift 20s ease-in-out infinite;
-                    }
-
-                    @keyframes fog-drift-reverse {
-                        0% { transform: translateX(0); }
-                        50% { transform: translateX(50px); }
-                        100% { transform: translateX(0); }
-                    }
-                    .animate-fog-drift-reverse {
-                        animation: fog-drift-reverse 25s ease-in-out infinite;
-                    }
-                `}</style>
-            </div>
+            <div className="absolute inset-0 kiosk-bg" />
+            <div className="absolute inset-0 kiosk-grid opacity-30" />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.6),rgba(2,6,23,0.85))]" />
 
             {true && (
-                <div className="relative z-20 h-full flex flex-col p-8 overflow-y-auto custom-scrollbar">
+                <div className="relative z-20 h-full flex flex-col p-3 md:p-5 overflow-hidden">
                     {/* TOP BAR */}
-                    <div className="flex justify-between items-center mb-8">
-                        <div className="flex items-center gap-6">
+                    <div className="flex flex-col xl:flex-row justify-between xl:items-center gap-3 md:gap-4 mb-3 md:mb-4">
+                        <div className="flex items-center gap-4 md:gap-6 flex-wrap">
                             {/* BACK BUTTON */}
                             {!isLaunched && step > 1 && (
                                 <button
@@ -819,29 +646,29 @@ export default function KioskMode() {
                                         soundManager.playClick();
                                         setStep(step - 1);
                                     }}
-                                    className="bg-gray-800 hover:bg-gray-700 text-white p-3 rounded-full transition-all border border-gray-700 hover:border-gray-500"
+                                    className="bg-slate-900/70 hover:bg-slate-800 text-white p-3 md:p-3.5 rounded-full transition-all border border-white/10 hover:border-red-400/40"
                                 >
-                                    <ChevronLeft size={24} />
+                                    <ChevronLeft size={26} />
                                 </button>
                             )}
-                            <div className="flex items-center gap-2">
-                                <Gauge className="text-gray-600" />
-                                <span className="text-gray-600 font-bold text-sm tracking-widest">AC MANAGER KIOSK v2.0 - {selectedScenario?.name || 'Standard'}</span>
+                            <div className="flex items-center gap-2.5">
+                                <Gauge className="text-slate-300" size={20} />
+                                <span className="text-slate-200 font-bold text-xs md:text-base tracking-widest">AC MANAGER KIOSK v2.0 - {selectedScenario?.name || 'Standard'}</span>
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-3 md:gap-4 flex-wrap">
                             {step === 1 && (
                                 <div className="flex gap-2">
                                     <button
                                         onClick={() => setLanguage('es')}
-                                        className={`px-3 py-2 rounded-lg text-xs font-black border ${language === 'es' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'}`}
+                                        className={`px-3.5 py-2.5 rounded-lg text-sm font-black border ${language === 'es' ? 'bg-red-500 border-red-400 text-black' : 'bg-slate-900/70 border-white/10 text-slate-300 hover:border-red-400/50'}`}
                                     >
                                         ES
                                     </button>
                                     <button
                                         onClick={() => setLanguage('en')}
-                                        className={`px-3 py-2 rounded-lg text-xs font-black border ${language === 'en' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'}`}
+                                        className={`px-3.5 py-2.5 rounded-lg text-sm font-black border ${language === 'en' ? 'bg-red-500 border-red-400 text-black' : 'bg-slate-900/70 border-white/10 text-slate-300 hover:border-red-400/50'}`}
                                     >
                                         EN
                                     </button>
@@ -850,27 +677,27 @@ export default function KioskMode() {
                             {/* CONNECTED INDICATORS */}
                             <div className="flex gap-2">
                                 {/* AGENT STATUS */}
-                                <div title={hardwareStatus?.is_online ? "Agente Online" : "Agente Offline"} className={`p-2 rounded-lg ${hardwareStatus?.is_online ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
-                                    <Activity size={20} className={hardwareStatus?.is_online ? "animate-pulse" : ""} />
+                                <div title={hardwareStatus?.is_online ? "Agente Online" : "Agente Offline"} className={`p-2.5 rounded-lg ${hardwareStatus?.is_online ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                                    <Activity size={22} className={hardwareStatus?.is_online ? "animate-pulse" : ""} />
                                 </div>
                                 {/* WHEEL STATUS */}
-                                <div title="Volante" className={`p-2 rounded-lg ${hardwareStatus?.wheel_connected ? 'bg-green-500/10 text-green-500' : 'bg-gray-800 text-gray-600'}`}>
-                                    <Disc size={20} className={hardwareStatus?.wheel_connected ? "animate-spin-slow" : ""} />
+                                <div title="Volante" className={`p-2.5 rounded-lg ${hardwareStatus?.wheel_connected ? 'bg-green-500/10 text-green-500' : 'bg-slate-900 text-slate-600'}`}>
+                                    <Disc size={22} className={hardwareStatus?.wheel_connected ? "animate-spin-slow" : ""} />
                                 </div>
                                 {/* PEDALS STATUS */}
-                                <div title="Pedales" className={`p-2 rounded-lg ${hardwareStatus?.pedals_connected ? 'bg-green-500/10 text-green-500' : 'bg-gray-800 text-gray-600'}`}>
-                                    <Footprints size={20} />
+                                <div title="Pedales" className={`p-2.5 rounded-lg ${hardwareStatus?.pedals_connected ? 'bg-green-500/10 text-green-500' : 'bg-slate-900 text-slate-600'}`}>
+                                    <Footprints size={22} />
                                 </div>
                             </div>
                             <div className="text-right">
-                                <div className="text-xs text-gray-500 font-bold uppercase">USUARIO</div>
-                                <div className="text-white font-bold">{driver ? driver.name : 'Invitado'}</div>
+                                <div className="text-xs md:text-sm text-slate-500 font-bold uppercase">USUARIO</div>
+                                <div className="text-white font-bold text-sm md:text-base">{driver ? driver.name : 'Invitado'}</div>
                             </div>
                         </div>
                     </div>
 
                     {hardwareWarning && (
-                        <div className="mb-6 bg-red-500/10 border border-red-500/30 rounded-2xl p-4 text-red-200 font-bold text-sm flex items-center gap-3">
+                        <div className="mb-3 bg-red-500/10 border border-red-500/30 rounded-2xl p-3 text-red-200 font-bold text-sm flex items-center gap-3">
                             <AlertCircle size={20} />
                             <span>
                                 {!hardwareStatus?.is_online && 'Agente desconectado. '}
@@ -881,7 +708,7 @@ export default function KioskMode() {
                         </div>
                     )}
 
-                    <div className="flex-1 flex flex-col justify-center max-w-7xl mx-auto w-full">
+                    <div className="flex-1 min-h-0 max-w-7xl mx-auto w-full">
                         {renderStep()}
                     </div>
                 </div>

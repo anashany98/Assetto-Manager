@@ -46,6 +46,10 @@ except ValueError:
     OBS_PORT = 4455
 OBS_PASSWORD = os.getenv("OBS_PASSWORD", "")
 STREAM_URL = os.getenv("STREAM_URL", "")
+IDLE_DISPLAY_ENABLED = os.getenv("IDLE_DISPLAY_ENABLED", "true").lower() in {"1", "true", "yes"}
+IDLE_DISPLAY_URL = os.getenv("IDLE_DISPLAY_URL", "")
+IDLE_DISPLAY_BROWSER_PATH = os.getenv("IDLE_DISPLAY_BROWSER_PATH", "")
+IDLE_DISPLAY_BROWSER_ARGS = os.getenv("IDLE_DISPLAY_BROWSER_ARGS", "")
 
 def _is_truthy(value):
     if isinstance(value, bool):
@@ -102,6 +106,18 @@ for config_path in config_paths:
                 OBS_PASSWORD = str(config.get("obs_password") or "")
             if "stream_url" in config:
                 STREAM_URL = str(config.get("stream_url") or "")
+            if "idle_display_enabled" in config:
+                IDLE_DISPLAY_ENABLED = _is_truthy(config.get("idle_display_enabled"))
+            if "idle_display_url" in config:
+                IDLE_DISPLAY_URL = str(config.get("idle_display_url") or "")
+            if "idle_display_browser_path" in config:
+                IDLE_DISPLAY_BROWSER_PATH = str(config.get("idle_display_browser_path") or "")
+            if "idle_display_browser_args" in config:
+                raw_args = config.get("idle_display_browser_args")
+                if isinstance(raw_args, list):
+                    IDLE_DISPLAY_BROWSER_ARGS = " ".join(str(a) for a in raw_args if str(a).strip())
+                else:
+                    IDLE_DISPLAY_BROWSER_ARGS = str(raw_args or "")
             logger.info(f"Loaded config from {config_path}. Server URL: {SERVER_URL}")
         break
     except Exception as e:

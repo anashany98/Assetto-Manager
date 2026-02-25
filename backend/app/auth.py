@@ -7,6 +7,7 @@ from passlib.context import CryptContext
 import logging
 import os
 import secrets
+from pathlib import Path
 
 # Configuration
 # Prefer env vars and avoid static fallback secrets.
@@ -27,6 +28,37 @@ _INSECURE_SECRET_SENTINELS = {
     "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7",
 }
 
+# Persistent dev key file - stored in backend directory for development
+_DEV_KEY_FILE = Path(__file__).resolve().parent.parent / ".dev_secret_key"
+
+
+def _load_or_create_dev_key() -> str:
+    """
+    Load or create a persistent development secret key.
+    This ensures JWT tokens remain valid across server restarts in development.
+    """
+    try:
+        if _DEV_KEY_FILE.exists():
+            stored_key = _DEV_KEY_FILE.read_text().strip()
+            if stored_key and len(stored_key) >= 32:
+                logger.info("Loaded persistent development SECRET_KEY from %s", _DEV_KEY_FILE)
+                return stored_key
+    except Exception as e:
+        logger.warning("Failed to read dev key file: %s", e)
+    
+    # Generate new persistent key for development
+    new_key = secrets.token_urlsafe(48)
+    try:
+        _DEV_KEY_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _DEV_KEY_FILE.write_text(new_key)
+        # Set restrictive permissions (readable only by owner)
+        _DEV_KEY_FILE.chmod(0o600)
+        logger.info("Generated and saved persistent development SECRET_KEY to %s", _DEV_KEY_FILE)
+    except Exception as e:
+        logger.warning("Failed to save dev key file: %s. Using in-memory key for this session.", e)
+    
+    return new_key
+
 
 def _load_secret_key() -> str:
     candidate = (os.getenv("SECRET_KEY") or "").strip()
@@ -41,13 +73,9 @@ def _load_secret_key() -> str:
     if ENVIRONMENT == "production":
         raise RuntimeError("SECRET_KEY must be set in production")
 
-    # Dev/test fallback: random per-process key (tokens rotate on restart).
-    ephemeral = secrets.token_urlsafe(48)
-    logger.warning(
-        "SECRET_KEY not configured; using ephemeral in-memory key. "
-        "Existing JWT sessions will be invalid after restart."
-    )
-    return ephemeral
+    # Dev/test fallback: use persistent key file to maintain sessions across restarts
+    logger.info("SECRET_KEY not configured. Using persistent development key.")
+    return _load_or_create_dev_key()
 
 
 SECRET_KEY = _load_secret_key()

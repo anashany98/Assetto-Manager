@@ -70,23 +70,210 @@ def _sanitize_name(value: str, fallback: str) -> str:
     cleaned = cleaned.strip("._-")
     return cleaned or fallback
 
+# Dangerous file extensions that should never be extracted
+DANGEROUS_EXTENSIONS = {
+    # Executables
+    '.exe', '.bat', '.cmd', '.com', '.pif', '.scr', '.vbs', '.vbe',
+    '.js', '.jse', '.wsf', '.wsh', '.msi', '.msp', '.cpl', '.gadget',
+    '.app', '.deb', '.rpm', '.dmg', '.pkg', '.run', '.sh', '.bash',
+    # Scripts that could be executed
+    '.ps1', '.ps2', '.psm1', '.psd1', '.py', '.pyw', '.rb', '.pl',
+    # System files
+    '.sys', '.dll', '.drv', '.ocx', '.cpl', '.ax', '.mui',
+    # Hidden/system files patterns
+    '.desktop', '.lnk', '.url',
+    # Archive bombs (nested archives)
+    '.zip', '.rar', '.7z', '.tar', '.gz', '.bz2', '.xz',
+}
+
+# Maximum directory depth to prevent deep nesting attacks
+MAX_DIRECTORY_DEPTH = 10
+
+# Maximum single file size (500MB)
+MAX_SINGLE_FILE_BYTES = 500 * 1024 * 1024
+
+# Compression ratio threshold for zip bomb detection
+MAX_COMPRESSION_RATIO = 100  # If compressed:size > 100:1, reject
+
+
+def _is_safe_filename(filename: str) -> tuple[bool, str]:
+    """
+    Validate a filename for safety.
+    Returns (is_safe, reason) tuple.
+    """
+    # Check for empty filename
+    if not filename or not filename.strip():
+        return False, "Empty filename"
+    
+    # Check for path separators in filename (should not contain / or \)
+    if '/' in filename or '\\' in filename:
+        return False, "Filename contains path separator"
+    
+    # Check for hidden files (starting with .)
+    basename = Path(filename).name
+    if basename.startswith('.'):
+        return False, f"Hidden file not allowed: {basename}"
+    
+    # Check for dangerous extensions
+    ext = Path(filename).suffix.lower()
+    if ext in DANGEROUS_EXTENSIONS:
+        return False, f"Dangerous file extension not allowed: {ext}"
+    
+    # Check for double extensions (e.g., file.exe.jpg)
+    parts = basename.split('.')
+    if len(parts) > 2:
+        for part in parts[1:-1]:  # Check middle parts
+            if f'.{part.lower()}' in DANGEROUS_EXTENSIONS:
+                return False, f"Double extension with dangerous type: .{part}"
+    
+    # Check for reserved Windows names
+    reserved_names = {
+        'CON', 'PRN', 'AUX', 'NUL',
+        'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 'COM6', 'COM7', 'COM8', 'COM9',
+        'LPT1', 'LPT2', 'LPT3', 'LPT4', 'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9',
+    }
+    name_without_ext = Path(filename).stem.upper()
+    if name_without_ext in reserved_names:
+        return False, f"Reserved filename not allowed: {name_without_ext}"
+    
+    # Check for control characters
+    if any(ord(c) < 32 for c in filename):
+        return False, "Filename contains control characters"
+    
+    return True, ""
+
+
+def _get_directory_depth(filename: str) -> int:
+    """Calculate the directory depth of a path within the archive."""
+    # Normalize path separators
+    normalized = filename.replace('\\', '/')
+    return normalized.count('/')
+
+
 def _safe_extract_zip(zip_ref: zipfile.ZipFile, extract_dir: Path) -> None:
+    """
+    Safely extract a ZIP archive with comprehensive security checks.
+    
+    Security measures:
+    1. Path traversal prevention
+    2. Dangerous file extension blocking
+    3. Hidden file detection
+    4. Directory depth limiting
+    5. File count limiting
+    6. Size limiting (total and per-file)
+    7. Compression ratio checking (zip bomb detection)
+    8. Symlink handling
+    """
     extract_root = extract_dir.resolve()
     max_files = int(os.getenv("MAX_MOD_EXTRACT_FILES", "20000"))
     max_bytes = int(os.getenv("MAX_MOD_EXTRACT_MB", "4096")) * 1024 * 1024
-    total_bytes = 0
+    
+    total_compressed = 0
+    total_uncompressed = 0
     file_count = 0
+    rejected_files = []
+    
+    # First pass: validate all entries before extraction
     for member in zip_ref.infolist():
+        file_count += 1
+        
+        # Check file count limit
+        if file_count > max_files:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Archive contains too many files (max {max_files})"
+            )
+        
+        # Check compression ratio (zip bomb detection)
+        if member.compress_size > 0:
+            ratio = member.file_size / member.compress_size
+            if ratio > MAX_COMPRESSION_RATIO:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Potential zip bomb detected: compression ratio {ratio:.1f}:1 exceeds limit of {MAX_COMPRESSION_RATIO}:1"
+                )
+        
+        # Check individual file size
+        if member.file_size > MAX_SINGLE_FILE_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File too large: {member.filename} ({member.file_size / (1024*1024):.1f}MB exceeds 500MB limit)"
+            )
+        
+        # Track total sizes
+        total_compressed += member.compress_size
+        total_uncompressed += member.file_size
+        
+        # Check total uncompressed size
+        if total_uncompressed > max_bytes:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Archive uncompressed size exceeds limit ({max_bytes / (1024*1024):.0f}MB)"
+            )
+        
+        # Check for symlinks (potential security risk)
+        if member.is_symlink():
+            rejected_files.append((member.filename, "Symlinks not allowed"))
+            continue
+        
+        # Validate filename safety
+        is_safe, reason = _is_safe_filename(member.filename)
+        if not is_safe:
+            rejected_files.append((member.filename, reason))
+            continue
+        
+        # Check directory depth
+        depth = _get_directory_depth(member.filename)
+        if depth > MAX_DIRECTORY_DEPTH:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Directory depth exceeds limit ({depth} > {MAX_DIRECTORY_DEPTH}): {member.filename}"
+            )
+        
+        # Check for path traversal
         member_path = (extract_root / member.filename).resolve()
         if not str(member_path).startswith(str(extract_root)):
-            raise HTTPException(status_code=400, detail="Invalid archive contents")
-        file_count += 1
-        if file_count > max_files:
-            raise HTTPException(status_code=413, detail="Archive contains too many files")
-        total_bytes += member.file_size
-        if member.file_size > max_bytes or total_bytes > max_bytes:
-            raise HTTPException(status_code=413, detail="Archive uncompressed size exceeds limit")
-    zip_ref.extractall(extract_root)
+            raise HTTPException(
+                status_code=400,
+                detail=f"Path traversal attempt detected: {member.filename}"
+            )
+    
+    # Log rejected files if any
+    if rejected_files:
+        logger.warning(
+            "Rejected %d files from archive due to security restrictions: %s",
+            len(rejected_files),
+            [f"{f}: {r}" for f, r in rejected_files[:5]]  # Log first 5
+        )
+    
+    # Second pass: extract only safe files
+    for member in zip_ref.infolist():
+        # Skip symlinks and rejected files
+        if member.is_symlink():
+            continue
+        
+        is_safe, _ = _is_safe_filename(member.filename)
+        if not is_safe:
+            continue
+        
+        member_path = (extract_root / member.filename).resolve()
+        
+        # Create parent directories if needed
+        if member.is_dir():
+            member_path.mkdir(parents=True, exist_ok=True)
+        else:
+            member_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Extract file
+            with zip_ref.open(member) as source, open(member_path, 'wb') as target:
+                target.write(source.read())
+    
+    logger.info(
+        "Extracted archive: %d files, %.2fMB compressed -> %.2fMB uncompressed",
+        file_count - len(rejected_files),
+        total_compressed / (1024*1024),
+        total_uncompressed / (1024*1024)
+    )
 
 def process_mod_file(file_path: Path, original_filename: str, db: Session, user_provided_name: str = None, user_provided_type: str = None, user_provided_version: str = None):
     # Validar extensión

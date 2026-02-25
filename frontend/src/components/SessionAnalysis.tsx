@@ -54,7 +54,7 @@ export default function SessionAnalysis({ lapId }: SessionAnalysisProps) {
         }
     }, [telemetry]);
 
-    if (isLoading) return <div className="p-8 text-center animate-pulse">Analizando conducciÃ³n...</div>;
+    if (isLoading) return <div className="p-8 text-center animate-pulse">Analizando conducción...</div>;
     if (error) return <div className="p-8 text-center text-red-400">No se pudo analizar la sesión.</div>;
     if (parseError) return <div className="p-8 text-center text-red-400">{parseError}</div>;
     if (!result) return null;
@@ -76,7 +76,7 @@ export default function SessionAnalysis({ lapId }: SessionAnalysisProps) {
                     </div>
                 </div>
 
-                <h2 className="text-2xl font-bold text-white mb-1">AnÃ¡lisis de Pilotaje</h2>
+                <h2 className="text-2xl font-bold text-white mb-1">Análisis de Pilotaje</h2>
                 <div className="inline-block px-3 py-1 rounded-full bg-white/10 text-blue-300 text-sm font-bold border border-white/5">
                     Estilo: {result.style}
                 </div>
@@ -111,7 +111,7 @@ export default function SessionAnalysis({ lapId }: SessionAnalysisProps) {
             {/* IMPROVEMENTS: A Mejorar */}
             <div className="p-6 border-t border-gray-800 bg-red-500/5">
                 <h3 className="text-orange-400 font-bold flex items-center gap-2 mb-4 uppercase text-sm tracking-wider">
-                    <AlertTriangle size={18} /> Ãreas de mejora
+                    <AlertTriangle size={18} /> Áreas de mejora
                 </h3>
 
                 {result.warnings.length > 0 || result.tips.length > 0 ? (
@@ -130,7 +130,7 @@ export default function SessionAnalysis({ lapId }: SessionAnalysisProps) {
                         ))}
                     </ul>
                 ) : (
-                    <p className="text-gray-500 text-sm italic">Â¡Vaya! Una vuelta muy limpia.</p>
+                    <p className="text-gray-500 text-sm italic">¡Vaya! Una vuelta muy limpia.</p>
                 )}
             </div>
 
@@ -147,7 +147,7 @@ export default function SessionAnalysis({ lapId }: SessionAnalysisProps) {
                     label="Frenada"
                     val={result.metrics.brakeConsistency}
                     goodLimit={0.1}
-                    unit="Ïƒ"
+                    unit="σ"
                     inverse
                 />
                 <MetricBadge

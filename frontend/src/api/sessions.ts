@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { type AxiosRequestConfig } from 'axios';
 import { API_URL } from '../config';
 
 export interface Session {
@@ -33,8 +33,8 @@ export const getActiveSessions = async (): Promise<Session[]> => {
     return response.data;
 };
 
-export const startSession = async (data: SessionCreate): Promise<Session> => {
-    const response = await axios.post(`${API_URL}/sessions/start`, data);
+export const startSession = async (data: SessionCreate, config?: AxiosRequestConfig): Promise<Session> => {
+    const response = await axios.post(`${API_URL}/sessions/start`, data, config);
     return response.data;
 };
 
