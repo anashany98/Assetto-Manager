@@ -63,35 +63,35 @@ export default function StartSessionModal({ stationId, stationName, initialIsVR,
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-            <div className="bg-gray-800 border border-gray-700 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-700 flex justify-between items-center bg-gray-900/50">
-                    <h2 className="text-xl font-bold text-white">Nueva Sesión: {stationName}</h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-white">
+            <div className="bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-[var(--border-default)] flex justify-between items-center bg-[var(--bg-card)]/50">
+                    <h2 className="text-xl font-bold text-[var(--text-primary)]">Nueva Sesión: {stationName}</h2>
+                    <button onClick={onClose} className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)]">
                         <X size={24} />
                     </button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
                     {/* MODE TOGGLE */}
-                    <div className="flex bg-gray-900 rounded-lg p-1 border border-gray-700">
+                    <div className="flex bg-[var(--bg-card)] rounded-lg p-1 border border-[var(--border-default)]">
                         <button
                             type="button"
                             onClick={() => setIsVR(false)}
-                            className={`flex-1 py-2 rounded-md text-sm font-bold flex items-center justify-center gap-2 transition-all ${!isVR ? 'bg-gray-700 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
+                            className={`flex-1 py-2 rounded-md text-sm font-bold flex items-center justify-center gap-2 transition-all ${!isVR ? 'bg-gray-700 text-[var(--text-primary)] shadow' : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'}`}
                         >
                             <Monitor size={16} /> Pantalla
                         </button>
                         <button
                             type="button"
                             onClick={() => setIsVR(true)}
-                            className={`flex-1 py-2 rounded-md text-sm font-bold flex items-center justify-center gap-2 transition-all ${isVR ? 'bg-indigo-600 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
+                            className={`flex-1 py-2 rounded-md text-sm font-bold flex items-center justify-center gap-2 transition-all ${isVR ? 'bg-indigo-600 text-[var(--text-primary)] shadow' : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'}`}
                         >
                             <Glasses size={16} /> VR (+{pricingConfig.vrSurchargePerMin}€/min)
                         </button>
                     </div>
 
                     <div>
-                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Duración</label>
+                        <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-1">Duración</label>
                         <div className="grid grid-cols-4 gap-2 mb-2">
                             {durationOptions.map(m => (
                                 <button
@@ -99,8 +99,8 @@ export default function StartSessionModal({ stationId, stationName, initialIsVR,
                                     type="button"
                                     onClick={() => setDuration(m)}
                                     className={`py-2 rounded-lg text-sm font-bold border transition-colors ${duration === m
-                                        ? 'bg-blue-600 border-blue-500 text-white'
-                                        : 'bg-gray-900 border-gray-700 text-gray-400 hover:border-gray-500'
+                                        ? 'bg-blue-600 border-blue-500 text-[var(--text-primary)]'
+                                        : 'bg-[var(--bg-card)] border-[var(--border-default)] text-[var(--text-tertiary)] hover:border-gray-500'
                                         }`}
                                 >
                                     {m}m
@@ -110,41 +110,41 @@ export default function StartSessionModal({ stationId, stationName, initialIsVR,
                     </div>
 
                     <div>
-                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Piloto (Opcional)</label>
+                        <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-1">Piloto (Opcional)</label>
                         <div className="relative">
-                            <User className="absolute left-3 top-2.5 text-gray-500" size={16} />
+                            <User className="absolute left-3 top-2.5 text-[var(--text-tertiary)]" size={16} />
                             <input
                                 type="text"
                                 placeholder="Nombre del cliente..."
                                 value={driverName}
                                 onChange={(e) => setDriverName(e.target.value)}
-                                className="w-full bg-gray-900 border border-gray-700 rounded-xl py-2 pl-10 pr-4 text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                className="w-full bg-[var(--bg-card)] border border-[var(--border-default)] rounded-xl py-2 pl-10 pr-4 text-[var(--text-primary)] focus:border-[var(--border-focus)] outline-none"
                             />
                         </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Precio (€)</label>
+                        <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-1">Precio (€)</label>
                         <div className="relative">
-                            <DollarSign className="absolute left-3 top-2.5 text-gray-500" size={16} />
+                            <DollarSign className="absolute left-3 top-2.5 text-[var(--text-tertiary)]" size={16} />
                             <input
                                 type="number"
                                 step="0.50"
                                 value={price}
                                 onChange={(e) => setPrice(Number(e.target.value))}
                                 readOnly={!pricingConfig.allowManualOverride}
-                                className={`w-full bg-gray-900 border border-gray-700 rounded-xl py-2 pl-10 pr-4 text-white focus:ring-2 focus:ring-green-500 outline-none font-mono font-bold text-lg ${pricingConfig.allowManualOverride ? '' : 'opacity-70 cursor-not-allowed'}`}
+                                className={`w-full bg-[var(--bg-card)] border border-[var(--border-default)] rounded-xl py-2 pl-10 pr-4 text-[var(--text-primary)] focus:ring-2 focus:ring-green-500 outline-none font-mono font-bold text-lg ${pricingConfig.allowManualOverride ? '' : 'opacity-70 cursor-not-allowed'}`}
                             />
                         </div>
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Pago</label>
+                        <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-1">Pago</label>
                         <div className="relative">
                             <select
                                 value={paymentMethod}
                                 onChange={(e: any) => setPaymentMethod(e.target.value)}
-                                className="w-full bg-gray-900 border border-gray-700 rounded-xl py-2.5 px-3 text-white focus:ring-2 focus:ring-purple-500 outline-none appearance-none"
+                                className="w-full bg-[var(--bg-card)] border border-[var(--border-default)] rounded-xl py-2.5 px-3 text-[var(--text-primary)] focus:ring-2 focus:ring-purple-500 outline-none appearance-none"
                             >
                                 <option value="cash">💵 Efectivo</option>
                                 <option value="card_nayax">💳 TPV / Card</option>
@@ -160,14 +160,14 @@ export default function StartSessionModal({ stationId, stationName, initialIsVR,
                         <button
                             type="button"
                             onClick={onClose}
-                            className="flex-1 py-3 rounded-xl font-bold text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+                            className="flex-1 py-3 rounded-xl font-bold text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] transition-colors"
                         >
                             Cancelar
                         </button>
                         <button
                             type="submit"
                             disabled={loading}
-                            className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-bold shadow-lg shadow-green-600/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="flex-1 bg-green-600 hover:bg-green-700 text-[var(--text-primary)] py-3 rounded-xl font-bold shadow-lg shadow-green-600/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {loading ? 'Iniciando...' : 'Cobrar e Iniciar'}
                         </button>

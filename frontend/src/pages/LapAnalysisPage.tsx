@@ -9,16 +9,16 @@ export default function LapAnalysisPage() {
     if (!id) return <div>ID de vuelta no encontrado</div>;
 
     return (
-        <div className="min-h-screen bg-black text-white p-4">
+        <div className="min-h-screen bg-black text-[var(--text-primary)] p-4">
             <div className="max-w-md mx-auto">
-                <Link to="/" className="inline-flex items-center gap-2 text-gray-400 hover:text-white mb-6 transition-colors">
+                <Link to="/" className="inline-flex items-center gap-2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] mb-6 transition-colors">
                     <ArrowLeft size={20} />
                     Volver
                 </Link>
 
                 <div className="mb-6">
                     <h1 className="text-2xl font-black italic">TELEMETRÍA</h1>
-                    <p className="text-gray-500">Informe de tu última sesión</p>
+                    <p className="text-[var(--text-tertiary)]">Informe de tu última sesión</p>
                 </div>
 
                 <SessionAnalysis lapId={parseInt(id)} />

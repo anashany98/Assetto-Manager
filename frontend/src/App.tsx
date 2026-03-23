@@ -1,13 +1,15 @@
 import { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { useBranding } from './hooks/useBranding';
+import { LicenseProvider } from './context/LicenseProvider';
 import Layout from './components/Layout';
-import { LayoutV2 } from './components/v2';
+
 import ErrorBoundary from './components/ErrorBoundary';
 import PrivateRoute from './components/PrivateRoute';
 import { LoginPage } from './pages/LoginPage';
 // Pages - Lazy Loaded
 const Dashboard = lazy(() => import('./pages/Dashboard'));
-const DashboardV2 = lazy(() => import('./pages/DashboardV2'));
+
 const ProfilesPage = lazy(() => import('./pages/ProfilesPage'));
 const ModsLibrary = lazy(() => import('./pages/ModsLibrary'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
@@ -51,10 +53,9 @@ const TVSpectatorFullscreen = lazy(() => import('./pages/TVSpectatorFullscreen')
 const TVSpectatorMulti = lazy(() => import('./pages/TVSpectatorMulti'));
 const UserManagement = lazy(() => import('./pages/UserManagement'));
 const StationDisplay = lazy(() => import('./pages/StationDisplay'));
+const DirectorComponent = lazy(() => import('./pages/DirectorPage').then(module => ({ default: module.DirectorPage })));
 
 
-import { useBranding } from './hooks/useBranding';
-import { LicenseProvider } from './context/LicenseProvider';
 
 // Fallback Loading Component
 const PageLoader = () => (
@@ -72,11 +73,7 @@ function App() {
         <LicenseProvider>
           <Suspense fallback={<PageLoader />}>
             <Routes>
-              {/* V2 Routes with LayoutV2 */}
-              <Route path="/v2" element={<LayoutV2 />}>
-                <Route path="admin" element={<PrivateRoute><DashboardV2 /></PrivateRoute>} />
-              </Route>
-              
+
               {/* V1 Routes with Layout */}
               <Route element={<Layout><Outlet /></Layout>}>
                 <Route path="/" element={<LandingPage />} />
@@ -138,6 +135,8 @@ function App() {
                 <Route path="/elimination-tv/:id" element={<EliminationTV />} />
                 <Route path="/hardware" element={<PrivateRoute><HardwareMonitor /></PrivateRoute>} />
                 <Route path="/analytics" element={<PrivateRoute><AnalyticsPage /></PrivateRoute>} />
+                <Route path="/director" element={<PrivateRoute><DirectorComponent /></PrivateRoute>} />
+                <Route path="/director-tv" element={<DirectorComponent />} />
 
                 {/* Security */}
                 <Route path="/lock-screen" element={<LockScreen />} />

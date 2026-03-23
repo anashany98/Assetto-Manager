@@ -9,7 +9,6 @@ import { PUBLIC_API_TOKEN } from './config'
 import App from './App.tsx'
 import ErrorBoundary from './components/ErrorBoundary.tsx'
 import './index.css'
-import './styles/v2-design-system.css'
 
 const queryClient = new QueryClient({
   defaultOptions: {

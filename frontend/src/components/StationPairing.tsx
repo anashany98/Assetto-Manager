@@ -73,15 +73,15 @@ export default function StationPairing({ onPaired, initialCode, errorMessage }: 
     const activeStations = stations.filter((s) => s.is_active !== false);
 
     return (
-        <div className="fixed inset-0 bg-gray-950 flex flex-col items-center justify-center p-8 z-50">
+        <div className="fixed inset-0 bg-[var(--bg-app)] flex flex-col items-center justify-center p-8 z-50">
             <div className="text-center mb-12">
                 <div className="bg-blue-600 p-6 rounded-full inline-block mb-6 shadow-lg shadow-blue-500/30">
-                    <Link2 size={48} className="text-white" />
+                    <Link2 size={48} className="text-[var(--text-primary)]" />
                 </div>
-                <h1 className="text-4xl font-black text-white uppercase tracking-tight mb-2">
+                <h1 className="text-4xl font-black text-[var(--text-primary)] uppercase tracking-tight mb-2">
                     Enlazar Tablet
                 </h1>
-                <p className="text-gray-400 text-lg">
+                <p className="text-[var(--text-tertiary)] text-lg">
                     Selecciona el simulador al que esta conectada esta tablet
                 </p>
                 {errorMessage && (
@@ -92,7 +92,7 @@ export default function StationPairing({ onPaired, initialCode, errorMessage }: 
             </div>
 
             {isLoading ? (
-                <div className="text-gray-400 flex items-center gap-3">
+                <div className="text-[var(--text-tertiary)] flex items-center gap-3">
                     <RefreshCw className="animate-spin" /> Cargando simuladores...
                 </div>
             ) : activeStations.length === 0 ? (
@@ -100,15 +100,15 @@ export default function StationPairing({ onPaired, initialCode, errorMessage }: 
                     <p className="text-red-400 font-bold mb-4">No hay simuladores activos</p>
                     <button
                         onClick={() => refetch()}
-                        className="bg-gray-800 hover:bg-gray-700 text-white px-6 py-3 rounded-xl font-bold"
+                        className="bg-[var(--bg-elevated)] hover:bg-[var(--bg-elevated)] text-[var(--text-primary)] px-6 py-3 rounded-xl font-bold"
                     >
                         Reintentar
                     </button>
                 </div>
             ) : (
                 <>
-                    <div className="w-full max-w-4xl mb-6 bg-gray-900 border border-gray-700 rounded-2xl p-4">
-                        <p className="text-xs uppercase tracking-widest text-gray-500 font-bold mb-2">
+                    <div className="w-full max-w-4xl mb-6 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-4">
+                        <p className="text-xs uppercase tracking-widest text-[var(--text-tertiary)] font-bold mb-2">
                             Enlace rapido por codigo
                         </p>
                         <div className="flex flex-col md:flex-row gap-3">
@@ -116,14 +116,14 @@ export default function StationPairing({ onPaired, initialCode, errorMessage }: 
                                 value={codeInput}
                                 onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
                                 placeholder="Ej: A1B2C3"
-                                className="flex-1 bg-gray-950 border border-gray-700 rounded-xl px-4 py-3 text-white font-bold uppercase tracking-widest outline-none focus:border-blue-500"
+                                className="flex-1 bg-[var(--bg-app)] border border-[var(--border-default)] rounded-xl px-4 py-3 text-[var(--text-primary)] font-bold uppercase tracking-widest outline-none focus:border-blue-500"
                             />
                             <button
                                 onClick={handlePairByCode}
                                 disabled={!codeInput.trim() || pairingByCode}
                                 className={`px-6 py-3 rounded-xl font-black uppercase tracking-widest transition-all ${!codeInput.trim() || pairingByCode
-                                    ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
-                                    : 'bg-blue-600 hover:bg-blue-500 text-white'
+                                    ? 'bg-[var(--bg-elevated)] text-[var(--text-tertiary)] cursor-not-allowed'
+                                    : 'bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)]'
                                     }`}
                             >
                                 {pairingByCode ? 'Enlazando...' : 'Enlazar por codigo'}
@@ -143,22 +143,22 @@ export default function StationPairing({ onPaired, initialCode, errorMessage }: 
                                     onClick={() => setSelectedId(station.id)}
                                     className={`relative p-6 rounded-3xl border-4 transition-all flex min-h-[220px] flex-col items-center gap-4 overflow-hidden ${isSelected
                                         ? 'bg-blue-600/20 border-blue-500 shadow-lg shadow-blue-500/30 scale-105'
-                                        : 'bg-gray-900 border-gray-700 hover:border-gray-500'
+                                        : 'bg-[var(--bg-card)] border-[var(--border-default)] hover:border-gray-500'
                                         }`}
                                 >
-                                    <Monitor size={48} className={isSelected ? 'text-blue-400' : 'text-gray-500'} />
+                                    <Monitor size={48} className={isSelected ? 'text-blue-400' : 'text-[var(--text-tertiary)]'} />
                                     <div className="text-center w-full max-w-full">
                                         <h3
-                                            className={`font-black text-base md:text-lg uppercase leading-tight break-all max-w-full ${isSelected ? 'text-white' : 'text-gray-300'}`}
+                                            className={`font-black text-base md:text-lg uppercase leading-tight break-all max-w-full ${isSelected ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}`}
                                             title={station.name}
                                         >
                                             {station.name}
                                         </h3>
-                                        <p className="mt-1 text-[11px] text-gray-500 break-all">{station.ip_address}</p>
+                                        <p className="mt-1 text-[11px] text-[var(--text-tertiary)] break-all">{station.ip_address}</p>
                                     </div>
                                     {isSelected && (
                                         <div className="absolute -top-2 -right-2 bg-blue-500 p-1.5 rounded-full">
-                                            <CheckCircle size={20} className="text-white" />
+                                            <CheckCircle size={20} className="text-[var(--text-primary)]" />
                                         </div>
                                     )}
                                 </button>
@@ -170,8 +170,8 @@ export default function StationPairing({ onPaired, initialCode, errorMessage }: 
                         onClick={handlePair}
                         disabled={!selectedId}
                         className={`px-12 py-5 rounded-2xl font-black text-xl uppercase tracking-wider transition-all ${selectedId
-                            ? 'bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white shadow-xl'
-                            : 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                            ? 'bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-[var(--text-primary)] shadow-xl'
+                            : 'bg-[var(--bg-elevated)] text-gray-600 cursor-not-allowed'
                             }`}
                     >
                         Enlazar Tablet

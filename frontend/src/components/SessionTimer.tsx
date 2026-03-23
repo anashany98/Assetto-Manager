@@ -55,16 +55,16 @@ export default function SessionTimer({ session, onUpdate }: SessionTimerProps) {
     return (
         <div className={`rounded-xl p-3 border mt-3 transition-colors ${isUrgent ? 'bg-red-900/30 border-red-500 animate-pulse' :
             isWarning ? 'bg-orange-900/30 border-orange-500' :
-                'bg-gray-800 border-gray-700'
+                'bg-[var(--bg-elevated)] border-[var(--border-default)]'
             }`}>
             <div className="flex justify-between items-start mb-2">
                 <div>
-                    <div className="flex items-center gap-1.5 text-xs text-gray-400 font-bold uppercase tracking-wider">
+                    <div className="flex items-center gap-1.5 text-xs text-[var(--text-tertiary)] font-bold uppercase tracking-wider">
                         <Timer size={12} />
                         <span>Sesión Activa</span>
                     </div>
                     {session.driver_name && (
-                        <div className="text-sm font-bold text-white mt-0.5">{session.driver_name}</div>
+                        <div className="text-sm font-bold text-[var(--text-primary)] mt-0.5">{session.driver_name}</div>
                     )}
                 </div>
                 <div className={`font-mono text-2xl font-black ${isUrgent ? 'text-red-500' : isWarning ? 'text-orange-400' : 'text-blue-400'
@@ -92,14 +92,14 @@ export default function SessionTimer({ session, onUpdate }: SessionTimerProps) {
                 <div className="flex gap-1">
                     <button
                         onClick={() => handleAdd(5)}
-                        className="bg-gray-700 hover:bg-gray-600 text-gray-300 border border-gray-600 rounded px-2 py-1.5 text-xs font-bold transition-colors"
+                        className="bg-gray-700 hover:bg-gray-600 text-[var(--text-secondary)] border border-[var(--border-strong)] rounded px-2 py-1.5 text-xs font-bold transition-colors"
                         title="+5 minutos"
                     >
                         +5m
                     </button>
                     <button
                         onClick={() => handleAdd(15)}
-                        className="bg-gray-700 hover:bg-gray-600 text-gray-300 border border-gray-600 rounded px-2 py-1.5 text-xs font-bold transition-colors"
+                        className="bg-gray-700 hover:bg-gray-600 text-[var(--text-secondary)] border border-[var(--border-strong)] rounded px-2 py-1.5 text-xs font-bold transition-colors"
                         title="+15 minutos"
                     >
                         +15m

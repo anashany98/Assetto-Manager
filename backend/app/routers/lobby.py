@@ -1,3 +1,5 @@
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
@@ -97,6 +99,202 @@ def _build_lobby_payload(lobby: models.Lobby, players: Optional[list[schemas.Lob
     )
 
 
+def _get_lobby_player_rows(db: Session, lobby_id: int):
+    stmt = models.lobby_players.select().where(models.lobby_players.c.lobby_id == lobby_id)
+    return db.execute(stmt).fetchall()
+
+
+def _get_lobby_player_state(rows) -> tuple[dict[int, bool], dict[int, int], dict[int, str], list[int]]:
+    ordered_rows = sorted(
+        rows,
+        key=lambda row: (
+            row.slot is None,
+            row.slot if row.slot is not None else 10_000,
+            row.station_id,
+        ),
+    )
+    ready_map: dict[int, bool] = {}
+    slot_map: dict[int, int] = {}
+    driver_name_map: dict[int, str] = {}
+    ordered_station_ids: list[int] = []
+
+    for index, row in enumerate(ordered_rows):
+        station_id = int(row.station_id)
+        ready_map[station_id] = bool(row.ready)
+        slot_map[station_id] = int(row.slot) if row.slot is not None else index
+        driver_name_map[station_id] = (getattr(row, "driver_name", None) or "").strip()
+        ordered_station_ids.append(station_id)
+
+    return ready_map, slot_map, driver_name_map, ordered_station_ids
+
+
+def _ordered_lobby_players(players: list[models.Station], ordered_station_ids: list[int]) -> list[models.Station]:
+    station_map = {station.id: station for station in players}
+    ordered = [station_map[station_id] for station_id in ordered_station_ids if station_id in station_map]
+    ordered_ids = {station.id for station in ordered}
+    ordered.extend(station for station in players if station.id not in ordered_ids)
+    return ordered
+
+
+def _build_lobby_players(db: Session, lobby: models.Lobby) -> list[schemas.LobbyPlayer]:
+    rows = _get_lobby_player_rows(db, lobby.id)
+    ready_map, slot_map, _, ordered_station_ids = _get_lobby_player_state(rows)
+    ordered_players = _ordered_lobby_players(list(lobby.players), ordered_station_ids)
+
+    players: list[schemas.LobbyPlayer] = []
+    for fallback_slot, station in enumerate(ordered_players):
+        players.append(
+            schemas.LobbyPlayer(
+                station_id=station.id,
+                station_name=station.name,
+                slot=slot_map.get(station.id, fallback_slot),
+                ready=ready_map.get(station.id, False),
+            )
+        )
+    return players
+
+
+def _next_lobby_slot(db: Session, lobby_id: int) -> int:
+    rows = _get_lobby_player_rows(db, lobby_id)
+    _, slot_map, _, _ = _get_lobby_player_state(rows)
+    return max(slot_map.values(), default=-1) + 1
+
+
+def _set_lobby_player_metadata(
+    db: Session,
+    lobby_id: int,
+    station_id: int,
+    *,
+    slot: Optional[int] = None,
+    ready: Optional[bool] = None,
+    driver_name: Optional[str] = None,
+    joined_at: Optional[datetime] = None,
+) -> None:
+    values: dict[str, object] = {}
+    if slot is not None:
+        values["slot"] = slot
+    if ready is not None:
+        values["ready"] = ready
+    if driver_name is not None:
+        values["driver_name"] = driver_name.strip() or None
+    if joined_at is not None:
+        values["joined_at"] = joined_at
+    if not values:
+        return
+    db.execute(
+        models.lobby_players.update().where(
+            (models.lobby_players.c.lobby_id == lobby_id)
+            & (models.lobby_players.c.station_id == station_id)
+        ).values(**values)
+    )
+
+
+def _reassign_lobby_slots(db: Session, lobby_id: int, station_ids: list[int]) -> None:
+    for slot, station_id in enumerate(station_ids):
+        _set_lobby_player_metadata(db, lobby_id, station_id, slot=slot)
+
+
+def _lobby_has_timed_out(lobby: models.Lobby) -> bool:
+    remaining = _get_timeout_remaining_seconds(lobby)
+    return lobby.status in {"waiting", "starting"} and remaining is not None and remaining <= 0
+
+
+def _cancel_lobby_record(db: Session, lobby: models.Lobby, reason: str) -> None:
+    _release_port_reservation(db, lobby)
+    lobby.status = "cancelled"
+    lobby.finished_at = datetime.now(timezone.utc)
+    logger.info("Lobby %s cancelled (%s)", lobby.id, reason)
+
+
+async def _stop_lobby_participants(
+    lobby: models.Lobby,
+    *,
+    participant_station_ids: Optional[list[int]] = None,
+) -> None:
+    station_ids = participant_station_ids or [int(station.id) for station in lobby.players]
+    ordered_ids: list[int] = []
+    seen_ids: set[int] = set()
+    for station_id in station_ids:
+        station_id = int(station_id)
+        if station_id in seen_ids:
+            continue
+        seen_ids.add(station_id)
+        ordered_ids.append(station_id)
+
+    commands: list[asyncio.Future] = []
+    for station_id in ordered_ids:
+        if station_id == lobby.host_station_id:
+            commands.append(manager.send_command(station_id, {"command": "stop_lobby"}))
+        else:
+            commands.append(manager.send_command(station_id, {"command": "stop_session"}))
+
+    if not commands:
+        return
+
+    results = await asyncio.gather(*commands, return_exceptions=True)
+    for station_id, result in zip(ordered_ids, results):
+        if isinstance(result, Exception):
+            logger.warning("Lobby cleanup command failed for station %s: %s", station_id, result)
+
+
+async def _cancel_lobby_with_cleanup(
+    db: Session,
+    lobby: models.Lobby,
+    *,
+    reason: str,
+    participant_station_ids: Optional[list[int]] = None,
+) -> None:
+    if lobby.status in {"starting", "running"}:
+        await _stop_lobby_participants(lobby, participant_station_ids=participant_station_ids)
+    _cancel_lobby_record(db, lobby, reason)
+    db.commit()
+
+
+async def _expire_lobby_if_needed(db: Session, lobby: models.Lobby | None) -> bool:
+    if not lobby or not _lobby_has_timed_out(lobby):
+        return False
+    await _cancel_lobby_with_cleanup(db, lobby, reason="timeout")
+    db.refresh(lobby)
+    return True
+
+
+async def _cleanup_expired_lobbies(db: Session) -> int:
+    lobbies = db.query(models.Lobby).filter(models.Lobby.status.in_(["waiting", "starting"])).all()
+    expired = [lobby for lobby in lobbies if _lobby_has_timed_out(lobby)]
+    if not expired:
+        return 0
+
+    for lobby in expired:
+        await _cancel_lobby_with_cleanup(db, lobby, reason="timeout")
+
+    return len(expired)
+
+
+def _build_join_lobby_command(
+    lobby: models.Lobby,
+    station: models.Station,
+    *,
+    slot: Optional[int],
+    driver_name: Optional[str],
+    is_spectator: bool,
+) -> dict:
+    payload = {
+        "command": "join_lobby",
+        "lobby_id": lobby.id,
+        "server_ip": lobby.server_ip,
+        "port": lobby.port,
+        "track": lobby.track,
+        "car": lobby.car,
+        "ac_path": station.ac_path,
+        "is_spectator": is_spectator,
+    }
+    if slot is not None:
+        payload["slot"] = slot
+    if driver_name:
+        payload["driver_name"] = driver_name
+    return payload
+
+
 def _cleanup_stale_port_reservations(db: Session) -> int:
     cutoff = datetime.now(timezone.utc) - timedelta(seconds=PORT_RESERVATION_STALE_SECONDS)
     reservations = db.query(models.LobbyPortReservation).all()
@@ -155,7 +353,7 @@ def _release_port_reservation(db: Session, lobby: models.Lobby | None) -> None:
     ).delete(synchronize_session=False)
 
 
-def _maybe_cleanup_orphan_lobbies(db: Session) -> int:
+async def _maybe_cleanup_orphan_lobbies(db: Session) -> int:
     global _last_orphan_cleanup_at
 
     now = datetime.now(timezone.utc)
@@ -165,6 +363,7 @@ def _maybe_cleanup_orphan_lobbies(db: Session) -> int:
             return 0
 
     updated = _cleanup_orphan_lobbies(db)
+    updated += await _cleanup_expired_lobbies(db)
     _last_orphan_cleanup_at = now
     return updated
 
@@ -257,6 +456,16 @@ async def create_lobby(
     
     # Add host as first player
     lobby.players.append(host)
+    db.flush()
+    _set_lobby_player_metadata(
+        db,
+        lobby.id,
+        host.id,
+        slot=0,
+        ready=False,
+        driver_name=lobby_data.driver_name,
+        joined_at=datetime.now(timezone.utc),
+    )
     db.commit()
     db.refresh(lobby)
     
@@ -274,7 +483,7 @@ async def list_lobbies(
     """
     List available lobbies. Default 'active' shows waiting and running.
     """
-    _maybe_cleanup_orphan_lobbies(db)
+    await _maybe_cleanup_orphan_lobbies(db)
     query = db.query(models.Lobby)
     if status == "active":
         query = query.filter(models.Lobby.status.in_(["waiting", "running"]))
@@ -297,32 +506,12 @@ async def get_lobby(
     _auth: object = Depends(require_admin_or_public_token),
 ):
     """Get detailed lobby info including players."""
-    _maybe_cleanup_orphan_lobbies(db)
+    await _maybe_cleanup_orphan_lobbies(db)
     lobby = db.query(models.Lobby).filter(models.Lobby.id == lobby_id).first()
     if not lobby:
         raise HTTPException(status_code=404, detail="Lobby not found")
-    
-    # Query association table for extra data? 
-    # SQLAlchemy handles association attributes via the association object if mapped properly, 
-    # but here we used a Table `lobby_players`. 
-    # We need to query the table directly to get 'ready' status for each station.
-    
-    stmt = models.lobby_players.select().where(models.lobby_players.c.lobby_id == lobby_id)
-    results = db.execute(stmt).fetchall()
-    
-    # Map station_id to ready status
-    ready_map = {row.station_id: row.ready for row in results}
-
-    players = []
-    for idx, station in enumerate(lobby.players):
-        players.append(schemas.LobbyPlayer(
-            station_id=station.id,
-            station_name=station.name,
-            slot=idx,
-            ready=ready_map.get(station.id, False)
-        ))
-    
-    return _build_lobby_payload(lobby, players=players)
+    await _expire_lobby_if_needed(db, lobby)
+    return _build_lobby_payload(lobby, players=_build_lobby_players(db, lobby))
 
 
 @router.post("/{lobby_id}/ready")
@@ -339,6 +528,8 @@ async def toggle_ready(
     lobby = db.query(models.Lobby).filter(models.Lobby.id == lobby_id).first()
     if not lobby:
         raise HTTPException(status_code=404, detail="Lobby not found")
+    if await _expire_lobby_if_needed(db, lobby):
+        raise HTTPException(status_code=409, detail="Lobby expired")
 
     station = db.query(models.Station).filter(models.Station.id == station_id).first()
     _require_kiosk_access(station, kiosk_code, user_or_client)
@@ -371,6 +562,8 @@ async def join_lobby(
     lobby = db.query(models.Lobby).filter(models.Lobby.id == lobby_id).first()
     if not lobby:
         raise HTTPException(status_code=404, detail="Lobby not found")
+    if await _expire_lobby_if_needed(db, lobby):
+        raise HTTPException(status_code=409, detail="Lobby expired")
     
     if lobby.status not in ["waiting", "running"]:
         raise HTTPException(status_code=400, detail="Lobby is not accepting players")
@@ -386,42 +579,100 @@ async def join_lobby(
         raise HTTPException(status_code=400, detail="Station is offline")
 
     # Check if already in lobby
+    slot_idx: Optional[int] = None
     if station in lobby.players:
-        # If running, we might want to "re-join" (send command again) just in case
-        if lobby.status == "running":
-             # Logic below will handle sending the command if we don't return here.
-             # But usually we return status. Let's pass through if running? 
-             # No, standard is to return status. Let's assume client handles "already_joined".
-             pass
-        else:
-             return {"status": "already_joined", "lobby_id": lobby_id}
+        if lobby.status != "running":
+            return {"status": "already_joined", "lobby_id": lobby_id}
+        rows = _get_lobby_player_rows(db, lobby_id)
+        _, slot_map, _, _ = _get_lobby_player_state(rows)
+        slot_idx = slot_map.get(station.id)
+        _set_lobby_player_metadata(
+            db,
+            lobby_id,
+            station.id,
+            driver_name=join_data.driver_name,
+            joined_at=datetime.now(timezone.utc),
+        )
+        db.commit()
     else:
         if len(lobby.players) >= lobby.max_players:
             raise HTTPException(status_code=400, detail="Lobby is full")
+        slot_idx = _next_lobby_slot(db, lobby_id)
         lobby.players.append(station)
+        db.flush()
+        _set_lobby_player_metadata(
+            db,
+            lobby_id,
+            station.id,
+            slot=slot_idx,
+            ready=False,
+            driver_name=join_data.driver_name,
+            joined_at=datetime.now(timezone.utc),
+        )
         db.commit()
     
     logger.info(f"Station {station.name} joined lobby {lobby.name} (Status: {lobby.status})")
 
     # If lobby is already running, send join command immediately
-    slot_idx = next((idx for idx, p in enumerate(lobby.players) if p.id == station.id), len(lobby.players) - 1)
     if lobby.status == "running":
-        # Rejoin uses the player's real slot; late joiners get appended slot.
-        ok = await manager.send_command(station.id, {
-            "command": "join_lobby",
-            "lobby_id": lobby.id,
-            "server_ip": lobby.server_ip,
-            "port": lobby.port,
-            "track": lobby.track,
-            "car": lobby.car,
-            "slot": slot_idx
-        })
+        rows = _get_lobby_player_rows(db, lobby_id)
+        _, slot_map, driver_name_map, _ = _get_lobby_player_state(rows)
+        ok = await manager.send_command(
+            station.id,
+            _build_join_lobby_command(
+                lobby,
+                station,
+                slot=slot_map.get(station.id, slot_idx),
+                driver_name=driver_name_map.get(station.id) or station.name,
+                is_spectator=False,
+            ),
+        )
         if ok:
             logger.info(f"Sent immediate join_lobby to {station.name} (Late Join)")
         else:
             logger.warning(f"Station {station.id} has no active Agent connection for late join")
 
     return {"status": "joined", "lobby_id": lobby_id, "slot": slot_idx}
+
+
+@router.post("/{lobby_id}/leave")
+async def leave_lobby(
+    lobby_id: int,
+    leave_data: schemas.LobbyLeave,
+    db: Session = Depends(database.get_db),
+    user_or_client: models.User | str = Depends(require_admin_or_public_token_or_kiosk),
+    kiosk_code: Optional[str] = Header(None, alias="X-Kiosk-Code"),
+):
+    lobby = db.query(models.Lobby).filter(models.Lobby.id == lobby_id).first()
+    if not lobby:
+        raise HTTPException(status_code=404, detail="Lobby not found")
+    if await _expire_lobby_if_needed(db, lobby):
+        return {"status": "cancelled", "lobby_id": lobby_id}
+
+    station = db.query(models.Station).filter(models.Station.id == leave_data.station_id).first()
+    if not station:
+        raise HTTPException(status_code=404, detail="Station not found")
+
+    _require_kiosk_access(station, kiosk_code, user_or_client)
+    _require_client_scope(user_or_client, "kiosk:control")
+
+    if station.id == lobby.host_station_id:
+        await _cancel_lobby_with_cleanup(db, lobby, reason="host_left")
+        return {"status": "cancelled", "lobby_id": lobby_id}
+
+    if station not in lobby.players:
+        return {"status": "not_in_lobby", "lobby_id": lobby_id}
+
+    if lobby.status in {"starting", "running"}:
+        try:
+            await manager.send_command(station.id, {"command": "stop_session"})
+        except Exception:
+            logger.exception("Failed to stop player session while leaving lobby")
+
+    lobby.players.remove(station)
+    db.commit()
+    logger.info("Station %s left lobby %s", station.id, lobby.id)
+    return {"status": "left", "lobby_id": lobby_id, "remaining_players": len(lobby.players)}
 
 
 @router.post("/{lobby_id}/start")
@@ -439,6 +690,8 @@ async def start_lobby(
     lobby = db.query(models.Lobby).filter(models.Lobby.id == lobby_id).first()
     if not lobby:
         raise HTTPException(status_code=404, detail="Lobby not found")
+    if await _expire_lobby_if_needed(db, lobby):
+        raise HTTPException(status_code=409, detail="Lobby expired")
 
     requesting_station = db.query(models.Station).filter(models.Station.id == requesting_station_id).first()
     _require_kiosk_access(requesting_station, kiosk_code, user_or_client)
@@ -459,11 +712,11 @@ async def start_lobby(
         raise HTTPException(status_code=400, detail="Host station is offline")
 
     # Enforce ready players only. Unready players are auto-removed to allow partial participation.
-    stmt = models.lobby_players.select().where(models.lobby_players.c.lobby_id == lobby_id)
-    results = db.execute(stmt).fetchall()
-    ready_map = {row.station_id: row.ready for row in results}
-    ready_players = [p for p in lobby.players if ready_map.get(p.id, False)]
-    unready_players = [p for p in lobby.players if not ready_map.get(p.id, False)]
+    player_rows = _get_lobby_player_rows(db, lobby_id)
+    ready_map, slot_map, driver_name_map, ordered_station_ids = _get_lobby_player_state(player_rows)
+    ordered_players = _ordered_lobby_players(list(lobby.players), ordered_station_ids)
+    ready_players = [player for player in ordered_players if ready_map.get(player.id, False)]
+    unready_players = [player for player in ordered_players if not ready_map.get(player.id, False)]
 
     if host.id not in [p.id for p in ready_players]:
         raise HTTPException(status_code=400, detail="Host must be ready to start")
@@ -479,8 +732,12 @@ async def start_lobby(
                 pass
         db.commit()
 
-    initial_status = lobby.status
-    initial_started_at = lobby.started_at
+    _reassign_lobby_slots(db, lobby_id, [player.id for player in ready_players])
+    db.commit()
+    player_rows = _get_lobby_player_rows(db, lobby_id)
+    ready_map, slot_map, driver_name_map, ordered_station_ids = _get_lobby_player_state(player_rows)
+    ordered_players = _ordered_lobby_players(list(lobby.players), ordered_station_ids)
+    ready_players = [player for player in ordered_players if ready_map.get(player.id, False)]
 
     # Update status only after all pre-start validations pass.
     lobby.status = "starting"
@@ -496,39 +753,93 @@ async def start_lobby(
         "laps": lobby.laps,
         "max_players": lobby.max_players,
         "port": lobby.port,
-        "players": [{"name": s.name, "slot": idx} for idx, s in enumerate(lobby.players)]
+        "ac_path": host.ac_path,
+        "players": [
+            {
+                "name": driver_name_map.get(player.id) or player.name,
+                "slot": slot_map.get(player.id, idx),
+            }
+            for idx, player in enumerate(ready_players)
+        ]
     })
     if not ok:
-        # L-004: Rollback on failure
-        logger.error(f"Failed to send create_lobby to host {host.name}, rolling back")
-        lobby.status = initial_status
-        lobby.started_at = initial_started_at
+        logger.error(f"Failed to send create_lobby to host {host.name}, cancelling lobby")
+        lobby.started_at = None
+        _cancel_lobby_record(db, lobby, "host_server_start_failed")
         db.commit()
-        raise HTTPException(status_code=500, detail="Host Agent not connected. Lobby rolled back.")
+        raise HTTPException(status_code=500, detail="Host Agent not connected. Lobby cancelled.")
     
     logger.info(f"Sent create_lobby to host {host.name}")
-    
-    # Send join_lobby command to all other players
+
+    host_join_ok = await manager.send_command(
+        host.id,
+        _build_join_lobby_command(
+            lobby,
+            host,
+            slot=slot_map.get(host.id, 0),
+            driver_name=driver_name_map.get(host.id) or host.name,
+            is_spectator=False,
+        ),
+    )
+    if not host_join_ok:
+        logger.error(f"Failed to send join_lobby to host {host.name}, cancelling lobby")
+        lobby.started_at = None
+        await _cancel_lobby_with_cleanup(
+            db,
+            lobby,
+            reason="host_client_join_failed",
+            participant_station_ids=[host.id],
+        )
+        raise HTTPException(status_code=500, detail="Host AC client failed to join. Lobby cancelled.")
+
+    logger.info(f"Sent join_lobby to host {host.name}")
+
+    # Send join_lobby command to all other players in parallel.
+    other_ready_players = [station for station in ready_players if station.id != lobby.host_station_id]
     failed_stations = []
-    for idx, station in enumerate(lobby.players):
-        if station.id == lobby.host_station_id:
-            continue  # Skip host
-        
-        ok = await manager.send_command(station.id, {
-            "command": "join_lobby",
-            "lobby_id": lobby.id,
-            "server_ip": lobby.server_ip,
-            "port": lobby.port,
-            "track": lobby.track,
-            "car": lobby.car,
-            "slot": idx,
-            "is_spectator": False
-        })
-        if ok:
-            logger.info(f"Sent join_lobby to {station.name}")
-        else:
-            logger.warning(f"Station {station.id} agent not connected, join_lobby skipped")
+    successful_station_ids = [host.id]
+    if other_ready_players:
+        join_results = await asyncio.gather(
+            *[
+                manager.send_command(
+                    station.id,
+                    _build_join_lobby_command(
+                        lobby,
+                        station,
+                        slot=slot_map.get(station.id, idx),
+                        driver_name=driver_name_map.get(station.id) or station.name,
+                        is_spectator=False,
+                    ),
+                )
+                for idx, station in enumerate(other_ready_players)
+            ],
+            return_exceptions=True,
+        )
+
+        for station, result in zip(other_ready_players, join_results):
+            if result is True:
+                logger.info(f"Sent join_lobby to {station.name}")
+                successful_station_ids.append(station.id)
+                continue
+            if isinstance(result, Exception):
+                logger.warning(f"Station {station.id} join_lobby raised an error: {result}")
+            else:
+                logger.warning(f"Station {station.id} agent not connected, join_lobby skipped")
             failed_stations.append(station.id)
+
+    if failed_stations:
+        logger.error("Cancelling lobby %s because some players failed to join: %s", lobby.id, failed_stations)
+        lobby.started_at = None
+        await _cancel_lobby_with_cleanup(
+            db,
+            lobby,
+            reason="player_join_failed",
+            participant_station_ids=successful_station_ids + failed_stations,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Some simulators failed to join the lobby. Cancelled lobby. Failed stations: {failed_stations}",
+        )
     
     # NEW: Automatically join TV Mode stations as spectators
     tv_stations = db.query(models.Station).filter(
@@ -540,16 +851,17 @@ async def start_lobby(
         # Don't send if already in lobby as player (unlikely but safe)
         if any(p.id == tv_station.id for p in lobby.players):
             continue
-            
-        ok = await manager.send_command(tv_station.id, {
-            "command": "join_lobby",
-            "lobby_id": lobby.id,
-            "server_ip": lobby.server_ip,
-            "port": lobby.port,
-            "track": lobby.track,
-            "car": lobby.car,
-            "is_spectator": True
-        })
+             
+        ok = await manager.send_command(
+            tv_station.id,
+            _build_join_lobby_command(
+                lobby,
+                tv_station,
+                slot=None,
+                driver_name="TV Broadcast",
+                is_spectator=True,
+            ),
+        )
         if ok:
             logger.info(f"Sent join_lobby (Spectator) to TV Station {tv_station.name}")
         else:
@@ -559,7 +871,7 @@ async def start_lobby(
     lobby.status = "running"
     db.commit()
     
-    return {"status": "started", "players": len(lobby.players), "failed_players": failed_stations}
+    return {"status": "started", "players": len(ready_players), "failed_players": failed_stations}
 
 
 @router.delete("/{lobby_id}")
@@ -582,17 +894,6 @@ async def cancel_lobby(
     if lobby.host_station_id != requesting_station_id:
         raise HTTPException(status_code=403, detail="Only host can cancel")
     
-    # If running, send stop command to host
-    if lobby.status == "running":
-        host = db.query(models.Station).filter(models.Station.id == lobby.host_station_id).first()
-        if host:
-            try:
-                await manager.send_command(host.id, {"command": "stop_lobby"})
-            except Exception:
-                pass
-    
-    _release_port_reservation(db, lobby)
-    lobby.status = "cancelled"
-    db.commit()
+    await _cancel_lobby_with_cleanup(db, lobby, reason="manual_cancel")
     
     return {"status": "cancelled", "lobby_id": lobby_id}

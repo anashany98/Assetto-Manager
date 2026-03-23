@@ -82,54 +82,54 @@ export default function LapComparison() {
     const getWinnerClass = (wins: number, otherWins: number) => {
         if (wins > otherWins) return 'border-green-500 bg-green-500/10';
         if (wins < otherWins) return 'border-red-500 bg-red-500/10';
-        return 'border-gray-600';
+        return 'border-[var(--border-strong)]';
     };
 
     return (
         <div className="p-6 space-y-6">
             {/* Header */}
             <div>
-                <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+                <h1 className="text-3xl font-bold text-[var(--text-primary)] flex items-center gap-3">
                     <BarChart3 className="text-blue-400" /> Comparador de Vueltas
                 </h1>
-                <p className="text-gray-400 mt-1">Compara el rendimiento entre dos pilotos</p>
+                <p className="text-[var(--text-tertiary)] mt-1">Compara el rendimiento entre dos pilotos</p>
             </div>
 
             {/* Search Form */}
-            <form onSubmit={compare} className="bg-gray-800/50 border border-gray-700 rounded-xl p-6">
+            <form onSubmit={compare} className="bg-[var(--bg-elevated)]/50 border border-[var(--border-default)] rounded-xl p-6">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
-                        <label className="text-gray-400 text-sm mb-1 block">Piloto 1</label>
+                        <label className="text-[var(--text-tertiary)] text-sm mb-1 block">Piloto 1</label>
                         <div className="relative">
-                            <Users className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                            <Users className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" size={18} />
                             <input
                                 type="text"
                                 placeholder="Nombre del piloto"
                                 value={driver1}
                                 onChange={(e) => setDriver1(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400"
+                                className="w-full pl-10 pr-4 py-2 bg-gray-700 border border-[var(--border-strong)] rounded-lg text-[var(--text-primary)] placeholder-gray-400"
                             />
                         </div>
                     </div>
                     <div>
-                        <label className="text-gray-400 text-sm mb-1 block">Piloto 2</label>
+                        <label className="text-[var(--text-tertiary)] text-sm mb-1 block">Piloto 2</label>
                         <div className="relative">
-                            <Users className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                            <Users className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" size={18} />
                             <input
                                 type="text"
                                 placeholder="Nombre del piloto"
                                 value={driver2}
                                 onChange={(e) => setDriver2(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400"
+                                className="w-full pl-10 pr-4 py-2 bg-gray-700 border border-[var(--border-strong)] rounded-lg text-[var(--text-primary)] placeholder-gray-400"
                             />
                         </div>
                     </div>
                     <div>
-                        <label className="text-gray-400 text-sm mb-1 block">Circuito</label>
+                        <label className="text-[var(--text-tertiary)] text-sm mb-1 block">Circuito</label>
                         <select
                             value={track}
                             onChange={(e) => setTrack(e.target.value)}
-                            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
+                            className="w-full px-4 py-2 bg-gray-700 border border-[var(--border-strong)] rounded-lg text-[var(--text-primary)]"
                         >
                             {tracks.map((t, i) => (
                                 <option key={i} value={t.track}>{t.track}</option>
@@ -140,7 +140,7 @@ export default function LapComparison() {
                         <button
                             type="submit"
                             disabled={loading || !driver1 || !driver2}
-                            className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                            className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-[var(--text-primary)] font-bold rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                         >
                             {loading ? <RefreshCw className="animate-spin" size={18} /> : <Search size={18} />}
                             Comparar
@@ -160,31 +160,31 @@ export default function LapComparison() {
             {result && (
                 <div className="space-y-6">
                     <div className="text-center">
-                        <h2 className="text-xl text-gray-400">Comparación en <span className="text-white font-bold">{result.track_name}</span></h2>
-                        <p className="text-sm text-gray-500">Diferencia: <span className="text-yellow-400 font-mono">{formatTime(result.time_gap)}</span></p>
+                        <h2 className="text-xl text-[var(--text-tertiary)]">Comparación en <span className="text-[var(--text-primary)] font-bold">{result.track_name}</span></h2>
+                        <p className="text-sm text-[var(--text-tertiary)]">Diferencia: <span className="text-yellow-400 font-mono">{formatTime(result.time_gap)}</span></p>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* Driver 1 */}
                         <div className={`border-2 rounded-2xl p-6 ${getWinnerClass(result.driver_1.win_count, result.driver_2.win_count)}`}>
                             <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-2xl font-bold text-white">{result.driver_1.driver_name}</h3>
+                                <h3 className="text-2xl font-bold text-[var(--text-primary)]">{result.driver_1.driver_name}</h3>
                                 {result.driver_1.win_count > result.driver_2.win_count && (
                                     <Award className="text-yellow-400" size={28} />
                                 )}
                             </div>
                             <div className="space-y-3">
                                 <div className="flex justify-between items-center">
-                                    <span className="text-gray-400 flex items-center gap-2"><Clock size={16} /> Mejor Tiempo</span>
-                                    <span className="text-2xl font-mono text-white">{formatTime(result.driver_1.best_lap)}</span>
+                                    <span className="text-[var(--text-tertiary)] flex items-center gap-2"><Clock size={16} /> Mejor Tiempo</span>
+                                    <span className="text-2xl font-mono text-[var(--text-primary)]">{formatTime(result.driver_1.best_lap)}</span>
                                 </div>
                                 <div className="flex justify-between items-center">
-                                    <span className="text-gray-400">Total Vueltas</span>
-                                    <span className="text-xl font-bold text-white">{result.driver_1.total_laps}</span>
+                                    <span className="text-[var(--text-tertiary)]">Total Vueltas</span>
+                                    <span className="text-xl font-bold text-[var(--text-primary)]">{result.driver_1.total_laps}</span>
                                 </div>
                                 <div className="flex justify-between items-center">
-                                    <span className="text-gray-400 flex items-center gap-2"><TrendingUp size={16} /> Consistencia</span>
-                                    <span className="text-lg text-white">{result.driver_1.consistency.toFixed(1)} ms</span>
+                                    <span className="text-[var(--text-tertiary)] flex items-center gap-2"><TrendingUp size={16} /> Consistencia</span>
+                                    <span className="text-lg text-[var(--text-primary)]">{result.driver_1.consistency.toFixed(1)} ms</span>
                                 </div>
                             </div>
                         </div>
@@ -192,23 +192,23 @@ export default function LapComparison() {
                         {/* Driver 2 */}
                         <div className={`border-2 rounded-2xl p-6 ${getWinnerClass(result.driver_2.win_count, result.driver_1.win_count)}`}>
                             <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-2xl font-bold text-white">{result.driver_2.driver_name}</h3>
+                                <h3 className="text-2xl font-bold text-[var(--text-primary)]">{result.driver_2.driver_name}</h3>
                                 {result.driver_2.win_count > result.driver_1.win_count && (
                                     <Award className="text-yellow-400" size={28} />
                                 )}
                             </div>
                             <div className="space-y-3">
                                 <div className="flex justify-between items-center">
-                                    <span className="text-gray-400 flex items-center gap-2"><Clock size={16} /> Mejor Tiempo</span>
-                                    <span className="text-2xl font-mono text-white">{formatTime(result.driver_2.best_lap)}</span>
+                                    <span className="text-[var(--text-tertiary)] flex items-center gap-2"><Clock size={16} /> Mejor Tiempo</span>
+                                    <span className="text-2xl font-mono text-[var(--text-primary)]">{formatTime(result.driver_2.best_lap)}</span>
                                 </div>
                                 <div className="flex justify-between items-center">
-                                    <span className="text-gray-400">Total Vueltas</span>
-                                    <span className="text-xl font-bold text-white">{result.driver_2.total_laps}</span>
+                                    <span className="text-[var(--text-tertiary)]">Total Vueltas</span>
+                                    <span className="text-xl font-bold text-[var(--text-primary)]">{result.driver_2.total_laps}</span>
                                 </div>
                                 <div className="flex justify-between items-center">
-                                    <span className="text-gray-400 flex items-center gap-2"><TrendingUp size={16} /> Consistencia</span>
-                                    <span className="text-lg text-white">{result.driver_2.consistency.toFixed(1)} ms</span>
+                                    <span className="text-[var(--text-tertiary)] flex items-center gap-2"><TrendingUp size={16} /> Consistencia</span>
+                                    <span className="text-lg text-[var(--text-primary)]">{result.driver_2.consistency.toFixed(1)} ms</span>
                                 </div>
                             </div>
                         </div>
@@ -216,7 +216,7 @@ export default function LapComparison() {
 
                     {/* Winner Banner */}
                     <div className="bg-gradient-to-r from-green-600/20 via-green-500/10 to-green-600/20 border border-green-500/30 rounded-xl p-4 text-center">
-                        <p className="text-gray-400">GANADOR</p>
+                        <p className="text-[var(--text-tertiary)]">GANADOR</p>
                         <p className="text-3xl font-black text-green-400">
                             {result.driver_1.win_count > result.driver_2.win_count
                                 ? result.driver_1.driver_name
@@ -224,7 +224,7 @@ export default function LapComparison() {
                                     ? result.driver_2.driver_name
                                     : 'EMPATE'}
                         </p>
-                        <p className="text-sm text-gray-400 mt-1">
+                        <p className="text-sm text-[var(--text-tertiary)] mt-1">
                             {result.driver_1.win_count > result.driver_2.win_count
                                 ? `${formatTime(result.time_gap)} más rápido`
                                 : result.driver_2.win_count > result.driver_1.win_count

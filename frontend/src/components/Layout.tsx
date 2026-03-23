@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
     LayoutDashboard,
@@ -12,6 +12,7 @@ import {
     Crown,
     ChevronLeft,
     ChevronRight,
+    ChevronDown,
     History as HistoryIcon,
     CalendarCheck,
     Sun,
@@ -23,7 +24,13 @@ import {
     BarChart3,
     Eye,
     Menu,
-    X
+    X,
+    Search,
+    LogOut,
+    Cpu,
+    Swords,
+    Monitor,
+    UserCog
 } from 'lucide-react';
 import { useTheme } from '../contexts/useTheme';
 import { useAuth } from '../context/useAuth';
@@ -37,82 +44,121 @@ import Breadcrumbs from './Breadcrumbs';
 import { getPairedStationId } from '../utils/stationPairing';
 
 
-// NavItem Component
+// ============================================================================
+// TYPES
+// ============================================================================
+
+interface NavSection {
+    label: string;
+    items: NavItemConfig[];
+}
+
+interface NavItemConfig {
+    to: string;
+    icon: React.ComponentType<{ size?: number }>;
+    label: string;
+    featureKey?: keyof typeof FEATURES;
+    permissionKey?: string;
+}
+
+// ============================================================================
+// NAV CONFIGURATION
+// ============================================================================
+
+const NAV_SECTIONS: NavSection[] = [
+    {
+        label: 'Gestión',
+        items: [
+            { to: '/admin', icon: LayoutDashboard, label: 'Panel Control', permissionKey: 'dashboard' },
+            { to: '/drivers', icon: Users, label: 'Pilotos', featureKey: 'drivers', permissionKey: 'drivers' },
+            { to: '/events', icon: Calendar, label: 'Torneos', featureKey: 'tournaments', permissionKey: 'events' },
+            { to: '/championships', icon: Trophy, label: 'Campeonatos', featureKey: 'championships', permissionKey: 'championships' },
+            { to: '/history', icon: HistoryIcon, label: 'Historial', featureKey: 'history', permissionKey: 'history' },
+            { to: '/bookings', icon: CalendarCheck, label: 'Reservas', featureKey: 'bookings', permissionKey: 'bookings' },
+            { to: '/reservations', icon: LayoutGrid, label: 'Mesas', featureKey: 'tables', permissionKey: 'tables' },
+            { to: '/analytics', icon: BarChart3, label: 'Ingresos', featureKey: 'analytics', permissionKey: 'analytics' },
+            { to: '/online-reservations', icon: CalendarPlus, label: 'Reservas Online', featureKey: 'online_reservations', permissionKey: 'online_reservations' },
+            { to: '/compare', icon: BarChart3, label: 'Comparar Vueltas', featureKey: 'lap_comparison', permissionKey: 'lap_comparison' },
+        ],
+    },
+    {
+        label: 'Contenido',
+        items: [
+            { to: '/admin/scenarios', icon: Gamepad2, label: 'Sesiones Kiosk', featureKey: 'kiosk', permissionKey: 'kiosk' },
+            { to: '/mods', icon: Library, label: 'Librería Mods', featureKey: 'mods', permissionKey: 'mods' },
+        ],
+    },
+    {
+        label: 'Sistema',
+        items: [
+            { to: '/settings', icon: Settings, label: 'Configuración', featureKey: 'settings', permissionKey: 'settings' },
+            { to: '/settings?tab=game', icon: Gamepad2, label: 'Editor AC', featureKey: 'editor', permissionKey: 'editor' },
+            { to: '/profiles', icon: Users, label: 'Perfiles', featureKey: 'profiles', permissionKey: 'profiles' },
+            { to: '/users', icon: UserCog, label: 'Usuarios', permissionKey: 'users' },
+            { to: '/hardware', icon: Cpu, label: 'Hardware', permissionKey: 'hardware' },
+        ],
+    },
+    {
+        label: 'Sala & TV',
+        items: [
+            { to: '/remote', icon: MonitorPlay, label: 'Mando TV', featureKey: 'tv_remote', permissionKey: 'tv_remote' },
+            { to: '/director', icon: MonitorPlay, label: 'Director TV', featureKey: 'tv_spectator', permissionKey: 'tv_spectator' },
+            { to: '/tv/spectator', icon: Eye, label: 'Espectador TV', featureKey: 'tv_spectator', permissionKey: 'tv_spectator' },
+            { to: '/leaderboard', icon: List, label: 'Clasificación', featureKey: 'leaderboard', permissionKey: 'leaderboard' },
+            { to: '/hall-of-fame', icon: Crown, label: 'Salón Fama', featureKey: 'hall_of_fame', permissionKey: 'hall_of_fame' },
+            { to: '/kiosk', icon: Monitor, label: 'Pantallas', featureKey: 'kiosk_menu', permissionKey: 'kiosk' },
+        ],
+    },
+];
+
+// Permission map for routes
+const ROUTE_PERMISSION_MAP: Record<string, string> = {
+    '/admin/scenarios': 'kiosk',
+    '/admin': 'dashboard',
+    '/drivers': 'drivers',
+    '/events': 'events',
+    '/championships': 'championships',
+    '/history': 'history',
+    '/bookings': 'bookings',
+    '/reservations': 'tables',
+    '/analytics': 'analytics',
+    '/mods': 'mods',
+    '/online-reservations': 'online_reservations',
+    '/compare': 'lap_comparison',
+    '/settings?tab=game': 'editor',
+    '/settings': 'settings',
+    '/profiles': 'profiles',
+    '/users': 'users',
+    '/remote': 'tv_remote',
+    '/director': 'tv_spectator',
+    '/tv/spectator': 'tv_spectator',
+    '/leaderboard': 'leaderboard',
+    '/hall-of-fame': 'hall_of_fame',
+    '/kiosk': 'kiosk',
+    '/hardware': 'hardware',
+    '/': 'dashboard',
+};
+
+// ============================================================================
+// SUB-COMPONENTS
+// ============================================================================
+
 const NavItem = ({
     to,
     icon: Icon,
-    children,
+    label,
     collapsed,
-    onNavigate
+    onNavigate,
 }: {
-    to: string,
-    icon: React.ComponentType<{ size?: number }>,
-    children: React.ReactNode,
-    collapsed?: boolean,
-    onNavigate?: () => void
+    to: string;
+    icon: React.ComponentType<{ size?: number }>;
+    label: string;
+    collapsed?: boolean;
+    onNavigate?: () => void;
 }) => {
     const location = useLocation();
-    const { user } = useAuth();
-    const { isModuleEnabled } = useLicense();
-    const isActive = location.pathname === to;
+    const isActive = location.pathname === to || (to !== '/' && location.pathname.startsWith(to) && to.length > 1);
     const itemId = `nav-item-${to.replace(/\//g, '-')}`;
-
-    // Permission/Module Check
-    // Keys should match BOTH backend user permissions AND license modules.
-    // We select the longest matching prefix so "/" does not shadow everything.
-    const ROUTE_PERMISSION_MAP: Record<string, string> = {
-        // Management
-        '/admin/scenarios': 'kiosk',
-        '/admin': 'dashboard',
-        '/drivers': 'drivers',
-        '/events': 'events',
-        '/championships': 'championships',
-        '/history': 'history',
-        '/bookings': 'bookings',
-        '/reservations': 'tables',
-        '/analytics': 'analytics',
-        '/mods': 'mods',
-        '/online-reservations': 'online_reservations',
-        '/compare': 'lap_comparison',
-
-        // System
-        '/settings?tab=game': 'editor',
-        '/settings': 'settings',
-        '/profiles': 'profiles',
-        '/users': 'users',
-
-        // Public / TV
-        '/remote': 'tv_remote',
-        '/tv/spectator': 'tv_spectator',
-        '/leaderboard': 'leaderboard',
-        '/hall-of-fame': 'hall_of_fame',
-        '/kiosk': 'kiosk',
-
-        // Fallback
-        '/': 'dashboard',
-    };
-
-    const requiredPerm = (() => {
-        let bestPerm: string | undefined;
-        let bestLen = -1;
-        for (const [prefix, perm] of Object.entries(ROUTE_PERMISSION_MAP)) {
-            if (to.startsWith(prefix) && prefix.length > bestLen) {
-                bestPerm = perm;
-                bestLen = prefix.length;
-            }
-        }
-        return bestPerm;
-    })();
-
-    // User Permission Check
-    const hasUserPerm = !requiredPerm ||
-        user?.role === 'admin' ||
-        (user?.permissions && user.permissions.includes(requiredPerm));
-
-    // License Check
-    const hasLicense = !requiredPerm || isModuleEnabled(requiredPerm);
-
-    if (!hasUserPerm || !hasLicense) return null;
 
     return (
         <Link
@@ -121,112 +167,188 @@ const NavItem = ({
             role="menuitem"
             id={itemId}
             aria-current={isActive ? 'page' : undefined}
-            className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-4 py-3 rounded-xl transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${isActive
-                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25'
-                : 'text-slate-600 hover:bg-slate-100 hover:text-blue-600 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white'
+            className={`group flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-3 py-2.5 rounded-xl transition-all duration-200 text-sm ${isActive
+                ? 'bg-[var(--accent-primary)] text-[var(--text-primary)] shadow-md'
+                : 'text-[var(--nav-item-color)] hover:bg-[var(--nav-item-hover-bg)] hover:text-[var(--nav-item-hover-color)]'
                 }`}
-            title={collapsed ? children as string : ''}
+            style={isActive ? { boxShadow: 'var(--nav-item-active-shadow)' } : undefined}
+            title={collapsed ? label : ''}
         >
-            <span className={`flex-shrink-0 ${isActive ? 'drop-shadow-lg' : 'group-hover:scale-110 transition-transform'}`}>
-                <Icon size={20} />
+            <span className={`flex-shrink-0 transition-transform duration-200 ${!isActive ? 'group-hover:scale-110' : ''}`}>
+                <Icon size={18} />
             </span>
-            <span className={`font-medium transition-all ${collapsed ? 'hidden w-0 opacity-0' : 'block opacity-100'}`}>{children}</span>
-            {isActive && !collapsed && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white animate-pulse" aria-hidden="true" />}
+            {!collapsed && (
+                <span className="font-medium truncate">{label}</span>
+            )}
+            {isActive && !collapsed && (
+                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[var(--bg-card)]/70" aria-hidden="true" />
+            )}
         </Link>
     );
 };
 
-// Theme Toggle Component
+const NavSectionComponent = ({
+    section,
+    collapsed,
+    onNavigate,
+    isExpanded,
+    onToggle,
+    user,
+    isModuleEnabled,
+}: {
+    section: NavSection;
+    collapsed: boolean;
+    onNavigate?: () => void;
+    isExpanded: boolean;
+    onToggle: () => void;
+    user: { role?: string; permissions?: string[] } | null;
+    isModuleEnabled: (key: string) => boolean;
+}) => {
+    const visibleItems = section.items.filter((item) => {
+        // Feature flag check
+        if (item.featureKey && !FEATURES[item.featureKey]) return false;
+
+        // Permission check
+        const perm = item.permissionKey;
+        if (!perm) return true;
+        if (user?.role === 'admin') return true;
+        if (user?.permissions && !user.permissions.includes(perm)) return false;
+
+        // License check
+        if (!isModuleEnabled(perm)) return false;
+
+        return true;
+    });
+
+    if (visibleItems.length === 0) return null;
+
+    return (
+        <div className="mb-1">
+            {!collapsed ? (
+                <button
+                    onClick={onToggle}
+                    className="w-full flex items-center justify-between px-3 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--nav-section-label)] hover:text-[var(--text-secondary)] transition-colors"
+                >
+                    <span>{section.label}</span>
+                    <ChevronDown
+                        size={12}
+                        className={`transition-transform duration-200 ${isExpanded ? 'rotate-0' : '-rotate-90'}`}
+                    />
+                </button>
+            ) : (
+                <div className="h-px mx-3 my-2 bg-[var(--border-default)]" />
+            )}
+
+            {(isExpanded || collapsed) && (
+                <div className="space-y-0.5">
+                    {visibleItems.map((item) => (
+                        <NavItem
+                            key={item.to}
+                            to={item.to}
+                            icon={item.icon}
+                            label={item.label}
+                            collapsed={collapsed}
+                            onNavigate={onNavigate}
+                        />
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
 const ThemeToggle = ({ collapsed }: { collapsed: boolean }) => {
     const { theme, toggleTheme } = useTheme();
 
     return (
         <button
             onClick={toggleTheme}
-            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+            className="p-2 rounded-lg bg-[var(--bg-badge)] hover:bg-[var(--bg-card-hover)] border border-[var(--border-default)] transition-all duration-200 hover:scale-105"
             aria-label={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-            title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+            title={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
         >
             {theme === 'dark' ? (
-                <Sun size={collapsed ? 16 : 18} className="text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.5)]" aria-hidden="true" />
+                <Sun size={collapsed ? 14 : 16} className="text-amber-400" aria-hidden="true" />
             ) : (
-                <Moon size={collapsed ? 16 : 18} className="text-blue-600 dark:text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.5)]" aria-hidden="true" />
+                <Moon size={collapsed ? 14 : 16} className="text-blue-500" aria-hidden="true" />
             )}
         </button>
     );
 };
 
-// Main Layout Component
+// ============================================================================
+// MAIN LAYOUT
+// ============================================================================
+
 export default function Layout({ children }: { children: React.ReactNode }) {
-    const [isMobile, setIsMobile] = useState(() => {
-        if (typeof window === 'undefined') return false;
-        return window.innerWidth < 1024;
-    });
-    const [isTablet, setIsTablet] = useState(() => {
-        if (typeof window === 'undefined') return false;
-        return window.innerWidth >= 768 && window.innerWidth < 1024;
-    });
+    const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 1024);
+    const [isTablet, setIsTablet] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 768 && window.innerWidth < 1024);
     const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(() => {
         if (typeof window === 'undefined') return false;
-        const saved = localStorage.getItem('sidebar-collapsed');
-        return saved === 'true';
+        return localStorage.getItem('sidebar-collapsed') === 'true';
     });
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const location = useLocation();
-    const { isAuthenticated } = useAuth();
+    const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(() => {
+        const saved = localStorage.getItem('nav-sections-expanded');
+        if (saved) return JSON.parse(saved);
+        return Object.fromEntries(NAV_SECTIONS.map((s) => [s.label, true]));
+    });
 
+    const location = useLocation();
+    const { isAuthenticated, user, logout } = useAuth();
+    const { isModuleEnabled } = useLicense();
+
+    // Responsive
     useEffect(() => {
         const onResize = () => {
-            const width = window.innerWidth;
-            setIsMobile(width < 768);
-            setIsTablet(width >= 768 && width < 1024);
+            const w = window.innerWidth;
+            setIsMobile(w < 768);
+            setIsTablet(w >= 768 && w < 1024);
         };
-
         onResize();
         window.addEventListener('resize', onResize);
         return () => window.removeEventListener('resize', onResize);
     }, []);
 
-    // Persist sidebar collapsed state
+    // Persist sidebar
     useEffect(() => {
         localStorage.setItem('sidebar-collapsed', String(isDesktopCollapsed));
     }, [isDesktopCollapsed]);
 
+    // Persist sections
     useEffect(() => {
-        if (!isMobile) {
-            setIsMobileMenuOpen(false);
-        }
-    }, [isMobile]);
+        localStorage.setItem('nav-sections-expanded', JSON.stringify(expandedSections));
+    }, [expandedSections]);
 
+    // Close mobile on route change
     useEffect(() => {
-        // Solo cerrar cuando cambia la ruta
         setIsMobileMenuOpen(false);
     }, [location.pathname]);
 
-    // Determine if we should show the full layout or just the content (e.g. for TV/Mobile/Public views)
+    useEffect(() => {
+        if (!isMobile) setIsMobileMenuOpen(false);
+    }, [isMobile]);
+
+    const toggleSection = useCallback((label: string) => {
+        setExpandedSections((prev) => ({ ...prev, [label]: !prev[label] }));
+    }, []);
+
+    const closeMobileNav = () => {
+        if (isMobile || isTablet) setIsMobileMenuOpen(false);
+    };
+
+    // Public routes (no sidebar)
     const publicPaths = [
-        '/',
-        '/tv',
-        '/tv-mode',
-        '/mobile',
-        '/passport-scanner',
-        '/hall-of-fame',
-        '/live-map',
-        '/battle',
-        '/kiosk',
-        '/kiosk-modern',
-        '/kiosk-racing',
-        '/login',
-        '/leaderboard',
-        '/remote',
-        '/reservar'
+        '/', '/tv', '/tv-mode', '/mobile', '/passport-scanner', '/hall-of-fame',
+        '/live-map', '/battle', '/kiosk', '/kiosk-modern', '/kiosk-racing',
+        '/login', '/leaderboard', '/remote', '/reservar', '/director-tv'
     ];
     const isPublicView = publicPaths.includes(location.pathname) ||
         location.pathname.startsWith('/tv/') ||
         location.pathname.startsWith('/telemetry/') ||
         location.pathname.startsWith('/p/');
 
-    // Branding Query
+    // Branding
     const { data: branding } = useQuery({
         queryKey: ['settings'],
         queryFn: async () => {
@@ -236,7 +358,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             } catch { return []; }
         },
         retry: 1,
-        initialData: []
+        initialData: [],
     });
 
     const safeBranding = Array.isArray(branding) ? branding : [];
@@ -248,7 +370,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     const pairedStationId = getPairedStationId();
     const canResolveStation = isAuthenticated || Boolean(PUBLIC_API_TOKEN);
 
-    // Resolve a safe station id to avoid repetitive 404 polling on fresh installs.
+    // Station lock check
     const { data: stationIds = [] } = useQuery<number[]>({
         queryKey: ['lock-check-station-ids'],
         queryFn: async () => {
@@ -263,9 +385,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     })
                     .filter((id: number | null): id is number => id !== null)
                     .sort((a, b) => a - b);
-            } catch {
-                return [];
-            }
+            } catch { return []; }
         },
         enabled: canResolveStation,
         retry: 1,
@@ -273,9 +393,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     });
 
     const stationId = (() => {
-        if (pairedStationId && stationIds.includes(pairedStationId)) {
-            return pairedStationId;
-        }
+        if (pairedStationId && stationIds.includes(pairedStationId)) return pairedStationId;
         return stationIds[0] ?? null;
     })();
 
@@ -287,21 +405,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 const res = await axios.get(`${API_URL}/hardware/status/${stationId}`, { headers: publicHeaders });
                 if (!isAdminView) {
                     if (res.data?.is_locked) {
-                        if (location.pathname !== '/lock-screen') {
-                            window.location.href = '/lock-screen';
-                        }
+                        if (location.pathname !== '/lock-screen') window.location.href = '/lock-screen';
                     } else {
-                        // If unlocked and currently on lock screen, go back to home/kiosk
-                        if (location.pathname === '/lock-screen') {
-                            window.location.href = '/kiosk'; // Default to kiosk after unlock
-                        }
+                        if (location.pathname === '/lock-screen') window.location.href = '/kiosk';
                     }
                 }
                 return res.data;
             } catch { return null; }
         },
         refetchInterval: () => {
-            // Reduce polling load and pause while tab/window is not visible.
             if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return false;
             return isAdminView ? 10000 : 4000;
         },
@@ -311,147 +423,171 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
     const hardwareWarning = lockStatus && (lockStatus.is_online === false || !lockStatus.wheel_connected || !lockStatus.pedals_connected);
     const collapsed = !isMobile && !isTablet && isDesktopCollapsed;
-    const closeMobileNav = () => {
-        if (isMobile || isTablet) setIsMobileMenuOpen(false);
-    };
 
-
+    // ========== PUBLIC VIEW ==========
     if (isPublicView) {
         return (
-            <div className="public-shell flex h-screen bg-transparent text-white overflow-hidden">
-                <div className="flex-1 overflow-auto">
-                    {children}
-                </div>
+            <div className="public-shell flex h-screen bg-transparent text-[var(--text-primary)] overflow-hidden">
+                <div className="flex-1 overflow-auto">{children}</div>
             </div>
         );
     }
 
+    // ========== ADMIN VIEW ==========
     return (
-        <div className="app-shell flex h-screen text-slate-900 dark:text-gray-100 overflow-hidden bg-slate-50 dark:bg-slate-900">
-            {/* Skip to main content link for accessibility */}
+        <div className="app-shell flex h-screen overflow-hidden">
+            {/* Skip to content */}
             <a
                 href="#main-content"
-                className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white focus:rounded-lg focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-[var(--accent-primary)] focus:text-[var(--text-primary)] focus:rounded-lg"
             >
                 Saltar al contenido principal
             </a>
+
+            {/* Mobile menu button */}
             {(isMobile || isTablet) && !isMobileMenuOpen && (
                 <button
                     onClick={() => setIsMobileMenuOpen(true)}
-                    className="fixed top-3 left-3 z-40 h-11 w-11 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-lg flex items-center justify-center text-slate-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    aria-label="Abrir menú de navegación"
+                    className="fixed top-3 left-3 z-40 h-11 w-11 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] shadow-lg flex items-center justify-center text-[var(--text-primary)]"
+                    aria-label="Abrir menú"
                 >
                     <Menu size={20} />
                 </button>
             )}
 
+            {/* Overlay */}
             {(isMobile || isTablet) && isMobileMenuOpen && (
                 <div
-                    className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[1px]"
+                    className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
                     onClick={() => setIsMobileMenuOpen(false)}
-                    onKeyDown={(e) => e.key === 'Escape' && setIsMobileMenuOpen(false)}
                     aria-hidden="true"
                 />
             )}
 
-            {/* Sidebar */}
-            <div className={`${collapsed ? 'lg:w-20' : 'lg:w-64'} w-0 flex-shrink-0`}>
+            {/* ===== SIDEBAR ===== */}
+            <div className={`${collapsed ? 'lg:w-[72px]' : 'lg:w-[260px]'} w-0 flex-shrink-0 transition-all duration-300`}>
                 <div
-                    className={`bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 text-slate-900 dark:text-white flex flex-col transition-all duration-300 relative fixed inset-y-0 left-0 z-50 w-72 transform ${(isMobile || isTablet) ? (isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full') : 'lg:relative lg:z-auto lg:w-full lg:translate-x-0'}`}
+                    className={`bg-[var(--bg-sidebar)] border-r border-[var(--border-default)] flex flex-col h-full transition-all duration-300 fixed inset-y-0 left-0 z-50 ${collapsed ? 'w-[72px]' : 'w-[260px]'} ${(isMobile || isTablet) ? (isMobileMenuOpen ? 'translate-x-0 w-72' : '-translate-x-full') : 'lg:relative lg:z-auto lg:translate-x-0'}`}
                     role="dialog"
                     aria-modal={(isMobile || isTablet) && isMobileMenuOpen ? 'true' : undefined}
-                    aria-label="Menú de navegación"
+                    aria-label="Navegación"
                 >
-                {/* Desktop Toggle */}
-                <button
-                    onClick={() => setIsDesktopCollapsed((prev) => !prev)}
-                    className="hidden lg:flex absolute -right-3 top-7 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full p-1.5 shadow-md hover:scale-110 transition-all z-50 text-blue-600 dark:text-gray-400"
-                    aria-label={collapsed ? 'Expandir menu lateral' : 'Contraer menu lateral'}
-                >
-                    {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-                </button>
+                    {/* Desktop collapse toggle */}
+                    <button
+                        onClick={() => setIsDesktopCollapsed((prev) => !prev)}
+                        className="hidden lg:flex absolute -right-3 top-7 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-full p-1.5 shadow-md hover:scale-110 transition-all z-50 text-[var(--accent-primary)]"
+                        aria-label={collapsed ? 'Expandir menú' : 'Contraer menú'}
+                    >
+                        {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+                    </button>
 
-                {/* Mobile Close */}
-                <button
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="absolute right-3 top-3 lg:hidden h-11 w-11 rounded-lg bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-gray-200 flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    aria-label="Cerrar menú"
-                >
-                    <X size={20} />
-                </button>
+                    {/* Mobile close */}
+                    <button
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="absolute right-3 top-3 lg:hidden h-10 w-10 rounded-lg bg-[var(--bg-badge)] text-[var(--text-primary)] flex items-center justify-center"
+                        aria-label="Cerrar menú"
+                    >
+                        <X size={18} />
+                    </button>
 
-                {/* Logo Section */}
-                <div className="p-6 flex flex-col items-center overflow-hidden border-b border-gray-100 dark:border-gray-800/50">
-                    <img
-                        src={barLogo}
-                        alt="VRacing Bar"
-                        className={`h-20 w-auto object-contain mb-2 transition-all duration-300 ${collapsed ? 'opacity-0 scale-50 h-0 my-0' : 'opacity-100 scale-100'}`}
-                    />
-                    <h2 className={`text-xs font-black uppercase tracking-[0.3em] text-blue-600 dark:text-blue-500 opacity-80 whitespace-nowrap transition-all duration-300 ${collapsed ? 'hidden' : ''}`}>
-                        {barName}
-                    </h2>
-                    {collapsed && <img src={barLogo} alt="VRacing Bar" className="h-10 w-10 object-contain" />}
-                </div>
-
-                {/* Navigation */}
-                <nav role="navigation" aria-label="Navegación principal" className="flex-1 px-4 space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-800 py-4">
-                    <div className={`text-[10px] text-gray-500 dark:text-gray-500 font-bold uppercase mt-4 mb-2 px-2 tracking-wider ${collapsed ? 'hidden' : ''}`}>
-                        Gestion
+                    {/* Logo */}
+                    <div className={`flex flex-col items-center py-5 px-4 border-b border-[var(--border-default)] ${collapsed ? 'px-2' : ''}`}>
+                        <img
+                            src={barLogo}
+                            alt={barName}
+                            className={`object-contain transition-all duration-300 ${collapsed ? 'h-8 w-8' : 'h-14 w-auto max-w-[160px] mb-1'}`}
+                        />
+                        {!collapsed && (
+                            <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-[var(--accent-primary)] mt-1 opacity-70">
+                                {barName}
+                            </span>
+                        )}
                     </div>
-                    <NavItem to="/admin" icon={LayoutDashboard} collapsed={collapsed} onNavigate={closeMobileNav}>Panel Control</NavItem>
 
-                    {FEATURES.drivers && <NavItem to="/drivers" icon={Users} collapsed={collapsed} onNavigate={closeMobileNav}>Pilotos</NavItem>}
-                    {FEATURES.tournaments && <NavItem to="/events" icon={Calendar} collapsed={collapsed} onNavigate={closeMobileNav}>Torneos</NavItem>}
-                    {FEATURES.championships && <NavItem to="/championships" icon={Trophy} collapsed={collapsed} onNavigate={closeMobileNav}>Campeonatos</NavItem>}
-                    {FEATURES.history && <NavItem to="/history" icon={HistoryIcon} collapsed={collapsed} onNavigate={closeMobileNav}>Historial</NavItem>}
-                    {FEATURES.bookings && <NavItem to="/bookings" icon={CalendarCheck} collapsed={collapsed} onNavigate={closeMobileNav}>Reservas</NavItem>}
-                    {FEATURES.tables && <NavItem to="/reservations" icon={LayoutGrid} collapsed={collapsed} onNavigate={closeMobileNav}>Mesas</NavItem>}
-                    {FEATURES.analytics && <NavItem to="/analytics" icon={LayoutDashboard} collapsed={collapsed} onNavigate={closeMobileNav}>Ingresos</NavItem>}
-                    {FEATURES.kiosk && <NavItem to="/admin/scenarios" icon={Gamepad2} collapsed={collapsed} onNavigate={closeMobileNav}>Sesiones Kiosk</NavItem>}
-                    {FEATURES.mods && <NavItem to="/mods" icon={Library} collapsed={collapsed} onNavigate={closeMobileNav}>Libreria</NavItem>}
-                    {FEATURES.online_reservations && <NavItem to="/online-reservations" icon={CalendarPlus} collapsed={collapsed} onNavigate={closeMobileNav}>Reservas Online</NavItem>}
-                    {FEATURES.lap_comparison && <NavItem to="/compare" icon={BarChart3} collapsed={collapsed} onNavigate={closeMobileNav}>Comparar Vueltas</NavItem>}
-
-                    <div className={`text-[10px] text-gray-500 dark:text-gray-500 font-bold uppercase mt-6 mb-2 px-2 tracking-wider ${collapsed ? 'hidden' : ''}`}>
-                        Sistema
-                    </div>
-                    {FEATURES.settings && <NavItem to="/settings" icon={Settings} collapsed={collapsed} onNavigate={closeMobileNav}>Configuracion</NavItem>}
-                    {FEATURES.editor && <NavItem to="/settings?tab=game" icon={Gamepad2} collapsed={collapsed} onNavigate={closeMobileNav}>Editor AC</NavItem>}
-                    {FEATURES.profiles && <NavItem to="/profiles" icon={Users} collapsed={collapsed} onNavigate={closeMobileNav}>Perfiles</NavItem>}
-
-                    <div className={`text-[10px] text-gray-500 dark:text-gray-500 font-bold uppercase mt-6 mb-2 px-2 tracking-wider ${collapsed ? 'hidden' : ''}`}>
-                        Sala & TV
-                    </div>
-                    {FEATURES.tv_remote && <NavItem to="/remote" icon={MonitorPlay} collapsed={collapsed} onNavigate={closeMobileNav}>Mando TV</NavItem>}
-                    {FEATURES.tv_spectator && <NavItem to="/tv/spectator" icon={Eye} collapsed={collapsed} onNavigate={closeMobileNav}>Espectador TV</NavItem>}
-                    {FEATURES.leaderboard && <NavItem to="/leaderboard" icon={List} collapsed={collapsed} onNavigate={closeMobileNav}>Clasificacion</NavItem>}
-                    {FEATURES.hall_of_fame && <NavItem to="/hall-of-fame" icon={Crown} collapsed={collapsed} onNavigate={closeMobileNav}>Salon Fama</NavItem>}
-                    {FEATURES.kiosk_menu && <NavItem to="/kiosk" icon={MonitorPlay} collapsed={collapsed} onNavigate={closeMobileNav}>Menu Pantallas</NavItem>}
-                </nav>
-
-                {/* User Profile / Status */}
-                <div className="p-4 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-black/20">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-bold flex-shrink-0 shadow-lg shadow-blue-500/30 text-white text-sm" aria-hidden="true">A</div>
-                            <div className={`transition-all overflow-hidden ${collapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'}`}>
-                                <p className="text-sm font-semibold whitespace-nowrap text-gray-900 dark:text-gray-200">Operador</p>
-                                <p className="text-xs text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true"></span>
-                                    Conectado
-                                </p>
+                    {/* Search (non-collapsed only) */}
+                    {!collapsed && (
+                        <div className="px-4 py-3">
+                            <div className="relative">
+                                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" />
+                                <input
+                                    type="text"
+                                    placeholder="Buscar..."
+                                    className="w-full pl-9 pr-3 py-2 text-xs bg-[var(--bg-input)] border border-[var(--border-default)] rounded-lg text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:border-[var(--border-focus)] transition-colors"
+                                />
                             </div>
                         </div>
-                        <ThemeToggle collapsed={collapsed} />
+                    )}
+
+                    {/* Navigation */}
+                    <nav
+                        role="navigation"
+                        aria-label="Navegación principal"
+                        className="flex-1 px-3 overflow-y-auto scrollbar-thin py-2"
+                    >
+                        {NAV_SECTIONS.map((section) => (
+                            <NavSectionComponent
+                                key={section.label}
+                                section={section}
+                                collapsed={collapsed}
+                                onNavigate={closeMobileNav}
+                                isExpanded={expandedSections[section.label] ?? true}
+                                onToggle={() => toggleSection(section.label)}
+                                user={user}
+                                isModuleEnabled={isModuleEnabled}
+                            />
+                        ))}
+                    </nav>
+
+                    {/* User / Footer */}
+                    <div className="p-3 border-t border-[var(--border-default)]">
+                        <div className={`flex items-center ${collapsed ? 'flex-col gap-2' : 'justify-between'}`}>
+                            <div className={`flex items-center gap-2.5 ${collapsed ? 'flex-col' : ''}`}>
+                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-bold text-[var(--text-primary)] text-xs shadow-md flex-shrink-0">
+                                    {(user?.role || 'A').charAt(0).toUpperCase()}
+                                </div>
+                                {!collapsed && (
+                                    <div className="min-w-0">
+                                        <p className="text-xs font-semibold text-[var(--text-primary)] truncate">
+                                            {user?.role === 'admin' ? 'Administrador' : 'Operador'}
+                                        </p>
+                                        <p className="text-[10px] text-[var(--accent-success)] flex items-center gap-1">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                            Conectado
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                            <div className={`flex items-center gap-1.5 ${collapsed ? 'flex-col' : ''}`}>
+                                <ThemeToggle collapsed={collapsed} />
+                                {isAuthenticated && (
+                                    <button
+                                        onClick={() => {
+                                            logout();
+                                            window.location.href = '/login';
+                                        }}
+                                        className="p-2 rounded-lg bg-[var(--bg-badge)] hover:bg-[var(--accent-danger-muted)] border border-[var(--border-default)] hover:border-red-500/30 transition-all duration-200 text-[var(--text-tertiary)] hover:text-red-500"
+                                        aria-label="Cerrar sesión"
+                                        title="Cerrar sesión"
+                                    >
+                                        <LogOut size={collapsed ? 14 : 16} />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
                     </div>
-                </div>
                 </div>
             </div>
 
-            {/* Main Content Area */}
-            <main id="main-content" className={`flex-1 overflow-auto relative ${(isMobile || isTablet) ? 'pt-14' : ''}`} role="main" aria-label="Contenido principal">
+            {/* ===== MAIN CONTENT ===== */}
+            <main
+                id="main-content"
+                className={`flex-1 overflow-auto ${(isMobile || isTablet) ? 'pt-14' : ''}`}
+                role="main"
+                aria-label="Contenido principal"
+            >
+                {/* Hardware Warning */}
                 {hardwareWarning && (
-                    <div className="mx-4 lg:mx-6 mt-4 mb-2 bg-red-500/10 border border-red-500/30 rounded-2xl p-4 text-red-600 dark:text-red-200 font-bold text-sm flex items-center gap-3" role="alert">
+                    <div className="mx-4 lg:mx-6 mt-4 mb-2 bg-[var(--accent-danger-muted)] border border-red-500/30 rounded-xl p-3.5 text-red-500 font-semibold text-sm flex items-center gap-3" role="alert">
                         <AlertTriangle size={18} aria-hidden="true" />
                         <span>
                             {!lockStatus?.is_online && 'Agente desconectado. '}
@@ -467,5 +603,4 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </main>
         </div>
     );
-
 }

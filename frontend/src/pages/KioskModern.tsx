@@ -3,6 +3,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { useIdleTimer } from 'react-idle-timer';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
+import { Activity, AlertCircle, Disc, Footprints, WifiOff } from 'lucide-react';
 import axios from 'axios';
 import { API_URL, PUBLIC_API_TOKEN } from '../config';
 import { useLanguage } from '../contexts/useLanguage';
@@ -10,6 +11,7 @@ import { getCars, getTracks } from '../api/content';
 import { getScenarios } from '../api/scenarios';
 import type { Scenario } from '../api/scenarios';
 import { type PaymentProvider, type PaymentStatus } from '../api/payments';
+import { startSession } from '../api/sessions';
 import { calculatePrice, getPricingConfig } from '../utils/pricing';
 import StationPairing from '../components/StationPairing';
 import {
@@ -118,15 +120,6 @@ export default function KioskModern() {
         queryFn: () => getTracks(stationId),
         enabled: !!stationId
     });
-    const { data: scenarios = [] } = useQuery({
-        queryKey: ['scenarios', stationId],
-        queryFn: () => getScenarios(),
-        enabled: !!stationId
-    });
-    const activeScenarios = useMemo(
-        () => (Array.isArray(scenarios) ? scenarios.filter((scenario: any) => scenario?.is_active !== false) : []),
-        [scenarios]
-    );
     const { data: settings = [] } = useQuery({
         queryKey: ['settings'],
         queryFn: async () => {
@@ -135,6 +128,36 @@ export default function KioskModern() {
         },
         initialData: []
     });
+    const { data: hardwareStatus, isLoading: hardwareFetching, refetch: refetchHardware, isError: isHardwareError } = useQuery({
+        queryKey: ['hardware-modern', stationId],
+        queryFn: () => axios.get(`${API_URL}/hardware/status/${stationId}`, { headers: clientTokenHeaders }).then((r) => r.data),
+        enabled: !!stationId,
+        refetchInterval: 5000,
+        retry: false,
+    });
+
+    const { data: scenarios = [] } = useQuery({
+        queryKey: ['scenarios', stationId],
+        queryFn: () => getScenarios(),
+        enabled: !!stationId
+    });
+
+    const simModsEnabled = useMemo(() => {
+        const entry = settings.find((item: any) => item.key === 'sim_mods_enabled');
+        return entry?.value === 'true' || entry?.value === '1';
+    }, [settings]);
+
+    const activeScenarios = useMemo(() => {
+        if (!Array.isArray(scenarios)) return [];
+        return scenarios.filter((scenario: any) => {
+            if (scenario?.is_active === false) return false;
+            if (!simModsEnabled) {
+                const type = (scenario?.session_type || '').toLowerCase();
+                if (type === 'traffic' || type === 'overtake') return false;
+            }
+            return true;
+        });
+    }, [scenarios, simModsEnabled]);
 
     const pricingConfig = useMemo(() => getPricingConfig(settings), [settings]);
     const sessionPrice = useMemo(() => calculatePrice(duration, false, pricingConfig), [duration, pricingConfig]);
@@ -144,10 +167,11 @@ export default function KioskModern() {
         return entry.value !== 'false' && entry.value !== '0';
     }, [settings]);
     const rainEnabled = useMemo(() => {
+        if (!simModsEnabled) return false;
         const entry = settings.find((item: any) => item.key === 'kiosk_rain_enabled');
         if (!entry) return false;
         return entry.value === 'true' || entry.value === '1';
-    }, [settings]);
+    }, [settings, simModsEnabled]);
 
     const { data: leaderboard = [] } = useQuery({
         queryKey: ['leaderboard', selection?.track, selection?.car],
@@ -189,11 +213,48 @@ export default function KioskModern() {
         }
         return fallback;
     };
+    const isServerUnavailable = isHardwareError;
+    const isStationInactive = hardwareStatus?.is_active === false;
+    const isKioskDisabled = hardwareStatus?.is_kiosk_mode === false;
+    const hardwareWarning = Boolean(
+        hardwareStatus && (
+            hardwareStatus.is_online === false
+            || !hardwareStatus.wheel_connected
+            || !hardwareStatus.pedals_connected
+        )
+    );
+
+    const resetKioskFlow = () => {
+        setIsLaunched(false);
+        setLaunchingNoPayment(false);
+        setSelection(null);
+        setDriver(null);
+        setDriverName('');
+        setDriverEmail('');
+        setPaymentInfo(null);
+        setPaymentError(null);
+        setStep(1);
+        paymentHandledRef.current = false;
+        noPaymentHandledRef.current = false;
+    };
+
+    const ensureSessionRecord = async () => {
+        await startSession({
+            station_id: stationId,
+            driver_name: driver?.name || undefined,
+            duration_minutes: duration,
+            price: sessionPrice,
+            payment_method: 'cash',
+            is_vr: false,
+            notes: paymentEnabled ? 'kiosk_session' : 'kiosk_no_payment',
+        }, { headers: clientTokenHeaders });
+    };
 
     const createLobbyMutation = useMutation({
         mutationFn: async () => {
             const payload = {
                 station_id: stationId,
+                driver_name: driver?.name || undefined,
                 name: `GRUPO DE ${driver?.name?.toUpperCase() || 'INVITADO'}`,
                 track: selection?.track,
                 car: selection?.car,
@@ -221,7 +282,11 @@ export default function KioskModern() {
     const joinLobbyMutation = useMutation({
         mutationFn: async () => {
             if (!selection?.lobbyId) throw new Error('Missing lobby id');
-            await axios.post(`${API_URL}/lobby/${selection.lobbyId}/join`, { station_id: stationId }, { headers: clientTokenHeaders });
+            await axios.post(
+                `${API_URL}/lobby/${selection.lobbyId}/join`,
+                { station_id: stationId, driver_name: driver?.name || undefined },
+                { headers: clientTokenHeaders }
+            );
         },
         onSuccess: () => {
             setPaymentError(null);
@@ -237,7 +302,18 @@ export default function KioskModern() {
     });
 
     const launchWithoutPayment = async () => {
+        if (launchingNoPayment) return;
         setLaunchingNoPayment(true);
+        try {
+            await ensureSessionRecord();
+        } catch (error) {
+            const message = resolveApiError(error, 'No se pudo registrar la sesion del kiosko.');
+            setPaymentError(message);
+            setLaunchingNoPayment(false);
+            window.alert(message);
+            return;
+        }
+
         if (selection?.isLobby) {
             if (selection.isHost) createLobbyMutation.mutate();
             else joinLobbyMutation.mutate();
@@ -322,6 +398,56 @@ export default function KioskModern() {
                     setPairingCodeError(null);
                 }}
             />
+        );
+    }
+
+    if (isServerUnavailable) {
+        return (
+            <div className="h-screen w-screen bg-gray-950 text-white flex items-center justify-center">
+                <div className="text-center max-w-xl px-6">
+                    <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-500/20 text-gray-300 mb-6">
+                        <WifiOff size={36} />
+                    </div>
+                    <h1 className="text-4xl font-black uppercase mb-3">Servidor sin conexion</h1>
+                    <p className="text-gray-400 text-lg">No se puede contactar con el servidor. Revisa la red o espera unos segundos.</p>
+                    <div className="mt-6 flex flex-col items-center gap-3">
+                        <button
+                            onClick={() => refetchHardware()}
+                            className="px-6 py-3 bg-red-500 hover:bg-red-400 text-black font-black uppercase tracking-widest rounded-xl"
+                        >
+                            {hardwareFetching ? 'Reintentando...' : 'Reintentar'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (isStationInactive) {
+        return (
+            <div className="h-screen w-screen bg-gray-950 text-white flex items-center justify-center">
+                <div className="text-center max-w-xl px-6">
+                    <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-red-500/20 text-red-400 mb-6">
+                        <AlertCircle size={36} />
+                    </div>
+                    <h1 className="text-4xl font-black uppercase mb-3">Servidor Inactivo</h1>
+                    <p className="text-gray-400 text-lg">Esta estacion esta desactivada. Contacta al administrador para reactivarla.</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (isKioskDisabled) {
+        return (
+            <div className="h-screen w-screen bg-gray-950 text-white flex items-center justify-center">
+                <div className="text-center max-w-xl px-6">
+                    <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-yellow-500/20 text-yellow-400 mb-6">
+                        <AlertCircle size={36} />
+                    </div>
+                    <h1 className="text-4xl font-black uppercase mb-3">Kiosko desactivado</h1>
+                    <p className="text-gray-400 text-lg">Esta estacion no esta en modo kiosko. Activalo desde Configuracion.</p>
+                </div>
+            </div>
         );
     }
 
@@ -461,6 +587,7 @@ export default function KioskModern() {
                         stationId={stationId}
                         setIsLaunched={setIsLaunched}
                         clientTokenHeaders={clientTokenHeaders}
+                        onExitLobby={resetKioskFlow}
                     />
                 );
                 break;
@@ -529,6 +656,24 @@ export default function KioskModern() {
                     </button>
                 </div>
             </div>
+
+            {hardwareWarning && (
+                <div className="absolute top-20 md:top-24 right-4 md:right-8 z-30 flex items-center gap-2 rounded-2xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-100">
+                    <div className={`p-2 rounded-lg ${hardwareStatus?.is_online ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
+                        <Activity size={16} />
+                    </div>
+                    <div className={`p-2 rounded-lg ${hardwareStatus?.wheel_connected ? 'bg-green-500/10 text-green-400' : 'bg-slate-900 text-slate-500'}`}>
+                        <Disc size={16} />
+                    </div>
+                    <div className={`p-2 rounded-lg ${hardwareStatus?.pedals_connected ? 'bg-green-500/10 text-green-400' : 'bg-slate-900 text-slate-500'}`}>
+                        <Footprints size={16} />
+                    </div>
+                    <span>
+                        {!hardwareStatus?.is_online && 'Agente desconectado. '}
+                        {hardwareStatus?.is_online && (!hardwareStatus?.wheel_connected || !hardwareStatus?.pedals_connected) && 'Hardware no detectado.'}
+                    </span>
+                </div>
+            )}
 
             <div className="flex-1 relative overflow-hidden z-10">
                 <AttractModeModern isIdle={isIdle()} t={t} onUnpair={handleUnpair} />

@@ -78,11 +78,11 @@ export default function TVRemote() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-900 text-white p-4 pb-20 md:p-8">
+        <div className="min-h-screen bg-[var(--bg-card)] text-[var(--text-primary)] p-4 pb-20 md:p-8">
             <div className="max-w-4xl mx-auto">
                 <header className="flex justify-between items-center mb-6 md:mb-8">
                     <div className="flex items-center space-x-3 md:space-x-4">
-                        <button onClick={() => navigate('/')} className="p-2 hover:bg-gray-800 rounded-lg active:scale-95 transition-transform">
+                        <button onClick={() => navigate('/')} className="p-2 hover:bg-[var(--bg-elevated)] rounded-lg active:scale-95 transition-transform">
                             <ArrowLeft size={24} />
                         </button>
                         <div>
@@ -90,7 +90,7 @@ export default function TVRemote() {
                                 <Tv className="mr-2 md:mr-3 text-blue-500" size={24} />
                                 Mando TV
                             </h1>
-                            <p className="text-gray-400 text-xs md:text-sm">Control de Pantallas</p>
+                            <p className="text-[var(--text-tertiary)] text-xs md:text-sm">Control de Pantallas</p>
                         </div>
                     </div>
                 </header>
@@ -103,7 +103,7 @@ export default function TVRemote() {
                 )}
 
                 {/* SCREEN SELECTOR */}
-                <div className="flex space-x-2 mb-6 bg-gray-800 p-1.5 rounded-xl">
+                <div className="flex space-x-2 mb-6 bg-[var(--bg-elevated)] p-1.5 rounded-xl">
                     {[1, 2, 3].map((num) => (
                         <button
                             key={num}
@@ -111,8 +111,8 @@ export default function TVRemote() {
                             className={cn(
                                 "flex-1 py-3 rounded-lg font-bold text-sm md:text-base transition-all",
                                 selectedScreen === num
-                                    ? "bg-blue-600 text-white shadow"
-                                    : "text-gray-400 hover:text-white hover:bg-gray-700"
+                                    ? "bg-blue-600 text-[var(--text-primary)] shadow"
+                                    : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)]"
                             )}
                         >
                             Pantalla {num}
@@ -128,10 +128,10 @@ export default function TVRemote() {
                             "p-4 md:p-6 rounded-2xl border-2 transition-all flex flex-col items-center justify-center space-y-2 active:scale-95",
                             tvMode === 'auto'
                                 ? "bg-blue-600 border-blue-500 shadow-lg shadow-blue-500/20"
-                                : "bg-gray-800 border-gray-700 hover:bg-gray-750"
+                                : "bg-[var(--bg-elevated)] border-[var(--border-default)] hover:bg-gray-750"
                         )}
                     >
-                        <Zap size={28} className={cn("md:w-8 md:h-8", tvMode === 'auto' ? "text-yellow-300 animate-pulse" : "text-gray-500")} />
+                        <Zap size={28} className={cn("md:w-8 md:h-8", tvMode === 'auto' ? "text-yellow-300 animate-pulse" : "text-[var(--text-tertiary)]")} />
                         <span className="font-bold text-base md:text-lg">Automático</span>
                         <span className="text-[10px] md:text-xs opacity-70">Rota cada 30s</span>
                     </button>
@@ -142,10 +142,10 @@ export default function TVRemote() {
                             "p-4 md:p-6 rounded-2xl border-2 transition-all flex flex-col items-center justify-center space-y-2 active:scale-95",
                             tvMode === 'manual'
                                 ? "bg-purple-600 border-purple-500 shadow-lg shadow-purple-500/20"
-                                : "bg-gray-800 border-gray-700 hover:bg-gray-750"
+                                : "bg-[var(--bg-elevated)] border-[var(--border-default)] hover:bg-gray-750"
                         )}
                     >
-                        <MonitorPlay size={28} className={cn("md:w-8 md:h-8", tvMode === 'manual' ? "text-white" : "text-gray-500")} />
+                        <MonitorPlay size={28} className={cn("md:w-8 md:h-8", tvMode === 'manual' ? "text-[var(--text-primary)]" : "text-[var(--text-tertiary)]")} />
                         <span className="font-bold text-base md:text-lg">Manual</span>
                         <span className="text-[10px] md:text-xs opacity-70">Control total</span>
                     </button>
@@ -153,17 +153,17 @@ export default function TVRemote() {
 
                 {/* AUTO CONFIG PANEL */}
                 <div className={cn(
-                    "bg-gray-800/50 rounded-3xl p-4 md:p-6 border border-gray-700 transition-all duration-300 mb-6",
+                    "bg-[var(--bg-elevated)]/50 rounded-3xl p-4 md:p-6 border border-[var(--border-default)] transition-all duration-300 mb-6",
                     tvMode === 'auto' ? "opacity-100" : "hidden"
                 )}>
-                    <h2 className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <h2 className="text-[var(--text-tertiary)] text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
                         <Zap size={14} className="text-yellow-400" /> Configuración Automática
                     </h2>
 
                     {/* Interval Slider */}
-                    <div className="mb-6 bg-gray-900/50 p-4 rounded-xl border border-gray-700/50">
+                    <div className="mb-6 bg-[var(--bg-card)]/50 p-4 rounded-xl border border-[var(--border-default)]/50">
                         <div className="flex justify-between mb-2">
-                            <label className="text-sm font-bold text-gray-300">Intervalo de Rotación</label>
+                            <label className="text-sm font-bold text-[var(--text-secondary)]">Intervalo de Rotación</label>
                             <span className="text-sm font-mono text-blue-400">{getSetting('tv_interval', '15')} segundos</span>
                         </div>
                         <input
@@ -175,7 +175,7 @@ export default function TVRemote() {
                             onChange={(e) => updateSettingMutation.mutate({ key: `tv_interval_${selectedScreen}`, value: e.target.value })}
                             className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
                         />
-                        <div className="flex justify-between text-[10px] text-gray-500 mt-1 uppercase font-bold">
+                        <div className="flex justify-between text-[10px] text-[var(--text-tertiary)] mt-1 uppercase font-bold">
                             <span>Rápido (5s)</span>
                             <span>Normal (30s)</span>
                             <span>Lento (60s)</span>
@@ -184,7 +184,7 @@ export default function TVRemote() {
 
                     {/* Playlist Toggles */}
                     <div>
-                        <label className="text-sm font-bold text-gray-300 mb-3 block">Vistas en Rotación</label>
+                        <label className="text-sm font-bold text-[var(--text-secondary)] mb-3 block">Vistas en Rotación</label>
                         <div className="grid grid-cols-2 gap-3">
                             {['LEADERBOARD', 'HALL_OF_FAME', 'LIVE_MAP', 'TOURNAMENT', 'BRACKET', 'COUNTDOWN', 'SPONSORSHIP', 'JOIN_QR'].map((view) => {
                                 const playlistJson = getSetting('tv_playlist', '[]');
@@ -222,13 +222,13 @@ export default function TVRemote() {
                                             "flex items-center justify-between p-3 rounded-xl border transition-all text-xs font-bold uppercase tracking-wider",
                                             isChecked
                                                 ? "bg-blue-600/10 border-blue-500/50 text-blue-300"
-                                                : "bg-gray-800 border-gray-700 text-gray-500 hover:bg-gray-700"
+                                                : "bg-[var(--bg-elevated)] border-[var(--border-default)] text-[var(--text-tertiary)] hover:bg-[var(--bg-elevated)]"
                                         )}
                                     >
                                         <span>{view.replace(/_/g, ' ')}</span>
                                         <div className={cn(
                                             "w-3 h-3 rounded-full border",
-                                            isChecked ? "bg-blue-500 border-blue-400" : "bg-transparent border-gray-600"
+                                            isChecked ? "bg-blue-500 border-blue-400" : "bg-transparent border-[var(--border-strong)]"
                                         )} />
                                     </button>
                                 );
@@ -239,10 +239,10 @@ export default function TVRemote() {
 
                 {/* MANUAL CONTROLS */}
                 <div className={cn(
-                    "bg-gray-800/50 rounded-3xl p-4 md:p-6 border border-gray-700 transition-all duration-300",
+                    "bg-[var(--bg-elevated)]/50 rounded-3xl p-4 md:p-6 border border-[var(--border-default)] transition-all duration-300",
                     tvMode === 'auto' ? "opacity-50 pointer-events-none grayscale" : "opacity-100"
                 )}>
-                    <h2 className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-4">Seleccionar Vista (Pantalla {selectedScreen})</h2>
+                    <h2 className="text-[var(--text-tertiary)] text-xs font-bold uppercase tracking-widest mb-4">Seleccionar Vista (Pantalla {selectedScreen})</h2>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-4">
                         <ControlButton
                             active={tvView === 'LEADERBOARD'}
@@ -334,33 +334,33 @@ export default function TVRemote() {
                         <input
                             type="text"
                             placeholder="Escribe un mensaje urgente..."
-                            className="flex-1 bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-white"
+                            className="flex-1 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-xl px-4 py-3 text-sm focus:border-[var(--border-focus)] outline-none text-[var(--text-primary)]"
                             value={getSetting('news_urgent', '')}
                             onChange={(e) => updateSettingMutation.mutate({ key: `news_urgent_${selectedScreen}`, value: e.target.value })}
                         />
                         <button
                             onClick={() => updateSettingMutation.mutate({ key: `news_urgent_${selectedScreen}`, value: '' })}
-                            className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase transition-all"
+                            className="bg-gray-700 hover:bg-gray-600 text-[var(--text-primary)] px-4 py-2 rounded-xl text-xs font-bold uppercase transition-all"
                         >
                             Limpiar
                         </button>
                     </div>
-                    <p className="text-[10px] text-gray-500 mt-2 font-mono uppercase">
+                    <p className="text-[10px] text-[var(--text-tertiary)] mt-2 font-mono uppercase">
                         Este mensaje aparecerá con prioridad en el ticker de la TV.
                     </p>
                 </div>
 
                 {/* PREVIEW */}
                 <div className="mt-8">
-                    <div className="bg-black rounded-lg aspect-video w-full max-w-sm mx-auto border-4 border-gray-800 relative flex items-center justify-center overflow-hidden shadow-2xl">
+                    <div className="bg-black rounded-lg aspect-video w-full max-w-sm mx-auto border-4 border-[var(--border-default)] relative flex items-center justify-center overflow-hidden shadow-2xl">
                         <PreviewScreen view={tvView} mode={tvMode} />
 
                         {/* Overlay Label */}
-                        <div className="absolute bottom-2 left-2 bg-black/80 backdrop-blur px-2 py-1 rounded text-[10px] text-gray-400 font-mono border border-white/10">
+                        <div className="absolute bottom-2 left-2 bg-black/80 backdrop-blur px-2 py-1 rounded text-[10px] text-[var(--text-tertiary)] font-mono border border-white/10">
                             PANTALLA {selectedScreen}: {tvMode === 'auto' ? 'AUTO' : tvView}
                         </div>
                     </div>
-                    <p className="text-center text-xs text-gray-500 mt-2">Vista previa - Pantalla {selectedScreen}</p>
+                    <p className="text-center text-xs text-[var(--text-tertiary)] mt-2">Vista previa - Pantalla {selectedScreen}</p>
                 </div>
             </div>
         </div>
@@ -370,15 +370,15 @@ export default function TVRemote() {
 // Helper Component for Preview
 function PreviewScreen({ view, mode }: { view: string, mode: string }) {
     const { liveCars } = useTelemetry();
-    let content = <div className="flex items-center justify-center h-full text-gray-500">Cargando vista...</div>;
+    let content = <div className="flex items-center justify-center h-full text-[var(--text-tertiary)]">Cargando vista...</div>;
     const actualView = mode === 'auto' ? 'ROTATION' : view;
 
     if (actualView === 'ROTATION') {
         return (
-            <div className="w-full h-full bg-gray-900 flex flex-col items-center justify-center text-center p-4">
+            <div className="w-full h-full bg-[var(--bg-card)] flex flex-col items-center justify-center text-center p-4">
                 <Zap className="w-12 h-12 text-yellow-400 mb-2 animate-pulse" />
-                <p className="text-white font-bold">Modo Automático</p>
-                <p className="text-xs text-gray-400">Rotando entre vistas cada 30s</p>
+                <p className="text-[var(--text-primary)] font-bold">Modo Automático</p>
+                <p className="text-xs text-[var(--text-tertiary)]">Rotando entre vistas cada 30s</p>
             </div>
         );
     }
@@ -395,10 +395,10 @@ function PreviewScreen({ view, mode }: { view: string, mode: string }) {
             color: c.station_id === 1 ? '#ef4444' : c.station_id === 2 ? '#3b82f6' : c.station_id === 3 ? '#22c55e' : '#eab308',
             isOnline: true
         })) : []} trackName="Circuito" />; break;
-        case 'TOURNAMENT': content = <div className="p-4"><p className="text-white text-center">Torneo Activo</p></div>; break;
-        case 'VERSUS': content = <div className="p-4"><p className="text-white text-center">Duelo VS</p></div>; break;
-        case 'SPONSORSHIP': content = <div className="p-4 flex flex-col items-center justify-center h-full"><Store className="mb-2 text-pink-500" /><p className="text-white text-center font-bold">ADS</p></div>; break;
-        case 'JOIN_QR': content = <div className="p-4 flex flex-col items-center justify-center h-full"><QrCode className="mb-2 text-indigo-500" /><p className="text-white text-center font-bold">QR</p></div>; break;
+        case 'TOURNAMENT': content = <div className="p-4"><p className="text-[var(--text-primary)] text-center">Torneo Activo</p></div>; break;
+        case 'VERSUS': content = <div className="p-4"><p className="text-[var(--text-primary)] text-center">Duelo VS</p></div>; break;
+        case 'SPONSORSHIP': content = <div className="p-4 flex flex-col items-center justify-center h-full"><Store className="mb-2 text-pink-500" /><p className="text-[var(--text-primary)] text-center font-bold">ADS</p></div>; break;
+        case 'JOIN_QR': content = <div className="p-4 flex flex-col items-center justify-center h-full"><QrCode className="mb-2 text-indigo-500" /><p className="text-[var(--text-primary)] text-center font-bold">QR</p></div>; break;
     }
 
     return (
@@ -435,8 +435,8 @@ function ControlButton({ active, onClick, icon: Icon, label, color }: ControlBut
         <button
             onClick={onClick}
             className={cn(
-                "p-4 rounded-xl border border-gray-700 flex flex-col items-center space-y-3 transition-all active:scale-95",
-                active ? "ring-2 text-white shadow-lg scale-105 border-transparent" : "bg-gray-800 text-gray-300",
+                "p-4 rounded-xl border border-[var(--border-default)] flex flex-col items-center space-y-3 transition-all active:scale-95",
+                active ? "ring-2 text-[var(--text-primary)] shadow-lg scale-105 border-transparent" : "bg-[var(--bg-elevated)] text-[var(--text-secondary)]",
                 colors[color]
             )}
         >

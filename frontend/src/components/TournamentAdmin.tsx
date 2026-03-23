@@ -83,13 +83,13 @@ export default function TournamentAdmin({ eventId, isCompleted }: { eventId: num
     if (!bracket) {
         return (
             <div className="space-y-8">
-                <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
-                    <h3 className="text-white font-bold mb-4 flex items-center">
+                <div className="bg-[var(--bg-elevated)] p-6 rounded-xl border border-[var(--border-default)]">
+                    <h3 className="text-[var(--text-primary)] font-bold mb-4 flex items-center">
                         <Shuffle className="mr-2 text-blue-500" /> Generar Cuadro (Torneo)
                     </h3>
-                    <p className="text-gray-400 text-sm mb-4">Si este evento es un torneo eliminatorio, introduce los participantes aquí. Si es una carrera normal, usa el botón de finalizar abajo.</p>
+                    <p className="text-[var(--text-tertiary)] text-sm mb-4">Si este evento es un torneo eliminatorio, introduce los participantes aquí. Si es una carrera normal, usa el botón de finalizar abajo.</p>
                     <textarea
-                        className="w-full bg-gray-900 text-white p-4 rounded-lg border border-gray-700 mb-4 h-40 font-mono text-sm"
+                        className="w-full bg-[var(--bg-card)] text-[var(--text-primary)] p-4 rounded-lg border border-[var(--border-default)] mb-4 h-40 font-mono text-sm"
                         placeholder="Escribe los nombres de los pilotos (uno por línea)..."
                         value={participants}
                         onChange={(e) => setParticipants(e.target.value)}
@@ -97,17 +97,17 @@ export default function TournamentAdmin({ eventId, isCompleted }: { eventId: num
                     <button
                         onClick={handleGenerate}
                         disabled={generateMutation.isPending || isCompleted}
-                        className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition-colors flex justify-center items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] font-bold py-3 rounded-lg transition-colors flex justify-center items-center disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {generateMutation.isPending ? 'Generando...' : 'Crear Torneo'}
                     </button>
                 </div>
 
-                <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
-                    <h3 className="text-white font-bold mb-4 flex items-center">
+                <div className="bg-[var(--bg-elevated)] p-6 rounded-xl border border-[var(--border-default)]">
+                    <h3 className="text-[var(--text-primary)] font-bold mb-4 flex items-center">
                         <Trophy className="mr-2 text-yellow-500" /> Finalizar Evento (Estándar)
                     </h3>
-                    <p className="text-gray-400 text-sm mb-4">
+                    <p className="text-[var(--text-tertiary)] text-sm mb-4">
                         Calcula los puntos ELO basados en la clasificación actual (tiempos de vuelta) y cierra el evento.
                     </p>
 
@@ -123,7 +123,7 @@ export default function TournamentAdmin({ eventId, isCompleted }: { eventId: num
                                 }
                             }}
                             disabled={processResultsMutation.isPending}
-                            className="w-full bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-3 rounded-lg transition-colors flex justify-center items-center"
+                            className="w-full bg-yellow-600 hover:bg-yellow-500 text-[var(--text-primary)] font-bold py-3 rounded-lg transition-colors flex justify-center items-center"
                         >
                             {processResultsMutation.isPending ? 'Procesando...' : 'Finalizar y Calcular ELO'}
                         </button>
@@ -136,7 +136,7 @@ export default function TournamentAdmin({ eventId, isCompleted }: { eventId: num
     return (
         <div className="space-y-8">
             <div className="flex items-center justify-between">
-                <h3 className="text-white font-bold text-xl flex items-center">
+                <h3 className="text-[var(--text-primary)] font-bold text-xl flex items-center">
                     <Trophy className="mr-2 text-yellow-500" /> Gestión del Torneo
                 </h3>
                 <span className="text-xs text-green-400 bg-green-900/30 px-3 py-1 rounded-full border border-green-800">
@@ -145,39 +145,39 @@ export default function TournamentAdmin({ eventId, isCompleted }: { eventId: num
             </div>
 
             {/* Session Configuration Form */}
-            <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
-                <h4 className="text-white font-bold mb-4 flex items-center">
+            <div className="bg-[var(--bg-elevated)] p-6 rounded-xl border border-[var(--border-default)]">
+                <h4 className="text-[var(--text-primary)] font-bold mb-4 flex items-center">
                     <Settings className="mr-2 text-blue-500" /> Configuración de Sesiones
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
-                        <label className="block text-gray-400 text-xs font-bold uppercase mb-2">Modo de Competición</label>
+                        <label className="block text-[var(--text-tertiary)] text-xs font-bold uppercase mb-2">Modo de Competición</label>
                         <select
                             value={config.mode}
                             onChange={e => setConfig({ ...config, mode: e.target.value as any })}
-                            className="w-full bg-gray-900 text-white rounded-lg p-3 border border-gray-700"
+                            className="w-full bg-[var(--bg-card)] text-[var(--text-primary)] rounded-lg p-3 border border-[var(--border-default)]"
                         >
                             <option value="race">Carrera (Simultánea)</option>
                             <option value="practice">Contrarreloj / Rally (Individual)</option>
                         </select>
                     </div>
                     <div>
-                        <label className="block text-gray-400 text-xs font-bold uppercase mb-2">Duración (Minutos)</label>
+                        <label className="block text-[var(--text-tertiary)] text-xs font-bold uppercase mb-2">Duración (Minutos)</label>
                         <input
                             type="number"
                             value={config.duration_minutes}
                             onChange={e => setConfig({ ...config, duration_minutes: parseInt(e.target.value) })}
-                            className="w-full bg-gray-900 text-white rounded-lg p-3 border border-gray-700"
+                            className="w-full bg-[var(--bg-card)] text-[var(--text-primary)] rounded-lg p-3 border border-[var(--border-default)]"
                             min={1}
                         />
                     </div>
                     <div>
-                        <label className="block text-gray-400 text-xs font-bold uppercase mb-2">Vueltas</label>
+                        <label className="block text-[var(--text-tertiary)] text-xs font-bold uppercase mb-2">Vueltas</label>
                         <input
                             type="number"
                             value={config.laps}
                             onChange={e => setConfig({ ...config, laps: parseInt(e.target.value) })}
-                            className="w-full bg-gray-900 text-white rounded-lg p-3 border border-gray-700"
+                            className="w-full bg-[var(--bg-card)] text-[var(--text-primary)] rounded-lg p-3 border border-[var(--border-default)]"
                             min={1}
                         />
                     </div>
@@ -186,7 +186,7 @@ export default function TournamentAdmin({ eventId, isCompleted }: { eventId: num
                     <button
                         onClick={() => updateConfigMutation.mutate(config)}
                         disabled={updateConfigMutation.isPending}
-                        className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-bold text-sm transition-colors"
+                        className="bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] px-6 py-2 rounded-lg font-bold text-sm transition-colors"
                     >
                         {updateConfigMutation.isPending ? 'Guardando...' : 'Guardar Configuración'}
                     </button>
@@ -195,8 +195,8 @@ export default function TournamentAdmin({ eventId, isCompleted }: { eventId: num
 
             <div className="grid gap-6">
                 {Array.isArray(bracket.rounds) && bracket.rounds.map((round: { id: number; match_num: number; player1?: string; player2?: string; score1?: number; score2?: number; winner?: string; status: string }[], rIdx: number) => (
-                    <div key={rIdx} className="bg-gray-800/50 p-4 rounded-xl border border-gray-700">
-                        <h4 className="text-gray-400 font-bold uppercase text-xs tracking-widest mb-4 border-b border-gray-700 pb-2">
+                    <div key={rIdx} className="bg-[var(--bg-elevated)]/50 p-4 rounded-xl border border-[var(--border-default)]">
+                        <h4 className="text-[var(--text-tertiary)] font-bold uppercase text-xs tracking-widest mb-4 border-b border-[var(--border-default)] pb-2">
                             Ronda {rIdx + 1}
                         </h4>
                         <div className="space-y-3">
@@ -232,7 +232,7 @@ function MatchAdminCard({ match, onUpdate }: { match: { id: number; match_num: n
 
     if (isLocked) {
         return (
-            <div className="bg-gray-900/50 p-3 rounded-lg border border-gray-800 opacity-50 flex justify-between items-center">
+            <div className="bg-[var(--bg-card)]/50 p-3 rounded-lg border border-[var(--border-default)] opacity-50 flex justify-between items-center">
                 <span className="text-sm font-mono text-gray-600">Partido #{match.match_num}</span>
                 <span className="text-xs text-gray-600 italic">Esperando rivales...</span>
             </div>
@@ -240,8 +240,8 @@ function MatchAdminCard({ match, onUpdate }: { match: { id: number; match_num: n
     }
 
     return (
-        <div className={`bg-gray-900 p-4 rounded-lg border ${isCompleted ? 'border-green-900/50' : 'border-gray-700'} flex flex-col gap-3 transition-colors`}>
-            <div className="flex justify-between items-center text-sm text-gray-500 mb-1">
+        <div className={`bg-[var(--bg-card)] p-4 rounded-lg border ${isCompleted ? 'border-green-900/50' : 'border-[var(--border-default)]'} flex flex-col gap-3 transition-colors`}>
+            <div className="flex justify-between items-center text-sm text-[var(--text-tertiary)] mb-1">
                 <span>Match #{match.match_num}</span>
                 {isCompleted && <span className="text-green-500 font-bold text-xs uppercase">Finalizado</span>}
             </div>
@@ -249,29 +249,29 @@ function MatchAdminCard({ match, onUpdate }: { match: { id: number; match_num: n
             {/* Config Row */}
             <div className="flex items-center justify-between gap-4">
                 {/* Player 1 */}
-                <div className="flex-1 flex items-center justify-between bg-black/20 p-2 rounded border border-gray-800">
-                    <span className={`font-bold truncate ${match.winner === match.player1 ? 'text-green-400' : 'text-white'}`}>{match.player1}</span>
+                <div className="flex-1 flex items-center justify-between bg-black/20 p-2 rounded border border-[var(--border-default)]">
+                    <span className={`font-bold truncate ${match.winner === match.player1 ? 'text-green-400' : 'text-[var(--text-primary)]'}`}>{match.player1}</span>
                     <input
                         type="number"
                         value={s1}
                         onChange={(e) => setS1(parseInt(e.target.value))}
                         disabled={isCompleted}
-                        className="w-12 bg-gray-800 border border-gray-700 rounded p-1 text-center font-mono text-white"
+                        className="w-12 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded p-1 text-center font-mono text-[var(--text-primary)]"
                     />
                 </div>
 
                 <div className="text-gray-600 font-bold text-xs">VS</div>
 
                 {/* Player 2 */}
-                <div className="flex-1 flex items-center justify-between bg-black/20 p-2 rounded border border-gray-800">
+                <div className="flex-1 flex items-center justify-between bg-black/20 p-2 rounded border border-[var(--border-default)]">
                     <input
                         type="number"
                         value={s2}
                         onChange={(e) => setS2(parseInt(e.target.value))}
                         disabled={isCompleted}
-                        className="w-12 bg-gray-800 border border-gray-700 rounded p-1 text-center font-mono text-white"
+                        className="w-12 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded p-1 text-center font-mono text-[var(--text-primary)]"
                     />
-                    <span className={`font-bold truncate text-right ${match.winner === match.player2 ? 'text-green-400' : 'text-white'}`}>{match.player2}</span>
+                    <span className={`font-bold truncate text-right ${match.winner === match.player2 ? 'text-green-400' : 'text-[var(--text-primary)]'}`}>{match.player2}</span>
                 </div>
             </div>
 
@@ -280,13 +280,13 @@ function MatchAdminCard({ match, onUpdate }: { match: { id: number; match_num: n
                 <div className="flex gap-2 mt-1">
                     <button
                         onClick={() => handleSave(match.player1)}
-                        className="flex-1 bg-gray-800 hover:bg-green-700 text-gray-300 hover:text-white py-1.5 rounded text-xs font-bold transition-colors border border-gray-700"
+                        className="flex-1 bg-[var(--bg-elevated)] hover:bg-green-700 text-[var(--text-secondary)] hover:text-[var(--text-primary)] py-1.5 rounded text-xs font-bold transition-colors border border-[var(--border-default)]"
                     >
                         Gana {match.player1}
                     </button>
                     <button
                         onClick={() => handleSave(match.player2)}
-                        className="flex-1 bg-gray-800 hover:bg-green-700 text-gray-300 hover:text-white py-1.5 rounded text-xs font-bold transition-colors border border-gray-700"
+                        className="flex-1 bg-[var(--bg-elevated)] hover:bg-green-700 text-[var(--text-secondary)] hover:text-[var(--text-primary)] py-1.5 rounded text-xs font-bold transition-colors border border-[var(--border-default)]"
                     >
                         Gana {match.player2}
                     </button>

@@ -68,22 +68,22 @@ export default function AnalyticsPage() {
     return (
         <div className="p-8 max-w-[1600px] mx-auto min-h-screen">
             {/* Header */}
-            <div className="flex justify-between items-end mb-8 border-b border-gray-800 pb-6">
+            <div className="flex justify-between items-end mb-8 border-b border-[var(--border-default)] pb-6">
                 <div>
-                    <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
+                    <h1 className="text-3xl font-black text-[var(--text-primary)] tracking-tight flex items-center gap-3">
                         <BadgeDollarSign className="text-green-500" size={32} />
                         ANÁLISIS DE NEGOCIO
                     </h1>
-                    <p className="text-gray-400 mt-1 font-medium">Métricas de rendimiento financiero y operativo</p>
+                    <p className="text-[var(--text-tertiary)] mt-1 font-medium">Métricas de rendimiento financiero y operativo</p>
                 </div>
-                <div className="flex bg-gray-900 rounded-lg p-1 border border-gray-800">
+                <div className="flex bg-[var(--bg-card)] rounded-lg p-1 border border-[var(--border-default)]">
                     {[7, 30, 90, 365].map((r) => (
                         <button
                             key={r}
                             onClick={() => setRange(r)}
                             className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${range === r
-                                ? 'bg-gray-800 text-white shadow-sm'
-                                : 'text-gray-500 hover:text-gray-300'
+                                ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)] shadow-sm'
+                                : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'
                                 }`}
                         >
                             {r === 365 ? '1 Año' : `${r} Días`}
@@ -124,8 +124,8 @@ export default function AnalyticsPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
                 {/* Revenue Chart */}
-                <div className="bg-gray-900/50 border border-gray-800 rounded-2xl p-6 backdrop-blur-sm">
-                    <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                <div className="bg-[var(--bg-card)]/50 border border-[var(--border-default)] rounded-2xl p-6 backdrop-blur-sm">
+                    <h3 className="text-xl font-bold text-[var(--text-primary)] mb-6 flex items-center gap-2">
                         <TrendingUp size={20} className="text-green-400" /> Evolución de Ingresos
                     </h3>
                     <div className="h-[300px] w-full">
@@ -145,8 +145,8 @@ export default function AnalyticsPage() {
                 </div>
 
                 {/* Utilization Chart */}
-                <div className="bg-gray-900/50 border border-gray-800 rounded-2xl p-6 backdrop-blur-sm">
-                    <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                <div className="bg-[var(--bg-card)]/50 border border-[var(--border-default)] rounded-2xl p-6 backdrop-blur-sm">
+                    <h3 className="text-xl font-bold text-[var(--text-primary)] mb-6 flex items-center gap-2">
                         <Clock size={20} className="text-blue-400" /> Horas de Mayor Actividad
                     </h3>
                     <div className="h-[300px] w-full">
@@ -172,8 +172,8 @@ export default function AnalyticsPage() {
                 </div>
 
                 {/* Payment Methods Chart */}
-                <div className="bg-gray-900/50 border border-gray-800 rounded-2xl p-6 backdrop-blur-sm col-span-1 lg:col-span-2 xl:col-span-1">
-                    <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                <div className="bg-[var(--bg-card)]/50 border border-[var(--border-default)] rounded-2xl p-6 backdrop-blur-sm col-span-1 lg:col-span-2 xl:col-span-1">
+                    <h3 className="text-xl font-bold text-[var(--text-primary)] mb-6 flex items-center gap-2">
                         <CreditCard size={20} className="text-purple-400" /> Métodos de Pago
                     </h3>
                     <div className="h-[300px] w-full flex items-center justify-center">
@@ -242,8 +242,8 @@ function KPICard({ label, value, icon: Icon, color }: any) {
     return (
         <div className={`p-6 rounded-2xl border ${colors[color]} flex items-center justify-between`}>
             <div>
-                <p className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">{label}</p>
-                <h3 className="text-3xl font-black text-white">{value}</h3>
+                <p className="text-[var(--text-tertiary)] text-xs font-bold uppercase tracking-wider mb-1">{label}</p>
+                <h3 className="text-3xl font-black text-[var(--text-primary)]">{value}</h3>
             </div>
             <div className={`p-3 rounded-xl bg-black/20 ${colors[color].split(" ")[0]}`}>
                 <Icon size={32} />

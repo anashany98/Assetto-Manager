@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Optional, Tuple
 from config import SERVER_URL, AGENT_TOKEN, LOBBY_ADMIN_PASSWORD, logger
 from networking import get_agent_headers
-from utils import launch_ac, get_system_info
+from utils import launch_ac, get_system_info, wait_for_process_start
 from watchdog import watchdog
 from idle_display import start_idle_display
 
@@ -207,14 +207,18 @@ def create_lobby_server(data):
     Configures and starts acServer.exe for a multiplayer lobby.
     """
     try:
-        # Get active session path (or default)
-        ac_path = watchdog.active_session.get("ac_path") if watchdog.active_session else os.environ.get("AC_PATH", "C:\\Program Files (x86)\\Steam\\steamapps\\common\\assettocorsa")
+        ac_path = (
+            data.get("ac_path")
+            or (watchdog.active_session or {}).get("ac_path")
+            or get_system_info().get("ac_path")
+            or os.environ.get("AC_PATH", "C:\\Program Files (x86)\\Steam\\steamapps\\common\\assettocorsa")
+        )
         server_dir = os.path.join(ac_path, "server")
         cfg_dir = os.path.join(server_dir, "cfg")
         
         if not os.path.exists(server_dir):
             logger.error("acServer.exe not found (server folder missing)")
-            return
+            return False
 
         # Ensure cfg directory exists
         os.makedirs(cfg_dir, exist_ok=True)
@@ -257,13 +261,18 @@ IS_OPEN=1
             f.write(server_cfg)
             
         # 2. Generate entry_list.ini
-        entry_list = "[CAR_0]\nMODEL={}\nSKIN=\nSPECTATOR_MODE=0\nDRIVERNAME=\nTEAM=\nGUID=\nBALLAST=0\nRESTRICTOR=0\n\n".format(data.get('car'))
+        players = data.get("players") or []
+        entry_list_template = "[CAR_0]\nMODEL={model}\nSKIN=\nSPECTATOR_MODE=0\nDRIVERNAME={driver_name}\nTEAM=\nGUID=\nBALLAST=0\nRESTRICTOR=0\n\n"
         # Generate N entries
         full_entry_list = ""
         for i in range(data.get('max_players')):
-            full_entry_list += entry_list.replace("CAR_0", f"CAR_{i}")
+            player = players[i] if i < len(players) else {}
+            full_entry_list += entry_list_template.format(
+                model=data.get("car"),
+                driver_name=str(player.get("name") or "").strip(),
+            ).replace("CAR_0", f"CAR_{i}")
 
-        with open(os.path.join(cfg_dir, "entry_list.ini"), "w") as f:
+        with open(os.path.join(cfg_dir, "entry_list.ini"), "w", encoding="utf-8") as f:
             f.write(full_entry_list)
             
         # 3. Start acServer.exe
@@ -274,11 +283,17 @@ IS_OPEN=1
             subprocess.run(["taskkill", "/F", "/IM", "acServer.exe"], capture_output=True)
             # Start new
             subprocess.Popen([exe_path], cwd=server_dir)
+            if wait_for_process_start(("acServer.exe",), timeout_seconds=12):
+                return True
+            logger.error("acServer.exe did not start within expected time")
+            return False
         else:
             logger.error("acServer.exe executable not found")
+            return False
 
     except Exception as e:
         logger.error(f"Failed to create lobby server: {e}")
+        return False
 
 def join_lobby_client(data):
     """
@@ -288,7 +303,7 @@ def join_lobby_client(data):
         ac_path = data.get("ac_path") or os.environ.get("AC_PATH", "")
         if not ac_path:
              logger.error("No AC Path for joining lobby")
-             return
+             return False
         
         logger.info(f"Joining lobby {data.get('lobby_id')} at {data.get('server_ip')}:{data.get('port')}")
         
@@ -296,9 +311,11 @@ def join_lobby_client(data):
         subprocess.run(["taskkill", "/F", "/IM", "acs.exe"], capture_output=True)
         
         ac_docs_path = os.path.join(os.path.expanduser("~"), "Documents", "Assetto Corsa", "cfg")
+        os.makedirs(ac_docs_path, exist_ok=True)
         race_ini_path = os.path.join(ac_docs_path, "race.ini")
         
         is_spectator = data.get("is_spectator", False)
+        driver_name = _normalize_text(data.get("driver_name"), "Guest").replace("\n", " ").replace("\r", " ")
         
         race_ini = f"""[RACE]
 MODEL={data.get('car')}
@@ -315,30 +332,36 @@ PENALTIES=0
 ACTIVE=1
 SERVER_IP={data.get('server_ip')}
 SERVER_PORT={data.get('port')}
-NAME={data.get('driver_name', 'Guest') if not is_spectator else "TV Broadcast"}
+NAME={driver_name if not is_spectator else "TV Broadcast"}
 TEAM=
 GUID=
 REQUESTED_CAR={data.get('car')}
 PASSWORD=
 """
-        with open(race_ini_path, "w") as f:
+        with open(race_ini_path, "w", encoding="utf-8") as f:
             f.write(race_ini)
             
         # Launch
         if launch_ac(ac_path):
              # Start watchdog
              watchdog.start({"ac_path": ac_path})
+             return True
         else:
              start_idle_display()
+             return False
              
     except Exception as e:
         logger.error(f"Failed to join lobby: {e}")
         start_idle_display()
+        return False
 
 def stop_lobby_server():
     try:
+        watchdog.stop()
+        subprocess.run(["taskkill", "/F", "/IM", "acs.exe"], capture_output=True)
         subprocess.run(["taskkill", "/F", "/IM", "acServer.exe"], capture_output=True)
-        logger.info("Stopped acServer.exe")
+        start_idle_display()
+        logger.info("Stopped multiplayer lobby processes")
     except Exception as e:
         logger.error(f"Failed to stop lobby: {e}")
 
@@ -347,7 +370,7 @@ def launch_session_logic(data, station_id):
     track = _normalize_text(data.get("track"), "")
     if not car or not track:
         logger.error("LAUNCH_SESSION rejected: missing car or track")
-        return
+        return False
 
     assists = data.get("assists", {}) or {}
     driver_name = _normalize_text(data.get("driver_name"), "Guest").replace("\n", " ").replace("\r", " ")
@@ -493,10 +516,12 @@ NAME={weather_preset}
             f.write(race_content)
     except Exception as e:
         logger.error(f"Failed to write race.ini: {e}")
-        return
+        return False
 
     # 4. Launch
     if launch_ac(ac_path):
         watchdog.start({"ac_path": ac_path, "car": car, "track": track})
+        return True
     else:
         start_idle_display()
+        return False

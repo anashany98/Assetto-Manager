@@ -12,15 +12,17 @@ import {
     DifficultyStepRacing,
     WaitingRoomRacing
 } from './KioskStepsRacing';
-import { Wifi, Cpu } from 'lucide-react';
+import { Wifi, Cpu, WifiOff, AlertCircle, Activity, Disc, Footprints } from 'lucide-react';
 import { getScenarios } from '../api/scenarios';
-import { getAllGlobalCars, getAllGlobalTracks } from '../api/content';
+import { getCars, getTracks } from '../api/content';
+import { startSession } from '../api/sessions';
 import StationPairing from '../components/StationPairing';
 import {
     clearPairedStationId,
     getPairedKioskCode,
     getPairedStationId
 } from '../utils/stationPairing';
+import { RaceMode, ResultsStep } from './KioskSteps';
 
 const baseClientTokenHeaders: Record<string, string> = PUBLIC_API_TOKEN ? { 'X-Client-Token': PUBLIC_API_TOKEN } : {};
 
@@ -36,6 +38,13 @@ export default function KioskRacing() {
     const [showPairing, setShowPairing] = useState<boolean>(() => !getPairedStationId());
     const [pairedKioskCode, setPairedKioskCode] = useState<string | null>(() => getPairedKioskCode());
     const [launchingNoPayment, setLaunchingNoPayment] = useState(false);
+    const [driver, setDriver] = useState<{ id: number; name: string } | null>(null);
+    const [driverName, setDriverName] = useState('');
+    const [driverEmail, setDriverEmail] = useState('');
+    const [isLaunched, setIsLaunched] = useState(false);
+    const [remainingSeconds, setRemainingSeconds] = useState<number>(duration * 60);
+    const paymentHandledRef = useRef(false);
+    const noPaymentHandledRef = useRef(false);
 
     const idleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -56,16 +65,36 @@ export default function KioskRacing() {
         () => (Array.isArray(scenarios) ? scenarios.filter((scenario: any) => scenario?.is_active !== false) : []),
         [scenarios]
     );
-    const { data: cars = [] } = useQuery({ queryKey: ['cars'], queryFn: getAllGlobalCars });
-    const { data: tracks = [] } = useQuery({ queryKey: ['tracks'], queryFn: getAllGlobalTracks });
+    const { data: cars = [] } = useQuery({
+        queryKey: ['cars-racing', stationId],
+        queryFn: () => getCars(stationId),
+        enabled: !!stationId,
+    });
+    const { data: tracks = [] } = useQuery({
+        queryKey: ['tracks-racing', stationId],
+        queryFn: () => getTracks(stationId),
+        enabled: !!stationId,
+    });
+    const { data: hardwareStatus, isLoading: hardwareFetching, refetch: refetchHardware, isError: isHardwareError } = useQuery({
+        queryKey: ['hardware-racing', stationId],
+        queryFn: () => axios.get(`${API_URL}/hardware/status/${stationId}`, { headers: clientTokenHeaders }).then((r) => r.data),
+        enabled: !!stationId,
+        refetchInterval: 5000,
+        retry: false,
+    });
+    const activeDriver = useMemo(
+        () => driver ?? { id: stationId || 0, name: `Racer ${stationId || 'Guest'}` },
+        [driver, stationId],
+    );
 
     const resetIdleTimer = () => {
         if (idleTimeoutRef.current) clearTimeout(idleTimeoutRef.current);
-        if (!isIdle) {
+        if (!isIdle && !isLaunched) {
             idleTimeoutRef.current = setTimeout(() => {
                 setStep(0);
                 setIsIdle(true);
                 setSelection(null);
+                setDriver(null);
             }, 60000);
         }
     };
@@ -78,7 +107,25 @@ export default function KioskRacing() {
             window.removeEventListener('touchstart', resetIdleTimer);
             if (idleTimeoutRef.current) clearTimeout(idleTimeoutRef.current);
         };
-    }, [isIdle]);
+    }, [isIdle, isLaunched]);
+
+    useEffect(() => {
+        let interval: NodeJS.Timeout | undefined;
+        if (isLaunched && remainingSeconds > 0) {
+            interval = setInterval(() => {
+                setRemainingSeconds((prev) => Math.max(0, prev - 1));
+            }, 1000);
+        }
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [isLaunched, remainingSeconds]);
+
+    useEffect(() => {
+        if (!isLaunched) {
+            setRemainingSeconds(duration * 60);
+        }
+    }, [duration, isLaunched]);
 
     const handleStart = () => {
         soundManager.playConfirm();
@@ -97,17 +144,17 @@ export default function KioskRacing() {
         setStationId(0);
         setShowPairing(true);
         setSelection(null);
+        setDriver(null);
         setStep(0);
         setIsIdle(true);
+        setIsLaunched(false);
     };
 
     const launchSessionMutation = useMutation({
         mutationFn: async (payload: any) => axios.post(`${API_URL}/control/station/${stationId}/launch`, payload, { headers: clientTokenHeaders }),
         onSuccess: () => {
             setLaunchingNoPayment(false);
-            setSelection(null);
-            setStep(0);
-            setIsIdle(true);
+            setIsLaunched(true);
         },
         onError: (error) => {
             const message = resolveApiError(error, 'SESSION LAUNCH FAILED');
@@ -123,11 +170,46 @@ export default function KioskRacing() {
         }
         return fallback;
     };
+    const isServerUnavailable = isHardwareError;
+    const isStationInactive = hardwareStatus?.is_active === false;
+    const isKioskDisabled = hardwareStatus?.is_kiosk_mode === false;
+    const hardwareWarning = Boolean(
+        hardwareStatus && (
+            hardwareStatus.is_online === false
+            || !hardwareStatus.wheel_connected
+            || !hardwareStatus.pedals_connected
+        )
+    );
+
+    const resetKioskFlow = () => {
+        setIsLaunched(false);
+        setLaunchingNoPayment(false);
+        setSelection(null);
+        setDriver(null);
+        setDriverName('');
+        setDriverEmail('');
+        setStep(0);
+        setIsIdle(true);
+        paymentHandledRef.current = false;
+        noPaymentHandledRef.current = false;
+    };
+
+    const ensureSessionRecord = async () => {
+        await startSession({
+            station_id: stationId,
+            driver_name: activeDriver.name,
+            duration_minutes: duration,
+            payment_method: 'cash',
+            is_vr: false,
+            notes: 'kiosk_racing',
+        }, { headers: clientTokenHeaders });
+    };
 
     const createLobbyMutation = useMutation({
         mutationFn: async () => {
             const payload = {
                 station_id: stationId,
+                driver_name: `Racer ${stationId}`,
                 name: `RACE LOBBY ${stationId}`,
                 track: selection?.track,
                 car: selection?.car,
@@ -152,7 +234,11 @@ export default function KioskRacing() {
     const joinLobbyMutation = useMutation({
         mutationFn: async () => {
             if (!selection?.lobbyId) throw new Error('Missing lobby id');
-            await axios.post(`${API_URL}/lobby/${selection.lobbyId}/join`, { station_id: stationId }, { headers: clientTokenHeaders });
+            await axios.post(
+                `${API_URL}/lobby/${selection.lobbyId}/join`,
+                { station_id: stationId, driver_name: `Racer ${stationId}` },
+                { headers: clientTokenHeaders }
+            );
         },
         onSuccess: () => {
             setStep(6);
@@ -165,7 +251,17 @@ export default function KioskRacing() {
     });
 
     const launchWithoutPayment = async () => {
+        if (launchingNoPayment) return;
         setLaunchingNoPayment(true);
+        setDriver(activeDriver);
+        try {
+            await ensureSessionRecord();
+        } catch (error) {
+            alert(resolveApiError(error, 'No se pudo registrar la sesion del kiosko.'));
+            setLaunchingNoPayment(false);
+            return;
+        }
+
         if (selection?.isLobby) {
             if (selection.isHost) createLobbyMutation.mutate();
             else joinLobbyMutation.mutate();
@@ -180,7 +276,7 @@ export default function KioskRacing() {
             difficulty,
             transmission,
             duration_minutes: duration,
-            driver_name: `Racer ${stationId}`,
+            driver_name: activeDriver.name,
             session_type: selection?.type || 'practice'
         };
 
@@ -196,6 +292,86 @@ export default function KioskRacing() {
                     setShowPairing(false);
                 }}
             />
+        );
+    }
+
+    if (isServerUnavailable) {
+        return (
+            <div className="h-screen w-screen bg-gray-950 text-white flex items-center justify-center">
+                <div className="text-center max-w-xl px-6">
+                    <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-500/20 text-gray-300 mb-6">
+                        <WifiOff size={36} />
+                    </div>
+                    <h1 className="text-4xl font-black uppercase mb-3">Servidor sin conexion</h1>
+                    <p className="text-gray-400 text-lg">No se puede contactar con el servidor. Revisa la red o espera unos segundos.</p>
+                    <div className="mt-6 flex flex-col items-center gap-3">
+                        <button
+                            onClick={() => refetchHardware()}
+                            className="px-6 py-3 bg-red-500 hover:bg-red-400 text-black font-black uppercase tracking-widest rounded-xl"
+                        >
+                            {hardwareFetching ? 'Reintentando...' : 'Reintentar'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (isStationInactive) {
+        return (
+            <div className="h-screen w-screen bg-gray-950 text-white flex items-center justify-center">
+                <div className="text-center max-w-xl px-6">
+                    <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-red-500/20 text-red-400 mb-6">
+                        <AlertCircle size={36} />
+                    </div>
+                    <h1 className="text-4xl font-black uppercase mb-3">Servidor Inactivo</h1>
+                    <p className="text-gray-400 text-lg">Esta estacion esta desactivada. Contacta al administrador para reactivarla.</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (isKioskDisabled) {
+        return (
+            <div className="h-screen w-screen bg-gray-950 text-white flex items-center justify-center">
+                <div className="text-center max-w-xl px-6">
+                    <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-yellow-500/20 text-yellow-400 mb-6">
+                        <AlertCircle size={36} />
+                    </div>
+                    <h1 className="text-4xl font-black uppercase mb-3">Kiosko desactivado</h1>
+                    <p className="text-gray-400 text-lg">Esta estacion no esta en modo kiosko. Activalo desde Configuracion.</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (isLaunched) {
+        return (
+            <div className="h-screen w-screen overflow-hidden bg-[radial-gradient(140%_140%_at_0%_0%,rgba(15,23,42,0.7),transparent_55%),linear-gradient(180deg,#020617,#020b1c)] p-2 md:p-3">
+                <RaceMode
+                    remainingSeconds={remainingSeconds}
+                    selection={selection}
+                    driver={activeDriver}
+                    transmission={transmission}
+                    setIsLaunched={setIsLaunched}
+                    setStep={(nextStep) => {
+                        if (nextStep === 1) {
+                            setStep(0);
+                            setIsIdle(true);
+                            return;
+                        }
+                        setStep(nextStep);
+                    }}
+                    setDriver={setDriver}
+                    setDriverName={setDriverName}
+                    setDriverEmail={setDriverEmail}
+                    noPaymentHandledRef={noPaymentHandledRef}
+                    paymentHandledRef={paymentHandledRef}
+                    stationId={stationId}
+                    clientTokenHeaders={clientTokenHeaders}
+                    setSelection={setSelection}
+                />
+            </div>
         );
     }
 
@@ -232,6 +408,26 @@ export default function KioskRacing() {
                             </div>
                         </div>
                     </header>
+
+                    {hardwareWarning && (
+                        <div className="mx-4 md:mx-8 mt-3 rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-xs font-bold text-red-100 flex items-center gap-3">
+                            <div className={`p-2 rounded-lg ${hardwareStatus?.is_online ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
+                                <Activity size={16} />
+                            </div>
+                            <div className={`p-2 rounded-lg ${hardwareStatus?.wheel_connected ? 'bg-green-500/10 text-green-400' : 'bg-slate-900 text-slate-500'}`}>
+                                <Disc size={16} />
+                            </div>
+                            <div className={`p-2 rounded-lg ${hardwareStatus?.pedals_connected ? 'bg-green-500/10 text-green-400' : 'bg-slate-900 text-slate-500'}`}>
+                                <Footprints size={16} />
+                            </div>
+                            <span>
+                                {!hardwareStatus?.is_online && 'Agente desconectado. '}
+                                {hardwareStatus?.is_online && (!hardwareStatus?.wheel_connected || !hardwareStatus?.pedals_connected) && 'Hardware no detectado: '}
+                                {hardwareStatus?.is_online && !hardwareStatus?.wheel_connected && 'volante '}
+                                {hardwareStatus?.is_online && !hardwareStatus?.pedals_connected && 'pedales'}
+                            </span>
+                        </div>
+                    )}
 
                     <main className="flex-1 relative overflow-hidden">
                         {step === 0 && (
@@ -273,12 +469,15 @@ export default function KioskRacing() {
                                 selection={selection}
                                 stationId={stationId}
                                 clientTokenHeaders={clientTokenHeaders}
-                                setIsLaunched={(launched) => {
-                                    if (!launched) return;
-                                    setSelection(null);
-                                    setStep(0);
-                                    setIsIdle(true);
-                                }}
+                                setIsLaunched={setIsLaunched}
+                                onExitLobby={resetKioskFlow}
+                            />
+                        )}
+                        {step === 7 && (
+                            <ResultsStep
+                                driver={activeDriver}
+                                selection={selection}
+                                t={t}
                             />
                         )}
                     </main>

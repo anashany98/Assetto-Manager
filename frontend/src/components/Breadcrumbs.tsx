@@ -57,11 +57,11 @@ export default function Breadcrumbs() {
 
     return (
         <nav aria-label="Breadcrumb" className="px-4 sm:px-6 lg:px-8 pt-4">
-            <ol className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
+            <ol className="flex items-center gap-1 text-sm text-[var(--text-tertiary)]">
                 <li>
                     <Link
                         to="/"
-                        className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                        className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors focus:outline-none focus:border-[var(--border-focus)] rounded"
                         aria-label="Inicio"
                     >
                         <Home size={16} aria-hidden="true" />
@@ -69,16 +69,16 @@ export default function Breadcrumbs() {
                 </li>
                 {breadcrumbs.map((item, index) => (
                     <li key={item.path || index} className="flex items-center gap-1">
-                        <ChevronRight size={14} className="text-gray-400 dark:text-gray-500" aria-hidden="true" />
+                        <ChevronRight size={14} className="text-[var(--text-tertiary)]" aria-hidden="true" />
                         {item.path ? (
                             <Link
                                 to={item.path}
-                                className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                                className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors focus:outline-none focus:border-[var(--border-focus)] rounded"
                             >
                                 {item.label}
                             </Link>
                         ) : (
-                            <span className="text-gray-900 dark:text-gray-200 font-medium" aria-current="page">
+                            <span className="text-[var(--text-primary)] font-medium" aria-current="page">
                                 {item.label}
                             </span>
                         )}

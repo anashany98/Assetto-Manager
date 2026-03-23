@@ -197,7 +197,6 @@ export default function TVSpectator() {
                                         <p className="text-3xl font-mono font-bold text-white">
                                             {formatLapTime(telemetry.lap_time_ms || 0)}
                                         </p>
-
                                     </div>
 
                                     {/* Bottom Center - Speed & Gear */}

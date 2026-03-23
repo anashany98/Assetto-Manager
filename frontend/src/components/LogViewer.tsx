@@ -57,16 +57,16 @@ export function LogViewer() {
     };
 
     return (
-        <div className="bg-gray-900 rounded-3xl border border-gray-700 shadow-xl overflow-hidden flex flex-col h-[600px]">
+        <div className="bg-[var(--bg-card)] rounded-3xl border border-[var(--border-default)] shadow-xl overflow-hidden flex flex-col h-[600px]">
             {/* Header */}
-            <div className="bg-gray-800 p-6 flex items-center justify-between border-b border-gray-700">
+            <div className="bg-[var(--bg-elevated)] p-6 flex items-center justify-between border-b border-[var(--border-default)]">
                 <div className="flex items-center space-x-4">
-                    <div className="bg-gray-700 p-3 rounded-xl text-gray-300">
+                    <div className="bg-gray-700 p-3 rounded-xl text-[var(--text-secondary)]">
                         <Terminal size={24} />
                     </div>
                     <div>
-                        <h2 className="text-xl font-black text-white uppercase tracking-tight">Logs del Sistema</h2>
-                        <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">
+                        <h2 className="text-xl font-black text-[var(--text-primary)] uppercase tracking-tight">Logs del Sistema</h2>
+                        <p className="text-[var(--text-tertiary)] text-xs font-bold uppercase tracking-widest">
                             {logs?.length || 0} Eventos Registrados
                         </p>
                     </div>
@@ -74,7 +74,7 @@ export function LogViewer() {
 
                 <div className="flex items-center space-x-4">
                     {/* Level Filter */}
-                    <div className="flex bg-gray-900 rounded-lg p-1 border border-gray-700">
+                    <div className="flex bg-[var(--bg-card)] rounded-lg p-1 border border-[var(--border-default)]">
                         {['ALL', 'WARNING', 'ERROR'].map((lvl) => (
                             <button
                                 key={lvl}
@@ -82,8 +82,8 @@ export function LogViewer() {
                                 className={cn(
                                     "px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wide transition-all",
                                     filterLevel === lvl
-                                        ? "bg-gray-700 text-white shadow-sm"
-                                        : "text-gray-500 hover:text-gray-300"
+                                        ? "bg-gray-700 text-[var(--text-primary)] shadow-sm"
+                                        : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
                                 )}
                             >
                                 {lvl === 'ALL' ? 'Todos' : lvl}
@@ -110,7 +110,7 @@ export function LogViewer() {
                         onClick={() => setAutoRefresh(!autoRefresh)}
                         className={cn(
                             "p-2 rounded-lg transition-colors",
-                            autoRefresh ? "bg-green-500/20 text-green-400" : "bg-gray-700 text-gray-500"
+                            autoRefresh ? "bg-green-500/20 text-green-400" : "bg-gray-700 text-[var(--text-tertiary)]"
                         )}
                         title={autoRefresh ? "Auto-refresh ON" : "Auto-refresh PAUSED"}
                     >
@@ -131,13 +131,13 @@ export function LogViewer() {
                         <div
                             key={idx}
                             className={cn(
-                                "flex items-start space-x-3 p-2 rounded hover:bg-gray-800 transition-colors border-l-2",
+                                "flex items-start space-x-3 p-2 rounded hover:bg-[var(--bg-elevated)] transition-colors border-l-2",
                                 log.level === 'ERROR' ? "border-red-500 bg-red-900/10" :
                                     log.level === 'WARNING' ? "border-yellow-500 bg-yellow-900/10" :
                                         "border-transparent"
                             )}
                         >
-                            <span className="text-gray-500 shrink-0 select-none w-20 text-[11px] pt-0.5">
+                            <span className="text-[var(--text-tertiary)] shrink-0 select-none w-20 text-[11px] pt-0.5">
                                 {formatTime(log.timestamp)}
                             </span>
 
@@ -163,7 +163,7 @@ export function LogViewer() {
                                     "break-words whitespace-pre-wrap leading-relaxed",
                                     log.level === 'ERROR' ? "text-red-200" :
                                         log.level === 'WARNING' ? "text-yellow-200" :
-                                            "text-gray-300"
+                                            "text-[var(--text-secondary)]"
                                 )}>
                                     {log.message}
                                 </p>

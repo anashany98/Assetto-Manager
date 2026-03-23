@@ -9,7 +9,7 @@ from .database import (
     ensure_user_schema,
     ensure_championship_schema,
 )
-from .routers import stations, mods, websockets, settings, profiles, events, config_manager, championships, integrations, tournament, logs, ads, auth, backup, exports, loyalty, bookings, analytics, push, elimination, elo, hardware, control, drivers, payments, tables, tracks, deploy_sync
+from .routers import stations, mods, websockets, settings, profiles, events, config_manager, championships, integrations, tournament, logs, ads, auth, backup, exports, loyalty, bookings, analytics, push, elimination, elo, hardware, control, drivers, payments, tables, tracks, deploy_sync, maintenance
 from .routers.telemetry import router as telemetry_router  # Modular telemetry package
 import logging
 
@@ -435,12 +435,13 @@ app.include_router(hardware.router)
 app.include_router(control.router)
 app.include_router(drivers.router)
 app.include_router(payments.router)
+app.include_router(maintenance.router)
+
 from .routers import sessions
 app.include_router(sessions.router)
 
 from .routers import tables
 app.include_router(tables.router)
-
 # Lobby / Multiplayer
 from .routers import lobby
 app.include_router(lobby.router)

@@ -94,8 +94,8 @@ export default function ManageBooking() {
         }
     };
 
-    if (loading) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-white">Cargando...</div>;
-    if (error) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-red-500">{error}</div>;
+    if (loading) return <div className="min-h-screen bg-[var(--bg-app)] flex items-center justify-center text-[var(--text-primary)]">Cargando...</div>;
+    if (error) return <div className="min-h-screen bg-[var(--bg-app)] flex items-center justify-center text-red-500">{error}</div>;
     if (!booking) return null;
 
     const date = new Date(booking.start_time).toLocaleDateString();
@@ -103,16 +103,16 @@ export default function ManageBooking() {
     const isCancelled = booking.status === 'cancelled' || cancelled;
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white p-6 flex flex-col items-center">
+        <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-[var(--text-primary)] p-6 flex flex-col items-center">
             <div className="w-full max-w-md">
                 <div className="text-center mb-8">
                     <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent">
                         Gestión de Reserva
                     </h1>
-                    <p className="text-gray-400 text-sm mt-2">VRacing Bar</p>
+                    <p className="text-[var(--text-tertiary)] text-sm mt-2">VRacing Bar</p>
                 </div>
 
-                <div className={cn("bg-gray-800/50 backdrop-blur-md border border-gray-700 rounded-2xl p-6 shadow-xl", isCancelled && "opacity-75 grayscale")}>
+                <div className={cn("bg-[var(--bg-elevated)]/50 backdrop-blur-md border border-[var(--border-default)] rounded-2xl p-6 shadow-xl", isCancelled && "opacity-75 grayscale")}>
                     {isCancelled && (
                         <div className="mb-6 bg-red-500/10 border border-red-500/30 rounded-lg p-4 flex items-center gap-3 text-red-400">
                             <XCircle size={24} />
@@ -124,18 +124,18 @@ export default function ManageBooking() {
                     )}
 
                     <div className="space-y-4">
-                        <div className="flex items-center justify-between border-b border-gray-700 pb-4">
+                        <div className="flex items-center justify-between border-b border-[var(--border-default)] pb-4">
                             <div>
-                                <p className="text-xs text-gray-500 uppercase font-bold">Cliente</p>
+                                <p className="text-xs text-[var(--text-tertiary)] uppercase font-bold">Cliente</p>
                                 <p className="font-medium text-lg">{booking.customer_name}</p>
                             </div>
                             <div className="text-right">
-                                <p className="text-xs text-gray-500 uppercase font-bold">Estado</p>
+                                <p className="text-xs text-[var(--text-tertiary)] uppercase font-bold">Estado</p>
                                 <span className={cn(
                                     "inline-block px-2 py-0.5 rounded text-xs font-bold uppercase",
                                     booking.status === 'confirmed' ? "bg-green-500/20 text-green-400" :
                                         booking.status === 'cancelled' ? "bg-red-500/20 text-red-400" :
-                                            "bg-gray-500/20 text-gray-400"
+                                            "bg-gray-500/20 text-[var(--text-tertiary)]"
                                 )}>
                                     {booking.status === 'confirmed' ? 'Confirmada' : booking.status === 'cancelled' ? 'Cancelada' : booking.status}
                                 </span>
@@ -143,28 +143,28 @@ export default function ManageBooking() {
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
-                            <div className="bg-gray-900/50 p-3 rounded-lg border border-gray-700/50">
+                            <div className="bg-[var(--bg-card)]/50 p-3 rounded-lg border border-[var(--border-default)]/50">
                                 <div className="flex items-center gap-2 text-blue-400 mb-1">
                                     <Calendar size={14} />
                                     <span className="text-xs font-bold uppercase">Fecha</span>
                                 </div>
                                 <p className="font-mono font-bold">{date}</p>
                             </div>
-                            <div className="bg-gray-900/50 p-3 rounded-lg border border-gray-700/50">
+                            <div className="bg-[var(--bg-card)]/50 p-3 rounded-lg border border-[var(--border-default)]/50">
                                 <div className="flex items-center gap-2 text-amber-400 mb-1">
                                     <Clock size={14} />
                                     <span className="text-xs font-bold uppercase">Hora</span>
                                 </div>
                                 <p className="font-mono font-bold">{time}</p>
                             </div>
-                            <div className="bg-gray-900/50 p-3 rounded-lg border border-gray-700/50">
+                            <div className="bg-[var(--bg-card)]/50 p-3 rounded-lg border border-[var(--border-default)]/50">
                                 <div className="flex items-center gap-2 text-purple-400 mb-1">
                                     <Users size={14} />
                                     <span className="text-xs font-bold uppercase">Personas</span>
                                 </div>
                                 <p className="font-mono font-bold">{booking.pax}</p>
                             </div>
-                            <div className="bg-gray-900/50 p-3 rounded-lg border border-gray-700/50">
+                            <div className="bg-[var(--bg-card)]/50 p-3 rounded-lg border border-[var(--border-default)]/50">
                                 <div className="flex items-center gap-2 text-emerald-400 mb-1">
                                     <CheckCircle size={14} />
                                     <span className="text-xs font-bold uppercase">Mesas</span>
@@ -180,7 +180,7 @@ export default function ManageBooking() {
 
                                 {/* Allergies Section */}
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2 flex items-center gap-2">
+                                    <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2 flex items-center gap-2">
                                         <AlertOctagon size={12} className="text-amber-500" />
                                         Alergias e Intolerancias
                                     </label>
@@ -195,7 +195,7 @@ export default function ManageBooking() {
                                                         "flex items-center gap-2 p-2 rounded-lg border text-sm transition-all",
                                                         isSelected
                                                             ? "bg-red-500/20 border-red-500 text-red-100"
-                                                            : "bg-gray-800 border-gray-700 text-gray-400 hover:bg-gray-750"
+                                                            : "bg-[var(--bg-elevated)] border-[var(--border-default)] text-[var(--text-tertiary)] hover:bg-gray-750"
                                                     )}
                                                 >
                                                     <span>{allergy.icon}</span>
@@ -206,18 +206,18 @@ export default function ManageBooking() {
                                     </div>
                                 </div>
 
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Notas / Peticiones Especiales</label>
+                                <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">Notas / Peticiones Especiales</label>
                                 <textarea
                                     value={notes}
                                     onChange={(e) => setNotes(e.target.value)}
                                     placeholder="Alergias, trona para bebé, etc."
-                                    className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm min-h-[100px] focus:border-blue-500 outline-none transition-colors"
+                                    className="w-full bg-[var(--bg-card)] border border-[var(--border-default)] rounded-lg p-3 text-sm min-h-[100px] focus:border-blue-500 outline-none transition-colors"
                                 />
                                 <div className="flex justify-end mt-2">
                                     <button
                                         onClick={handleUpdate}
                                         disabled={saving}
-                                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50"
+                                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] rounded-lg text-xs font-bold transition-all disabled:opacity-50"
                                     >
                                         <Save size={14} /> Guardar Notas
                                     </button>

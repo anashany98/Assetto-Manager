@@ -1,47 +1,47 @@
 import { useNavigate } from 'react-router-dom';
-import { Trophy, MonitorPlay, Map, QrCode, Medal, Swords } from 'lucide-react';
+import { Trophy, MonitorPlay, Map, QrCode, Medal, Swords, ChevronRight } from 'lucide-react';
 import { useLicense } from '../context/LicenseContext';
 
 export default function LandingPage() {
     const navigate = useNavigate();
     const { isLoading, isModuleEnabled, license } = useLicense();
 
-    const COLOR_STYLES: Record<string, { hoverBorder: string; glow: string; glowHover: string; icon: string }> = {
-        yellow: {
-            hoverBorder: 'hover:border-yellow-500/50',
-            glow: 'bg-yellow-500/10',
-            glowHover: 'group-hover:bg-yellow-500/20',
-            icon: 'text-yellow-500',
+    const CARD_THEMES: Record<string, { gradient: string; shadow: string; icon: string; border: string }> = {
+        gold: {
+            gradient: 'from-amber-500/10 to-yellow-500/5',
+            shadow: 'group-hover:shadow-amber-500/10',
+            icon: 'text-amber-400',
+            border: 'group-hover:border-amber-500/30',
         },
         blue: {
-            hoverBorder: 'hover:border-blue-500/50',
-            glow: 'bg-blue-500/10',
-            glowHover: 'group-hover:bg-blue-500/20',
-            icon: 'text-blue-500',
+            gradient: 'from-blue-500/10 to-cyan-500/5',
+            shadow: 'group-hover:shadow-blue-500/10',
+            icon: 'text-blue-400',
+            border: 'group-hover:border-blue-500/30',
         },
-        green: {
-            hoverBorder: 'hover:border-green-500/50',
-            glow: 'bg-green-500/10',
-            glowHover: 'group-hover:bg-green-500/20',
-            icon: 'text-green-500',
+        emerald: {
+            gradient: 'from-emerald-500/10 to-teal-500/5',
+            shadow: 'group-hover:shadow-emerald-500/10',
+            icon: 'text-emerald-400',
+            border: 'group-hover:border-emerald-500/30',
         },
-        purple: {
-            hoverBorder: 'hover:border-purple-500/50',
-            glow: 'bg-purple-500/10',
-            glowHover: 'group-hover:bg-purple-500/20',
-            icon: 'text-purple-500',
+        violet: {
+            gradient: 'from-violet-500/10 to-purple-500/5',
+            shadow: 'group-hover:shadow-violet-500/10',
+            icon: 'text-violet-400',
+            border: 'group-hover:border-violet-500/30',
         },
         orange: {
-            hoverBorder: 'hover:border-orange-500/50',
-            glow: 'bg-orange-500/10',
-            glowHover: 'group-hover:bg-orange-500/20',
-            icon: 'text-orange-500',
+            gradient: 'from-orange-500/10 to-amber-500/5',
+            shadow: 'group-hover:shadow-orange-500/10',
+            icon: 'text-orange-400',
+            border: 'group-hover:border-orange-500/30',
         },
-        red: {
-            hoverBorder: 'hover:border-red-500/50',
-            glow: 'bg-red-500/10',
-            glowHover: 'group-hover:bg-red-500/20',
-            icon: 'text-red-500',
+        rose: {
+            gradient: 'from-rose-500/10 to-red-500/5',
+            shadow: 'group-hover:shadow-rose-500/10',
+            icon: 'text-rose-400',
+            border: 'group-hover:border-rose-500/30',
         },
     };
 
@@ -49,7 +49,7 @@ export default function LandingPage() {
         title: string;
         description: string;
         icon: typeof Trophy;
-        color: keyof typeof COLOR_STYLES;
+        theme: keyof typeof CARD_THEMES;
         path: string;
         moduleKeys: string[];
     }> = [
@@ -57,7 +57,7 @@ export default function LandingPage() {
             title: "Clasificación en Vivo",
             description: "Clasificación en tiempo real y estadísticas de pista",
             icon: Trophy,
-            color: "yellow",
+            theme: "gold",
             path: "/leaderboard",
             moduleKeys: ["leaderboard"],
         },
@@ -65,7 +65,7 @@ export default function LandingPage() {
             title: "Pasaporte Piloto",
             description: "Consulta tus estadísticas personales y récords",
             icon: QrCode,
-            color: "blue",
+            theme: "blue",
             path: "/passport-scanner",
             moduleKeys: ["passport"],
         },
@@ -73,7 +73,7 @@ export default function LandingPage() {
             title: "Mapa en Vivo",
             description: "Rastreo GPS de los simuladores en pista",
             icon: Map,
-            color: "green",
+            theme: "emerald",
             path: "/live-map",
             moduleKeys: ["live_map"],
         },
@@ -81,7 +81,7 @@ export default function LandingPage() {
             title: "Modo TV",
             description: "Pantalla de rotación automática para eventos",
             icon: MonitorPlay,
-            color: "purple",
+            theme: "violet",
             path: "/tv",
             moduleKeys: ["tv"],
         },
@@ -89,7 +89,7 @@ export default function LandingPage() {
             title: "Salón de la Fama",
             description: "Los pilotos más rápidos de la historia",
             icon: Medal,
-            color: "orange",
+            theme: "orange",
             path: "/hall-of-fame",
             moduleKeys: ["hall_of_fame"],
         },
@@ -97,78 +97,104 @@ export default function LandingPage() {
             title: "Modo Batalla",
             description: "Encuentros 1vs1 directos",
             icon: Swords,
-            color: "red",
+            theme: "rose",
             path: "/battle",
             moduleKeys: ["battle"],
-        }
+        },
     ];
 
     const visibleItems = menuItems.filter((item) => item.moduleKeys.some((k) => isModuleEnabled(k)));
 
     return (
-        <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-8">
-            <div className="text-center mb-12">
-                <h1 className="text-5xl font-black text-white mb-4 uppercase tracking-tighter">
-                    <span className="text-blue-600">Assetto</span> Manager
-                </h1>
-                <p className="text-gray-400 text-xl">Selecciona un modo de visualización</p>
+        <div className="min-h-screen bg-surface-950 flex flex-col items-center justify-center relative overflow-hidden">
+            {/* Background effects */}
+            <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-blue-600/8 rounded-full blur-[120px]" />
+                <div className="absolute bottom-0 right-0 w-[600px] h-[300px] bg-cyan-500/5 rounded-full blur-[100px]" />
+                <div className="absolute inset-0 bg-[linear-gradient(rgba(148,163,184,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.03)_1px,transparent_1px)] bg-[size:48px_48px]" />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl w-full">
-                {isLoading && (
+            <div className="relative z-10 w-full max-w-6xl px-6 py-12">
+                {/* Header */}
+                <div className="text-center mb-14">
+                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/15 text-blue-400 text-xs font-medium mb-6">
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+                        Sistema activo
+                    </div>
+                    <h1 className="text-5xl sm:text-6xl font-black text-white mb-4 tracking-tight">
+                        <span className="text-blue-400">Assetto</span> Manager
+                    </h1>
+                    <p className="text-slate-400 text-lg max-w-md mx-auto">
+                        Selecciona un modo de visualización
+                    </p>
+                </div>
+
+                {/* Cards Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {isLoading &&
                         Array.from({ length: 6 }).map((_, idx) => (
                             <div
                                 key={idx}
                                 role="status"
                                 aria-label="Cargando opciones del menú"
-                                className="relative overflow-hidden p-8 rounded-3xl border border-gray-800 bg-gray-900 text-left animate-pulse"
+                                className="p-7 rounded-2xl border border-white/5 bg-white/3 animate-pulse"
                             >
                                 <span className="sr-only">Cargando...</span>
-                                <div className="w-12 h-12 rounded-xl bg-gray-800 mb-6" />
-                                <div className="h-6 w-2/3 rounded bg-gray-800 mb-3" />
-                                <div className="h-4 w-full rounded bg-gray-800 mb-2" />
-                                <div className="h-4 w-5/6 rounded bg-gray-800" />
+                                <div className="w-12 h-12 rounded-xl bg-white/5 mb-5" />
+                                <div className="h-5 w-2/3 rounded bg-white/5 mb-3" />
+                                <div className="h-4 w-full rounded bg-white/5" />
                             </div>
                         ))
-                    )}
+                    }
 
                     {!isLoading && visibleItems.map((item) => {
-                    const styles = COLOR_STYLES[item.color];
-                    return (
-                        <button
-                            key={item.title}
-                            onClick={() => navigate(item.path)}
-                            aria-label={`${item.title}: ${item.description}`}
-                            className={`relative overflow-hidden group p-8 rounded-3xl border border-gray-800 bg-gray-900 ${styles.hoverBorder} transition-all duration-300 hover:shadow-2xl hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-950 text-left`}
-                        >
-                            <div className={`absolute top-0 right-0 p-32 ${styles.glow} rounded-full blur-3xl ${styles.glowHover} transition-all duration-500 -mr-16 -mt-16`} />
+                        const theme = CARD_THEMES[item.theme];
+                        return (
+                            <button
+                                key={item.title}
+                                onClick={() => navigate(item.path)}
+                                aria-label={`${item.title}: ${item.description}`}
+                                className={`group relative overflow-hidden p-7 rounded-2xl border border-white/6 bg-gradient-to-br ${theme.gradient} backdrop-blur-sm transition-all duration-300 hover:shadow-2xl ${theme.shadow} ${theme.border} hover:scale-[1.02] hover:-translate-y-1 focus:outline-none focus:border-[var(--border-focus)] focus:ring-offset-2 focus:ring-offset-surface-950 text-left`}
+                            >
+                                {/* Glow */}
+                                <div className="absolute -top-8 -right-8 w-32 h-32 bg-gradient-to-br from-white/3 to-transparent rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
-                            <item.icon className={`w-12 h-12 ${styles.icon} mb-6 relative z-10`} />
+                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-5 bg-white/5 ${theme.icon} transition-transform duration-300 group-hover:scale-110`}>
+                                    <item.icon size={24} />
+                                </div>
 
-                            <h3 className="text-2xl font-bold text-white mb-2 relative z-10">{item.title}</h3>
-                            <p className="text-gray-400 relative z-10">{item.description}</p>
-                        </button>
-                    );
-                })}
+                                <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                                    {item.title}
+                                    <ChevronRight size={16} className="text-white/30 group-hover:text-white/60 group-hover:translate-x-0.5 transition-all" />
+                                </h3>
+                                <p className="text-sm text-slate-400 leading-relaxed">{item.description}</p>
+                            </button>
+                        );
+                    })}
 
-                {!isLoading && visibleItems.length === 0 && (
-                    <div className="col-span-full">
-                        <div className="max-w-2xl mx-auto p-10 rounded-3xl border border-gray-800 bg-gray-900 text-center">
-                            <p className="text-white text-xl font-bold mb-2">No hay módulos habilitados</p>
-                            <p className="text-gray-400">
-                                {license?.is_valid
-                                    ? 'La licencia actual no habilita módulos de pantallas.'
-                                    : 'Activa una licencia para mostrar solo los módulos autorizados.'}
-                            </p>
+                    {!isLoading && visibleItems.length === 0 && (
+                        <div className="col-span-full">
+                            <div className="max-w-xl mx-auto p-10 rounded-2xl border border-white/6 bg-white/3 text-center">
+                                <p className="text-white text-lg font-bold mb-2">No hay módulos habilitados</p>
+                                <p className="text-slate-400 text-sm">
+                                    {license?.is_valid
+                                        ? 'La licencia actual no habilita módulos de pantallas.'
+                                        : 'Activa una licencia para mostrar solo los módulos autorizados.'}
+                                </p>
+                            </div>
                         </div>
-                    </div>
-                )}
-            </div>
+                    )}
+                </div>
 
-            <div className="mt-16 text-gray-700 text-xs">
-                <button onClick={() => navigate('/admin')} className="hover:text-blue-500 transition-colors uppercase font-bold tracking-widest">
-                    Panel de Gestión
-                </button>
+                {/* Footer */}
+                <div className="mt-16 text-center">
+                    <button
+                        onClick={() => navigate('/admin')}
+                        className="text-slate-600 hover:text-blue-400 transition-colors text-xs uppercase font-bold tracking-[0.2em]"
+                    >
+                        Panel de Gestión
+                    </button>
+                </div>
             </div>
         </div>
     );

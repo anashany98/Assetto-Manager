@@ -66,7 +66,7 @@ export function TelemetryChart({ lapId, compareLapId }: TelemetryChartProps) {
 
     if (loadingMain || loadingCompare) {
         return (
-            <div className="h-64 flex flex-col items-center justify-center text-gray-500">
+            <div className="h-64 flex flex-col items-center justify-center text-[var(--text-tertiary)]">
                 <Loader2 className="animate-spin mb-2" />
                 <span className="text-xs uppercase font-bold tracking-widest">Cargando Telemetría...</span>
             </div>
@@ -75,7 +75,7 @@ export function TelemetryChart({ lapId, compareLapId }: TelemetryChartProps) {
 
     if (!mainLap || mainLap.length === 0) {
         return (
-            <div className="h-64 flex flex-col items-center justify-center text-gray-500">
+            <div className="h-64 flex flex-col items-center justify-center text-[var(--text-tertiary)]">
                 <p className="text-xs uppercase font-bold tracking-widest">Sin datos de telemetría disponibles</p>
                 <p className="text-[10px] mt-2">La telemetría solo está disponible para vueltas recientes.</p>
             </div>
@@ -160,10 +160,10 @@ export function TelemetryChart({ lapId, compareLapId }: TelemetryChartProps) {
             {/* Summary Stats (when comparing) */}
             {compareLap && (
                 <div className="grid grid-cols-3 gap-2 mb-3">
-                    <div className="bg-gray-800 rounded-lg p-3 text-center">
-                        <div className="text-[10px] text-gray-500 uppercase font-bold">Delta Total</div>
+                    <div className="bg-[var(--bg-elevated)] rounded-lg p-3 text-center">
+                        <div className="text-[10px] text-[var(--text-tertiary)] uppercase font-bold">Delta Total</div>
                         <div className={`text-xl font-black font-mono ${deltaStatus === 'faster' ? 'text-green-500' :
-                            deltaStatus === 'slower' ? 'text-red-500' : 'text-gray-400'
+                            deltaStatus === 'slower' ? 'text-red-500' : 'text-[var(--text-tertiary)]'
                             }`}>
                             {deltaStatus === 'faster' && <TrendingDown className="inline w-4 h-4 mr-1" />}
                             {deltaStatus === 'slower' && <TrendingUp className="inline w-4 h-4 mr-1" />}
@@ -171,15 +171,15 @@ export function TelemetryChart({ lapId, compareLapId }: TelemetryChartProps) {
                             {totalDelta >= 0 ? '+' : ''}{(totalDelta / 1000).toFixed(3)}s
                         </div>
                     </div>
-                    <div className="bg-gray-800 rounded-lg p-3 text-center">
-                        <div className="text-[10px] text-gray-500 uppercase font-bold">Vel. Máx</div>
+                    <div className="bg-[var(--bg-elevated)] rounded-lg p-3 text-center">
+                        <div className="text-[10px] text-[var(--text-tertiary)] uppercase font-bold">Vel. Máx</div>
                         <div className="text-xl font-black text-yellow-500 font-mono">
                             <Gauge className="inline w-4 h-4 mr-1" />
                             {Math.max(...chartData.map(d => d.speed))} km/h
                         </div>
                     </div>
-                    <div className="bg-gray-800 rounded-lg p-3 text-center">
-                        <div className="text-[10px] text-gray-500 uppercase font-bold">Puntos</div>
+                    <div className="bg-[var(--bg-elevated)] rounded-lg p-3 text-center">
+                        <div className="text-[10px] text-[var(--text-tertiary)] uppercase font-bold">Puntos</div>
                         <div className="text-xl font-black text-blue-500 font-mono">
                             <Activity className="inline w-4 h-4 mr-1" />
                             {chartData.length}
@@ -189,14 +189,14 @@ export function TelemetryChart({ lapId, compareLapId }: TelemetryChartProps) {
             )}
 
             {/* Tabs */}
-            <div className="flex space-x-1 bg-gray-900 p-1 rounded-t-xl mb-1">
+            <div className="flex space-x-1 bg-[var(--bg-card)] p-1 rounded-t-xl mb-1">
                 {TABS.map(tab => (
                     <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
                         className={`flex-1 py-1.5 text-[10px] uppercase font-bold rounded transition-all ${activeTab === tab.id
-                            ? 'bg-blue-600 text-white'
-                            : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800'
+                            ? 'bg-blue-600 text-[var(--text-primary)]'
+                            : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-card-hover)]'
                             }`}
                     >
                         {tab.label}
@@ -204,7 +204,7 @@ export function TelemetryChart({ lapId, compareLapId }: TelemetryChartProps) {
                 ))}
             </div>
 
-            <div className="h-72 bg-gray-900/50 rounded-b-xl p-2 border border-white/5 relative">
+            <div className="h-72 bg-[var(--bg-card)]/50 rounded-b-xl p-2 border border-white/5 relative">
                 {/* ENGINE TAB */}
                 {activeTab === 'engine' && (
                     <ResponsiveContainer width="100%" height="100%">
@@ -283,7 +283,7 @@ export function TelemetryChart({ lapId, compareLapId }: TelemetryChartProps) {
                 {activeTab === 'delta' && (
                     <>
                         {!compareLap ? (
-                            <div className="h-full flex items-center justify-center text-gray-500">
+                            <div className="h-full flex items-center justify-center text-[var(--text-tertiary)]">
                                 <div className="text-center">
                                     <Timer size={32} className="mx-auto mb-2 opacity-50" />
                                     <p className="text-xs uppercase font-bold">Selecciona una vuelta rival</p>
@@ -347,15 +347,15 @@ export function TelemetryChart({ lapId, compareLapId }: TelemetryChartProps) {
                                 return (
                                     <div
                                         key={sector.id}
-                                        className="bg-gray-800 rounded-xl p-4 flex flex-col items-center justify-center border-t-4"
+                                        className="bg-[var(--bg-elevated)] rounded-xl p-4 flex flex-col items-center justify-center border-t-4"
                                         style={{ borderColor: sector.color }}
                                     >
-                                        <div className="text-2xl font-black text-white mb-1">{sector.name}</div>
-                                        <div className="text-xl font-mono font-bold text-gray-200">
+                                        <div className="text-2xl font-black text-[var(--text-primary)] mb-1">{sector.name}</div>
+                                        <div className="text-xl font-mono font-bold text-[var(--text-primary)]">
                                             {formatSectorTime(mainTime)}
                                         </div>
                                         {compareTime && (
-                                            <div className={`text-sm font-mono font-bold mt-2 ${isFaster ? 'text-green-500' : isSlower ? 'text-red-500' : 'text-gray-500'
+                                            <div className={`text-sm font-mono font-bold mt-2 ${isFaster ? 'text-green-500' : isSlower ? 'text-red-500' : 'text-[var(--text-tertiary)]'
                                                 }`}>
                                                 {isFaster && <TrendingDown className="inline w-3 h-3 mr-1" />}
                                                 {isSlower && <TrendingUp className="inline w-3 h-3 mr-1" />}
@@ -375,7 +375,7 @@ export function TelemetryChart({ lapId, compareLapId }: TelemetryChartProps) {
                             {SECTORS.map((sector) => (
                                 <div
                                     key={sector.id}
-                                    className="flex-1 flex items-center justify-center text-xs font-bold text-white/80"
+                                    className="flex-1 flex items-center justify-center text-xs font-bold text-[var(--text-primary)]/80"
                                     style={{ backgroundColor: sector.color }}
                                 >
                                     {sector.name}

@@ -431,7 +431,8 @@ async def mass_launch(
             players_list.append({
                 "station_id": s.id,
                 "name": driver_name,
-                "station_obj": s
+                "station_obj": s,
+                "ac_path": s.ac_path,
             })
 
         # Multi-player logic
@@ -471,6 +472,7 @@ async def mass_launch(
             "laps": request.laps,
             "max_players": lobby.max_players,
             "port": lobby.port,
+            "ac_path": host.ac_path,
             "players": [{"name": p["name"], "slot": idx} for idx, p in enumerate(players_list)]
         })
 
@@ -483,6 +485,7 @@ async def mass_launch(
                 "port": lobby.port,
                 "track": request.track,
                 "car": request.car,
+                "ac_path": p.get("ac_path"),
                 "slot": idx,
                 "driver_name": p["name"],
                 "is_spectator": False
@@ -501,6 +504,8 @@ async def mass_launch(
                 "port": lobby.port,
                 "track": request.track,
                 "car": request.car,
+                "ac_path": tv.ac_path,
+                "driver_name": "TV Broadcast",
                 "is_spectator": True
             })
 

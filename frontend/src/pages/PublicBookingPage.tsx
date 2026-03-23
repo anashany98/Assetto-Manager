@@ -116,33 +116,33 @@ export default function PublicBookingPage() {
     // Step 3: Confirmation
     if (step === 3 && bookingComplete) {
         return (
-            <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-6 text-white">
+            <div className="min-h-screen bg-[var(--bg-app)] flex flex-col items-center justify-center p-6 text-[var(--text-primary)]">
                 <div className="w-full max-w-md text-center">
                     <div className="w-20 h-20 mx-auto bg-green-600 rounded-full flex items-center justify-center mb-6 animate-bounce">
                         <Check size={40} />
                     </div>
                     <h1 className="text-3xl font-black uppercase tracking-tight mb-2">¡Reserva Confirmada!</h1>
-                    <p className="text-gray-400 mb-6">Te hemos enviado un email con los detalles</p>
+                    <p className="text-[var(--text-tertiary)] mb-6">Te hemos enviado un email con los detalles</p>
 
-                    <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 text-left space-y-3">
+                    <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl p-6 text-left space-y-3">
                         <div className="flex justify-between">
-                            <span className="text-gray-500">Nº Reserva</span>
+                            <span className="text-[var(--text-tertiary)]">Nº Reserva</span>
                             <span className="font-mono font-bold text-blue-400">#{bookingComplete.id}</span>
                         </div>
                         <div className="flex justify-between">
-                            <span className="text-gray-500">Fecha</span>
+                            <span className="text-[var(--text-tertiary)]">Fecha</span>
                             <span className="font-bold">{selectedDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
                         </div>
                         <div className="flex justify-between">
-                            <span className="text-gray-500">Horario</span>
+                            <span className="text-[var(--text-tertiary)]">Horario</span>
                             <span className="font-bold text-green-400">{selectedSlot}</span>
                         </div>
                         <div className="flex justify-between">
-                            <span className="text-gray-500">Jugadores</span>
+                            <span className="text-[var(--text-tertiary)]">Jugadores</span>
                             <span className="font-bold">{formData.num_players}</span>
                         </div>
                         <div className="flex justify-between">
-                            <span className="text-gray-500">Duración</span>
+                            <span className="text-[var(--text-tertiary)]">Duración</span>
                             <span className="font-bold">{formData.duration_minutes} min</span>
                         </div>
                     </div>
@@ -164,15 +164,15 @@ export default function PublicBookingPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-950 text-white">
+        <div className="min-h-screen bg-[var(--bg-app)] text-[var(--text-primary)]">
             {/* Header */}
-            <div className="bg-gray-900 border-b border-gray-800 px-6 py-4">
+            <div className="bg-[var(--bg-card)] border-b border-[var(--border-default)] px-6 py-4">
                 <div className="max-w-2xl mx-auto flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <img src={barLogo} alt={barName} className="h-10 w-10 object-contain" />
                         <div>
                             <h1 className="font-black text-lg uppercase tracking-tight">{barName}</h1>
-                            <p className="text-xs text-gray-500">Sistema de Reservas</p>
+                            <p className="text-xs text-[var(--text-tertiary)]">Sistema de Reservas</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-2 text-xs">
@@ -189,12 +189,12 @@ export default function PublicBookingPage() {
                     <div className="space-y-6">
                         <div>
                             <h2 className="text-xl font-black uppercase tracking-tight mb-1">Elige Fecha y Hora</h2>
-                            <p className="text-gray-500 text-sm">Selecciona cuándo quieres venir a correr</p>
+                            <p className="text-[var(--text-tertiary)] text-sm">Selecciona cuándo quieres venir a correr</p>
                         </div>
 
                         {/* Date Selector */}
                         <div>
-                            <label className="text-xs text-gray-400 uppercase font-bold block mb-2">
+                            <label className="text-xs text-[var(--text-tertiary)] uppercase font-bold block mb-2">
                                 <Calendar size={14} className="inline mr-1" /> Fecha
                             </label>
                             <div data-testid="date-scroll" className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
@@ -207,15 +207,15 @@ export default function PublicBookingPage() {
                                             onClick={() => { setSelectedDate(day); setSelectedSlot(null); }}
                                             className={cn(
                                                 "flex-shrink-0 w-16 py-3 rounded-xl text-center transition-all",
-                                                isSelected ? "bg-blue-600 text-white" : "bg-gray-800 hover:bg-gray-700",
+                                                isSelected ? "bg-blue-600 text-[var(--text-primary)]" : "bg-[var(--bg-elevated)] hover:bg-[var(--bg-elevated)]",
                                                 isToday && !isSelected && "ring-2 ring-blue-500/50"
                                             )}
                                         >
-                                            <div className="text-[10px] uppercase font-bold text-gray-400">
+                                            <div className="text-[10px] uppercase font-bold text-[var(--text-tertiary)]">
                                                 {day.toLocaleDateString('es-ES', { weekday: 'short' })}
                                             </div>
                                             <div className="text-xl font-black">{day.getDate()}</div>
-                                            <div className="text-[10px] text-gray-500">
+                                            <div className="text-[10px] text-[var(--text-tertiary)]">
                                                 {day.toLocaleDateString('es-ES', { month: 'short' })}
                                             </div>
                                         </button>
@@ -226,7 +226,7 @@ export default function PublicBookingPage() {
 
                         {/* Time Slots */}
                         <div>
-                            <label className="text-xs text-gray-400 uppercase font-bold block mb-2">
+                            <label className="text-xs text-[var(--text-tertiary)] uppercase font-bold block mb-2">
                                 <Clock size={14} className="inline mr-1" /> Horario Disponible
                             </label>
                             {loadingSlots ? (
@@ -248,14 +248,14 @@ export default function PublicBookingPage() {
                                                 "py-3 rounded-xl text-center font-bold transition-all",
                                                 slot.available
                                                     ? selectedSlot === slot.time_slot
-                                                        ? "bg-green-600 text-white scale-105 ring-2 ring-green-400"
-                                                        : "bg-gray-800 hover:bg-gray-700"
-                                                    : "bg-gray-900 text-gray-700 cursor-not-allowed"
+                                                        ? "bg-green-600 text-[var(--text-primary)] scale-105 ring-2 ring-green-400"
+                                                        : "bg-[var(--bg-elevated)] hover:bg-[var(--bg-elevated)]"
+                                                    : "bg-[var(--bg-card)] text-gray-700 cursor-not-allowed"
                                             )}
                                         >
                                             <div className="text-sm">{slot.time_slot.split('-')[0]}</div>
                                             {slot.available && (
-                                                <div className="text-[9px] text-gray-400 mt-0.5">
+                                                <div className="text-[9px] text-[var(--text-tertiary)] mt-0.5">
                                                     {slot.remaining_slots} libre{slot.remaining_slots !== 1 && 's'}
                                                 </div>
                                             )}
@@ -269,7 +269,7 @@ export default function PublicBookingPage() {
                         <button
                             onClick={() => setStep(2)}
                             disabled={!selectedSlot}
-                            className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-800 disabled:text-gray-600 rounded-xl font-bold uppercase tracking-wide transition-all flex items-center justify-center gap-2"
+                            className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:bg-[var(--bg-elevated)] disabled:text-gray-600 rounded-xl font-bold uppercase tracking-wide transition-all flex items-center justify-center gap-2"
                         >
                             Continuar
                             <ChevronRight size={20} />
@@ -281,17 +281,17 @@ export default function PublicBookingPage() {
                 {step === 2 && (
                     <div className="space-y-6">
                         <div>
-                            <button onClick={() => setStep(1)} className="text-gray-500 hover:text-white text-sm mb-2 flex items-center gap-1">
+                            <button onClick={() => setStep(1)} className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] text-sm mb-2 flex items-center gap-1">
                                 <ChevronRight className="rotate-180" size={16} /> Volver
                             </button>
                             <h2 className="text-xl font-black uppercase tracking-tight mb-1">Tus Datos</h2>
-                            <p className="text-gray-500 text-sm">Completa tu información para confirmar</p>
+                            <p className="text-[var(--text-tertiary)] text-sm">Completa tu información para confirmar</p>
                         </div>
 
                         {/* Summary Card */}
-                        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-center justify-between">
+                        <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-xl p-4 flex items-center justify-between">
                             <div>
-                                <div className="text-xs text-gray-500">Tu reserva</div>
+                                <div className="text-xs text-[var(--text-tertiary)]">Tu reserva</div>
                                 <div className="font-bold">{selectedDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
                             </div>
                             <div className="text-right">
@@ -302,7 +302,7 @@ export default function PublicBookingPage() {
                         {/* Form */}
                         <div className="space-y-4">
                             <div>
-                                <label className="text-xs text-gray-400 uppercase font-bold block mb-1">
+                                <label className="text-xs text-[var(--text-tertiary)] uppercase font-bold block mb-1">
                                     <User size={14} className="inline mr-1" /> Nombre Completo *
                                 </label>
                                 <input
@@ -310,14 +310,14 @@ export default function PublicBookingPage() {
                                     required
                                     value={formData.customer_name}
                                     onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
-                                    className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                    className="w-full bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-xl px-4 py-3 text-[var(--text-primary)] focus:border-[var(--border-focus)] outline-none"
                                     placeholder="Tu nombre"
                                 />
                             </div>
 
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="text-xs text-gray-400 uppercase font-bold block mb-1">
+                                    <label className="text-xs text-[var(--text-tertiary)] uppercase font-bold block mb-1">
                                         <Users size={14} className="inline mr-1" /> Jugadores
                                     </label>
                                     <input
@@ -326,17 +326,17 @@ export default function PublicBookingPage() {
                                         max={10}
                                         value={formData.num_players}
                                         onChange={(e) => setFormData({ ...formData, num_players: parseInt(e.target.value) || 1 })}
-                                        className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                        className="w-full bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-xl px-4 py-3 text-[var(--text-primary)] focus:border-[var(--border-focus)] outline-none"
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-xs text-gray-400 uppercase font-bold block mb-1">
+                                    <label className="text-xs text-[var(--text-tertiary)] uppercase font-bold block mb-1">
                                         <Timer size={14} className="inline mr-1" /> Duración
                                     </label>
                                     <select
                                         value={formData.duration_minutes}
                                         onChange={(e) => setFormData({ ...formData, duration_minutes: parseInt(e.target.value) })}
-                                        className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                        className="w-full bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-xl px-4 py-3 text-[var(--text-primary)] focus:border-[var(--border-focus)] outline-none"
                                     >
                                         {DURATION_OPTIONS.map(opt => (
                                             <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -347,39 +347,39 @@ export default function PublicBookingPage() {
 
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="text-xs text-gray-400 uppercase font-bold block mb-1">
+                                    <label className="text-xs text-[var(--text-tertiary)] uppercase font-bold block mb-1">
                                         <Phone size={14} className="inline mr-1" /> Teléfono
                                     </label>
                                     <input
                                         type="tel"
                                         value={formData.customer_phone}
                                         onChange={(e) => setFormData({ ...formData, customer_phone: e.target.value })}
-                                        className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                        className="w-full bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-xl px-4 py-3 text-[var(--text-primary)] focus:border-[var(--border-focus)] outline-none"
                                         placeholder="600 123 456"
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-xs text-gray-400 uppercase font-bold block mb-1">
+                                    <label className="text-xs text-[var(--text-tertiary)] uppercase font-bold block mb-1">
                                         <Mail size={14} className="inline mr-1" /> Email
                                     </label>
                                     <input
                                         type="email"
                                         value={formData.customer_email}
                                         onChange={(e) => setFormData({ ...formData, customer_email: e.target.value })}
-                                        className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                        className="w-full bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-xl px-4 py-3 text-[var(--text-primary)] focus:border-[var(--border-focus)] outline-none"
                                         placeholder="tu@email.com"
                                     />
                                 </div>
                             </div>
 
                             <div>
-                                <label className="text-xs text-gray-400 uppercase font-bold block mb-1">
+                                <label className="text-xs text-[var(--text-tertiary)] uppercase font-bold block mb-1">
                                     Notas (opcional)
                                 </label>
                                 <textarea
                                     value={formData.notes}
                                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                                    className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                                    className="w-full bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-xl px-4 py-3 text-[var(--text-primary)] focus:border-[var(--border-focus)] outline-none resize-none"
                                     rows={2}
                                     placeholder="Cumpleaños, evento especial..."
                                 />
@@ -398,7 +398,7 @@ export default function PublicBookingPage() {
                         <button
                             onClick={handleSubmit}
                             disabled={!formData.customer_name || createBooking.isPending}
-                            className="w-full py-4 bg-green-600 hover:bg-green-500 disabled:bg-gray-800 disabled:text-gray-600 rounded-xl font-bold uppercase tracking-wide transition-all flex items-center justify-center gap-2"
+                            className="w-full py-4 bg-green-600 hover:bg-green-500 disabled:bg-[var(--bg-elevated)] disabled:text-gray-600 rounded-xl font-bold uppercase tracking-wide transition-all flex items-center justify-center gap-2"
                         >
                             {createBooking.isPending ? (
                                 <Loader2 className="animate-spin" size={20} />
@@ -412,7 +412,7 @@ export default function PublicBookingPage() {
             </div>
 
             {/* Footer */}
-            <div className="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-800 p-4 text-center text-xs text-gray-600">
+            <div className="fixed bottom-0 left-0 right-0 bg-[var(--bg-card)] border-t border-[var(--border-default)] p-4 text-center text-xs text-gray-600">
                 <MapPin size={12} className="inline mr-1" />
                 {barName} · Sistema de Reservas Online
             </div>

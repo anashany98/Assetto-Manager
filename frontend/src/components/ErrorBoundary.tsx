@@ -26,10 +26,10 @@ class ErrorBoundary extends Component<Props, State> {
     public render() {
         if (this.state.hasError) {
             return (
-                <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white p-4">
-                    <div className="bg-gray-800 p-8 rounded-lg shadow-xl max-w-md w-full border border-red-500/30">
+                <div className="min-h-screen flex items-center justify-center bg-[var(--bg-card)] text-[var(--text-primary)] p-4">
+                    <div className="bg-[var(--bg-elevated)] p-8 rounded-lg shadow-xl max-w-md w-full border border-red-500/30">
                         <h1 className="text-2xl font-bold text-red-500 mb-4">Something went wrong</h1>
-                        <p className="text-gray-300 mb-6">
+                        <p className="text-[var(--text-secondary)] mb-6">
                             The application encountered an unexpected error. Please try refreshing the page.
                         </p>
                         {this.state.error && (
@@ -39,7 +39,7 @@ class ErrorBoundary extends Component<Props, State> {
                         )}
                         <button
                             onClick={() => window.location.reload()}
-                            className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition-colors"
+                            className="w-full bg-red-600 hover:bg-red-700 text-[var(--text-primary)] font-bold py-2 px-4 rounded transition-colors"
                         >
                             Refresh Page
                         </button>

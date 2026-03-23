@@ -41,7 +41,7 @@ const PromoCarousel: React.FC = () => {
     const currentAd = ads[currentIndex];
 
     return (
-        <div className="w-full h-full relative overflow-hidden bg-black rounded-3xl shadow-2xl border-4 border-gray-800">
+        <div className="w-full h-full relative overflow-hidden bg-black rounded-3xl shadow-2xl border-4 border-[var(--border-default)]">
             <AnimatePresence mode='wait'>
                 <motion.div
                     key={currentAd.id}
@@ -63,7 +63,7 @@ const PromoCarousel: React.FC = () => {
                             animate={{ y: 0, opacity: 1 }}
                             transition={{ delay: 0.5 }}
                         >
-                            <h2 className="text-4xl font-black text-white uppercase tracking-tighter drop-shadow-lg text-center">
+                            <h2 className="text-4xl font-black text-[var(--text-primary)] uppercase tracking-tighter drop-shadow-lg text-center">
                                 {currentAd.title}
                             </h2>
                         </motion.div>
@@ -72,7 +72,7 @@ const PromoCarousel: React.FC = () => {
             </AnimatePresence>
 
             {/* Progress Bar (Optional) */}
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gray-800 z-10">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-[var(--bg-elevated)] z-10">
                 <motion.div
                     key={currentAd.id + "-progress"}
                     initial={{ width: "0%" }}

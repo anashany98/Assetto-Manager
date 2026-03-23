@@ -86,18 +86,18 @@ export default function ChampionshipDetails() {
     });
 
     if (loadingStandings || loadingChamp) return (
-        <div className="p-10 text-center text-white flex flex-col items-center justify-center min-h-[400px]">
+        <div className="p-10 text-center text-[var(--text-primary)] flex flex-col items-center justify-center min-h-[400px]">
             <div className="w-10 h-10 border-4 border-yellow-500/20 border-t-yellow-500 rounded-full animate-spin mb-4" />
             <p className="font-bold text-yellow-500 animate-pulse uppercase tracking-widest text-sm">Cargando clasificación y detalles...</p>
         </div>
     );
 
     if (champError || standingsError || !championship) return (
-        <div className="p-10 text-center text-white flex flex-col items-center justify-center min-h-[400px]">
+        <div className="p-10 text-center text-[var(--text-primary)] flex flex-col items-center justify-center min-h-[400px]">
             <AlertTriangle size={48} className="text-red-500 mb-4 opacity-50" />
             <p className="font-bold text-red-400 uppercase tracking-widest text-sm">Error al cargar datos del campeonato</p>
-            <p className="text-gray-500 text-xs mt-2 italic font-medium">Revisa la conexión al servidor o si el ID es correcto.</p>
-            <Link to="/championships" className="mt-8 bg-white/5 hover:bg-white/10 text-white px-6 py-2 rounded-xl border border-white/10 uppercase font-black text-[10px] tracking-widest">Volver a Campeonatos</Link>
+            <p className="text-[var(--text-tertiary)] text-xs mt-2 italic font-medium">Revisa la conexión al servidor o si el ID es correcto.</p>
+            <Link to="/championships" className="mt-8 bg-[var(--bg-card)]/5 hover:bg-[var(--bg-card)]/10 text-[var(--text-primary)] px-6 py-2 rounded-xl border border-white/10 uppercase font-black text-[10px] tracking-widest">Volver a Campeonatos</Link>
         </div>
     );
 
@@ -105,7 +105,7 @@ export default function ChampionshipDetails() {
 
     return (
         <div className="p-8 max-w-7xl mx-auto min-h-screen">
-            <Link to="/championships" className="inline-flex items-center text-gray-500 hover:text-white mb-8 transition-colors group">
+            <Link to="/championships" className="inline-flex items-center text-[var(--text-tertiary)] hover:text-[var(--text-primary)] mb-8 transition-colors group">
                 <ArrowLeft size={20} className="mr-2 group-hover:-translate-x-1 transition-transform" /> Volver a Campeonatos
             </Link>
 
@@ -122,21 +122,21 @@ export default function ChampionshipDetails() {
                             </span>
                         )}
                     </div>
-                    <h1 className="text-6xl font-black text-white italic uppercase tracking-tighter mb-6">
+                    <h1 className="text-6xl font-black text-[var(--text-primary)] italic uppercase tracking-tighter mb-6">
                         {championship.name}
                     </h1>
-                    <div className="flex items-center space-x-8 text-gray-400 font-bold">
-                        <div className="flex items-center bg-white/5 px-4 py-2 rounded-xl border border-white/5">
+                    <div className="flex items-center space-x-8 text-[var(--text-tertiary)] font-bold">
+                        <div className="flex items-center bg-[var(--bg-card)]/5 px-4 py-2 rounded-xl border border-white/5">
                             <Calendar size={18} className="mr-3 text-yellow-500" />
                             <span className="text-sm">Iniciado: {new Date(championship.start_date).toLocaleDateString()}</span>
                         </div>
-                        <div className="flex items-center bg-white/5 px-4 py-2 rounded-xl border border-white/5">
+                        <div className="flex items-center bg-[var(--bg-card)]/5 px-4 py-2 rounded-xl border border-white/5">
                             <Flag size={18} className="mr-3 text-blue-400" />
                             <span className="text-sm font-mono">{championship.events?.length || 0} Carreras</span>
                         </div>
                     </div>
                 </div>
-                <Trophy className="absolute -right-20 -bottom-20 text-white/5 rotate-12" size={400} />
+                <Trophy className="absolute -right-20 -bottom-20 text-[var(--text-primary)]/5 rotate-12" size={400} />
             </div>
 
             {/* Navigation Tabs */}
@@ -145,7 +145,7 @@ export default function ChampionshipDetails() {
                     onClick={() => setActiveTab('standings')}
                     className={cn(
                         "px-8 py-3 rounded-xl font-black italic uppercase tracking-tighter transition-all flex items-center gap-2",
-                        activeTab === 'standings' ? "bg-yellow-500 text-black shadow-lg" : "text-gray-500 hover:text-white"
+                        activeTab === 'standings' ? "bg-yellow-500 text-black shadow-lg" : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
                     )}
                 >
                     <Medal size={18} /> Clasificación
@@ -154,7 +154,7 @@ export default function ChampionshipDetails() {
                     onClick={() => setActiveTab('calendar')}
                     className={cn(
                         "px-8 py-3 rounded-xl font-black italic uppercase tracking-tighter transition-all flex items-center gap-2",
-                        activeTab === 'calendar' ? "bg-yellow-500 text-black shadow-lg" : "text-gray-500 hover:text-white"
+                        activeTab === 'calendar' ? "bg-yellow-500 text-black shadow-lg" : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
                     )}
                 >
                     <Calendar size={18} /> Calendario
@@ -163,12 +163,12 @@ export default function ChampionshipDetails() {
 
             {/* Standings View */}
             {activeTab === 'standings' && (
-                <div className="bg-gray-900/50 backdrop-blur-xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
+                <div className="bg-[var(--bg-card)]/50 backdrop-blur-xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
                     <div className="p-8 border-b border-white/5 flex justify-between items-center bg-gradient-to-r from-white/5 to-transparent">
-                        <h2 className="text-3xl font-black text-white uppercase italic tracking-tighter flex items-center gap-4">
+                        <h2 className="text-3xl font-black text-[var(--text-primary)] uppercase italic tracking-tighter flex items-center gap-4">
                             <Trophy className="text-yellow-500" size={32} /> Standings Globales
                         </h2>
-                        <div className="flex items-center gap-2 text-xs font-bold text-gray-500 uppercase tracking-widest bg-black/40 px-4 py-2 rounded-full border border-white/5">
+                        <div className="flex items-center gap-2 text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-widest bg-black/40 px-4 py-2 rounded-full border border-white/5">
                             Sistema: F1 Standard (25-18-15)
                         </div>
                     </div>
@@ -176,7 +176,7 @@ export default function ChampionshipDetails() {
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead>
-                                <tr className="bg-black/40 text-gray-500 text-[10px] uppercase tracking-[0.2em] font-black border-b border-white/5">
+                                <tr className="bg-black/40 text-[var(--text-tertiary)] text-[10px] uppercase tracking-[0.2em] font-black border-b border-white/5">
                                     <th className="p-6 text-center w-24">Pos</th>
                                     <th className="p-6">Piloto</th>
                                     <th className="p-6 text-center">GPs</th>
@@ -188,27 +188,27 @@ export default function ChampionshipDetails() {
                             <tbody className="divide-y divide-white/5">
                                 {Array.isArray(standings) ? (
                                     standings.map((driver, idx) => (
-                                        <tr key={driver.driver_name} className="hover:bg-white/[0.02] transition-colors group">
+                                        <tr key={driver.driver_name} className="hover:bg-[var(--bg-card)]/[0.02] transition-colors group">
                                             <td className="p-6 text-center">
                                                 <div className={cn(
                                                     "w-10 h-10 rounded-xl flex items-center justify-center font-black italic text-lg mx-auto transform transition-transform group-hover:scale-110",
                                                     idx === 0 ? "bg-yellow-500 text-black shadow-[0_0_20px_rgba(234,179,8,0.3)]" :
                                                         idx === 1 ? "bg-gray-300 text-black" :
-                                                            idx === 2 ? "bg-orange-700 text-white" : "bg-white/5 text-gray-500"
+                                                            idx === 2 ? "bg-orange-700 text-[var(--text-primary)]" : "bg-[var(--bg-card)]/5 text-[var(--text-tertiary)]"
                                                 )}>
                                                     {idx + 1}
                                                 </div>
                                             </td>
                                             <td className="p-6">
-                                                <div className="font-black text-white text-xl uppercase italic group-hover:text-yellow-500 transition-colors">
+                                                <div className="font-black text-[var(--text-primary)] text-xl uppercase italic group-hover:text-yellow-500 transition-colors">
                                                     {driver.driver_name}
                                                 </div>
-                                                <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1">
+                                                <div className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-widest mt-1">
                                                     Pro Driver • Tier 1
                                                 </div>
                                             </td>
                                             <td className="p-6 text-center">
-                                                <span className="font-mono text-lg text-white/50">{driver.events_participated}</span>
+                                                <span className="font-mono text-lg text-[var(--text-primary)]/50">{driver.events_participated}</span>
                                             </td>
                                             <td className="p-6 text-center">
                                                 <span className="font-mono text-yellow-500/60 font-bold">
@@ -224,9 +224,9 @@ export default function ChampionshipDetails() {
                                                 </div>
                                             </td>
                                             <td className="p-6 text-right pr-12">
-                                                <div className="font-black text-4xl text-white italic tracking-tighter tabular-nums">
+                                                <div className="font-black text-4xl text-[var(--text-primary)] italic tracking-tighter tabular-nums">
                                                     {driver.total_points}
-                                                    <span className="text-[10px] text-gray-500 ml-2 not-italic font-black opacity-40 uppercase">Pts</span>
+                                                    <span className="text-[10px] text-[var(--text-tertiary)] ml-2 not-italic font-black opacity-40 uppercase">Pts</span>
                                                 </div>
                                             </td>
                                         </tr>
@@ -248,21 +248,21 @@ export default function ChampionshipDetails() {
             {activeTab === 'calendar' && (
                 <div className="space-y-6">
                     <div className="flex justify-between items-center mb-8">
-                        <h2 className="text-3xl font-black text-white uppercase italic tracking-tighter flex items-center gap-4">
+                        <h2 className="text-3xl font-black text-[var(--text-primary)] uppercase italic tracking-tighter flex items-center gap-4">
                             <Calendar className="text-blue-400" size={32} /> Calendario de Carrera
                         </h2>
                         <button
                             onClick={() => setShowAddEvent(true)}
-                            className="bg-white/5 hover:bg-white/10 text-white font-bold py-3 px-6 rounded-2xl border border-white/10 flex items-center gap-2 transition-all"
+                            className="bg-[var(--bg-card)]/5 hover:bg-[var(--bg-card)]/10 text-[var(--text-primary)] font-bold py-3 px-6 rounded-2xl border border-white/10 flex items-center gap-2 transition-all"
                         >
                             <Plus size={20} /> Añadir Carrera
                         </button>
                     </div>
 
                     {showAddEvent && (
-                        <div className="bg-gray-800 border border-gray-700 p-8 rounded-3xl mb-10 animate-in fade-in slide-in-from-top-4">
+                        <div className="bg-[var(--bg-elevated)] border border-[var(--border-default)] p-8 rounded-3xl mb-10 animate-in fade-in slide-in-from-top-4">
                             <div className="flex justify-between items-center mb-6">
-                                <h3 className="text-xl font-bold text-white uppercase italic tracking-widest">
+                                <h3 className="text-xl font-bold text-[var(--text-primary)] uppercase italic tracking-widest">
                                     {isCreatingNew ? 'Crear Nueva Carrera' : 'Seleccionar Evento Existente'}
                                 </h3>
                                 <button
@@ -277,37 +277,37 @@ export default function ChampionshipDetails() {
                                 <div className="space-y-4">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="space-y-1">
-                                            <label className="text-[10px] font-black text-gray-500 uppercase ml-1">Nombre de la Carrera</label>
+                                            <label className="text-[10px] font-black text-[var(--text-tertiary)] uppercase ml-1">Nombre de la Carrera</label>
                                             <input
-                                                className="w-full bg-black/40 border border-white/10 p-3 rounded-xl text-white outline-none focus:border-yellow-500 transition-colors"
+                                                className="w-full bg-black/40 border border-white/10 p-3 rounded-xl text-[var(--text-primary)] outline-none focus:border-yellow-500 transition-colors"
                                                 placeholder="Ej: Gran Premio de Monza"
                                                 value={newEventData.name}
                                                 onChange={e => setNewEventData({ ...newEventData, name: e.target.value })}
                                             />
                                         </div>
                                         <div className="space-y-1">
-                                            <label className="text-[10px] font-black text-gray-500 uppercase ml-1">Circuito</label>
+                                            <label className="text-[10px] font-black text-[var(--text-tertiary)] uppercase ml-1">Circuito</label>
                                             <input
-                                                className="w-full bg-black/40 border border-white/10 p-3 rounded-xl text-white outline-none focus:border-yellow-500 transition-colors"
+                                                className="w-full bg-black/40 border border-white/10 p-3 rounded-xl text-[var(--text-primary)] outline-none focus:border-yellow-500 transition-colors"
                                                 placeholder="Ej: Monza"
                                                 value={newEventData.track_name}
                                                 onChange={e => setNewEventData({ ...newEventData, track_name: e.target.value })}
                                             />
                                         </div>
                                         <div className="space-y-1">
-                                            <label className="text-[10px] font-black text-gray-500 uppercase ml-1">Fecha Inicio</label>
+                                            <label className="text-[10px] font-black text-[var(--text-tertiary)] uppercase ml-1">Fecha Inicio</label>
                                             <input
                                                 type="datetime-local"
-                                                className="w-full bg-black/40 border border-white/10 p-3 rounded-xl text-white outline-none focus:border-yellow-500 transition-colors"
+                                                className="w-full bg-black/40 border border-white/10 p-3 rounded-xl text-[var(--text-primary)] outline-none focus:border-yellow-500 transition-colors"
                                                 value={newEventData.start_date}
                                                 onChange={e => setNewEventData({ ...newEventData, start_date: e.target.value })}
                                             />
                                         </div>
                                         <div className="space-y-1">
-                                            <label className="text-[10px] font-black text-gray-500 uppercase ml-1">Fecha Fin</label>
+                                            <label className="text-[10px] font-black text-[var(--text-tertiary)] uppercase ml-1">Fecha Fin</label>
                                             <input
                                                 type="datetime-local"
-                                                className="w-full bg-black/40 border border-white/10 p-3 rounded-xl text-white outline-none focus:border-yellow-500 transition-colors"
+                                                className="w-full bg-black/40 border border-white/10 p-3 rounded-xl text-[var(--text-primary)] outline-none focus:border-yellow-500 transition-colors"
                                                 value={newEventData.end_date}
                                                 onChange={e => setNewEventData({ ...newEventData, end_date: e.target.value })}
                                             />
@@ -316,7 +316,7 @@ export default function ChampionshipDetails() {
                                     <div className="flex justify-end gap-3 mt-6">
                                         <button
                                             onClick={() => setShowAddEvent(false)}
-                                            className="px-6 py-2 text-xs font-black text-gray-500 uppercase hover:text-white transition-colors"
+                                            className="px-6 py-2 text-xs font-black text-[var(--text-tertiary)] uppercase hover:text-[var(--text-primary)] transition-colors"
                                         >
                                             Cancelar
                                         </button>
@@ -339,21 +339,21 @@ export default function ChampionshipDetails() {
                                                 className="p-4 bg-black/40 border border-white/5 rounded-2xl text-left hover:border-yellow-500 transition-all flex justify-between items-center group"
                                             >
                                                 <div>
-                                                    <div className="text-white group-hover:text-yellow-500 transition-colors uppercase">{event.name}</div>
-                                                    <div className="text-xs text-gray-500 mt-1 uppercase tracking-widest">{event.track_name}</div>
+                                                    <div className="text-[var(--text-primary)] group-hover:text-yellow-500 transition-colors uppercase">{event.name}</div>
+                                                    <div className="text-xs text-[var(--text-tertiary)] mt-1 uppercase tracking-widest">{event.track_name}</div>
                                                 </div>
                                                 <Plus className="text-gray-600 group-hover:text-yellow-500" size={20} />
                                             </button>
                                         ))}
                                         {(!allEvents || allEvents.filter(e => !championship.events?.some(ce => ce.id === e.id)).length === 0) && (
-                                            <div className="col-span-full py-10 text-center text-gray-500 font-medium">
+                                            <div className="col-span-full py-10 text-center text-[var(--text-tertiary)] font-medium">
                                                 No hay otros eventos disponibles para añadir.
                                             </div>
                                         )}
                                     </div>
                                     <button
                                         onClick={() => setShowAddEvent(false)}
-                                        className="mt-8 text-sm text-gray-500 hover:text-white uppercase font-black"
+                                        className="mt-8 text-sm text-[var(--text-tertiary)] hover:text-[var(--text-primary)] uppercase font-black"
                                     >
                                         Cancelar
                                     </button>
@@ -366,16 +366,16 @@ export default function ChampionshipDetails() {
                         {Array.isArray(championship.events) && championship.events.map((event, idx) => (
                             <div
                                 key={event.id}
-                                className="group bg-gray-900 border border-white/5 rounded-2xl p-6 flex items-center gap-8 hover:bg-white/[0.02] transition-all"
+                                className="group bg-[var(--bg-card)] border border-white/5 rounded-2xl p-6 flex items-center gap-8 hover:bg-[var(--bg-card)]/[0.02] transition-all"
                             >
-                                <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center font-black italic text-gray-500 border border-white/5">
+                                <div className="w-12 h-12 bg-[var(--bg-card)]/5 rounded-xl flex items-center justify-center font-black italic text-[var(--text-tertiary)] border border-white/5">
                                     R{idx + 1}
                                 </div>
                                 <div className="flex-1">
-                                    <Link to={`/events/${event.id}`} className="text-2xl font-black text-white uppercase italic group-hover:text-yellow-500 transition-colors">
+                                    <Link to={`/events/${event.id}`} className="text-2xl font-black text-[var(--text-primary)] uppercase italic group-hover:text-yellow-500 transition-colors">
                                         {event.name}
                                     </Link>
-                                    <div className="flex items-center gap-4 mt-1 text-gray-500 text-xs font-bold uppercase tracking-widest">
+                                    <div className="flex items-center gap-4 mt-1 text-[var(--text-tertiary)] text-xs font-bold uppercase tracking-widest">
                                         <span className="flex items-center gap-1"><MapPin size={12} /> {event.track_name}</span>
                                         <span className="flex items-center gap-1"><Clock size={12} /> {new Date(event.start_date).toLocaleDateString()}</span>
                                     </div>
@@ -395,21 +395,21 @@ export default function ChampionshipDetails() {
                                     <button
                                         data-testid={`championship-link-sessions-${event.id}`}
                                         onClick={() => setLinkingToEvent(event.id)}
-                                        className="bg-white/5 hover:bg-yellow-500 hover:text-black text-white p-3 rounded-xl border border-white/10 transition-all flex items-center gap-2 group/btn"
+                                        className="bg-[var(--bg-card)]/5 hover:bg-yellow-500 hover:text-black text-[var(--text-primary)] p-3 rounded-xl border border-white/10 transition-all flex items-center gap-2 group/btn"
                                     >
                                         <Link2 size={20} />
                                         <span className="text-xs font-black uppercase tracking-widest opacity-0 group-hover/btn:opacity-100 transition-opacity">Vincular</span>
                                     </button>
 
                                     <Link to={`/events/${event.id}`}>
-                                        <ChevronRight className="text-gray-700 hover:text-white transition-colors" size={24} />
+                                        <ChevronRight className="text-gray-700 hover:text-[var(--text-primary)] transition-colors" size={24} />
                                     </Link>
                                 </div>
                             </div>
                         ))}
 
                         {(!Array.isArray(championship.events) || championship.events.length === 0) && (
-                            <div className="py-20 text-center bg-gray-900/50 rounded-3xl border border-dashed border-white/5 italic text-gray-500">
+                            <div className="py-20 text-center bg-[var(--bg-card)]/50 rounded-3xl border border-dashed border-white/5 italic text-[var(--text-tertiary)]">
                                 No hay carreras programadas en este campeonato.
                             </div>
                         )}

@@ -47,14 +47,14 @@ export const SimpleTelemetry = ({ lapId }: SimpleTelemetryProps) => {
     }, [telemetry]);
 
     if (isLoading) return (
-        <div className="h-64 flex flex-col items-center justify-center text-gray-500">
+        <div className="h-64 flex flex-col items-center justify-center text-[var(--text-tertiary)]">
             <Loader2 className="animate-spin mb-2" />
             <span className="text-xs uppercase font-bold tracking-widest">Calculando Métricas...</span>
         </div>
     );
 
     if (error || !metrics) return (
-        <div className="h-64 flex flex-col items-center justify-center text-gray-500">
+        <div className="h-64 flex flex-col items-center justify-center text-[var(--text-tertiary)]">
             <p className="text-xs uppercase font-bold tracking-widest">Sin datos disponibles</p>
         </div>
     );
@@ -62,40 +62,40 @@ export const SimpleTelemetry = ({ lapId }: SimpleTelemetryProps) => {
     return (
         <div className="grid grid-cols-2 gap-4 p-2">
             {/* Top Speed */}
-            <div className="bg-gray-900/50 p-4 rounded-xl border border-white/5 flex flex-col items-center justify-center relative overflow-hidden group">
+            <div className="bg-[var(--bg-card)]/50 p-4 rounded-xl border border-white/5 flex flex-col items-center justify-center relative overflow-hidden group">
                 <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <Gauge className="text-yellow-500 mb-2" size={24} />
-                <div className="text-3xl font-black text-white italic tracking-tighter">
+                <div className="text-3xl font-black text-[var(--text-primary)] italic tracking-tighter">
                     {metrics.topSpeed}
-                    <span className="text-xs text-gray-400 font-normal ml-1 not-italic">Km/h</span>
+                    <span className="text-xs text-[var(--text-tertiary)] font-normal ml-1 not-italic">Km/h</span>
                 </div>
-                <div className="text-[10px] uppercase font-bold text-gray-500 tracking-widest mt-1">Velocidad Punta</div>
+                <div className="text-[10px] uppercase font-bold text-[var(--text-tertiary)] tracking-widest mt-1">Velocidad Punta</div>
             </div>
 
             {/* Avg Speed */}
-            <div className="bg-gray-900/50 p-4 rounded-xl border border-white/5 flex flex-col items-center justify-center relative overflow-hidden group">
+            <div className="bg-[var(--bg-card)]/50 p-4 rounded-xl border border-white/5 flex flex-col items-center justify-center relative overflow-hidden group">
                 <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <Activity className="text-blue-500 mb-2" size={24} />
-                <div className="text-3xl font-black text-white italic tracking-tighter">
+                <div className="text-3xl font-black text-[var(--text-primary)] italic tracking-tighter">
                     {metrics.avgSpeed}
-                    <span className="text-xs text-gray-400 font-normal ml-1 not-italic">Km/h</span>
+                    <span className="text-xs text-[var(--text-tertiary)] font-normal ml-1 not-italic">Km/h</span>
                 </div>
-                <div className="text-[10px] uppercase font-bold text-gray-500 tracking-widest mt-1">Velocidad Media</div>
+                <div className="text-[10px] uppercase font-bold text-[var(--text-tertiary)] tracking-widest mt-1">Velocidad Media</div>
             </div>
 
             {/* Aggressiveness / Style */}
-            <div className="col-span-2 bg-gray-900/50 p-4 rounded-xl border border-white/5 flex items-center justify-between relative overflow-hidden group">
+            <div className="col-span-2 bg-[var(--bg-card)]/50 p-4 rounded-xl border border-white/5 flex items-center justify-between relative overflow-hidden group">
                 <div className="absolute inset-0 bg-gradient-to-r from-red-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
 
                 <div className="flex items-center space-x-3 z-10">
-                    <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-red-500">
+                    <div className="w-10 h-10 rounded-full bg-[var(--bg-elevated)] flex items-center justify-center text-red-500">
                         <Zap size={20} />
                     </div>
                     <div>
-                        <div className="text-2xl font-black text-white italic tracking-tighter leading-none">
+                        <div className="text-2xl font-black text-[var(--text-primary)] italic tracking-tighter leading-none">
                             {metrics.aggressiveness}%
                         </div>
-                        <div className="text-[10px] uppercase font-bold text-gray-500 tracking-widest">Agresividad</div>
+                        <div className="text-[10px] uppercase font-bold text-[var(--text-tertiary)] tracking-widest">Agresividad</div>
                     </div>
                 </div>
 

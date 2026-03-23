@@ -346,7 +346,7 @@ export const ContentStep: React.FC<ContentStepProps> = ({
                         <div className="flex-1 max-w-full md:max-w-screen-2xl relative group perspective-1000">
                             <div className="relative z-10 transform transition-all duration-500">
                                 {/* Title & Brand */}
-                                <div className="mb-0 text-center drop-shadow-2xl px-4 w-full max-w-4xl mx-auto overflow-hidden">
+                                <div className="mb-0 text-center drop-shadow-2xl px-4 w-full max-w-4xl mx-auto overflow-hidden pt-12 md:pt-16 lg:pt-0">
                                     <h2 className="text-3xl md:text-4xl lg:text-5xl font-black text-white italic tracking-tighter uppercase leading-none text-outline-red line-clamp-2" style={{ wordBreak: 'break-word' }}>
                                         {currentItem.name.replace(/_/g, ' ')}
                                     </h2>
@@ -488,6 +488,7 @@ export const ContentStep: React.FC<ContentStepProps> = ({
         </div >
     );
 };
+
 
 
 

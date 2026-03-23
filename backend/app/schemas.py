@@ -73,7 +73,6 @@ class StationUpdate(BaseModel):
     mac_address: Optional[str] = None
     stream_url: Optional[str] = None
 
-# ...
 
 class Station(StationBase):
     id: int
@@ -92,7 +91,7 @@ class Station(StationBase):
     updated_at: Optional[datetime]
     last_seen: Optional[datetime] = None
     archived_at: Optional[datetime] = None
-# ...
+
 
 class SessionStart(BaseModel):
     station_id: int
@@ -488,6 +487,7 @@ class LobbyCreate(BaseModel):
     track: str
     car: str
     station_id: Optional[int] = None  # For Kiosk direct creation
+    driver_name: Optional[str] = Field(default=None, min_length=1, max_length=50)
     duration: Optional[int] = 15  # For Kiosk direct creation
     max_players: int = Field(default=8, ge=2, le=24)
     laps: int = Field(default=5, ge=1, le=100)
@@ -522,6 +522,11 @@ class Lobby(BaseModel):
 
 class LobbyJoin(BaseModel):
     station_id: int
+    driver_name: Optional[str] = Field(default=None, min_length=1, max_length=50)
+
+
+class LobbyLeave(BaseModel):
+    station_id: int
 
 # --- Wheel Profile Schemas ---
 
@@ -550,6 +555,54 @@ class WheelProfile(WheelProfileBase):
     created_at: datetime
     
     model_config = ConfigDict(from_attributes=True, protected_namespaces=())
+
+# --- Maintenance & Hardware Schemas ---
+
+class StationMaintenanceBase(BaseModel):
+    station_id: int
+    component_type: str
+    action: str
+    detail: Optional[str] = None
+    cost: float = 0.0
+    performed_by: Optional[str] = None
+
+class StationMaintenanceCreate(StationMaintenanceBase):
+    pass
+
+class StationMaintenance(StationMaintenanceBase):
+    id: int
+    date: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
+
+class HardwareUsageBase(BaseModel):
+    station_id: int
+    total_hours_base: float = 0.0
+    total_hours_pedals: float = 0.0
+    total_hours_vr: float = 0.0
+    total_hours_pc: float = 0.0
+    last_maintenance_date: Optional[datetime] = None
+
+class HardwareUsage(HardwareUsageBase):
+    id: int
+    
+    model_config = ConfigDict(from_attributes=True)
+
+class ConsentLogBase(BaseModel):
+    driver_id: int
+    consent_type: str = "gdpr"
+    consent_version: str
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+
+class ConsentLogCreate(ConsentLogBase):
+    pass
+
+class ConsentLog(ConsentLogBase):
+    id: int
+    signed_at: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
 
 class MassLaunchRequest(BaseModel):
     station_ids: List[int]

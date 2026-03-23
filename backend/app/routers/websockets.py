@@ -115,6 +115,7 @@ async def _authenticate_public_client(websocket: WebSocket) -> bool:
 WS_CHANNEL_CLIENT_BROADCAST = "acmanager:ws:broadcast:clients"
 WS_CHANNEL_AGENT_BROADCAST = "acmanager:ws:broadcast:agents"
 WS_CHANNEL_COMMAND = "acmanager:ws:command"
+WS_CHANNEL_COMMAND_ACK = "acmanager:ws:command:ack"
 WS_CHANNEL_AGENT_OWNERSHIP = "acmanager:ws:agent:ownership"
 
 class ConnectionManager:
@@ -134,6 +135,7 @@ class ConnectionManager:
         self._redis = None
         self._redis_pubsub = None
         self._pubsub_task: asyncio.Task | None = None
+        self.pending_command_acks: Dict[str, asyncio.Future] = {}
 
     def stats(self) -> dict[str, Any]:
         return {
@@ -217,6 +219,7 @@ class ConnectionManager:
                 WS_CHANNEL_CLIENT_BROADCAST,
                 WS_CHANNEL_AGENT_BROADCAST,
                 WS_CHANNEL_COMMAND,
+                WS_CHANNEL_COMMAND_ACK,
                 WS_CHANNEL_AGENT_OWNERSHIP,
             )
             self._pubsub_task = asyncio.create_task(self._pubsub_loop())
@@ -301,6 +304,10 @@ class ConnectionManager:
                         continue
                     if isinstance(payload, dict):
                         await self._send_local_command(station_id_int, payload)
+                elif channel == WS_CHANNEL_COMMAND_ACK:
+                    payload = event.get("payload")
+                    if isinstance(payload, dict):
+                        self.resolve_command_ack(payload)
                 elif channel == WS_CHANNEL_AGENT_OWNERSHIP:
                     station_id = event.get("station_id")
                     try:
@@ -395,18 +402,81 @@ class ConnectionManager:
             except Exception as e:
                 logger.error(f"Failed to send to Station {station_id}: {e}")
 
+    def resolve_command_ack(self, payload: dict[str, Any]) -> None:
+        command_id = payload.get("command_id")
+        if not command_id:
+            return
+        future = self.pending_command_acks.get(str(command_id))
+        if future and not future.done():
+            future.set_result(payload)
+
+
+    async def _publish_command_ack(self, payload: dict[str, Any]) -> None:
+        if self._pubsub_enabled:
+            await self._publish(WS_CHANNEL_COMMAND_ACK, {"origin": self.instance_id, "payload": payload})
+
+    def _command_ack_timeout_seconds(self, command_name: str | None) -> float:
+        default_timeout = float(os.getenv("WS_COMMAND_ACK_TIMEOUT_SECONDS", "5"))
+        if not command_name:
+            return default_timeout
+
+        normalized_command = str(command_name).lower()
+        timeout_overrides = {
+            "launch_session": ("WS_COMMAND_LAUNCH_ACK_TIMEOUT_SECONDS", 30.0),
+            "join_lobby": ("WS_COMMAND_JOIN_ACK_TIMEOUT_SECONDS", 30.0),
+            "create_lobby": ("WS_COMMAND_CREATE_LOBBY_ACK_TIMEOUT_SECONDS", 15.0),
+        }
+        override = timeout_overrides.get(normalized_command)
+        if not override:
+            return default_timeout
+        env_key, fallback_timeout = override
+
+        raw_value = os.getenv(env_key)
+        if not raw_value:
+            return fallback_timeout
+        try:
+            return float(raw_value)
+        except (TypeError, ValueError):
+            return fallback_timeout
 
 
 
     async def send_command(self, station_id: int, message: dict):
-        # Send targeted command to a specific Agent (local worker if possible; otherwise pubsub).
-        ok = await self._send_local_command(station_id, message)
-        if ok:
-            return True
-        if self._pubsub_enabled:
-            await self._publish(WS_CHANNEL_COMMAND, {"origin": self.instance_id, "station_id": station_id, "payload": message})
-            return True
-        return False
+        payload = dict(message)
+        command_id = str(payload.get("command_id") or uuid4().hex)
+        payload["command_id"] = command_id
+
+        loop = asyncio.get_running_loop()
+        ack_future = loop.create_future()
+        self.pending_command_acks[command_id] = ack_future
+        ack_timeout = self._command_ack_timeout_seconds(payload.get("command"))
+
+        try:
+            ok = await self._send_local_command(station_id, payload)
+            if not ok:
+                if self._pubsub_enabled:
+                    await self._publish(
+                        WS_CHANNEL_COMMAND,
+                        {"origin": self.instance_id, "station_id": station_id, "payload": payload},
+                    )
+                else:
+                    return False
+
+            try:
+                ack_payload = await asyncio.wait_for(ack_future, timeout=ack_timeout)
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "Command ack timeout station=%s command=%s command_id=%s",
+                    station_id,
+                    payload.get("command"),
+                    command_id,
+                )
+                return False
+
+            status = str(ack_payload.get("status") or "").lower()
+            return status not in {"rejected", "error"}
+        finally:
+            self.pending_command_acks.pop(command_id, None)
 
     async def _send_local_command(self, station_id: int, message: dict) -> bool:
         ws = self.active_agents.get(station_id)
@@ -503,6 +573,8 @@ async def websocket_agent_endpoint(websocket: WebSocket):
                         "port": active_lobby.port,
                         "track": active_lobby.track,
                         "car": active_lobby.car,
+                        "ac_path": station.ac_path,
+                        "driver_name": "TV Broadcast",
                         "is_spectator": True
                     }))
             if station and station.ac_path:
@@ -520,6 +592,14 @@ async def websocket_agent_endpoint(websocket: WebSocket):
             raw_data = await websocket.receive_text()
             try:
                 data = json.loads(raw_data)
+
+                if data.get("type") == "command_ack":
+                    station_id = data.get("station_id") or manager.ws_to_station.get(websocket)
+                    if station_id is not None:
+                        data["station_id"] = station_id
+                    manager.resolve_command_ack(data)
+                    await manager._publish_command_ack(data)
+                    continue
 
                 # Handle Content Scan Result from Agent
                 if data.get("type") == "content_scan_result":

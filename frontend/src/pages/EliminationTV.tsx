@@ -252,7 +252,7 @@ export default function EliminationTV() {
             </div>
 
             {/* Status Bar */}
-            <div className="fixed bottom-0 left-0 right-0 bg-gray-900/95 border-t border-gray-800 p-4">
+            <div className="fixed bottom-0 left-0 right-0 bg-[var(--bg-sidebar)] border-t border-gray-800 p-4">
                 <div className="max-w-7xl mx-auto flex justify-center items-center space-x-8 text-xl">
                     <span className={cn(
                         "px-6 py-3 rounded-xl font-black uppercase",

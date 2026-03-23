@@ -18,7 +18,7 @@ export default function DriverPassport() {
         enabled: !!driverName
     });
 
-    if (isLoading) return <div className="p-8 text-white">Cargando perfil...</div>;
+    if (isLoading) return <div className="p-8 text-[var(--text-primary)]">Cargando perfil...</div>;
     if (!profile) return <div className="p-8 text-red-500">Piloto no encontrado</div>;
 
     // Data for Radar Chart (Skills)
@@ -42,16 +42,16 @@ export default function DriverPassport() {
         }));
 
     return (
-        <div className="p-8 max-w-7xl mx-auto min-h-screen bg-gray-950 text-white">
-            <Link to="/drivers" className="inline-flex items-center text-gray-400 hover:text-white mb-8 transition-colors">
+        <div className="p-8 max-w-7xl mx-auto min-h-screen bg-[var(--bg-app)] text-[var(--text-primary)]">
+            <Link to="/drivers" className="inline-flex items-center text-[var(--text-tertiary)] hover:text-[var(--text-primary)] mb-8 transition-colors">
                 <ArrowLeft size={20} className="mr-2" /> Volver a Pilotos
             </Link>
 
             {/* Header Profile Card */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-                <div className="lg:col-span-1 bg-gradient-to-br from-gray-900 to-gray-800 rounded-3xl p-8 border border-gray-700 shadow-2xl relative overflow-hidden">
+                <div className="lg:col-span-1 bg-gradient-to-br from-gray-900 to-gray-800 rounded-3xl p-8 border border-[var(--border-default)] shadow-2xl relative overflow-hidden">
                     <div className="relative z-10 text-center">
-                        <div className="w-32 h-32 bg-gray-700 rounded-full mx-auto mb-6 flex items-center justify-center text-4xl font-bold border-4 border-gray-600 shadow-xl">
+                        <div className="w-32 h-32 bg-gray-700 rounded-full mx-auto mb-6 flex items-center justify-center text-4xl font-bold border-4 border-[var(--border-strong)] shadow-xl">
                             {driverName?.substring(0, 2).toUpperCase()}
                         </div>
                         <h1 className="text-3xl font-black italic uppercase tracking-tighter mb-2">{driverName}</h1>
@@ -68,19 +68,19 @@ export default function DriverPassport() {
 
                         <div className="grid grid-cols-2 gap-4 text-left bg-black/20 p-4 rounded-xl">
                             <div>
-                                <div className="text-xs text-gray-500 font-bold uppercase">Victorias</div>
+                                <div className="text-xs text-[var(--text-tertiary)] font-bold uppercase">Victorias</div>
                                 <div className="text-xl font-mono font-bold text-yellow-500">{profile.total_wins}</div>
                             </div>
                             <div>
-                                <div className="text-xs text-gray-500 font-bold uppercase">Podios</div>
-                                <div className="text-xl font-mono font-bold text-gray-300">{profile.total_podiums}</div>
+                                <div className="text-xs text-[var(--text-tertiary)] font-bold uppercase">Podios</div>
+                                <div className="text-xl font-mono font-bold text-[var(--text-secondary)]">{profile.total_podiums}</div>
                             </div>
                             <div>
-                                <div className="text-xs text-gray-500 font-bold uppercase">Carreras</div>
-                                <div className="text-xl font-mono font-bold text-white">{profile.total_laps || 0}</div> {/* Still using total_laps as proxy for experience, can be total_races if added to API */}
+                                <div className="text-xs text-[var(--text-tertiary)] font-bold uppercase">Carreras</div>
+                                <div className="text-xl font-mono font-bold text-[var(--text-primary)]">{profile.total_laps || 0}</div> {/* Still using total_laps as proxy for experience, can be total_races if added to API */}
                             </div>
                             <div>
-                                <div className="text-xs text-gray-500 font-bold uppercase">ELO Rating</div>
+                                <div className="text-xs text-[var(--text-tertiary)] font-bold uppercase">ELO Rating</div>
                                 <div className={`text-xl font-mono font-bold ${profile.elo_rating >= 1500 ? 'text-purple-400' : 'text-green-400'}`}>
                                     {Math.round(profile.elo_rating)}
                                 </div>
@@ -90,8 +90,8 @@ export default function DriverPassport() {
                 </div>
 
                 {/* Radar Chart */}
-                <div className="lg:col-span-2 bg-gray-900 rounded-3xl p-8 border border-gray-800 shadow-xl flex items-center justify-center relative">
-                    <h3 className="absolute top-8 left-8 text-xl font-black italic uppercase text-gray-500">
+                <div className="lg:col-span-2 bg-[var(--bg-card)] rounded-3xl p-8 border border-[var(--border-default)] shadow-xl flex items-center justify-center relative">
+                    <h3 className="absolute top-8 left-8 text-xl font-black italic uppercase text-[var(--text-tertiary)]">
                         Análisis de Rendimiento
                     </h3>
                     <div className="w-full h-[300px]">
@@ -119,13 +119,13 @@ export default function DriverPassport() {
             </div>
 
             {/* History Chart */}
-            <div className="bg-gray-900 rounded-3xl p-8 border border-gray-800 shadow-xl mb-8">
+            <div className="bg-[var(--bg-card)] rounded-3xl p-8 border border-[var(--border-default)] shadow-xl mb-8">
                 <div className="flex justify-between items-end mb-6">
                     <div>
-                        <h3 className="text-2xl font-black italic uppercase text-white mb-1">
+                        <h3 className="text-2xl font-black italic uppercase text-[var(--text-primary)] mb-1">
                             Historial de Tiempos
                         </h3>
-                        <p className="text-gray-500 text-sm">Evolución del ritmo en las últimas sesiones</p>
+                        <p className="text-[var(--text-tertiary)] text-sm">Evolución del ritmo en las últimas sesiones</p>
                     </div>
                 </div>
                 <div className="h-[300px] w-full">
@@ -169,31 +169,31 @@ export default function DriverPassport() {
             </div>
 
             {/* Recent Activity Table using old style but dark */}
-            <div className="bg-gray-900 rounded-2xl shadow-sm border border-gray-800 overflow-hidden">
-                <div className="p-6 border-b border-gray-800 flex justify-between items-center">
-                    <h2 className="text-gray-300 font-bold flex items-center gap-2">
+            <div className="bg-[var(--bg-card)] rounded-2xl shadow-sm border border-[var(--border-default)] overflow-hidden">
+                <div className="p-6 border-b border-[var(--border-default)] flex justify-between items-center">
+                    <h2 className="text-[var(--text-secondary)] font-bold flex items-center gap-2">
                         <HistoryIcon className="text-blue-500" />
                         Historial de Sesiones
                     </h2>
                 </div>
                 <div className="p-6 space-y-4">
                     {profile.recent_sessions.map(session => (
-                        <div key={session.session_id} className="flex items-center justify-between p-4 rounded-xl bg-gray-800 border border-transparent hover:border-gray-700 transition-all">
+                        <div key={session.session_id} className="flex items-center justify-between p-4 rounded-xl bg-[var(--bg-elevated)] border border-transparent hover:border-[var(--border-default)] transition-all">
                             <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 bg-gray-700 rounded-lg flex items-center justify-center shadow-sm text-gray-400">
+                                <div className="w-10 h-10 bg-gray-700 rounded-lg flex items-center justify-center shadow-sm text-[var(--text-tertiary)]">
                                     <Calendar size={20} />
                                 </div>
                                 <div>
-                                    <div className="font-bold text-gray-200 text-sm">{session.track_name}</div>
-                                    <div className="text-xs text-gray-500">{session.car_model}</div>
+                                    <div className="font-bold text-[var(--text-primary)] text-sm">{session.track_name}</div>
+                                    <div className="text-xs text-[var(--text-tertiary)]">{session.car_model}</div>
                                 </div>
                             </div>
 
                             <div className="text-right">
-                                <div className="font-mono font-bold text-sm text-gray-300">
+                                <div className="font-mono font-bold text-sm text-[var(--text-secondary)]">
                                     {new Date(session.best_lap).toISOString().slice(14, 23).replace('.', ':')}
                                 </div>
-                                <div className="text-xs text-gray-500">
+                                <div className="text-xs text-[var(--text-tertiary)]">
                                     {formatDistanceToNow(new Date(session.date), { addSuffix: true, locale: es })} • {session.laps_count} vueltas
                                 </div>
                             </div>

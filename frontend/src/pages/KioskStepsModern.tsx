@@ -363,9 +363,10 @@ interface WaitingRoomModernProps {
     stationId: number;
     setIsLaunched: (l: boolean) => void;
     clientTokenHeaders: Record<string, string>;
+    onExitLobby?: () => void;
 }
 
-export const WaitingRoomModern: React.FC<WaitingRoomModernProps> = ({ selection, stationId, setIsLaunched, clientTokenHeaders }) => {
+export const WaitingRoomModern: React.FC<WaitingRoomModernProps> = ({ selection, stationId, setIsLaunched, clientTokenHeaders, onExitLobby }) => {
     const [lobbyError, setLobbyError] = React.useState<string | null>(null);
     const [isAbandoning, setIsAbandoning] = React.useState(false);
     const navigate = useNavigate();
@@ -379,11 +380,25 @@ export const WaitingRoomModern: React.FC<WaitingRoomModernProps> = ({ selection,
         return fallback;
     };
     const lobbyId = selection?.lobbyId && selection.lobbyId > 0 ? selection.lobbyId : null;
+    const exitWaitingRoom = React.useCallback(() => {
+        if (onExitLobby) {
+            onExitLobby();
+            return;
+        }
+        navigate('/');
+    }, [navigate, onExitLobby]);
     const { data: lobbyData, refetch, isError: isLobbyError } = useQuery({
         queryKey: ['lobby', lobbyId],
         queryFn: () => axios.get(`${API_URL}/lobby/${lobbyId}`, { headers: clientTokenHeaders }).then(res => res.data),
         refetchInterval: 1000,
         enabled: !!selection?.isLobby && !!lobbyId
+    });
+    const { data: hardwareStatus } = useQuery({
+        queryKey: ['waiting-room-modern-hardware', stationId],
+        queryFn: () => axios.get(`${API_URL}/hardware/status/${stationId}`, { headers: clientTokenHeaders }).then(res => res.data),
+        refetchInterval: 1500,
+        enabled: !!stationId,
+        retry: false,
     });
 
     React.useEffect(() => {
@@ -417,9 +432,29 @@ export const WaitingRoomModern: React.FC<WaitingRoomModernProps> = ({ selection,
         onError: (error) => setLobbyError(resolveApiError(error, 'No se pudo actualizar tu estado LISTO.'))
     });
 
+    const LeaveLobbyMutation = useMutation({
+        mutationFn: async () => {
+            if (!lobbyId) throw new Error('Missing lobby id');
+            await axios.post(`${API_URL}/lobby/${lobbyId}/leave`, {
+                station_id: stationId
+            }, {
+                headers: clientTokenHeaders
+            });
+        },
+        retry: 1,
+        onSuccess: () => {
+            setLobbyError(null);
+            exitWaitingRoom();
+        },
+        onError: (error) => {
+            setIsAbandoning(false);
+            setLobbyError(resolveApiError(error, 'No se pudo abandonar la sala.'));
+        }
+    });
+
     React.useEffect(() => {
-        if (lobbyData?.status === 'running') setIsLaunched(true);
-    }, [lobbyData?.status, setIsLaunched]);
+        if (lobbyData?.status === 'running' && hardwareStatus?.ac_running) setIsLaunched(true);
+    }, [hardwareStatus?.ac_running, lobbyData?.status, setIsLaunched]);
 
     const isHost = stationId === lobbyData?.host_station_id;
     const myPlayer = lobbyData?.players?.find((p: any) => p.station_id === stationId);
@@ -431,13 +466,28 @@ export const WaitingRoomModern: React.FC<WaitingRoomModernProps> = ({ selection,
     React.useEffect(() => {
         if (lobbyData?.status === 'cancelled') {
             setLobbyError('La sala ha sido cancelada.');
+            if (!isAbandoning) {
+                setIsAbandoning(true);
+                const timeoutId = window.setTimeout(() => exitWaitingRoom(), 2000);
+                return () => window.clearTimeout(timeoutId);
+            }
         }
-    }, [lobbyData?.status]);
+    }, [exitWaitingRoom, isAbandoning, lobbyData?.status]);
 
     React.useEffect(() => {
         if (!isLobbyError) return;
         setLobbyError((current) => current ?? 'No se pudo actualizar la sala.');
     }, [isLobbyError]);
+
+    React.useEffect(() => {
+        if (!lobbyData || !selection?.isLobby || lobbyData.status === 'running' || isAbandoning) return;
+        if (players.some((player: any) => player?.station_id === stationId)) return;
+
+        setLobbyError('Tu simulador ya no forma parte de esta sala.');
+        setIsAbandoning(true);
+        const timeoutId = window.setTimeout(() => exitWaitingRoom(), 2000);
+        return () => window.clearTimeout(timeoutId);
+    }, [exitWaitingRoom, isAbandoning, lobbyData, players, selection?.isLobby, stationId]);
 
     const timeLeft = typeof lobbyData?.timeout_remaining_seconds === 'number'
         ? lobbyData.timeout_remaining_seconds
@@ -445,21 +495,13 @@ export const WaitingRoomModern: React.FC<WaitingRoomModernProps> = ({ selection,
 
     React.useEffect(() => {
         if (lobbyData?.status !== 'waiting' || timeLeft !== 0) return;
-
-        if (isHost) {
-            if (canHostStart && !StartRaceMutation.isPending) {
-                StartRaceMutation.mutate();
-            }
-            return;
-        }
-
         if (isAbandoning) return;
 
-        setLobbyError('Tiempo de espera agotado. La sala sera cerrada.');
+        setLobbyError('Tiempo de espera agotado. La sala se ha cerrado.');
         setIsAbandoning(true);
-        const timeoutId = window.setTimeout(() => navigate('/'), 2000);
+        const timeoutId = window.setTimeout(() => exitWaitingRoom(), 2000);
         return () => window.clearTimeout(timeoutId);
-    }, [lobbyData?.status, timeLeft, isHost, canHostStart, isAbandoning, navigate, StartRaceMutation]);
+    }, [exitWaitingRoom, isAbandoning, lobbyData?.status, timeLeft]);
 
     const formatTime = (seconds: number) => {
         const m = Math.floor(seconds / 60);
@@ -579,11 +621,12 @@ export const WaitingRoomModern: React.FC<WaitingRoomModernProps> = ({ selection,
                         onClick={() => {
                             if (window.confirm('Estas seguro de abandonar la sala?')) {
                                 soundManager.playClick();
+                                setLobbyError(null);
                                 setIsAbandoning(true);
-                                navigate('/');
+                                LeaveLobbyMutation.mutate();
                             }
                         }}
-                        disabled={isAbandoning}
+                        disabled={isAbandoning || LeaveLobbyMutation.isPending}
                         className="bg-white/5 hover:bg-white/10 disabled:opacity-50 text-gray-300 rounded-2xl font-black text-sm md:text-xl flex items-center justify-center gap-2 transition-all touch-manipulation border border-white/10"
                     >
                         <LogOut size={18} />

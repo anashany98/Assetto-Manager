@@ -150,7 +150,7 @@ export function AppUpdateBanner() {
                         type="button"
                         onClick={handleRestart}
                         disabled={!status.restart_supported || restartMutation.isPending}
-                        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase tracking-wider disabled:opacity-60"
+                        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] font-bold text-xs uppercase tracking-wider disabled:opacity-60"
                     >
                         {restartMutation.isPending ? <RefreshCw size={14} className="animate-spin" /> : <Power size={14} />}
                         Reiniciar servicio

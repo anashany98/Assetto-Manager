@@ -10,7 +10,7 @@ export function TournamentVersusWrapper({ eventId, track }: { eventId: number, t
 
     if (!leaderboard || leaderboard.length < 2) {
         return (
-            <div className="flex h-full items-center justify-center text-gray-500 text-2xl">
+            <div className="flex h-full items-center justify-center text-[var(--text-tertiary)] text-2xl">
                 Se necesitan al menos 2 pilotos para un duelo.
             </div>
         );

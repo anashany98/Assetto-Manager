@@ -90,6 +90,7 @@ lobby_players = Table(
     Column("station_id", Integer, ForeignKey("stations.id")),
     Column("slot", Integer),  # Car slot number (0-7)
     Column("ready", Boolean, default=False),
+    Column("driver_name", String, nullable=True),
     Column("joined_at", DateTime(timezone=True)),
 )
 
@@ -661,3 +662,49 @@ class WheelProfile(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
+class StationMaintenance(Base):
+    """Track repairs and maintenance for simulator stations"""
+    __tablename__ = "station_maintenance"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    station_id = Column(Integer, ForeignKey("stations.id"), index=True)
+    component_type = Column(String(50))  # Base, Pedals, PC, VR, Cockpit, Other
+    action = Column(String(255))  # Calibration, Replacement, Repair, Cleaning
+    detail = Column(String(500), nullable=True)
+    cost = Column(Float, default=0.0)
+    performed_by = Column(String(100), nullable=True)
+    date = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
+    
+    station = relationship("Station", backref="maintenance_logs")
+
+
+class HardwareUsage(Base):
+    """Track cumulative usage hours for hardware longevity and preventative maintenance"""
+    __tablename__ = "hardware_usage"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    station_id = Column(Integer, ForeignKey("stations.id"), unique=True, index=True)
+    
+    total_hours_base = Column(Float, default=0.0)
+    total_hours_pedals = Column(Float, default=0.0)
+    total_hours_vr = Column(Float, default=0.0)
+    total_hours_pc = Column(Float, default=0.0)
+    
+    last_maintenance_date = Column(DateTime(timezone=True), nullable=True)
+    
+    station = relationship("Station", backref="usage_stats")
+
+
+class ConsentLog(Base):
+    """Track GDPR and Legal consent signatures from drivers"""
+    __tablename__ = "consent_logs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    driver_id = Column(Integer, ForeignKey("drivers.id"), index=True)
+    consent_type = Column(String(50), default="gdpr") # gdpr, marketing, cookies, terms
+    consent_version = Column(String(20)) # e.g. "v1.0"
+    signed_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    ip_address = Column(String(45), nullable=True)
+    user_agent = Column(String(255), nullable=True)
+    
+    driver = relationship("Driver", backref="consents")

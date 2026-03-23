@@ -89,16 +89,16 @@ export default function ProfilesPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-black text-white uppercase tracking-tight flex items-center gap-3">
+                    <h1 className="text-2xl font-black text-[var(--text-primary)] uppercase tracking-tight flex items-center gap-3">
                         <Gamepad2 className="text-blue-500" />
                         Perfiles de Volante
                     </h1>
-                    <p className="text-gray-500 text-sm">Gestiona configuraciones de Force Feedback y botones (controls.ini)</p>
+                    <p className="text-[var(--text-tertiary)] text-sm">Gestiona configuraciones de Force Feedback y botones (controls.ini)</p>
                 </div>
                 {!isEditing && (
                     <button
                         onClick={() => handleEdit()}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg transition-colors flex items-center gap-2"
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] font-bold rounded-lg transition-colors flex items-center gap-2"
                     >
                         <Plus size={18} />
                         Nuevo Perfil
@@ -108,13 +108,13 @@ export default function ProfilesPage() {
 
             <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">
                 {/* Sidebar List */}
-                <div className="col-span-12 md:col-span-4 lg:col-span-3 bg-gray-900 rounded-2xl border border-gray-800 flex flex-col overflow-hidden">
-                    <div className="p-4 border-b border-gray-800 bg-gray-900/50">
-                        <h2 className="text-xs font-bold text-gray-500 uppercase">Perfiles Guardados</h2>
+                <div className="col-span-12 md:col-span-4 lg:col-span-3 bg-[var(--bg-card)] rounded-2xl border border-[var(--border-default)] flex flex-col overflow-hidden">
+                    <div className="p-4 border-b border-[var(--border-default)] bg-[var(--bg-card)]/50">
+                        <h2 className="text-xs font-bold text-[var(--text-tertiary)] uppercase">Perfiles Guardados</h2>
                     </div>
                     <div className="flex-1 overflow-y-auto p-2 space-y-1">
                         {isLoading ? (
-                            <div className="p-4 text-center text-gray-500 text-xs">Cargando...</div>
+                            <div className="p-4 text-center text-[var(--text-tertiary)] text-xs">Cargando...</div>
                         ) : profiles?.map((p: WheelProfile) => (
                             <button
                                 key={p.id}
@@ -123,7 +123,7 @@ export default function ProfilesPage() {
                                     "w-full text-left p-3 rounded-xl transition-all border border-transparent",
                                     selectedProfile?.id === p.id
                                         ? "bg-blue-600/10 border-blue-500/50 text-blue-400"
-                                        : "hover:bg-gray-800 text-gray-400"
+                                        : "hover:bg-[var(--bg-elevated)] text-[var(--text-tertiary)]"
                                 )}
                             >
                                 <div className="font-bold text-sm truncate">{p.name}</div>
@@ -137,17 +137,17 @@ export default function ProfilesPage() {
                 </div>
 
                 {/* Main Content Area */}
-                <div className="col-span-12 md:col-span-8 lg:col-span-9 bg-gray-900 rounded-2xl border border-gray-800 p-6 overflow-y-auto">
+                <div className="col-span-12 md:col-span-8 lg:col-span-9 bg-[var(--bg-card)] rounded-2xl border border-[var(--border-default)] p-6 overflow-y-auto">
                     {isEditing ? (
                         <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl">
                             <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-xl font-bold text-white">
+                                <h2 className="text-xl font-bold text-[var(--text-primary)]">
                                     {selectedProfile ? 'Editar Perfil' : 'Crear Nuevo Perfil'}
                                 </h2>
                                 <button
                                     type="button"
                                     onClick={() => { setIsEditing(false); setSelectedProfile(null); }}
-                                    className="text-sm text-gray-500 hover:text-white"
+                                    className="text-sm text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
                                 >
                                     Cancelar
                                 </button>
@@ -155,23 +155,23 @@ export default function ProfilesPage() {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="col-span-2">
-                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Nombre</label>
+                                    <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">Nombre</label>
                                     <input
                                         type="text"
                                         required
                                         value={formData.name}
                                         onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                        className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                        className="w-full bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-xl px-4 py-3 text-[var(--text-primary)] focus:border-[var(--border-focus)] outline-none"
                                         placeholder="Ej: Logitech G29 Drift"
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Tipo de Base</label>
+                                    <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">Tipo de Base</label>
                                     <select
                                         value={formData.model_type}
                                         onChange={e => setFormData({ ...formData, model_type: e.target.value })}
-                                        className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                        className="w-full bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-xl px-4 py-3 text-[var(--text-primary)] focus:border-[var(--border-focus)] outline-none"
                                     >
                                         <option value="custom">Personalizado</option>
                                         <option value="g29">Logitech G29/G920</option>
@@ -183,12 +183,12 @@ export default function ProfilesPage() {
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Descripción</label>
+                                    <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">Descripción</label>
                                     <input
                                         type="text"
                                         value={formData.description}
                                         onChange={e => setFormData({ ...formData, description: e.target.value })}
-                                        className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                        className="w-full bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-xl px-4 py-3 text-[var(--text-primary)] focus:border-[var(--border-focus)] outline-none"
                                         placeholder="Opcional"
                                     />
                                 </div>
@@ -196,7 +196,7 @@ export default function ProfilesPage() {
 
                             <div>
                                 <div className="flex justify-between items-end mb-2">
-                                    <label className="block text-xs font-bold text-gray-500 uppercase">Contenido (controls.ini)</label>
+                                    <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase">Contenido (controls.ini)</label>
                                     <div className="relative">
                                         <input
                                             type="file"
@@ -207,7 +207,7 @@ export default function ProfilesPage() {
                                         />
                                         <label
                                             htmlFor="ini-upload"
-                                            className="text-xs bg-gray-800 hover:bg-gray-700 text-blue-400 px-3 py-1.5 rounded-lg cursor-pointer flex items-center gap-1 transition-colors"
+                                            className="text-xs bg-[var(--bg-elevated)] hover:bg-[var(--bg-elevated)] text-blue-400 px-3 py-1.5 rounded-lg cursor-pointer flex items-center gap-1 transition-colors"
                                         >
                                             <Download size={12} /> Cargar Archivo
                                         </label>
@@ -216,7 +216,7 @@ export default function ProfilesPage() {
                                 <textarea
                                     value={formData.config_ini}
                                     onChange={e => setFormData({ ...formData, config_ini: e.target.value })}
-                                    className="w-full h-96 bg-gray-950 border border-gray-700 rounded-xl p-4 text-xs font-mono text-green-400 focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                                    className="w-full h-96 bg-[var(--bg-app)] border border-[var(--border-default)] rounded-xl p-4 text-xs font-mono text-green-400 focus:border-[var(--border-focus)] outline-none resize-none"
                                     placeholder="[HEADER]..."
                                 />
                                 <p className="text-xs text-gray-600 mt-2 flex items-center gap-1">
@@ -228,7 +228,7 @@ export default function ProfilesPage() {
                             <button
                                 type="submit"
                                 disabled={createProfile.isPending || !formData.name}
-                                className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-colors"
+                                className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 text-[var(--text-primary)] font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-colors"
                             >
                                 {createProfile.isPending ? 'Guardando...' : <><Save size={18} /> Guardar Perfil</>}
                             </button>
@@ -238,18 +238,18 @@ export default function ProfilesPage() {
                             <div className="flex items-start justify-between">
                                 <div>
                                     <div className="text-xs font-bold text-blue-500 uppercase mb-1">{selectedProfile.model_type}</div>
-                                    <h2 className="text-3xl font-black text-white uppercase tracking-tight">{selectedProfile.name}</h2>
-                                    {selectedProfile.description && <p className="text-gray-400 mt-1">{selectedProfile.description}</p>}
+                                    <h2 className="text-3xl font-black text-[var(--text-primary)] uppercase tracking-tight">{selectedProfile.name}</h2>
+                                    {selectedProfile.description && <p className="text-[var(--text-tertiary)] mt-1">{selectedProfile.description}</p>}
                                 </div>
                                 <div className="flex gap-2">
                                     {/* Future: Delete button */}
                                 </div>
                             </div>
 
-                            <div className="bg-gray-950 border border-gray-800 rounded-2xl p-4 relative group">
+                            <div className="bg-[var(--bg-app)] border border-[var(--border-default)] rounded-2xl p-4 relative group">
                                 <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button
-                                        className="text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded border border-gray-700"
+                                        className="text-xs bg-[var(--bg-elevated)] text-[var(--text-secondary)] px-2 py-1 rounded border border-[var(--border-default)]"
                                         onClick={() => navigator.clipboard.writeText(selectedProfile.config_ini)}
                                     >
                                         Copiar

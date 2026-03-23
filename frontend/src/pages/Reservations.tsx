@@ -127,7 +127,7 @@ export default function Reservations() {
             case 'pending': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
             case 'cancelled': return 'bg-red-500/20 text-red-400 border-red-500/30';
             case 'completed': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
-            default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+            default: return 'bg-gray-500/20 text-[var(--text-tertiary)] border-gray-500/30';
         }
     };
 
@@ -140,19 +140,19 @@ export default function Reservations() {
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-3xl font-bold text-white">Reservas</h1>
-                    <p className="text-gray-400 mt-1">Gestión de reservas online</p>
+                    <h1 className="text-3xl font-bold text-[var(--text-primary)]">Reservas</h1>
+                    <p className="text-[var(--text-tertiary)] mt-1">Gestión de reservas online</p>
                 </div>
                 <div className="flex gap-3">
                     <input
                         type="date"
                         value={selectedDate}
                         onChange={(e) => setSelectedDate(e.target.value)}
-                        className="px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                        className="px-4 py-2 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg text-[var(--text-primary)]"
                     />
                     <button
                         onClick={() => setShowForm(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-[var(--text-primary)] rounded-lg transition-colors"
                     >
                         <Plus size={18} /> Nueva Reserva
                     </button>
@@ -165,24 +165,24 @@ export default function Reservations() {
                     <RefreshCw className="animate-spin text-blue-500" size={32} />
                 </div>
             ) : reservations.length === 0 ? (
-                <div className="text-center py-12 text-gray-400">
+                <div className="text-center py-12 text-[var(--text-tertiary)]">
                     <Calendar size={48} className="mx-auto mb-4 opacity-50" />
                     <p>No hay reservas para esta fecha</p>
                 </div>
             ) : (
                 <div className="grid gap-4">
                     {reservations.map((r) => (
-                        <div key={r.id} className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 flex items-center justify-between">
+                        <div key={r.id} className="bg-[var(--bg-elevated)]/50 border border-[var(--border-default)] rounded-xl p-4 flex items-center justify-between">
                             <div className="flex items-center gap-4">
                                 <div className="text-center min-w-[80px]">
-                                    <div className="text-2xl font-bold text-white">{formatTime(r.start_time)}</div>
-                                    <div className="text-xs text-gray-400">{r.duration_minutes} min</div>
+                                    <div className="text-2xl font-bold text-[var(--text-primary)]">{formatTime(r.start_time)}</div>
+                                    <div className="text-xs text-[var(--text-tertiary)]">{r.duration_minutes} min</div>
                                 </div>
-                                <div className="border-l border-gray-600 pl-4">
-                                    <div className="flex items-center gap-2 text-white font-medium">
+                                <div className="border-l border-[var(--border-strong)] pl-4">
+                                    <div className="flex items-center gap-2 text-[var(--text-primary)] font-medium">
                                         <User size={16} /> {r.customer_name}
                                     </div>
-                                    <div className="flex gap-4 text-sm text-gray-400 mt-1">
+                                    <div className="flex gap-4 text-sm text-[var(--text-tertiary)] mt-1">
                                         {r.customer_phone && <span className="flex items-center gap-1"><Phone size={12} /> {r.customer_phone}</span>}
                                         {r.customer_email && <span className="flex items-center gap-1"><Mail size={12} /> {r.customer_email}</span>}
                                     </div>
@@ -212,10 +212,10 @@ export default function Reservations() {
             {/* New Reservation Modal */}
             {showForm && (
                 <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-                    <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 w-full max-w-md">
+                    <div className="bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-2xl p-6 w-full max-w-md">
                         <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-xl font-bold text-white">Nueva Reserva</h2>
-                            <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-white"><X size={20} /></button>
+                            <h2 className="text-xl font-bold text-[var(--text-primary)]">Nueva Reserva</h2>
+                            <button onClick={() => setShowForm(false)} className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"><X size={20} /></button>
                         </div>
                         <form onSubmit={createReservation} className="space-y-4">
                             <input
@@ -224,7 +224,7 @@ export default function Reservations() {
                                 value={formData.customer_name}
                                 onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
                                 required
-                                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400"
+                                className="w-full px-4 py-2 bg-gray-700 border border-[var(--border-strong)] rounded-lg text-[var(--text-primary)] placeholder-gray-400"
                             />
                             <div className="grid grid-cols-2 gap-3">
                                 <input
@@ -232,20 +232,20 @@ export default function Reservations() {
                                     placeholder="Email"
                                     value={formData.customer_email}
                                     onChange={(e) => setFormData({ ...formData, customer_email: e.target.value })}
-                                    className="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400"
+                                    className="px-4 py-2 bg-gray-700 border border-[var(--border-strong)] rounded-lg text-[var(--text-primary)] placeholder-gray-400"
                                 />
                                 <input
                                     type="tel"
                                     placeholder="Teléfono"
                                     value={formData.customer_phone}
                                     onChange={(e) => setFormData({ ...formData, customer_phone: e.target.value })}
-                                    className="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400"
+                                    className="px-4 py-2 bg-gray-700 border border-[var(--border-strong)] rounded-lg text-[var(--text-primary)] placeholder-gray-400"
                                 />
                             </div>
                             <select
                                 value={formData.station_id}
                                 onChange={(e) => setFormData({ ...formData, station_id: e.target.value })}
-                                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
+                                className="w-full px-4 py-2 bg-gray-700 border border-[var(--border-strong)] rounded-lg text-[var(--text-primary)]"
                             >
                                 <option value="">Cualquier Simulador</option>
                                 {stations.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -256,12 +256,12 @@ export default function Reservations() {
                                     value={formData.start_time}
                                     onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
                                     required
-                                    className="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
+                                    className="px-4 py-2 bg-gray-700 border border-[var(--border-strong)] rounded-lg text-[var(--text-primary)]"
                                 />
                                 <select
                                     value={formData.duration_minutes}
                                     onChange={(e) => setFormData({ ...formData, duration_minutes: parseInt(e.target.value) })}
-                                    className="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
+                                    className="px-4 py-2 bg-gray-700 border border-[var(--border-strong)] rounded-lg text-[var(--text-primary)]"
                                 >
                                     <option value={15}>15 min</option>
                                     <option value={30}>30 min</option>
@@ -274,9 +274,9 @@ export default function Reservations() {
                                 placeholder="Precio (€)"
                                 value={formData.price}
                                 onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400"
+                                className="w-full px-4 py-2 bg-gray-700 border border-[var(--border-strong)] rounded-lg text-[var(--text-primary)] placeholder-gray-400"
                             />
-                            <button type="submit" className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-colors">
+                            <button type="submit" className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-[var(--text-primary)] font-bold rounded-lg transition-colors">
                                 Crear Reserva
                             </button>
                         </form>

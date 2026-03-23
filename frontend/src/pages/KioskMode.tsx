@@ -18,8 +18,7 @@ import { getCars, getTracks } from '../api/content';
 import { getScenarios } from '../api/scenarios';
 import type { Scenario } from '../api/scenarios';
 import { type PaymentProvider, type PaymentStatus } from '../api/payments';
-
-// startSession removed
+import { startSession } from '../api/sessions';
 
 import { calculatePrice, getPricingConfig } from '../utils/pricing';
 import { useLanguage } from '../contexts/useLanguage';
@@ -192,7 +191,13 @@ export default function KioskMode() {
     const isServerUnavailable = isHardwareError;
     const isStationInactive = hardwareStatus?.is_active === false;
     const isKioskDisabled = hardwareStatus?.is_kiosk_mode === false;
-    const hardwareWarning = !hardwareStatus?.is_online;
+    const hardwareWarning = Boolean(
+        hardwareStatus && (
+            hardwareStatus.is_online === false
+            || !hardwareStatus.wheel_connected
+            || !hardwareStatus.pedals_connected
+        )
+    );
 
     const selectedCarObj = useMemo(
         () =>
@@ -256,17 +261,46 @@ export default function KioskMode() {
         return fallback;
     };
 
+    const resetKioskFlow = () => {
+        setIsLaunched(false);
+        setLaunchingNoPayment(false);
+        setSelection(null);
+        setDriver(null);
+        setDriverName('');
+        setDriverEmail('');
+        setPaymentInfo(null);
+        setPaymentError(null);
+        setStep(1);
+        paymentHandledRef.current = false;
+        noPaymentHandledRef.current = false;
+    };
+
+    const ensureSessionRecord = async () => {
+        await startSession({
+            station_id: stationId,
+            driver_name: driver?.name || undefined,
+            duration_minutes: duration,
+            price: sessionPrice,
+            payment_method: 'cash',
+            is_vr: false,
+            notes: paymentEnabled ? 'kiosk_session' : 'kiosk_no_payment',
+        }, { headers: clientTokenHeaders });
+    };
+
     const launchWithoutPayment = async () => {
+        if (launchingNoPayment) return;
         // Session launch initiated
         setLaunchingNoPayment(true);
 
         // HANDLE LOBBY FLOW (Torneo or Joined Lobby)
         if (selection?.isLobby) {
             try {
+                await ensureSessionRecord();
                 if (selection.isHost) {
                     // Create Lobby
                     const res = await axios.post(`${API_URL}/lobby/create`, {
                         station_id: stationId,
+                        driver_name: driver?.name || undefined,
                         name: `GRUPO DE ${driver?.name?.toUpperCase() || 'INVITADO'}`,
                         track: selection.track,
                         car: selection.car,
@@ -280,7 +314,8 @@ export default function KioskMode() {
                     // Join Lobby
                     if (!selection.lobbyId) throw new Error("Missing Lobby ID");
                     await axios.post(`${API_URL}/lobby/${selection.lobbyId}/join`, {
-                        station_id: stationId
+                        station_id: stationId,
+                        driver_name: driver?.name || undefined
                     }, { headers: clientTokenHeaders });
                     setStep(6); // Go to Waiting Room
                 }
@@ -297,9 +332,16 @@ export default function KioskMode() {
         }
 
         // STANDARD LAUNCH
-        launchSessionMutation.mutateAsync(buildLaunchPayload())
-            .catch(e => console.error(e))
-            .finally(() => setLaunchingNoPayment(false));
+        try {
+            await ensureSessionRecord();
+            await launchSessionMutation.mutateAsync(buildLaunchPayload());
+        } catch (error) {
+            const message = resolveApiError(error, 'No se pudo lanzar la sesion.');
+            setPaymentError(message);
+            window.alert(message);
+        } finally {
+            setLaunchingNoPayment(false);
+        }
     };
     // ---------------------
 
@@ -489,6 +531,7 @@ export default function KioskMode() {
                             stationId={stationId}
                             setIsLaunched={setIsLaunched}
                             clientTokenHeaders={clientTokenHeaders}
+                            onExitLobby={resetKioskFlow}
                         />
                     );
                 case 7:

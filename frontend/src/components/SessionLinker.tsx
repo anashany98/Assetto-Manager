@@ -61,17 +61,17 @@ export default function SessionLinker({ trackName, onSelect, onCancel, champions
     });
 
     return (
-        <div data-testid="session-linker" className="bg-gray-900/90 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl animate-in fade-in zoom-in-95 fill-mode-both">
+        <div data-testid="session-linker" className="bg-[var(--bg-card)]/90 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl animate-in fade-in zoom-in-95 fill-mode-both">
             <div className="flex justify-between items-start mb-6">
                 <div>
-                    <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter flex items-center gap-3">
+                    <h3 className="text-2xl font-black text-[var(--text-primary)] italic uppercase tracking-tighter flex items-center gap-3">
                         <Link2 className="text-yellow-500" /> Vincular Sesión
                     </h3>
-                    <p className="text-gray-500 text-sm mt-1 font-bold uppercase tracking-widest">
+                    <p className="text-[var(--text-tertiary)] text-sm mt-1 font-bold uppercase tracking-widest">
                         Base de datos: {trackName || 'Todos los circuitos'}
                     </p>
                 </div>
-                <button data-testid="session-linker-close" onClick={onCancel} className="text-gray-500 hover:text-white transition-colors font-black uppercase text-xs">
+                <button data-testid="session-linker-close" onClick={onCancel} className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors font-black uppercase text-xs">
                     Cerrar
                 </button>
             </div>
@@ -79,31 +79,31 @@ export default function SessionLinker({ trackName, onSelect, onCancel, champions
             {/* Toolbar */}
             <div className="flex gap-2 mb-4">
                 <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" size={16} />
                     <input
                         data-testid="session-linker-search"
                         type="text"
                         placeholder="Buscar piloto..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-sm text-white focus:border-yellow-500 outline-none"
+                        className="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-sm text-[var(--text-primary)] focus:border-yellow-500 outline-none"
                     />
                 </div>
                 <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" size={16} />
                     <input
                         data-testid="session-linker-date"
                         type="date"
                         value={dateFilter}
                         onChange={(e) => setDateFilter(e.target.value)}
-                        className="bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-sm text-white focus:border-yellow-500 outline-none"
+                        className="bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-sm text-[var(--text-primary)] focus:border-yellow-500 outline-none"
                     />
                 </div>
                 {championshipId && eventId && (
                     <button
                         onClick={() => autoLinkMutation.mutate()}
                         disabled={autoLinkMutation.isPending}
-                        className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-purple-500/20 disabled:opacity-50"
+                        className="bg-purple-600 hover:bg-purple-500 text-[var(--text-primary)] px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-purple-500/20 disabled:opacity-50"
                     >
                         {autoLinkMutation.isPending ? <RefreshCw className="animate-spin" size={16} /> : <Wand2 size={16} />}
                         Auto-Detectar
@@ -113,7 +113,7 @@ export default function SessionLinker({ trackName, onSelect, onCancel, champions
 
             <div data-testid="session-linker-results" className="max-h-[500px] overflow-y-auto space-y-3 pr-2 custom-scrollbar">
                 {isLoading ? (
-                    <div className="py-20 text-center text-gray-500 font-bold uppercase animate-pulse">Buscando sesiones...</div>
+                    <div className="py-20 text-center text-[var(--text-tertiary)] font-bold uppercase animate-pulse">Buscando sesiones...</div>
                 ) : filteredSessions?.length === 0 ? (
                     <div className="py-20 text-center text-gray-600 italic">No se encontraron sesiones recientes.</div>
                 ) : (
@@ -122,13 +122,13 @@ export default function SessionLinker({ trackName, onSelect, onCancel, champions
                             key={session.id}
                             data-testid={`session-linker-result-${session.id}`}
                             onClick={() => onSelect(session.id)}
-                            className="w-full bg-gray-950 border border-gray-800 rounded-xl p-6 text-left hover:bg-gray-900 transition-all flex justify-between items-center group"
+                            className="w-full bg-[var(--bg-app)] border border-[var(--border-default)] rounded-xl p-6 text-left hover:bg-[var(--bg-card)] transition-all flex justify-between items-center group"
                         >
                             <div>
-                                <div className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-1 group-hover:text-blue-400 transition-colors">
+                                <div className="text-[var(--text-tertiary)] text-[10px] font-black uppercase tracking-widest mb-1 group-hover:text-blue-400 transition-colors">
                                     {(session.track_name || '').replace(/_/g, ' ')}
                                 </div>
-                                <div className="text-white font-bold text-lg mb-1">
+                                <div className="text-[var(--text-primary)] font-bold text-lg mb-1">
                                     {session.driver_name}
                                 </div>
                                 <div className="text-gray-600 text-xs font-mono">
@@ -147,7 +147,7 @@ export default function SessionLinker({ trackName, onSelect, onCancel, champions
                                         '--:--.---'
                                     )}
                                 </div>
-                                <div className="text-gray-700 text-[10px] font-black uppercase tracking-widest group-hover:text-gray-500 transition-colors">
+                                <div className="text-gray-700 text-[10px] font-black uppercase tracking-widest group-hover:text-[var(--text-tertiary)] transition-colors">
                                     {(session.car_model || '').replace(/_/g, ' ')}
                                 </div>
                             </div>

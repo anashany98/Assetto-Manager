@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List
 from .auth import require_admin_or_public_token
@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 from ..paths import PUBLIC_STORAGE_DIR
 from .. import models, schemas, database
+from ..services import deploy_service
 from ..utils.uploads import sanitize_filename, ensure_allowed_extension, save_upload_file
 from ..security.license import require_license_module
 from ..security.permissions import require_permission
@@ -550,6 +551,7 @@ def migrate_mod_previews(db: Session = Depends(database.get_db), _auth: object =
 
 @router.post("/upload", response_model=schemas.Mod)
 def upload_mod(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...), 
     name: str = Form(None), 
     type: str = Form(None), 
@@ -575,7 +577,8 @@ def upload_mod(
         
     try:
         mod = process_mod_file(temp_path, file.filename, db, name, type, version)
-        # Cleanup temp dir parent if empty? No, just leave dir.
+        # Auto-sync
+        deploy_service.trigger_push(db, background_tasks)
         return mod
     except Exception as e:
         if temp_path.exists():
@@ -583,7 +586,7 @@ def upload_mod(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/{mod_id}")
-def delete_mod(mod_id: int, db: Session = Depends(database.get_db), _auth: object = Depends(require_permission("mods"))):
+def delete_mod(mod_id: int, background_tasks: BackgroundTasks, db: Session = Depends(database.get_db), _auth: object = Depends(require_permission("mods"))):
     mod = db.query(models.Mod).filter(models.Mod.id == mod_id).first()
     if not mod:
         raise HTTPException(status_code=404, detail="Mod not found")
@@ -604,10 +607,13 @@ def delete_mod(mod_id: int, db: Session = Depends(database.get_db), _auth: objec
     db.delete(mod)
     db.commit()
     
+    # Auto-sync
+    deploy_service.trigger_push(db, background_tasks)
+    
     return {"status": "deleted", "id": mod_id}
 
 @router.put("/{mod_id}/toggle")
-def toggle_mod(mod_id: int, db: Session = Depends(database.get_db), _auth: object = Depends(require_permission("mods"))):
+def toggle_mod(mod_id: int, background_tasks: BackgroundTasks, db: Session = Depends(database.get_db), _auth: object = Depends(require_permission("mods"))):
     mod = db.query(models.Mod).filter(models.Mod.id == mod_id).first()
     if not mod:
         raise HTTPException(status_code=404, detail="Mod not found")
@@ -615,6 +621,9 @@ def toggle_mod(mod_id: int, db: Session = Depends(database.get_db), _auth: objec
     mod.is_active = not mod.is_active
     db.commit()
     db.refresh(mod)
+    
+    # Auto-sync
+    deploy_service.trigger_push(db, background_tasks)
     
     return mod
 
@@ -924,7 +933,7 @@ def remove_tag_from_mod(mod_id: int, tag_id: int, db: Session = Depends(database
     return mod
 
 @router.post("/bulk/delete")
-def bulk_delete_mods(mod_ids: List[int], db: Session = Depends(database.get_db), _auth: object = Depends(require_permission("mods"))):
+def bulk_delete_mods(mod_ids: List[int], background_tasks: BackgroundTasks, db: Session = Depends(database.get_db), _auth: object = Depends(require_permission("mods"))):
     deleted = []
     failed = []
     for mod_id in mod_ids:
@@ -946,11 +955,17 @@ def bulk_delete_mods(mod_ids: List[int], db: Session = Depends(database.get_db),
             failed.append({"id": mod_id, "error": str(e)})
 
     db.commit()
+    
+    # Auto-sync
+    if deleted:
+        deploy_service.trigger_push(db, background_tasks)
+        
     return {"deleted": deleted, "failed": failed}
 
 @router.post("/bulk/toggle")
 def bulk_toggle_mods(
     data: schemas.ModBulkToggle,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(database.get_db),
     _auth: object = Depends(require_permission("mods"))
 ):
@@ -958,4 +973,9 @@ def bulk_toggle_mods(
     for mod in mods:
         mod.is_active = data.target_state
     db.commit()
+    
+    # Auto-sync
+    if mods:
+        deploy_service.trigger_push(db, background_tasks)
+        
     return {"updated": [m.id for m in mods], "target_state": data.target_state}

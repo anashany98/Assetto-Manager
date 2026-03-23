@@ -42,7 +42,7 @@ function ProgressBar({ value, color, label }: { value: number; color: string; la
     return (
         <div className="space-y-1">
             <div className="flex justify-between text-xs">
-                <span className="text-gray-400">{label}</span>
+                <span className="text-[var(--text-tertiary)]">{label}</span>
                 <span className={cn(
                     value > 90 ? 'text-red-400' :
                         value > 75 ? 'text-yellow-400' : 'text-green-400'
@@ -93,14 +93,14 @@ function StationHealthCard({ station }: { station: StationHealth }) {
 
     return (
         <div className={cn(
-            "bg-gray-800/80 rounded-xl p-4 border-2 transition-all",
+            "bg-[var(--bg-elevated)]/80 rounded-xl p-4 border-2 transition-all",
             statusColor
         )}>
             {/* Header */}
             <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                     <Monitor className="w-5 h-5 text-blue-400" />
-                    <span className="font-bold text-white">{station.station_name}</span>
+                    <span className="font-bold text-[var(--text-primary)]">{station.station_name}</span>
                 </div>
                 <div className={cn(
                     "px-2 py-1 rounded-full text-xs font-bold",
@@ -118,7 +118,7 @@ function StationHealthCard({ station }: { station: StationHealth }) {
                     <button
                         disabled={isPending}
                         onClick={() => handlePower('power-on')}
-                        className="flex-1 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white py-2 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-[0_4px_15px_rgba(22,163,74,0.3)]"
+                        className="flex-1 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-[var(--text-primary)] py-2 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-[0_4px_15px_rgba(22,163,74,0.3)]"
                     >
                         <Power size={12} /> Encender (WoL)
                     </button>
@@ -127,14 +127,14 @@ function StationHealthCard({ station }: { station: StationHealth }) {
                         <button
                             disabled={isPending}
                             onClick={() => handlePower('shutdown')}
-                            className="flex-1 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white py-2 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all border border-red-500/30"
+                            className="flex-1 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-[var(--text-primary)] py-2 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all border border-red-500/30"
                         >
                             <PowerOff size={12} /> Apagar
                         </button>
                         <button
                             disabled={isPending}
                             onClick={() => handlePower('restart')}
-                            className="p-2 bg-blue-600/20 hover:bg-blue-600 text-blue-400 hover:text-white rounded-lg transition-all border border-blue-500/30 flex items-center justify-center"
+                            className="p-2 bg-blue-600/20 hover:bg-blue-600 text-blue-400 hover:text-[var(--text-primary)] rounded-lg transition-all border border-blue-500/30 flex items-center justify-center"
                             title="Reiniciar"
                         >
                             <RefreshCw size={12} className={isPending ? "animate-spin" : ""} />
@@ -148,7 +148,7 @@ function StationHealthCard({ station }: { station: StationHealth }) {
                     <button
                         disabled={isPending}
                         onClick={() => handleQuickAction('restart-agent')}
-                        className="flex-1 bg-purple-600/10 hover:bg-purple-600 text-purple-400 hover:text-white py-2 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all border border-purple-500/30"
+                        className="flex-1 bg-purple-600/10 hover:bg-purple-600 text-purple-400 hover:text-[var(--text-primary)] py-2 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all border border-purple-500/30"
                         title="Reiniciar agente"
                     >
                         <RefreshCw size={12} className={isPending ? "animate-spin" : ""} /> Reiniciar agente
@@ -271,18 +271,18 @@ export default function HardwareMonitor() {
         <div className="p-6 space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+                    <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
                         <Cpu className="w-6 h-6 text-blue-400" />
                         Monitor de Hardware
                     </h1>
-                    <p className="text-gray-400 text-sm mt-1">Estado en tiempo real de los simuladores</p>
+                    <p className="text-[var(--text-tertiary)] text-sm mt-1">Estado en tiempo real de los simuladores</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <button
                         onClick={() => setAutoRefresh(!autoRefresh)}
                         className={cn(
                             "px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition",
-                            autoRefresh ? "bg-green-500/20 text-green-400" : "bg-gray-700 text-gray-400"
+                            autoRefresh ? "bg-green-500/20 text-green-400" : "bg-gray-700 text-[var(--text-tertiary)]"
                         )}
                     >
                         <RefreshCw className={cn("w-4 h-4", autoRefresh && "animate-spin")} />
@@ -301,13 +301,13 @@ export default function HardwareMonitor() {
             {/* Summary */}
             {summary && (
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                    <div className="bg-gray-800 rounded-xl p-4 text-center">
-                        <div className="text-3xl font-bold text-white">{summary.total_stations}</div>
-                        <div className="text-sm text-gray-400">Total</div>
+                    <div className="bg-[var(--bg-elevated)] rounded-xl p-4 text-center">
+                        <div className="text-3xl font-bold text-[var(--text-primary)]">{summary.total_stations}</div>
+                        <div className="text-sm text-[var(--text-tertiary)]">Total</div>
                     </div>
-                    <div className="bg-gray-800 rounded-xl p-4 text-center border border-green-500/30">
+                    <div className="bg-[var(--bg-elevated)] rounded-xl p-4 text-center border border-green-500/30">
                         <div className="text-3xl font-bold text-green-400">{summary.online}</div>
-                        <div className="text-sm text-gray-400">Online</div>
+                        <div className="text-sm text-[var(--text-tertiary)]">Online</div>
                     </div>
                 </div>
             )}

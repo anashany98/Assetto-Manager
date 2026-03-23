@@ -87,14 +87,14 @@ export function EloLeaderboard({ limit = 20 }: { limit?: number }) {
             {rankings?.map((driver: DriverEloData & { rank: number; win_rate: number }) => (
                 <div
                     key={driver.name}
-                    className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg border border-gray-700"
+                    className="flex items-center justify-between p-3 bg-[var(--bg-elevated)]/50 rounded-lg border border-[var(--border-default)]"
                 >
                     <div className="flex items-center gap-3">
-                        <span className="text-gray-500 font-mono w-6">#{driver.rank}</span>
-                        <span className="font-bold text-white">{driver.name}</span>
+                        <span className="text-[var(--text-tertiary)] font-mono w-6">#{driver.rank}</span>
+                        <span className="font-bold text-[var(--text-primary)]">{driver.name}</span>
                     </div>
                     <div className="flex items-center gap-3">
-                        <span className="text-xs text-gray-400">{driver.win_rate}% wins</span>
+                        <span className="text-xs text-[var(--text-tertiary)]">{driver.win_rate}% wins</span>
                         <EloRankBadge driverName={driver.name} />
                     </div>
                 </div>

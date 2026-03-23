@@ -14,6 +14,7 @@ from .. import database, models
 from ..services.email_service import send_email
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+from ..services import deploy_service
 
 logger = logging.getLogger(__name__)
 
@@ -137,6 +138,16 @@ def send_booking_reminder(
         
     except Exception as e:
         logger.error(f"Failed to send reminder to {customer_email}: {e}")
+
+
+async def scheduled_global_push():
+    """Trigger a global push of all active mods to all active stations"""
+    logger.info("Running scheduled global mod push...")
+    try:
+        deploy_service.trigger_scheduled_push()
+        logger.info("Scheduled global mod push completed.")
+    except Exception as e:
+        logger.error(f"Error in scheduled global push: {e}")
 
 
 async def check_and_send_reminders():
@@ -358,8 +369,16 @@ def start_scheduler():
         replace_existing=True
     )
     
+    # Global Mod Sync Daily at 3:00 AM
+    scheduler.add_job(
+        scheduled_global_push,
+        CronTrigger(hour=3, minute=0),
+        id="global_mod_sync_daily",
+        replace_existing=True
+    )
+    
     scheduler.start()
-    logger.info("Scheduler started - Booking reminders (18:00), Content Sync (Hourly), Ghost Archive (Configured)")
+    logger.info("Scheduler started - Booking reminders (18:00), Content Sync (Hourly), Ghost Archive (Configured), Global Mod Sync (03:00)")
 
 
 def stop_scheduler():

@@ -556,7 +556,7 @@ export default function MobileLeaderboard() {
     return (
         <div className="min-h-screen bg-gray-950 text-white font-sans flex flex-col">
             {/* Header Sticky */}
-            <div className="sticky top-0 z-40 bg-gray-900/95 backdrop-blur-xl border-b border-white/5 p-4 shadow-2xl">
+            <div className="sticky top-0 z-40 bg-[var(--bg-sidebar)] backdrop-blur-xl border-b border-white/5 p-4 shadow-2xl">
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-yellow-500/20">
@@ -661,7 +661,7 @@ export default function MobileLeaderboard() {
                                 <select
                                     value={selectedTrack}
                                     onChange={(e) => setSelectedTrack(e.target.value)}
-                                    className="w-full bg-gray-900 border border-gray-800 rounded-xl py-3 pl-9 pr-2 text-xs font-black uppercase appearance-none outline-none focus:ring-2 focus:ring-blue-500/20 text-white"
+                                    className="w-full bg-gray-900 border border-gray-800 rounded-xl py-3 pl-9 pr-2 text-xs font-black uppercase appearance-none outline-none focus:border-[var(--border-focus)]/20 text-white"
                                 >
                                     <option value="all">TODOS LOS CIRCUITOS</option>
                                     {tracks.map((t) => <option key={String(t)} value={String(t)}>{(String(t) || '').toUpperCase()}</option>)}
@@ -674,7 +674,7 @@ export default function MobileLeaderboard() {
                                 <select
                                     value={selectedCar}
                                     onChange={(e) => setSelectedCar(e.target.value)}
-                                    className="w-full bg-gray-900 border border-gray-800 rounded-xl py-3 pl-9 pr-2 text-xs font-black uppercase appearance-none outline-none focus:ring-2 focus:ring-blue-500/20 text-white"
+                                    className="w-full bg-gray-900 border border-gray-800 rounded-xl py-3 pl-9 pr-2 text-xs font-black uppercase appearance-none outline-none focus:border-[var(--border-focus)]/20 text-white"
                                 >
                                     <option value="all">TODOS LOS COCHES</option>
                                     {cars.map((c) => <option key={String(c)} value={String(c)}>{(String(c) || '').toUpperCase()}</option>)}

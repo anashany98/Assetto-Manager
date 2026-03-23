@@ -61,7 +61,7 @@ function SettingSlider({
     return (
         <div className="space-y-2">
             <div className="flex justify-between items-center">
-                <label className="text-sm font-bold text-gray-300">{label}</label>
+                <label className="text-sm font-bold text-[var(--text-secondary)]">{label}</label>
                 <span className={cn("text-sm font-bold", textColorClasses[color] || 'text-blue-400')}>
                     {value}{unit}
                 </span>
@@ -92,10 +92,10 @@ function SettingToggle({
     onChange: (v: boolean) => void;
 }) {
     return (
-        <div className="flex items-center justify-between p-4 bg-gray-800/50 rounded-xl border border-gray-700">
+        <div className="flex items-center justify-between p-4 bg-[var(--bg-elevated)]/50 rounded-xl border border-[var(--border-default)]">
             <div>
-                <p className="font-bold text-white">{label}</p>
-                {description && <p className="text-xs text-gray-500 mt-1">{description}</p>}
+                <p className="font-bold text-[var(--text-primary)]">{label}</p>
+                {description && <p className="text-xs text-[var(--text-tertiary)] mt-1">{description}</p>}
             </div>
             <button
                 onClick={() => onChange(!value)}
@@ -105,7 +105,7 @@ function SettingToggle({
                 )}
             >
                 <div className={cn(
-                    "absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow-lg transition-transform",
+                    "absolute top-1 left-1 w-5 h-5 rounded-full bg-[var(--bg-card)] shadow-lg transition-transform",
                     value && "translate-x-7"
                 )} />
             </button>
@@ -127,11 +127,11 @@ function SettingSelect({
 }) {
     return (
         <div className="space-y-2">
-            <label className="text-sm font-bold text-gray-300">{label}</label>
+            <label className="text-sm font-bold text-[var(--text-secondary)]">{label}</label>
             <select
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-gray-800 border border-gray-600 text-white font-medium focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                className="w-full px-4 py-3 rounded-xl bg-[var(--bg-elevated)] border border-[var(--border-strong)] text-[var(--text-primary)] font-medium focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
             >
                 {options.map(opt => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -173,14 +173,14 @@ function SettingSection({
                 onClick={() => setIsOpen(!isOpen)}
                 className={cn(
                     "w-full flex items-center justify-between p-4 transition-colors",
-                    isOpen ? "bg-white/5" : "hover:bg-white/5"
+                    isOpen ? "bg-[var(--bg-card)]/5" : "hover:bg-[var(--bg-card)]/5"
                 )}
             >
                 <div className="flex items-center gap-3">
                     <Icon size={20} className={iconColorClasses[color] || 'text-blue-400'} />
-                    <span className="font-bold text-white">{title}</span>
+                    <span className="font-bold text-[var(--text-primary)]">{title}</span>
                 </div>
-                {isOpen ? <ChevronUp size={18} className="text-gray-400" /> : <ChevronDown size={18} className="text-gray-400" />}
+                {isOpen ? <ChevronUp size={18} className="text-[var(--text-tertiary)]" /> : <ChevronDown size={18} className="text-[var(--text-tertiary)]" />}
             </button>
             {isOpen && (
                 <div className="p-4 pt-0 space-y-4 animate-fade-in">
@@ -1257,9 +1257,9 @@ export default function ACSettingsEditor({ category, profileName, onDirtyChange 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {Object.entries(keys as object).map(([key, val]) => (
                             <div key={key}>
-                                <label className="text-xs font-bold text-gray-400 uppercase mb-1">{key}</label>
+                                <label className="text-xs font-bold text-[var(--text-tertiary)] uppercase mb-1">{key}</label>
                                 <input
-                                    className="w-full px-4 py-2 rounded-xl border border-gray-600 bg-gray-900 text-white text-sm focus:border-blue-500 outline-none"
+                                    className="w-full px-4 py-2 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-card)] text-[var(--text-primary)] text-sm focus:border-blue-500 outline-none"
                                     value={val as string}
                                     onChange={(e) => updateValue(sectionName, key, e.target.value)}
                                 />
@@ -1276,13 +1276,13 @@ export default function ACSettingsEditor({ category, profileName, onDirtyChange 
             {/* Action buttons */}
             {hasChanges && (
                 <div className="flex items-center justify-between p-4 glass-card border-l-4 border-blue-500 animate-slide-up">
-                    <p className="text-sm text-gray-300">
+                    <p className="text-sm text-[var(--text-secondary)]">
                         <span className="font-bold text-blue-400">Cambios sin guardar</span> — Recuerda aplicar tus cambios
                     </p>
                     <div className="flex gap-2">
                         <button
                             onClick={handleReset}
-                            className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm font-bold flex items-center gap-2 transition-colors"
+                            className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-[var(--text-secondary)] text-sm font-bold flex items-center gap-2 transition-colors"
                         >
                             <RotateCcw size={16} />
                             Descartar
@@ -1290,7 +1290,7 @@ export default function ACSettingsEditor({ category, profileName, onDirtyChange 
                         <button
                             onClick={handleSave}
                             disabled={saveMutation.isPending}
-                            className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm font-bold flex items-center gap-2 transition-all shadow-lg shadow-blue-500/25 disabled:opacity-50"
+                            className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-[var(--text-primary)] text-sm font-bold flex items-center gap-2 transition-all shadow-lg shadow-blue-500/25 disabled:opacity-50"
                         >
                             <Save size={16} />
                             {saveMutation.isPending ? 'Guardando...' : 'Guardar Cambios'}

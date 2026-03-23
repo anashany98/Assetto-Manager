@@ -165,7 +165,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({ drivers, cars, trackName }) =>
                         <div key={i} className="w-1.5 h-6 bg-yellow-500/20 skew-x-[-20deg]" />
                     ))}
                 </div>
-                <span className="text-xs uppercase font-black tracking-[0.2em] text-white/20 italic">
+                <span className="text-xs uppercase font-black tracking-[0.2em] text-[var(--text-primary)]/20 italic">
                     Vector Intelligence Track: {trackName}
                 </span>
             </div>

@@ -134,9 +134,9 @@ export default function GhostViewer({ data, isOpen, onClose }: { data: ReplayPoi
 
     return (
         <div className="fixed inset-0 z-50 bg-black/90 flex flex-col">
-            <div className="h-14 flex items-center justify-between px-4 bg-gray-900 border-b border-gray-800">
-                <span className="font-bold text-white">Replay 3D</span>
-                <button onClick={onClose} className="text-white bg-red-600 px-3 py-1 rounded">Cerrar</button>
+            <div className="h-14 flex items-center justify-between px-4 bg-[var(--bg-card)] border-b border-[var(--border-default)]">
+                <span className="font-bold text-[var(--text-primary)]">Replay 3D</span>
+                <button onClick={onClose} className="text-[var(--text-primary)] bg-red-600 px-3 py-1 rounded">Cerrar</button>
             </div>
 
             <div className="flex-1 relative">
@@ -159,7 +159,7 @@ export default function GhostViewer({ data, isOpen, onClose }: { data: ReplayPoi
                     <div className="flex justify-center">
                         <button
                             onClick={() => setIsPlaying(!isPlaying)}
-                            className="bg-blue-600 text-white px-6 py-2 rounded-full shadow-lg font-bold"
+                            className="bg-blue-600 text-[var(--text-primary)] px-6 py-2 rounded-full shadow-lg font-bold"
                         >
                             {isPlaying ? "PAUSE" : "PLAY"}
                         </button>

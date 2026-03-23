@@ -13,7 +13,8 @@ import {
     Layout, Monitor, Wifi, WifiOff, Edit2, CheckCircle,
     Activity, Upload, QrCode, Gamepad2, Volume2, Zap,
     MonitorPlay, Globe, Terminal, Database, Bell, BadgeDollarSign, Megaphone,
-    AlertTriangle, Power, RefreshCw, Link2, Copy, RotateCw, Lock, Unlock, Trash2, History, ShieldCheck
+    AlertTriangle, Power, RefreshCw, Link2, Copy, RotateCw, Lock, Unlock, Trash2, History, ShieldCheck,
+    Wrench, HardDrive, Cpu, Radio, Info
 } from 'lucide-react';
 import { LogViewer } from '../components/LogViewer';
 import AdsSettings from '../components/AdsSettings';
@@ -81,7 +82,7 @@ const AC_CATEGORIES = [
 
 export default function SettingsPage() {
     const queryClient = useQueryClient();
-    const [activeTab, setActiveTab] = useState<'branding' | 'stations' | 'game' | 'sim' | 'logs' | 'ads' | 'database' | 'pricing' | 'license'>('branding');
+    const [activeTab, setActiveTab] = useState<'branding' | 'stations' | 'game' | 'sim' | 'logs' | 'ads' | 'database' | 'pricing' | 'license' | 'streaming' | 'maintenance'>('branding');
     const [searchParams, setSearchParams] = useSearchParams();
     const pushNotifications = usePushNotifications();
     const [showInactiveStations, setShowInactiveStations] = useState(false);
@@ -99,7 +100,7 @@ export default function SettingsPage() {
     // Sync tab with URL
     useEffect(() => {
         const tab = searchParams.get('tab');
-        if (tab && ['branding', 'stations', 'game', 'sim', 'logs', 'ads', 'database', 'pricing', 'license'].includes(tab)) {
+        if (tab && ['branding', 'stations', 'game', 'sim', 'logs', 'ads', 'database', 'pricing', 'license', 'streaming', 'maintenance'].includes(tab)) {
             setActiveTab(tab as any);
         }
     }, [searchParams]);
@@ -800,19 +801,19 @@ export default function SettingsPage() {
     };
 
     return (
-        <div className="h-full flex flex-col bg-gray-950 text-white font-sans overflow-hidden">
+        <div className="h-full flex flex-col bg-[var(--bg-app)] text-[var(--text-primary)] font-sans overflow-hidden">
             {/* Header */}
-            <div className="flex-none px-4 py-6 md:px-8 md:py-8 md:pb-4 flex flex-col gap-4 border-b border-gray-800 bg-gray-900/50 backdrop-blur-sm">
+            <div className="flex-none px-4 py-6 md:px-8 md:py-8 md:pb-4 flex flex-col gap-4 border-b border-[var(--border-default)] bg-[var(--bg-card)]/50 backdrop-blur-sm">
                 <div>
                     <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight flex items-center">
                         <SettingsIcon className="mr-3 text-blue-500" />
                         Configuración
                     </h1>
-                    <p className="text-gray-400 text-sm font-medium mt-1">Gestión integral del sistema y simuladores</p>
+                    <p className="text-[var(--text-tertiary)] text-sm font-medium mt-1">Gestión integral del sistema y simuladores</p>
                 </div>
 
                 {/* Tabs */}
-                <div className="flex flex-wrap items-center gap-1.5 w-full bg-gray-800 p-1.5 rounded-2xl border border-gray-700 shadow-sm">
+                <div className="flex flex-wrap items-center gap-1.5 w-full bg-[var(--bg-elevated)] p-1.5 rounded-2xl border border-[var(--border-default)] shadow-sm">
                     {[
                         { id: 'license', label: 'Licencia', icon: Shield },
                         { id: 'branding', label: 'Marca y TV', icon: Layout },
@@ -822,7 +823,9 @@ export default function SettingsPage() {
                         { id: 'sim', label: 'Simulador AC', icon: Zap },
                         { id: 'stations', label: 'Simuladores', icon: MonitorPlay },
                         { id: 'logs', label: 'Logs Sistema', icon: Terminal },
-                        { id: 'database', label: 'Base de Datos', icon: Database }
+                        { id: 'database', label: 'Base de Datos', icon: Database },
+                        { id: 'streaming', label: 'Transmisión', icon: Radio },
+                        { id: 'maintenance', label: 'Mantenimiento', icon: Wrench }
                     ].filter(Boolean).map((tab: any) => (
                         <button
                             key={tab.id}
@@ -830,8 +833,8 @@ export default function SettingsPage() {
                             className={cn(
                                 "shrink-0 whitespace-nowrap flex items-center gap-2 px-3 md:px-4 py-2 rounded-xl text-xs md:text-sm font-black transition-all uppercase tracking-wide",
                                 activeTab === tab.id
-                                    ? "bg-gray-700 shadow-lg text-blue-400 border border-gray-600"
-                                    : "text-gray-500 hover:text-gray-300"
+                                    ? "bg-gray-700 shadow-lg text-blue-400 border border-[var(--border-strong)]"
+                                    : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
                             )}>
                             <tab.icon size={16} />
                             <span>{tab.label}</span>
@@ -855,25 +858,25 @@ export default function SettingsPage() {
                     <div className="max-w-5xl space-y-8 animate-in fade-in duration-300">
                         {/* Identity */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="bg-gray-800 p-8 rounded-3xl border border-gray-700">
-                                <h2 className="text-xl font-black text-white uppercase mb-6 flex items-center"><Layout className="mr-2 text-blue-400" /> Identidad</h2>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Nombre del Local</label>
+                            <div className="bg-[var(--bg-elevated)] p-8 rounded-3xl border border-[var(--border-default)]">
+                                <h2 className="text-xl font-black text-[var(--text-primary)] uppercase mb-6 flex items-center"><Layout className="mr-2 text-blue-400" /> Identidad</h2>
+                                <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">Nombre del Local</label>
                                 <input
-                                    className="w-full p-4 rounded-xl bg-gray-900 border border-gray-700 text-white font-bold outline-none focus:border-blue-500 transition-all"
+                                    className="w-full p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] text-[var(--text-primary)] font-bold outline-none focus:border-blue-500 transition-all"
                                     defaultValue={barName}
                                     onBlur={e => updateBranding.mutate({ key: 'bar_name', value: e.target.value })}
                                 />
                                 <div className="mt-6">
-                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Logo</label>
+                                    <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">Logo</label>
                                     <div className="flex items-center space-x-4">
-                                        <img src={barLogo} className="h-16 w-16 object-contain bg-gray-900 rounded-lg p-2" onError={(e: React.SyntheticEvent<HTMLImageElement>) => { e.currentTarget.src = '/logo.png'; }} />
+                                        <img src={barLogo} className="h-16 w-16 object-contain bg-[var(--bg-card)] rounded-lg p-2" onError={(e: React.SyntheticEvent<HTMLImageElement>) => { e.currentTarget.src = '/logo.png'; }} />
                                         <div className="flex-1">
                                             <input
-                                                className="w-full p-3 rounded-xl bg-gray-900 border border-gray-700 text-xs font-mono text-gray-400 mb-2"
+                                                className="w-full p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] text-xs font-mono text-[var(--text-tertiary)] mb-2"
                                                 defaultValue={barLogo}
                                                 onBlur={e => updateBranding.mutate({ key: 'bar_logo', value: e.target.value })}
                                             />
-                                            <button onClick={() => fileInputRef.current?.click()} className="text-xs bg-gray-700 text-white px-3 py-1.5 rounded-lg hover:bg-gray-600 uppercase font-bold">Subir Archivo</button>
+                                            <button onClick={() => fileInputRef.current?.click()} className="text-xs bg-gray-700 text-[var(--text-primary)] px-3 py-1.5 rounded-lg hover:bg-gray-600 uppercase font-bold">Subir Archivo</button>
                                             <input type="file" hidden ref={fileInputRef} onChange={handleLogoUpload} accept="image/*" />
                                         </div>
                                     </div>
@@ -881,28 +884,28 @@ export default function SettingsPage() {
                             </div>
 
                             {/* Ticker / Promo */}
-                            <div className="bg-gray-800 p-8 rounded-3xl border border-gray-700">
-                                <h2 className="text-xl font-black text-white uppercase mb-6 flex items-center"><Activity className="mr-2 text-yellow-400" /> Ticker Noticias</h2>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Mensaje Promocional</label>
+                            <div className="bg-[var(--bg-elevated)] p-8 rounded-3xl border border-[var(--border-default)]">
+                                <h2 className="text-xl font-black text-[var(--text-primary)] uppercase mb-6 flex items-center"><Activity className="mr-2 text-yellow-400" /> Ticker Noticias</h2>
+                                <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">Mensaje Promocional</label>
                                 <textarea
-                                    className="w-full p-4 rounded-xl bg-gray-900 border border-gray-700 text-white font-bold outline-none focus:border-yellow-500 transition-all min-h-[100px]"
+                                    className="w-full p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] text-[var(--text-primary)] font-bold outline-none focus:border-yellow-500 transition-all min-h-[100px]"
                                     defaultValue={safeBranding.find((s: { key: string; value: string }) => s.key === 'promo_text')?.value}
                                     onBlur={e => updateBranding.mutate({ key: 'promo_text', value: e.target.value })}
                                 />
                                 <div className="mt-4 flex items-center justify-between">
-                                    <span className="text-sm font-bold text-gray-400">Velocidad</span>
+                                    <span className="text-sm font-bold text-[var(--text-tertiary)]">Velocidad</span>
                                     <input type="range" min="20" max="200" className="w-1/2 accent-yellow-500" defaultValue={safeBranding.find((s: { key: string; value: string }) => s.key === 'ticker_speed')?.value || 80} onChange={e => updateBranding.mutate({ key: 'ticker_speed', value: e.target.value })} />
                                 </div>
                             </div>
                         </div>
 
-                        <div className="bg-gray-800 p-8 rounded-3xl border border-gray-700">
-                            <h2 className="text-xl font-black text-white uppercase mb-6 flex items-center"><Globe className="mr-2 text-green-400" /> Acceso Público (QR)</h2>
+                        <div className="bg-[var(--bg-elevated)] p-8 rounded-3xl border border-[var(--border-default)]">
+                            <h2 className="text-xl font-black text-[var(--text-primary)] uppercase mb-6 flex items-center"><Globe className="mr-2 text-green-400" /> Acceso Público (QR)</h2>
                             <div className="flex flex-col md:flex-row gap-6 items-center">
                                 <div className="flex-1 w-full">
-                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">URL Pública</label>
+                                    <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">URL Pública</label>
                                     <input
-                                        className="w-full p-4 rounded-xl bg-gray-900 border border-gray-700 font-mono text-sm text-blue-300"
+                                        className="w-full p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] font-mono text-sm text-blue-300"
                                         defaultValue={safeBranding.find((s: { key: string; value: string }) => s.key === 'bar_public_url')?.value}
                                         onBlur={e => updateBranding.mutate({ key: 'bar_public_url', value: e.target.value })}
                                     />
@@ -913,10 +916,10 @@ export default function SettingsPage() {
                                         Usar IP Local Detectada
                                     </button>
                                 </div>
-                                <div className="flex items-center space-x-3 bg-gray-900 p-4 rounded-xl border border-gray-700">
-                                    <QrCode className="text-white" size={32} />
+                                <div className="flex items-center space-x-3 bg-[var(--bg-card)] p-4 rounded-xl border border-[var(--border-default)]">
+                                    <QrCode className="text-[var(--text-primary)]" size={32} />
                                     <div>
-                                        <p className="text-xs font-bold text-gray-500 uppercase">Mostrar en TV</p>
+                                        <p className="text-xs font-bold text-[var(--text-tertiary)] uppercase">Mostrar en TV</p>
                                         <input type="checkbox" className="w-5 h-5 accent-blue-500" defaultChecked={safeBranding.find((s: { key: string; value: string }) => s.key === 'show_qr')?.value === 'true'} onChange={e => updateBranding.mutate({ key: 'show_qr', value: e.target.checked ? 'true' : 'false' })} />
                                     </div>
                                 </div>
@@ -924,43 +927,67 @@ export default function SettingsPage() {
                         </div>
 
                         {/* Kiosk Options */}
-                        <div className="bg-gray-800 p-8 rounded-3xl border border-gray-700">
-                            <h2 className="text-xl font-black text-white uppercase mb-6 flex items-center"><MonitorPlay className="mr-2 text-cyan-400" /> Opciones de Kiosko</h2>
+                        {/* Kiosk Options */}
+                        <div className="bg-[var(--bg-elevated)] p-8 rounded-3xl border border-[var(--border-default)]">
+                            <h2 className="text-xl font-black text-[var(--text-primary)] uppercase mb-6 flex items-center"><MonitorPlay className="mr-2 text-cyan-400" /> Opciones de Kiosko</h2>
                             <div className="flex flex-col gap-6">
-                                <div className="flex items-center justify-between bg-gray-900/40 p-4 rounded-xl border border-gray-700/50">
+                                <div className="flex items-center justify-between bg-[var(--bg-card)]/40 p-4 rounded-xl border border-[var(--border-default)]/50">
                                     <div>
-                                        <p className="font-bold text-white text-sm">Habilitar Lluvia Visual</p>
-                                        <p className="text-xs text-gray-500">Muestra la opción de lluvia en el menú de dificultad (Requiere CSP Preview)</p>
+                                        <p className="font-bold text-[var(--text-primary)] text-sm">Habilitar Funciones con Mods</p>
+                                        <p className="text-xs text-[var(--text-tertiary)] text-balance">Desbloquea modos especiales como Tráfico, Overtake y lluvia (Requiere mods específicos en la PC)</p>
                                     </div>
                                     <button
                                         onClick={() => updateBranding.mutate({
-                                            key: 'kiosk_rain_enabled',
-                                            value: safeBranding.find(s => s.key === 'kiosk_rain_enabled')?.value === 'true' ? 'false' : 'true'
+                                            key: 'sim_mods_enabled',
+                                            value: safeBranding.find(s => s.key === 'sim_mods_enabled')?.value === 'true' ? 'false' : 'true'
                                         })}
                                         className={cn(
                                             "w-14 h-7 rounded-full transition-all relative",
-                                            safeBranding.find(s => s.key === 'kiosk_rain_enabled')?.value === 'true' ? "bg-cyan-500" : "bg-gray-600"
+                                            safeBranding.find(s => s.key === 'sim_mods_enabled')?.value === 'true' ? "bg-blue-500" : "bg-gray-600"
                                         )}
                                     >
                                         <div className={cn(
-                                            "absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-transform",
-                                            safeBranding.find(s => s.key === 'kiosk_rain_enabled')?.value === 'true' && "translate-x-7"
+                                            "absolute top-1 left-1 w-5 h-5 rounded-full bg-[var(--bg-card)] transition-transform",
+                                            safeBranding.find(s => s.key === 'sim_mods_enabled')?.value === 'true' && "translate-x-7"
                                         )} />
                                     </button>
                                 </div>
+
+                                {safeBranding.find(s => s.key === 'sim_mods_enabled')?.value === 'true' && (
+                                    <div className="flex items-center justify-between bg-[var(--bg-card)]/40 p-4 rounded-xl border border-[var(--border-default)]/50 animate-in fade-in slide-in-from-top-2 duration-300">
+                                        <div>
+                                            <p className="font-bold text-[var(--text-primary)] text-sm">Habilitar Lluvia Visual</p>
+                                            <p className="text-xs text-[var(--text-tertiary)]">Muestra la opción de lluvia en el menú de dificultad (Requiere CSP Preview)</p>
+                                        </div>
+                                        <button
+                                            onClick={() => updateBranding.mutate({
+                                                key: 'kiosk_rain_enabled',
+                                                value: safeBranding.find(s => s.key === 'kiosk_rain_enabled')?.value === 'true' ? 'false' : 'true'
+                                            })}
+                                            className={cn(
+                                                "w-14 h-7 rounded-full transition-all relative",
+                                                safeBranding.find(s => s.key === 'kiosk_rain_enabled')?.value === 'true' ? "bg-cyan-500" : "bg-gray-600"
+                                            )}
+                                        >
+                                            <div className={cn(
+                                                "absolute top-1 left-1 w-5 h-5 rounded-full bg-[var(--bg-card)] transition-transform",
+                                                safeBranding.find(s => s.key === 'kiosk_rain_enabled')?.value === 'true' && "translate-x-7"
+                                            )} />
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </div>
-
                         {/* Video Wallpapers */}
                         <WallpaperSettings />
 
                         {/* Push Notifications */}
-                        <div className="bg-gray-800 p-8 rounded-3xl border border-gray-700">
-                            <h2 className="text-xl font-black text-white uppercase mb-6 flex items-center"><Bell className="mr-2 text-purple-400" /> Notificaciones Push</h2>
+                        <div className="bg-[var(--bg-elevated)] p-8 rounded-3xl border border-[var(--border-default)]">
+                            <h2 className="text-xl font-black text-[var(--text-primary)] uppercase mb-6 flex items-center"><Bell className="mr-2 text-purple-400" /> Notificaciones Push</h2>
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm font-bold text-gray-300">Recibir alertas de nuevos récords y eventos</p>
-                                    <p className="text-xs text-gray-500 mt-1">
+                                    <p className="text-sm font-bold text-[var(--text-secondary)]">Recibir alertas de nuevos récords y eventos</p>
+                                    <p className="text-xs text-[var(--text-tertiary)] mt-1">
                                         {!pushNotifications.isSupported && 'Tu navegador no soporta notificaciones push'}
                                         {pushNotifications.isSupported && pushNotifications.permission === 'denied' && 'Permisos denegados - activa en config del navegador'}
                                         {pushNotifications.isSupported && pushNotifications.permission !== 'denied' && (pushNotifications.isSubscribed ? 'Suscrito ✓' : 'Click para activar')}
@@ -976,7 +1003,7 @@ export default function SettingsPage() {
                                     )}
                                 >
                                     <div className={cn(
-                                        "absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-transform",
+                                        "absolute top-1 left-1 w-5 h-5 rounded-full bg-[var(--bg-card)] transition-transform",
                                         pushNotifications.isSubscribed && "translate-x-7"
                                     )} />
                                 </button>
@@ -984,53 +1011,63 @@ export default function SettingsPage() {
                         </div>
                     </div>
                 )}
+ 
+                {/* --- TAB: ADS --- */}
+                {activeTab === 'ads' && (
+                    <div className="max-w-5xl animate-in fade-in duration-300">
+                        <div className="bg-[var(--bg-card)]/50 p-8 rounded-3xl border border-[var(--border-default)]">
+                            <p className="text-[var(--text-tertiary)] mb-6 text-sm font-medium">Gestiona la publicidad y promociones que aparecen en las pantallas del local (TV Mode).</p>
+                            <AdsSettings />
+                        </div>
+                    </div>
+                )}
 
                 {/* --- TAB: PRICING --- */}
                 {activeTab === 'pricing' && (
                     <div className="max-w-2xl animate-in fade-in duration-300">
-                        <div className="bg-gray-800 p-8 rounded-3xl border border-gray-700">
-                            <h2 className="text-xl font-black text-white uppercase mb-6 flex items-center">
+                        <div className="bg-[var(--bg-elevated)] p-8 rounded-3xl border border-[var(--border-default)]">
+                            <h2 className="text-xl font-black text-[var(--text-primary)] uppercase mb-6 flex items-center">
                                 <BadgeDollarSign className="mr-2 text-green-400" /> Configuración de Precios
                             </h2>
-                            <p className="text-gray-400 mb-6 text-sm">Define precios por duración, recargos y descuentos. El kiosko calculará el precio automáticamente.</p>
+                            <p className="text-[var(--text-tertiary)] mb-6 text-sm">Define precios por duración, recargos y descuentos. El kiosko calculará el precio automáticamente.</p>
 
                             <div className="space-y-6">
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Precio Base por Minuto</label>
+                                    <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">Precio Base por Minuto</label>
                                     <div className="relative">
-                                        <span className="absolute left-4 top-3.5 text-gray-400">€</span>
+                                        <span className="absolute left-4 top-3.5 text-[var(--text-tertiary)]">€</span>
                                         <input
                                             type="number"
                                             step="0.01"
-                                            className="w-full p-3 pl-8 rounded-xl bg-gray-900 border border-gray-700 text-white font-bold outline-none focus:border-green-500 transition-all text-lg"
+                                            className="w-full p-3 pl-8 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] text-[var(--text-primary)] font-bold outline-none focus:border-green-500 transition-all text-lg"
                                             value={basePerMin}
                                             onChange={e => setBasePerMin(Number(e.target.value))}
                                             onBlur={e => updateBranding.mutate({ key: 'pricing_base_per_min', value: e.target.value })}
                                         />
                                     </div>
-                                    <p className="text-xs text-gray-500 mt-1">Si no defines tarifas por duración, se usa este precio por minuto.</p>
+                                    <p className="text-xs text-[var(--text-tertiary)] mt-1">Si no defines tarifas por duración, se usa este precio por minuto.</p>
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Recargo VR por Minuto</label>
+                                    <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">Recargo VR por Minuto</label>
                                     <div className="relative">
-                                        <span className="absolute left-4 top-3.5 text-gray-400">+ €</span>
+                                        <span className="absolute left-4 top-3.5 text-[var(--text-tertiary)]">+ €</span>
                                         <input
                                             type="number"
                                             step="0.01"
-                                            className="w-full p-3 pl-10 rounded-xl bg-gray-900 border border-gray-700 text-white font-bold outline-none focus:border-purple-500 transition-all text-lg"
+                                            className="w-full p-3 pl-10 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] text-[var(--text-primary)] font-bold outline-none focus:border-purple-500 transition-all text-lg"
                                             value={vrPerMin}
                                             onChange={e => setVrPerMin(Number(e.target.value))}
                                             onBlur={e => updateBranding.mutate({ key: 'pricing_vr_surcharge_per_min', value: e.target.value })}
                                         />
                                     </div>
-                                    <p className="text-xs text-gray-500 mt-1">Se suma al precio base por cada minuto si se usa VR.</p>
+                                    <p className="text-xs text-[var(--text-tertiary)] mt-1">Se suma al precio base por cada minuto si se usa VR.</p>
                                 </div>
 
-                                <div className="flex items-center justify-between bg-gray-900/60 border border-gray-700 rounded-xl p-4">
+                                <div className="flex items-center justify-between bg-[var(--bg-card)]/60 border border-[var(--border-default)] rounded-xl p-4">
                                     <div>
-                                        <p className="text-sm font-bold text-gray-300">Permitir precio manual en admin</p>
-                                        <p className="text-xs text-gray-500">Si está desactivado, el precio siempre se calcula por duración.</p>
+                                        <p className="text-sm font-bold text-[var(--text-secondary)]">Permitir precio manual en admin</p>
+                                        <p className="text-xs text-[var(--text-tertiary)]">Si está desactivado, el precio siempre se calcula por duración.</p>
                                     </div>
                                     <button
                                         onClick={() => {
@@ -1044,31 +1081,31 @@ export default function SettingsPage() {
                                         )}
                                     >
                                         <div className={cn(
-                                            "absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-transform",
+                                            "absolute top-1 left-1 w-5 h-5 rounded-full bg-[var(--bg-card)] transition-transform",
                                             allowManualOverride && "translate-x-7"
                                         )} />
                                     </button>
                                 </div>
 
-                                <div className="bg-gray-900/40 border border-gray-700 rounded-2xl p-5 space-y-4">
+                                <div className="bg-[var(--bg-card)]/40 border border-[var(--border-default)] rounded-2xl p-5 space-y-4">
                                     <div className="flex items-center justify-between">
-                                        <h3 className="text-sm font-black uppercase tracking-wider text-gray-300">Tarifas por Duración</h3>
+                                        <h3 className="text-sm font-black uppercase tracking-wider text-[var(--text-secondary)]">Tarifas por Duración</h3>
                                         <button
                                             onClick={() => setDurationRates([...durationRates, { minutes: 15, price: 0 }])}
-                                            className="text-xs font-bold bg-blue-600/20 text-blue-400 px-3 py-1.5 rounded-lg border border-blue-500/30 hover:bg-blue-600 hover:text-white transition-colors"
+                                            className="text-xs font-bold bg-blue-600/20 text-blue-400 px-3 py-1.5 rounded-lg border border-blue-500/30 hover:bg-blue-600 hover:text-[var(--text-primary)] transition-colors"
                                         >
                                             Añadir tarifa
                                         </button>
                                     </div>
                                     {durationRates.length === 0 && (
-                                        <p className="text-xs text-gray-500">Sin tarifas definidas. Se usará el precio por minuto.</p>
+                                        <p className="text-xs text-[var(--text-tertiary)]">Sin tarifas definidas. Se usará el precio por minuto.</p>
                                     )}
                                     {durationRates.map((rate, idx) => (
                                         <div key={`${rate.minutes}-${idx}`} className="flex items-center gap-3">
                                             <input
                                                 type="number"
                                                 min={1}
-                                                className="w-24 bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white font-bold"
+                                                className="w-24 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-lg px-3 py-2 text-[var(--text-primary)] font-bold"
                                                 value={rate.minutes}
                                                 onChange={e => {
                                                     const next = [...durationRates];
@@ -1076,11 +1113,11 @@ export default function SettingsPage() {
                                                     setDurationRates(next);
                                                 }}
                                             />
-                                            <span className="text-xs text-gray-500 uppercase font-bold">min</span>
+                                            <span className="text-xs text-[var(--text-tertiary)] uppercase font-bold">min</span>
                                             <input
                                                 type="number"
                                                 step="0.01"
-                                                className="w-28 bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white font-bold"
+                                                className="w-28 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-lg px-3 py-2 text-[var(--text-primary)] font-bold"
                                                 value={rate.price}
                                                 onChange={e => {
                                                     const next = [...durationRates];
@@ -1088,10 +1125,10 @@ export default function SettingsPage() {
                                                     setDurationRates(next);
                                                 }}
                                             />
-                                            <span className="text-xs text-gray-500 uppercase font-bold">€</span>
+                                            <span className="text-xs text-[var(--text-tertiary)] uppercase font-bold">€</span>
                                             <button
                                                 onClick={() => setDurationRates(durationRates.filter((_, i) => i !== idx))}
-                                                className="ml-auto text-xs font-bold bg-red-500/10 text-red-400 px-3 py-1.5 rounded-lg border border-red-500/30 hover:bg-red-500 hover:text-white transition-colors"
+                                                className="ml-auto text-xs font-bold bg-red-500/10 text-red-400 px-3 py-1.5 rounded-lg border border-red-500/30 hover:bg-red-500 hover:text-[var(--text-primary)] transition-colors"
                                             >
                                                 Eliminar
                                             </button>
@@ -1100,32 +1137,32 @@ export default function SettingsPage() {
                                     <div className="flex justify-end">
                                         <button
                                             onClick={saveDurationRates}
-                                            className="text-xs font-bold bg-green-500/20 text-green-400 px-4 py-2 rounded-lg border border-green-500/30 hover:bg-green-500 hover:text-white transition-colors"
+                                            className="text-xs font-bold bg-green-500/20 text-green-400 px-4 py-2 rounded-lg border border-green-500/30 hover:bg-green-500 hover:text-[var(--text-primary)] transition-colors"
                                         >
                                             Guardar tarifas
                                         </button>
                                     </div>
                                 </div>
 
-                                <div className="bg-gray-900/40 border border-gray-700 rounded-2xl p-5 space-y-4">
+                                <div className="bg-[var(--bg-card)]/40 border border-[var(--border-default)] rounded-2xl p-5 space-y-4">
                                     <div className="flex items-center justify-between">
-                                        <h3 className="text-sm font-black uppercase tracking-wider text-gray-300">Descuentos por Duración</h3>
+                                        <h3 className="text-sm font-black uppercase tracking-wider text-[var(--text-secondary)]">Descuentos por Duración</h3>
                                         <button
                                             onClick={() => setDiscountRules([...discountRules, { minutes: 30, type: 'flat', value: 0 }])}
-                                            className="text-xs font-bold bg-blue-600/20 text-blue-400 px-3 py-1.5 rounded-lg border border-blue-500/30 hover:bg-blue-600 hover:text-white transition-colors"
+                                            className="text-xs font-bold bg-blue-600/20 text-blue-400 px-3 py-1.5 rounded-lg border border-blue-500/30 hover:bg-blue-600 hover:text-[var(--text-primary)] transition-colors"
                                         >
                                             Añadir descuento
                                         </button>
                                     </div>
                                     {discountRules.length === 0 && (
-                                        <p className="text-xs text-gray-500">Sin descuentos definidos.</p>
+                                        <p className="text-xs text-[var(--text-tertiary)]">Sin descuentos definidos.</p>
                                     )}
                                     {discountRules.map((rule, idx) => (
                                         <div key={`${rule.minutes}-${idx}`} className="flex items-center gap-3">
                                             <input
                                                 type="number"
                                                 min={1}
-                                                className="w-24 bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white font-bold"
+                                                className="w-24 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-lg px-3 py-2 text-[var(--text-primary)] font-bold"
                                                 value={rule.minutes}
                                                 onChange={e => {
                                                     const next = [...discountRules];
@@ -1133,9 +1170,9 @@ export default function SettingsPage() {
                                                     setDiscountRules(next);
                                                 }}
                                             />
-                                            <span className="text-xs text-gray-500 uppercase font-bold">min</span>
+                                            <span className="text-xs text-[var(--text-tertiary)] uppercase font-bold">min</span>
                                             <select
-                                                className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white font-bold"
+                                                className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-lg px-3 py-2 text-[var(--text-primary)] font-bold"
                                                 value={rule.type}
                                                 onChange={e => {
                                                     const next = [...discountRules];
@@ -1149,7 +1186,7 @@ export default function SettingsPage() {
                                             <input
                                                 type="number"
                                                 step="0.01"
-                                                className="w-24 bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white font-bold"
+                                                className="w-24 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-lg px-3 py-2 text-[var(--text-primary)] font-bold"
                                                 value={rule.value}
                                                 onChange={e => {
                                                     const next = [...discountRules];
@@ -1159,7 +1196,7 @@ export default function SettingsPage() {
                                             />
                                             <button
                                                 onClick={() => setDiscountRules(discountRules.filter((_, i) => i !== idx))}
-                                                className="ml-auto text-xs font-bold bg-red-500/10 text-red-400 px-3 py-1.5 rounded-lg border border-red-500/30 hover:bg-red-500 hover:text-white transition-colors"
+                                                className="ml-auto text-xs font-bold bg-red-500/10 text-red-400 px-3 py-1.5 rounded-lg border border-red-500/30 hover:bg-red-500 hover:text-[var(--text-primary)] transition-colors"
                                             >
                                                 Eliminar
                                             </button>
@@ -1168,31 +1205,31 @@ export default function SettingsPage() {
                                     <div className="flex justify-end">
                                         <button
                                             onClick={saveDiscountRules}
-                                            className="text-xs font-bold bg-green-500/20 text-green-400 px-4 py-2 rounded-lg border border-green-500/30 hover:bg-green-500 hover:text-white transition-colors"
+                                            className="text-xs font-bold bg-green-500/20 text-green-400 px-4 py-2 rounded-lg border border-green-500/30 hover:bg-green-500 hover:text-[var(--text-primary)] transition-colors"
                                         >
                                             Guardar descuentos
                                         </button>
                                     </div>
                                 </div>
 
-                                <div className="bg-gray-900/40 border border-gray-700 rounded-2xl p-5">
-                                    <h3 className="text-sm font-black uppercase tracking-wider text-gray-300 mb-3">Vista previa rápida</h3>
-                                    <div className="grid grid-cols-2 gap-3 text-sm text-gray-400">
+                                <div className="bg-[var(--bg-card)]/40 border border-[var(--border-default)] rounded-2xl p-5">
+                                    <h3 className="text-sm font-black uppercase tracking-wider text-[var(--text-secondary)] mb-3">Vista previa rápida</h3>
+                                    <div className="grid grid-cols-2 gap-3 text-sm text-[var(--text-tertiary)]">
                                         {[10, 15, 30, 60].map((mins) => (
-                                            <div key={mins} className="flex justify-between bg-gray-800/40 px-3 py-2 rounded-lg border border-gray-700">
+                                            <div key={mins} className="flex justify-between bg-[var(--bg-elevated)]/40 px-3 py-2 rounded-lg border border-[var(--border-default)]">
                                                 <span>{mins} min</span>
-                                                <span className="text-white font-bold">€{calculatePrice(mins, false, previewConfig)}</span>
+                                                <span className="text-[var(--text-primary)] font-bold">€{calculatePrice(mins, false, previewConfig)}</span>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
 
-                                <div className="bg-gray-900/40 border border-gray-700 rounded-2xl p-5 space-y-4">
-                                    <h3 className="text-sm font-black uppercase tracking-wider text-gray-300">Configuración de Pagos</h3>
-                                    <div className="flex items-center justify-between bg-gray-900/50 border border-gray-700/60 rounded-2xl p-4">
+                                <div className="bg-[var(--bg-card)]/40 border border-[var(--border-default)] rounded-2xl p-5 space-y-4">
+                                    <h3 className="text-sm font-black uppercase tracking-wider text-[var(--text-secondary)]">Configuración de Pagos</h3>
+                                    <div className="flex items-center justify-between bg-[var(--bg-card)]/50 border border-[var(--border-default)]/60 rounded-2xl p-4">
                                         <div>
-                                            <p className="text-sm font-bold text-gray-300">Pagos en kiosko</p>
-                                            <p className="text-xs text-gray-500">Activa o desactiva el flujo de pago en el kiosko</p>
+                                            <p className="text-sm font-bold text-[var(--text-secondary)]">Pagos en kiosko</p>
+                                            <p className="text-xs text-[var(--text-tertiary)]">Activa o desactiva el flujo de pago en el kiosko</p>
                                         </div>
                                         <button
                                             onClick={handlePaymentToggle}
@@ -1205,77 +1242,77 @@ export default function SettingsPage() {
                                             aria-busy={savingPaymentToggle}
                                         >
                                             <div className={cn(
-                                                "absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-transform",
+                                                "absolute top-1 left-1 w-5 h-5 rounded-full bg-[var(--bg-card)] transition-transform",
                                                 paymentEnabled && "translate-x-7"
                                             )} />
                                         </button>
                                     </div>
                                     <div className="grid grid-cols-1 gap-4">
                                         <div>
-                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Moneda</label>
+                                            <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">Moneda</label>
                                             <input
                                                 type="text"
-                                                className="w-full p-3 rounded-xl bg-gray-900 border border-gray-700 text-white font-bold outline-none focus:border-blue-500 transition-all"
+                                                className="w-full p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] text-[var(--text-primary)] font-bold outline-none focus:border-blue-500 transition-all"
                                                 value={paymentCurrency}
                                                 onChange={e => setPaymentCurrency(e.target.value)}
                                                 placeholder="EUR"
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">URL Kiosk Público</label>
+                                            <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">URL Kiosk Público</label>
                                             <input
                                                 type="text"
-                                                className="w-full p-3 rounded-xl bg-gray-900 border border-gray-700 text-white font-bold outline-none focus:border-blue-500 transition-all"
+                                                className="w-full p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] text-[var(--text-primary)] font-bold outline-none focus:border-blue-500 transition-all"
                                                 value={paymentPublicKioskUrl}
                                                 onChange={e => setPaymentPublicKioskUrl(e.target.value)}
                                                 placeholder="http://localhost:3010/kiosk"
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Stripe Secret Key</label>
+                                            <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">Stripe Secret Key</label>
                                             <input
                                                 type="password"
-                                                className="w-full p-3 rounded-xl bg-gray-900 border border-gray-700 text-white font-bold outline-none focus:border-blue-500 transition-all"
+                                                className="w-full p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] text-[var(--text-primary)] font-bold outline-none focus:border-blue-500 transition-all"
                                                 value={stripeSecretKey}
                                                 onChange={e => setStripeSecretKey(e.target.value)}
                                                 placeholder="sk_live_..."
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Stripe Webhook Secret</label>
+                                            <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">Stripe Webhook Secret</label>
                                             <input
                                                 type="password"
-                                                className="w-full p-3 rounded-xl bg-gray-900 border border-gray-700 text-white font-bold outline-none focus:border-blue-500 transition-all"
+                                                className="w-full p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] text-[var(--text-primary)] font-bold outline-none focus:border-blue-500 transition-all"
                                                 value={stripeWebhookSecret}
                                                 onChange={e => setStripeWebhookSecret(e.target.value)}
                                                 placeholder="whsec_..."
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Stripe Success URL</label>
+                                            <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">Stripe Success URL</label>
                                             <input
                                                 type="text"
-                                                className="w-full p-3 rounded-xl bg-gray-900 border border-gray-700 text-white font-bold outline-none focus:border-blue-500 transition-all"
+                                                className="w-full p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] text-[var(--text-primary)] font-bold outline-none focus:border-blue-500 transition-all"
                                                 value={stripeSuccessUrl}
                                                 onChange={e => setStripeSuccessUrl(e.target.value)}
                                                 placeholder="http://localhost:3010/kiosk?payment=success"
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Stripe Cancel URL</label>
+                                            <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">Stripe Cancel URL</label>
                                             <input
                                                 type="text"
-                                                className="w-full p-3 rounded-xl bg-gray-900 border border-gray-700 text-white font-bold outline-none focus:border-blue-500 transition-all"
+                                                className="w-full p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] text-[var(--text-primary)] font-bold outline-none focus:border-blue-500 transition-all"
                                                 value={stripeCancelUrl}
                                                 onChange={e => setStripeCancelUrl(e.target.value)}
                                                 placeholder="http://localhost:3010/kiosk?payment=cancel"
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Bizum Receptor</label>
+                                            <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">Bizum Receptor</label>
                                             <input
                                                 type="text"
-                                                className="w-full p-3 rounded-xl bg-gray-900 border border-gray-700 text-white font-bold outline-none focus:border-blue-500 transition-all"
+                                                className="w-full p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] text-[var(--text-primary)] font-bold outline-none focus:border-blue-500 transition-all"
                                                 value={bizumReceiver}
                                                 onChange={e => setBizumReceiver(e.target.value)}
                                                 placeholder="600000000"
@@ -1286,7 +1323,7 @@ export default function SettingsPage() {
                                         <button
                                             onClick={savePaymentConfig}
                                             disabled={savingPaymentConfig}
-                                            className="text-xs font-bold bg-blue-600/20 text-blue-400 px-4 py-2 rounded-lg border border-blue-500/30 hover:bg-blue-600 hover:text-white transition-colors disabled:opacity-60"
+                                            className="text-xs font-bold bg-blue-600/20 text-blue-400 px-4 py-2 rounded-lg border border-blue-500/30 hover:bg-blue-600 hover:text-[var(--text-primary)] transition-colors disabled:opacity-60"
                                         >
                                             {savingPaymentConfig ? 'Guardando...' : 'Guardar configuración'}
                                         </button>
@@ -1300,36 +1337,36 @@ export default function SettingsPage() {
                 {/* --- TAB: SIM CONFIG --- */}
                 {activeTab === 'sim' && (
                     <div className="max-w-4xl space-y-8 animate-in fade-in duration-300">
-                        <div className="bg-gray-800 p-8 rounded-3xl border border-gray-700">
-                            <h2 className="text-xl font-black text-white uppercase mb-6 flex items-center">
+                        <div className="bg-[var(--bg-elevated)] p-8 rounded-3xl border border-[var(--border-default)]">
+                            <h2 className="text-xl font-black text-[var(--text-primary)] uppercase mb-6 flex items-center">
                                 <Zap className="mr-2 text-yellow-400" /> Configuración Global de Carrera
                             </h2>
-                            <p className="text-gray-400 mb-8 text-sm">Estos ajustes se aplicarán a todas las sesiones iniciadas desde el Kiosko o Dashboard.</p>
+                            <p className="text-[var(--text-tertiary)] mb-8 text-sm">Estos ajustes se aplicarán a todas las sesiones iniciadas desde el Kiosko o Dashboard.</p>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                 {/* Gameplay Aids */}
                                 <div className="space-y-6">
-                                    <h3 className="text-xs font-black text-gray-500 uppercase tracking-[0.2em] border-b border-gray-700 pb-2">Ayudas y Gameplay</h3>
+                                    <h3 className="text-xs font-black text-[var(--text-tertiary)] uppercase tracking-[0.2em] border-b border-[var(--border-default)] pb-2">Ayudas y Gameplay</h3>
 
                                     <div className="space-y-4">
-                                        <div className="flex items-center justify-between bg-gray-900/40 p-4 rounded-2xl border border-gray-700/50">
+                                        <div className="flex items-center justify-between bg-[var(--bg-card)]/40 p-4 rounded-2xl border border-[var(--border-default)]/50">
                                             <div>
-                                                <p className="font-bold text-white">Modo Drift (Puntos)</p>
-                                                <p className="text-xs text-gray-500">Activa el sistema de puntuación para drift</p>
+                                                <p className="font-bold text-[var(--text-primary)]">Modo Drift (Puntos)</p>
+                                                <p className="text-xs text-[var(--text-tertiary)]">Activa el sistema de puntuación para drift</p>
                                             </div>
                                             <button
                                                 onClick={() => updateBranding.mutate({ key: 'sim_drift_mode', value: safeBranding.find(s => s.key === 'sim_drift_mode')?.value === 'true' ? 'false' : 'true' })}
                                                 className={cn("w-14 h-7 rounded-full transition-all relative", safeBranding.find(s => s.key === 'sim_drift_mode')?.value === 'true' ? "bg-purple-500" : "bg-gray-600")}
                                             >
-                                                <div className={cn("absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-transform", safeBranding.find(s => s.key === 'sim_drift_mode')?.value === 'true' && "translate-x-7")} />
+                                                <div className={cn("absolute top-1 left-1 w-5 h-5 rounded-full bg-[var(--bg-card)] transition-transform", safeBranding.find(s => s.key === 'sim_drift_mode')?.value === 'true' && "translate-x-7")} />
                                             </button>
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
-                                                <label className="block text-xs font-black text-gray-500 uppercase mb-2">ABS</label>
+                                                <label className="block text-xs font-black text-[var(--text-tertiary)] uppercase mb-2">ABS</label>
                                                 <select
-                                                    className="w-full p-3 rounded-xl bg-gray-900 border border-gray-700 text-white text-sm outline-none focus:border-blue-500"
+                                                    className="w-full p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] text-[var(--text-primary)] text-sm outline-none focus:border-blue-500"
                                                     value={safeBranding.find(s => s.key === 'sim_abs_mode')?.value || '1'}
                                                     onChange={e => updateBranding.mutate({ key: 'sim_abs_mode', value: e.target.value })}
                                                 >
@@ -1339,9 +1376,9 @@ export default function SettingsPage() {
                                                 </select>
                                             </div>
                                             <div>
-                                                <label className="block text-xs font-black text-gray-500 uppercase mb-2">Traction Control</label>
+                                                <label className="block text-xs font-black text-[var(--text-tertiary)] uppercase mb-2">Traction Control</label>
                                                 <select
-                                                    className="w-full p-3 rounded-xl bg-gray-900 border border-gray-700 text-white text-sm outline-none focus:border-blue-500"
+                                                    className="w-full p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] text-[var(--text-primary)] text-sm outline-none focus:border-blue-500"
                                                     value={safeBranding.find(s => s.key === 'sim_tc_mode')?.value || '1'}
                                                     onChange={e => updateBranding.mutate({ key: 'sim_tc_mode', value: e.target.value })}
                                                 >
@@ -1353,32 +1390,32 @@ export default function SettingsPage() {
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-4">
-                                            <div className="flex items-center justify-between bg-gray-900/40 p-3 rounded-xl border border-gray-700/50">
+                                            <div className="flex items-center justify-between bg-[var(--bg-card)]/40 p-3 rounded-xl border border-[var(--border-default)]/50">
                                                 <div>
-                                                    <p className="font-bold text-white text-sm">Auto Clutch</p>
+                                                    <p className="font-bold text-[var(--text-primary)] text-sm">Auto Clutch</p>
                                                 </div>
                                                 <button
                                                     onClick={() => updateBranding.mutate({ key: 'sim_autoclutch', value: safeBranding.find(s => s.key === 'sim_autoclutch')?.value === 'true' ? 'false' : 'true' })}
                                                     className={cn("w-10 h-5 rounded-full transition-all relative", safeBranding.find(s => s.key === 'sim_autoclutch')?.value === 'true' ? "bg-blue-500" : "bg-gray-600")}
                                                 >
-                                                    <div className={cn("absolute top-1 left-1 w-3 h-3 rounded-full bg-white transition-transform", safeBranding.find(s => s.key === 'sim_autoclutch')?.value === 'true' && "translate-x-5")} />
+                                                    <div className={cn("absolute top-1 left-1 w-3 h-3 rounded-full bg-[var(--bg-card)] transition-transform", safeBranding.find(s => s.key === 'sim_autoclutch')?.value === 'true' && "translate-x-5")} />
                                                 </button>
                                             </div>
-                                            <div className="flex items-center justify-between bg-gray-900/40 p-3 rounded-xl border border-gray-700/50">
+                                            <div className="flex items-center justify-between bg-[var(--bg-card)]/40 p-3 rounded-xl border border-[var(--border-default)]/50">
                                                 <div>
-                                                    <p className="font-bold text-white text-sm">Mantas Térmicas</p>
+                                                    <p className="font-bold text-[var(--text-primary)] text-sm">Mantas Térmicas</p>
                                                 </div>
                                                 <button
                                                     onClick={() => updateBranding.mutate({ key: 'sim_tyre_blankets', value: safeBranding.find(s => s.key === 'sim_tyre_blankets')?.value === 'true' ? 'false' : 'true' })}
                                                     className={cn("w-10 h-5 rounded-full transition-all relative", safeBranding.find(s => s.key === 'sim_tyre_blankets')?.value === 'true' ? "bg-green-500" : "bg-gray-600")}
                                                 >
-                                                    <div className={cn("absolute top-1 left-1 w-3 h-3 rounded-full bg-white transition-transform", safeBranding.find(s => s.key === 'sim_tyre_blankets')?.value === 'true' && "translate-x-5")} />
+                                                    <div className={cn("absolute top-1 left-1 w-3 h-3 rounded-full bg-[var(--bg-card)] transition-transform", safeBranding.find(s => s.key === 'sim_tyre_blankets')?.value === 'true' && "translate-x-5")} />
                                                 </button>
                                             </div>
                                         </div>
 
                                         <div>
-                                            <label className="block text-xs font-black text-gray-500 uppercase mb-3">Estabilidad (Stability Control)</label>
+                                            <label className="block text-xs font-black text-[var(--text-tertiary)] uppercase mb-3">Estabilidad (Stability Control)</label>
                                             <div className="flex items-center gap-4">
                                                 <input
                                                     type="range" min="0" max="100" step="10"
@@ -1393,7 +1430,7 @@ export default function SettingsPage() {
 
                                     <div className="space-y-2">
                                         <div className="flex justify-between items-center">
-                                            <label className="text-sm font-bold text-gray-300">Consumo de Combustible ({safeBranding.find(s => s.key === 'sim_fuel_rate')?.value || 1}x)</label>
+                                            <label className="text-sm font-bold text-[var(--text-secondary)]">Consumo de Combustible ({safeBranding.find(s => s.key === 'sim_fuel_rate')?.value || 1}x)</label>
                                             <Activity size={14} className="text-orange-500" />
                                         </div>
                                         <input
@@ -1406,7 +1443,7 @@ export default function SettingsPage() {
 
                                     <div className="space-y-2">
                                         <div className="flex justify-between items-center">
-                                            <label className="text-sm font-bold text-gray-300">Desgaste Neumáticos ({safeBranding.find(s => s.key === 'sim_tyre_wear')?.value || 1}x)</label>
+                                            <label className="text-sm font-bold text-[var(--text-secondary)]">Desgaste Neumáticos ({safeBranding.find(s => s.key === 'sim_tyre_wear')?.value || 1}x)</label>
                                             <Truck size={14} className="text-blue-500" />
                                         </div>
                                         <input
@@ -1417,23 +1454,23 @@ export default function SettingsPage() {
                                         />
                                     </div>
 
-                                    <div className="flex items-center justify-between bg-gray-900/40 p-4 rounded-2xl border border-gray-700/50">
+                                    <div className="flex items-center justify-between bg-[var(--bg-card)]/40 p-4 rounded-2xl border border-[var(--border-default)]/50">
                                         <div>
-                                            <p className="font-bold text-white">Fallo Mecánico</p>
-                                            <p className="text-xs text-gray-500">Daño al motor por sobrerrégimen</p>
+                                            <p className="font-bold text-[var(--text-primary)]">Fallo Mecánico</p>
+                                            <p className="text-xs text-[var(--text-tertiary)]">Daño al motor por sobrerrégimen</p>
                                         </div>
                                         <button
                                             onClick={() => updateBranding.mutate({ key: 'sim_mech_damage', value: safeBranding.find(s => s.key === 'sim_mech_damage')?.value === 'true' ? 'false' : 'true' })}
                                             className={cn("w-14 h-7 rounded-full transition-all relative", safeBranding.find(s => s.key === 'sim_mech_damage')?.value === 'true' ? "bg-red-500" : "bg-gray-600")}
                                         >
-                                            <div className={cn("absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-transform", safeBranding.find(s => s.key === 'sim_mech_damage')?.value === 'true' && "translate-x-7")} />
+                                            <div className={cn("absolute top-1 left-1 w-5 h-5 rounded-full bg-[var(--bg-card)] transition-transform", safeBranding.find(s => s.key === 'sim_mech_damage')?.value === 'true' && "translate-x-7")} />
                                         </button>
                                     </div>
 
                                     <div>
-                                        <label className="block text-xs font-black text-gray-500 uppercase mb-3">Sanción Salida en Falso</label>
+                                        <label className="block text-xs font-black text-[var(--text-tertiary)] uppercase mb-3">Sanción Salida en Falso</label>
                                         <select
-                                            className="w-full p-4 rounded-xl bg-gray-900 border border-gray-700 text-white font-bold outline-none focus:border-red-500"
+                                            className="w-full p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] text-[var(--text-primary)] font-bold outline-none focus:border-red-500"
                                             value={safeBranding.find(s => s.key === 'sim_jump_start')?.value || '1'}
                                             onChange={e => updateBranding.mutate({ key: 'sim_jump_start', value: e.target.value })}
                                         >
@@ -1446,25 +1483,25 @@ export default function SettingsPage() {
                             </div>
 
                             {/* IA Configuration */}
-                            <div className="mt-8 border-t border-gray-700 pt-8">
-                                <h3 className="text-xs font-black text-gray-500 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                            <div className="mt-8 border-t border-[var(--border-default)] pt-8">
+                                <h3 className="text-xs font-black text-[var(--text-tertiary)] uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
                                     <Bot size={16} className="text-purple-500" /> Configuración de IA (Rivales)
                                 </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                     <div>
-                                        <label className="block text-xs font-black text-gray-500 uppercase mb-3">Cantidad de IA</label>
+                                        <label className="block text-xs font-black text-[var(--text-tertiary)] uppercase mb-3">Cantidad de IA</label>
                                         <input
                                             type="number"
                                             min="0" max="30"
-                                            className="w-full p-4 rounded-xl bg-gray-900 border border-gray-700 text-white font-bold outline-none focus:border-purple-500"
+                                            className="w-full p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] text-[var(--text-primary)] font-bold outline-none focus:border-purple-500"
                                             placeholder="0 (Solo hotlap)"
                                             value={safeBranding.find(s => s.key === 'sim_ai_count')?.value || '0'}
                                             onChange={e => updateBranding.mutate({ key: 'sim_ai_count', value: e.target.value })}
                                         />
-                                        <p className="text-xs text-gray-500 mt-2">0 = Sin rivales. Máx depende de los pits de la pista.</p>
+                                        <p className="text-xs text-[var(--text-tertiary)] mt-2">0 = Sin rivales. Máx depende de los pits de la pista.</p>
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-black text-gray-500 uppercase mb-3">Nivel de Habilidad ({safeBranding.find(s => s.key === 'sim_ai_level')?.value || 90}%)</label>
+                                        <label className="block text-xs font-black text-[var(--text-tertiary)] uppercase mb-3">Nivel de Habilidad ({safeBranding.find(s => s.key === 'sim_ai_level')?.value || 90}%)</label>
                                         <input
                                             type="range" min="70" max="100" step="1"
                                             className="w-full h-2 bg-gray-700 rounded-lg cursor-pointer accent-purple-500"
@@ -1473,7 +1510,7 @@ export default function SettingsPage() {
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-black text-gray-500 uppercase mb-3">Agresividad ({safeBranding.find(s => s.key === 'sim_ai_aggression')?.value || 50}%)</label>
+                                        <label className="block text-xs font-black text-[var(--text-tertiary)] uppercase mb-3">Agresividad ({safeBranding.find(s => s.key === 'sim_ai_aggression')?.value || 50}%)</label>
                                         <input
                                             type="range" min="0" max="100" step="5"
                                             className="w-full h-2 bg-gray-700 rounded-lg cursor-pointer accent-red-500"
@@ -1484,19 +1521,19 @@ export default function SettingsPage() {
                                 </div>
                             </div>
 
-                            <div className="mt-8 border-t border-gray-700 pt-8">
-                                <h3 className="text-xs font-black text-gray-500 uppercase tracking-[0.2em] mb-6">Configuración de Neumáticos</h3>
+                            <div className="mt-8 border-t border-[var(--border-default)] pt-8">
+                                <h3 className="text-xs font-black text-[var(--text-tertiary)] uppercase tracking-[0.2em] mb-6">Configuración de Neumáticos</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     <div>
-                                        <label className="block text-xs font-black text-gray-500 uppercase mb-3">Compuesto por Defecto (Index o Nombre)</label>
+                                        <label className="block text-xs font-black text-[var(--text-tertiary)] uppercase mb-3">Compuesto por Defecto (Index o Nombre)</label>
                                         <input
                                             type="text"
-                                            className="w-full p-4 rounded-xl bg-gray-900 border border-gray-700 text-white font-bold outline-none focus:border-blue-500"
+                                            className="w-full p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] text-[var(--text-primary)] font-bold outline-none focus:border-blue-500"
                                             placeholder="Semislicks, slicks, 0, 1..."
                                             defaultValue={safeBranding.find(s => s.key === 'sim_tyre_compound')?.value || 'Semislicks'}
                                             onBlur={e => updateBranding.mutate({ key: 'sim_tyre_compound', value: e.target.value })}
                                         />
-                                        <p className="text-xs text-gray-500 mt-2">Semislicks suele ser el neumático de calle con más agarre. '0' suele ser el primero de la lista.</p>
+                                        <p className="text-xs text-[var(--text-tertiary)] mt-2">Semislicks suele ser el neumático de calle con más agarre. '0' suele ser el primero de la lista.</p>
                                     </div>
                                 </div>
                             </div>
@@ -1509,32 +1546,32 @@ export default function SettingsPage() {
                     <div className="space-y-4 max-w-5xl animate-in fade-in duration-300">
                         <div className="flex flex-col gap-3">
                             <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
-                                <h2 className="text-lg font-black text-white uppercase tracking-wide">Simuladores</h2>
+                                <h2 className="text-lg font-black text-[var(--text-primary)] uppercase tracking-wide">Simuladores</h2>
                                 <div className="flex flex-wrap items-center gap-2 xl:justify-end">
                                     <button
                                         onClick={() => queryClient.invalidateQueries({ queryKey: ['stations'] })}
-                                        className="px-3 py-2 rounded-lg bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700 transition-all text-xs font-bold uppercase tracking-widest flex items-center gap-2"
+                                        className="px-3 py-2 rounded-lg bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] transition-all text-xs font-bold uppercase tracking-widest flex items-center gap-2"
                                         title="Actualizar lista"
                                     >
                                         <RefreshCw size={14} /> Actualizar
                                     </button>
                                     <button
                                         onClick={() => window.location.href = '/hardware'}
-                                        className="px-3 py-2 rounded-lg bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700 transition-all text-xs font-bold uppercase tracking-widest flex items-center gap-2"
+                                        className="px-3 py-2 rounded-lg bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] transition-all text-xs font-bold uppercase tracking-widest flex items-center gap-2"
                                         title="Monitor de salud"
                                     >
                                         <AlertTriangle size={14} /> Salud
                                     </button>
                                     <button
                                         onClick={() => setShowInactiveStations(!showInactiveStations)}
-                                        className={`px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${showInactiveStations ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700'}`}
+                                        className={`px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${showInactiveStations ? 'bg-blue-600 text-[var(--text-primary)]' : 'bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)]'}`}
                                         title="Mostrar estaciones inactivas"
                                     >
                                         {showInactiveStations ? 'Ocultar inactivas' : 'Mostrar inactivas'}
                                     </button>
                                     <button
                                         onClick={() => setShowGhostStations(!showGhostStations)}
-                                        className={`px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${showGhostStations ? 'bg-yellow-500 text-black' : 'bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700'}`}
+                                        className={`px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${showGhostStations ? 'bg-yellow-500 text-black' : 'bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)]'}`}
                                         title="Mostrar estaciones fantasma"
                                     >
                                         {showGhostStations ? 'Ocultar fantasmas' : 'Mostrar fantasmas'}
@@ -1542,7 +1579,7 @@ export default function SettingsPage() {
                                     <select
                                         value={ghostThresholdHours}
                                         onChange={(e) => setGhostThresholdHours(Number(e.target.value))}
-                                        className="px-3 py-2 rounded-lg bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700 transition-all text-xs font-bold uppercase tracking-widest"
+                                        className="px-3 py-2 rounded-lg bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] transition-all text-xs font-bold uppercase tracking-widest"
                                         title="Umbral de fantasma"
                                     >
                                         <option value={6}>Fantasma 6h</option>
@@ -1557,7 +1594,7 @@ export default function SettingsPage() {
                                             }
                                         }}
                                         disabled={ghostStations.length === 0 || archiveGhostsMutation.isPending}
-                                        className="px-3 py-2 rounded-lg bg-gray-800 text-gray-300 hover:text-white hover:bg-red-600 transition-all text-xs font-bold uppercase tracking-widest flex items-center gap-2 disabled:opacity-50"
+                                        className="px-3 py-2 rounded-lg bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-red-600 transition-all text-xs font-bold uppercase tracking-widest flex items-center gap-2 disabled:opacity-50"
                                         title="Archivar estaciones fantasma"
                                     >
                                         <Trash2 size={14} /> Archivar fantasmas
@@ -1565,35 +1602,35 @@ export default function SettingsPage() {
                                 </div>
                             </div>
                             <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-widest">
-                                <span className="px-3 py-1 rounded-full bg-gray-800 text-gray-300">Total: {healthSummary.total}</span>
+                                <span className="px-3 py-1 rounded-full bg-[var(--bg-elevated)] text-[var(--text-secondary)]">Total: {healthSummary.total}</span>
                                 <span className="px-3 py-1 rounded-full bg-green-500/20 text-green-400">Online: {healthSummary.online}</span>
                                 <span className="px-3 py-1 rounded-full bg-red-500/20 text-red-400">Offline: {healthSummary.offline}</span>
                                 <span className="px-3 py-1 rounded-full bg-yellow-500/20 text-yellow-400">Alertas: {healthSummary.withAlerts}</span>
                                 <span className="px-3 py-1 rounded-full bg-yellow-500/10 text-yellow-300">Fantasma: {ghostStations.length}</span>
                             </div>
-                            <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-4 flex flex-col gap-4">
+                            <div className="bg-[var(--bg-card)]/60 border border-[var(--border-default)] rounded-2xl p-4 flex flex-col gap-4">
                                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                                    <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">Auto-archivado de fantasmas</h3>
+                                    <h3 className="text-xs font-black text-[var(--text-tertiary)] uppercase tracking-widest">Auto-archivado de fantasmas</h3>
                                     <button
                                         onClick={saveGhostArchiveConfig}
                                         disabled={savingGhostArchive}
-                                        className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-bold uppercase tracking-widest"
+                                        className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-[var(--text-primary)] text-xs font-bold uppercase tracking-widest"
                                     >
                                         {savingGhostArchive ? 'Guardando...' : 'Guardar'}
                                     </button>
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 text-xs">
-                                    <label className="flex flex-col gap-2 text-gray-400 font-bold uppercase tracking-widest">
+                                    <label className="flex flex-col gap-2 text-[var(--text-tertiary)] font-bold uppercase tracking-widest">
                                         Horas sin ver
                                         <input
                                             type="number"
                                             min={1}
                                             value={ghostArchiveHours}
                                             onChange={(e) => setGhostArchiveHours(Number(e.target.value))}
-                                            className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white font-bold"
+                                            className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-lg px-3 py-2 text-[var(--text-primary)] font-bold"
                                         />
                                     </label>
-                                    <label className="flex flex-col gap-2 text-gray-400 font-bold uppercase tracking-widest">
+                                    <label className="flex flex-col gap-2 text-[var(--text-tertiary)] font-bold uppercase tracking-widest">
                                         Hora (0-23)
                                         <input
                                             type="number"
@@ -1601,10 +1638,10 @@ export default function SettingsPage() {
                                             max={23}
                                             value={ghostArchiveHour}
                                             onChange={(e) => setGhostArchiveHour(Number(e.target.value))}
-                                            className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white font-bold"
+                                            className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-lg px-3 py-2 text-[var(--text-primary)] font-bold"
                                         />
                                     </label>
-                                    <label className="flex flex-col gap-2 text-gray-400 font-bold uppercase tracking-widest">
+                                    <label className="flex flex-col gap-2 text-[var(--text-tertiary)] font-bold uppercase tracking-widest">
                                         Minuto
                                         <input
                                             type="number"
@@ -1612,10 +1649,10 @@ export default function SettingsPage() {
                                             max={59}
                                             value={ghostArchiveMinute}
                                             onChange={(e) => setGhostArchiveMinute(Number(e.target.value))}
-                                            className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white font-bold"
+                                            className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-lg px-3 py-2 text-[var(--text-primary)] font-bold"
                                         />
                                     </label>
-                                    <label className="flex items-center gap-2 text-gray-400 font-bold uppercase tracking-widest sm:col-span-2 xl:col-span-1">
+                                    <label className="flex items-center gap-2 text-[var(--text-tertiary)] font-bold uppercase tracking-widest sm:col-span-2 xl:col-span-1">
                                         <input
                                             type="checkbox"
                                             checked={ghostArchiveIncludeNeverSeen}
@@ -1625,7 +1662,7 @@ export default function SettingsPage() {
                                         Incluir nunca vistas
                                     </label>
                                 </div>
-                                <p className="text-[10px] text-gray-500">
+                                <p className="text-[10px] text-[var(--text-tertiary)]">
                                     El horario se lee al iniciar el backend. Reinicia el servidor si cambias la hora.
                                 </p>
                             </div>
@@ -1633,15 +1670,15 @@ export default function SettingsPage() {
 
                         <div className="grid gap-4">
                             {(!stations || stations.length === 0) && (
-                                <div className="bg-gray-800/50 border border-gray-700/50 rounded-2xl p-12 text-center">
+                                <div className="bg-[var(--bg-elevated)]/50 border border-[var(--border-default)]/50 rounded-2xl p-12 text-center">
                                     <MonitorPlay className="w-16 h-16 text-gray-700 mx-auto mb-4" />
-                                    <h3 className="text-xl font-bold text-gray-400 mb-2">No se detectan estaciones</h3>
+                                    <h3 className="text-xl font-bold text-[var(--text-tertiary)] mb-2">No se detectan estaciones</h3>
                                     <p className="text-gray-600">Asegúrate de que el agente (client.py) esté ejecutándose en los simuladores.</p>
                                 </div>
                             )}
                             {Array.isArray(stations) && stations.length > 0 && filteredStations.length === 0 && (
-                                <div className="bg-gray-800/50 border border-gray-700/50 rounded-2xl p-8 text-center">
-                                    <h3 className="text-lg font-bold text-gray-400 mb-2">No hay estaciones activas</h3>
+                                <div className="bg-[var(--bg-elevated)]/50 border border-[var(--border-default)]/50 rounded-2xl p-8 text-center">
+                                    <h3 className="text-lg font-bold text-[var(--text-tertiary)] mb-2">No hay estaciones activas</h3>
                                     <p className="text-gray-600">Activa "Mostrar inactivas" o "Mostrar fantasmas" para verlas.</p>
                                 </div>
                             )}
@@ -1658,12 +1695,12 @@ export default function SettingsPage() {
                                     "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
                                     isHealthOnline
                                         ? 'bg-green-500/20 text-green-400'
-                                        : (isGhost ? 'bg-yellow-500/20 text-yellow-400' : 'bg-gray-700 text-gray-500')
+                                        : (isGhost ? 'bg-yellow-500/20 text-yellow-400' : 'bg-gray-700 text-[var(--text-tertiary)]')
                                 );
                                 return (
-                                    <div key={station.id} className="bg-gray-800 p-6 rounded-2xl border border-gray-700 flex flex-col xl:flex-row gap-4 xl:justify-between xl:items-center">
+                                    <div key={station.id} className="bg-[var(--bg-elevated)] p-6 rounded-2xl border border-[var(--border-default)] flex flex-col xl:flex-row gap-4 xl:justify-between xl:items-center">
                                         <div className="flex items-start gap-4 md:gap-6 min-w-0">
-                                            <div className={cn("p-4 rounded-xl", isHealthOnline ? "bg-green-500/10 text-green-400" : "bg-gray-700/50 text-gray-500")}>
+                                            <div className={cn("p-4 rounded-xl", isHealthOnline ? "bg-green-500/10 text-green-400" : "bg-gray-700/50 text-[var(--text-tertiary)]")}>
                                                 {isHealthOnline ? <Wifi size={24} /> : <WifiOff size={24} />}
                                             </div>
                                             <div>
@@ -1672,23 +1709,23 @@ export default function SettingsPage() {
                                                         <input
                                                             value={editForm.name}
                                                             onChange={e => setEditForm({ ...editForm, name: e.target.value })}
-                                                            className="bg-gray-900 text-white font-bold p-2 rounded-lg border border-blue-500 outline-none w-full"
+                                                            className="bg-[var(--bg-card)] text-[var(--text-primary)] font-bold p-2 rounded-lg border border-blue-500 outline-none w-full"
                                                             placeholder="Nombre estación"
                                                             autoFocus
                                                         />
                                                         <input
                                                             value={editForm.ip}
                                                             onChange={e => setEditForm({ ...editForm, ip: e.target.value })}
-                                                            className="bg-gray-900 text-white p-2 rounded-lg border border-blue-500 outline-none w-full text-xs font-mono"
+                                                            className="bg-[var(--bg-card)] text-[var(--text-primary)] p-2 rounded-lg border border-blue-500 outline-none w-full text-xs font-mono"
                                                             placeholder="IP Address (ej. 192.168.1.50)"
                                                         />
                                                         <input
                                                             value={editForm.ac_path}
                                                             onChange={e => setEditForm({ ...editForm, ac_path: e.target.value })}
-                                                            className="bg-gray-900 text-white p-2 rounded-lg border border-blue-500 outline-none w-full text-[10px] font-mono"
+                                                            className="bg-[var(--bg-card)] text-[var(--text-primary)] p-2 rounded-lg border border-blue-500 outline-none w-full text-[10px] font-mono"
                                                             placeholder="Ruta Assetto Corsa (ej. C:\AC)"
                                                         />
-                                                        <label className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                                                        <label className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)]">
                                                             <input
                                                                 type="checkbox"
                                                                 checked={editForm.is_vr}
@@ -1699,11 +1736,11 @@ export default function SettingsPage() {
                                                         </label>
                                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px]">
                                                             <div className="flex flex-col gap-1">
-                                                                <span className="font-bold uppercase tracking-widest text-gray-400">Perfil de volante</span>
+                                                                <span className="font-bold uppercase tracking-widest text-[var(--text-tertiary)]">Perfil de volante</span>
                                                                 <select
                                                                     value={stationWheelDrafts[station.id] || ''}
                                                                     onChange={(e) => setStationWheelDrafts(prev => ({ ...prev, [station.id]: e.target.value }))}
-                                                                    className="bg-gray-900 text-white p-2 rounded-lg border border-blue-500/40 outline-none text-[10px]"
+                                                                    className="bg-[var(--bg-card)] text-[var(--text-primary)] p-2 rounded-lg border border-blue-500/40 outline-none text-[10px]"
                                                                 >
                                                                     <option value="">Sin cambio</option>
                                                                     {wheelProfiles.map((profile: any) => (
@@ -1720,20 +1757,20 @@ export default function SettingsPage() {
                                                                         }
                                                                         applyWheelProfileMutation.mutate({ stationId: station.id, profileId });
                                                                     }}
-                                                                    className="bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest"
+                                                                    className="bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest"
                                                                 >
                                                                     Aplicar perfil
                                                                 </button>
                                                             </div>
                                                             <div className="flex flex-col gap-1">
-                                                                <span className="font-bold uppercase tracking-widest text-gray-400">Presets (Gráficos / IA)</span>
+                                                                <span className="font-bold uppercase tracking-widest text-[var(--text-tertiary)]">Presets (Gráficos / IA)</span>
                                                                 <select
                                                                     value={stationPresetDrafts[station.id]?.video || ''}
                                                                     onChange={(e) => setStationPresetDrafts(prev => ({
                                                                         ...prev,
                                                                         [station.id]: { ...prev[station.id], video: e.target.value }
                                                                     }))}
-                                                                    className="bg-gray-900 text-white p-2 rounded-lg border border-blue-500/40 outline-none text-[10px]"
+                                                                    className="bg-[var(--bg-card)] text-[var(--text-primary)] p-2 rounded-lg border border-blue-500/40 outline-none text-[10px]"
                                                                 >
                                                                     <option value="">Gráficos (sin cambio)</option>
                                                                     {(profiles?.video || []).map((profile: string) => (
@@ -1746,7 +1783,7 @@ export default function SettingsPage() {
                                                                         ...prev,
                                                                         [station.id]: { ...prev[station.id], race: e.target.value }
                                                                     }))}
-                                                                    className="bg-gray-900 text-white p-2 rounded-lg border border-blue-500/40 outline-none text-[10px]"
+                                                                    className="bg-[var(--bg-card)] text-[var(--text-primary)] p-2 rounded-lg border border-blue-500/40 outline-none text-[10px]"
                                                                 >
                                                                     <option value="">IA / Carrera (sin cambio)</option>
                                                                     {(profiles?.race || []).map((profile: string) => (
@@ -1766,7 +1803,7 @@ export default function SettingsPage() {
                                                                         }
                                                                         applyStationPresetsMutation.mutate({ stationId: station.id, deployMap });
                                                                     }}
-                                                                    className="bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest"
+                                                                    className="bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest"
                                                                 >
                                                                     Aplicar presets
                                                                 </button>
@@ -1776,7 +1813,7 @@ export default function SettingsPage() {
                                                 ) : (
                                                     <div className="flex flex-col">
                                                         <div className="flex items-center space-x-2">
-                                                            <h3 className="text-lg font-black text-white uppercase">{station.name}</h3>
+                                                            <h3 className="text-lg font-black text-[var(--text-primary)] uppercase">{station.name}</h3>
                                                             <button
                                                                 onClick={() => {
                                                                     setEditingId(station.id);
@@ -1787,12 +1824,12 @@ export default function SettingsPage() {
                                                                         is_vr: !!station.is_vr
                                                                     });
                                                                 }}
-                                                                className="text-gray-600 hover:text-white"
+                                                                className="text-gray-600 hover:text-[var(--text-primary)]"
                                                             >
                                                                 <Edit2 size={14} />
                                                             </button>
                                                         </div>
-                                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-[10px] font-mono text-gray-500 uppercase font-black tracking-widest">
+                                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-[10px] font-mono text-[var(--text-tertiary)] uppercase font-black tracking-widest">
                                                             <span>{station.hostname}</span>
                                                             <span>•</span>
                                                             <span>{station.ip_address}</span>
@@ -1803,27 +1840,27 @@ export default function SettingsPage() {
                                                         <div className="text-[9px] text-gray-600 font-mono mt-1 opacity-60">
                                                             Visto: {formatLastSeen(station.last_seen)}
                                                         </div>
-                                                        <div className="text-[9px] text-gray-400 font-mono mt-2 flex flex-wrap items-center gap-2 bg-gray-900/50 p-1.5 rounded w-full sm:w-fit border border-gray-700/50">
-                                                            <span className="font-bold text-gray-500">KIOSK CODE:</span>
-                                                            <span className="text-white font-black tracking-widest text-xs select-all cursor-text break-all">{station.kiosk_code || '---'}</span>
+                                                        <div className="text-[9px] text-[var(--text-tertiary)] font-mono mt-2 flex flex-wrap items-center gap-2 bg-[var(--bg-card)]/50 p-1.5 rounded w-full sm:w-fit border border-[var(--border-default)]/50">
+                                                            <span className="font-bold text-[var(--text-tertiary)]">KIOSK CODE:</span>
+                                                            <span className="text-[var(--text-primary)] font-black tracking-widest text-xs select-all cursor-text break-all">{station.kiosk_code || '---'}</span>
                                                             <div className="h-3 w-[1px] bg-gray-700 mx-1"></div>
                                                             <button
                                                                 onClick={() => copyToClipboard(buildKioskLink(station.kiosk_code))}
-                                                                className="text-gray-500 hover:text-white"
+                                                                className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
                                                                 title="Copiar link"
                                                             >
                                                                 <Copy size={12} />
                                                             </button>
                                                             <button
                                                                 onClick={() => window.open(buildKioskLink(station.kiosk_code), '_blank')}
-                                                                className="text-gray-500 hover:text-white"
+                                                                className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
                                                                 title="Abrir kiosko"
                                                             >
                                                                 <Link2 size={12} />
                                                             </button>
                                                             <button
                                                                 onClick={() => setQrStationId(qrStationId === station.id ? null : station.id)}
-                                                                className={cn("hover:text-white", qrStationId === station.id ? "text-blue-400" : "text-gray-500")}
+                                                                className={cn("hover:text-[var(--text-primary)]", qrStationId === station.id ? "text-blue-400" : "text-[var(--text-tertiary)]")}
                                                                 title="Ver QR"
                                                             >
                                                                 <QrCode size={12} />
@@ -1834,7 +1871,7 @@ export default function SettingsPage() {
                                                                         kioskCodeMutation.mutate(station.id);
                                                                     }
                                                                 }}
-                                                                className="text-gray-500 hover:text-yellow-400 ml-1"
+                                                                className="text-[var(--text-tertiary)] hover:text-yellow-400 ml-1"
                                                                 title="Regenerar código"
                                                             >
                                                                 <RefreshCw size={10} />
@@ -1842,9 +1879,9 @@ export default function SettingsPage() {
                                                         </div>
 
                                                         {station.kiosk_code && qrStationId === station.id && (
-                                                            <div className="mt-3 inline-flex items-center gap-3 bg-gray-900/60 border border-gray-800 rounded-xl px-3 py-2">
+                                                            <div className="mt-3 inline-flex items-center gap-3 bg-[var(--bg-card)]/60 border border-[var(--border-default)] rounded-xl px-3 py-2">
                                                                 <QRCodeCanvas value={buildKioskLink(station.kiosk_code)} size={72} bgColor="#0f172a" fgColor="#e5e7eb" />
-                                                                <div className="text-[9px] text-gray-500">
+                                                                <div className="text-[9px] text-[var(--text-tertiary)]">
                                                                     <div className="font-bold uppercase tracking-widest">QR Kiosko</div>
                                                                     <div className="mt-1">Escanea para abrir</div>
                                                                 </div>
@@ -1854,7 +1891,7 @@ export default function SettingsPage() {
                                                             <div className="text-[10px] text-yellow-300 font-bold mt-2 flex items-center gap-2">
                                                                 <AlertTriangle size={12} />
                                                                 <span>{alertCount} alertas</span>
-                                                                <span className="text-gray-500 font-normal">
+                                                                <span className="text-[var(--text-tertiary)] font-normal">
                                                                     {alertPreview.join(', ')}
                                                                 </span>
                                                             </div>
@@ -1877,35 +1914,35 @@ export default function SettingsPage() {
                                                 <div className="flex flex-wrap items-center justify-start xl:justify-end gap-2 max-w-full xl:max-w-[260px]">
                                                     <button
                                                         onClick={() => testConnectionMutation.mutate(station.id)}
-                                                        className="p-2 bg-gray-700/60 text-gray-300 rounded-lg hover:bg-gray-600 hover:text-white transition-all"
+                                                        className="p-2 bg-gray-700/60 text-[var(--text-secondary)] rounded-lg hover:bg-gray-600 hover:text-[var(--text-primary)] transition-all"
                                                         title="Test de conexion"
                                                     >
                                                         <CheckCircle size={14} />
                                                     </button>
                                                     <button
                                                         onClick={() => setSearchParams({ tab: 'logs', source: station.hostname || station.name })}
-                                                        className="p-2 bg-gray-700/60 text-gray-300 rounded-lg hover:bg-gray-600 hover:text-white transition-all"
+                                                        className="p-2 bg-gray-700/60 text-[var(--text-secondary)] rounded-lg hover:bg-gray-600 hover:text-[var(--text-primary)] transition-all"
                                                         title="Ver logs del agente"
                                                     >
                                                         <Terminal size={14} />
                                                     </button>
                                                     <button
                                                         onClick={() => kioskToggleMutation.mutate({ id: station.id, enabled: !station.is_kiosk_mode })}
-                                                        className={`p-2 rounded-lg transition-all ${station.is_kiosk_mode ? 'bg-blue-600 text-white' : 'bg-gray-700/60 text-gray-300 hover:bg-gray-600 hover:text-white'}`}
+                                                        className={`p-2 rounded-lg transition-all ${station.is_kiosk_mode ? 'bg-blue-600 text-[var(--text-primary)]' : 'bg-gray-700/60 text-[var(--text-secondary)] hover:bg-gray-600 hover:text-[var(--text-primary)]'}`}
                                                         title="Toggle kiosko"
                                                     >
                                                         <MonitorPlay size={14} />
                                                     </button>
                                                     <button
                                                         onClick={() => station.is_locked ? unlockMutation.mutate(station.id) : lockMutation.mutate(station.id)}
-                                                        className={`p-2 rounded-lg transition-all ${station.is_locked ? 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500 hover:text-black' : 'bg-gray-700/60 text-gray-300 hover:bg-gray-600 hover:text-white'}`}
+                                                        className={`p-2 rounded-lg transition-all ${station.is_locked ? 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500 hover:text-black' : 'bg-gray-700/60 text-[var(--text-secondary)] hover:bg-gray-600 hover:text-[var(--text-primary)]'}`}
                                                         title={station.is_locked ? "Desbloquear estacion" : "Bloquear estacion"}
                                                     >
                                                         {station.is_locked ? <Unlock size={14} /> : <Lock size={14} />}
                                                     </button>
                                                     <button
                                                         onClick={() => powerMutation.mutate({ id: station.id, action: 'power-on' })}
-                                                        className="p-2 bg-green-500/10 text-green-500 rounded-lg hover:bg-green-500 hover:text-white transition-all"
+                                                        className="p-2 bg-green-500/10 text-green-500 rounded-lg hover:bg-green-500 hover:text-[var(--text-primary)] transition-all"
                                                         title="Encender (Wake-on-LAN)"
                                                     >
                                                         <Zap size={14} />
@@ -1913,14 +1950,14 @@ export default function SettingsPage() {
                                                     <button
                                                         onClick={() => scanContentMutation.mutate(station.id)}
                                                         disabled={!isHealthOnline || scanContentMutation.isPending}
-                                                        className="p-2 bg-green-500/10 text-green-500 rounded-lg hover:bg-green-500 hover:text-white transition-all disabled:opacity-50"
+                                                        className="p-2 bg-green-500/10 text-green-500 rounded-lg hover:bg-green-500 hover:text-[var(--text-primary)] transition-all disabled:opacity-50"
                                                         title="Escanear contenido AC"
                                                     >
                                                         <Monitor size={14} />
                                                     </button>
                                                     <button
                                                         onClick={() => { setContentStationId(station.id); setContentTab('cars'); }}
-                                                        className="p-2 bg-gray-700/60 text-gray-300 rounded-lg hover:bg-gray-600 hover:text-white transition-all"
+                                                        className="p-2 bg-gray-700/60 text-[var(--text-secondary)] rounded-lg hover:bg-gray-600 hover:text-[var(--text-primary)] transition-all"
                                                         title="Ver contenido escaneado"
                                                     >
                                                         <Layout size={14} />
@@ -1928,7 +1965,7 @@ export default function SettingsPage() {
                                                     <button
                                                         onClick={() => syncContentMutation.mutate(station.id)}
                                                         disabled={!isHealthOnline || syncContentMutation.isPending}
-                                                        className="p-2 bg-blue-500/10 text-blue-500 rounded-lg hover:bg-blue-500 hover:text-white transition-all disabled:opacity-50"
+                                                        className="p-2 bg-blue-500/10 text-blue-500 rounded-lg hover:bg-blue-500 hover:text-[var(--text-primary)] transition-all disabled:opacity-50"
                                                         title="Forzar sync de contenido"
                                                     >
                                                         <RefreshCw size={14} />
@@ -1936,7 +1973,7 @@ export default function SettingsPage() {
                                                     <button
                                                         onClick={() => restartAgentMutation.mutate(station.id)}
                                                         disabled={!isHealthOnline || restartAgentMutation.isPending}
-                                                        className="p-2 bg-purple-500/10 text-purple-400 rounded-lg hover:bg-purple-500 hover:text-white transition-all disabled:opacity-50"
+                                                        className="p-2 bg-purple-500/10 text-purple-400 rounded-lg hover:bg-purple-500 hover:text-[var(--text-primary)] transition-all disabled:opacity-50"
                                                         title="Reiniciar agente"
                                                     >
                                                         <RotateCw size={14} />
@@ -1944,7 +1981,7 @@ export default function SettingsPage() {
                                                     <button
                                                         onClick={() => { if (confirm("¿Reiniciar estacion?")) powerMutation.mutate({ id: station.id, action: 'restart' }) }}
                                                         disabled={!isHealthOnline}
-                                                        className="p-2 bg-blue-500/10 text-blue-500 rounded-lg hover:bg-blue-500 hover:text-white transition-all disabled:opacity-50"
+                                                        className="p-2 bg-blue-500/10 text-blue-500 rounded-lg hover:bg-blue-500 hover:text-[var(--text-primary)] transition-all disabled:opacity-50"
                                                         title="Reiniciar PC"
                                                     >
                                                         <Activity size={14} />
@@ -1959,7 +1996,7 @@ export default function SettingsPage() {
                                                     </button>
                                                     <button
                                                         onClick={() => { if (confirm("¿Apagar estacion?")) powerMutation.mutate({ id: station.id, action: 'shutdown' }) }}
-                                                        className="p-2 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all"
+                                                        className="p-2 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500 hover:text-[var(--text-primary)] transition-all"
                                                         title="Apagar PC"
                                                     >
                                                         <Power size={14} />
@@ -1967,7 +2004,7 @@ export default function SettingsPage() {
                                                     {(station.is_active === false || station.status === 'archived') && (
                                                         <button
                                                             onClick={() => reactivateStationMutation.mutate(station.id)}
-                                                            className="p-2 bg-green-500/10 text-green-500 rounded-lg hover:bg-green-500 hover:text-white transition-all"
+                                                            className="p-2 bg-green-500/10 text-green-500 rounded-lg hover:bg-green-500 hover:text-[var(--text-primary)] transition-all"
                                                             title="Reactivar estacion"
                                                         >
                                                             <RefreshCw size={14} />
@@ -1980,7 +2017,7 @@ export default function SettingsPage() {
                                                             }
                                                         }}
                                                         disabled={isHealthOnline}
-                                                        className="p-2 bg-gray-700/60 text-gray-300 rounded-lg hover:bg-red-600 hover:text-white transition-all disabled:opacity-50"
+                                                        className="p-2 bg-gray-700/60 text-[var(--text-secondary)] rounded-lg hover:bg-red-600 hover:text-[var(--text-primary)] transition-all disabled:opacity-50"
                                                         title="Eliminar estacion"
                                                     >
                                                         <Trash2 size={14} />
@@ -1998,7 +2035,7 @@ export default function SettingsPage() {
                                                             is_vr: editForm.is_vr
                                                         }
                                                     })}
-                                                    className="bg-blue-600 p-2 rounded-lg text-white hover:bg-blue-500"
+                                                    className="bg-blue-600 p-2 rounded-lg text-[var(--text-primary)] hover:bg-blue-500"
                                                 >
                                                     <CheckCircle size={20} />
                                                 </button>
@@ -2019,7 +2056,7 @@ export default function SettingsPage() {
                             <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                                 {/* Categories Selector */}
                                 <div className="space-y-2">
-                                    <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest pl-2 mb-4">Categorías .ini</h3>
+                                    <h3 className="text-xs font-black text-[var(--text-tertiary)] uppercase tracking-widest pl-2 mb-4">Categorías .ini</h3>
                                     {AC_CATEGORIES.map(cat => (
                                         <button
                                             key={cat.id}
@@ -2030,8 +2067,8 @@ export default function SettingsPage() {
                                             className={cn(
                                                 "w-full flex items-center justify-between p-4 rounded-2xl border transition-all font-bold",
                                                 selectedCategory === cat.id
-                                                    ? "bg-gray-800 border-blue-500/50 text-white shadow-lg"
-                                                    : "bg-gray-900/50 border-transparent text-gray-500 hover:bg-gray-800"
+                                                    ? "bg-[var(--bg-elevated)] border-blue-500/50 text-[var(--text-primary)] shadow-lg"
+                                                    : "bg-[var(--bg-card)]/50 border-transparent text-[var(--text-tertiary)] hover:bg-[var(--bg-card-hover)]"
                                             )}
                                         >
                                             <div className="flex items-center gap-3">
@@ -2044,9 +2081,9 @@ export default function SettingsPage() {
 
                                 {/* Profiles and Deployment */}
                                 <div className="lg:col-span-3 space-y-6">
-                                    <div className="bg-gray-800 p-8 rounded-3xl border border-gray-700">
+                                    <div className="bg-[var(--bg-elevated)] p-8 rounded-3xl border border-[var(--border-default)]">
                                         <div className="flex justify-between items-center mb-8">
-                                            <h3 className="text-xl font-black text-white uppercase flex items-center gap-3">
+                                            <h3 className="text-xl font-black text-[var(--text-primary)] uppercase flex items-center gap-3">
                                                 <FileText className="text-blue-400" /> Perfiles Disponibles
                                             </h3>
                                             <button
@@ -2055,7 +2092,7 @@ export default function SettingsPage() {
                                                     setNewProfileName('');
                                                     setIsEditorOpen(true);
                                                 }}
-                                                className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-black uppercase flex items-center gap-2 transition-all shadow-lg"
+                                                className="bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] px-4 py-2 rounded-xl text-xs font-black uppercase flex items-center gap-2 transition-all shadow-lg"
                                             >
                                                 <Plus size={16} /> Crear Nuevo
                                             </button>
@@ -2063,13 +2100,13 @@ export default function SettingsPage() {
 
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             {profiles?.[selectedCategory]?.map((profile: string) => (
-                                                <div key={profile} className="bg-gray-900/50 p-4 rounded-2xl border border-gray-700 flex flex-col gap-4">
+                                                <div key={profile} className="bg-[var(--bg-card)]/50 p-4 rounded-2xl border border-[var(--border-default)] flex flex-col gap-4">
                                                     <div className="flex justify-between items-start">
                                                         <div>
-                                                            <p className="text-white font-black uppercase text-sm">{profile.replace('.ini', '')}</p>
-                                                            <p className="text-[10px] text-gray-500 font-mono mt-0.5">{profile}</p>
+                                                            <p className="text-[var(--text-primary)] font-black uppercase text-sm">{profile.replace('.ini', '')}</p>
+                                                            <p className="text-[10px] text-[var(--text-tertiary)] font-mono mt-0.5">{profile}</p>
                                                         </div>
-                                                        <button onClick={() => handleEditProfile(profile)} className="text-gray-500 hover:text-blue-400"><Edit2 size={16} /></button>
+                                                        <button onClick={() => handleEditProfile(profile)} className="text-[var(--text-tertiary)] hover:text-blue-400"><Edit2 size={16} /></button>
                                                     </div>
                                                     <button
                                                         onClick={() => setSelectedProfiles(prev => ({
@@ -2080,7 +2117,7 @@ export default function SettingsPage() {
                                                             "w-full py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border",
                                                             selectedProfiles[selectedCategory] === profile
                                                                 ? "bg-blue-500/20 text-blue-400 border-blue-500/50"
-                                                                : "bg-gray-800 text-gray-500 border-transparent hover:border-gray-600"
+                                                                : "bg-[var(--bg-elevated)] text-[var(--text-tertiary)] border-transparent hover:border-[var(--border-strong)]"
                                                         )}
                                                     >
                                                         {selectedProfiles[selectedCategory] === profile ? 'SELECCIONADO PARA DESPLIEGUE' : 'SELECCIONAR'}
@@ -2095,14 +2132,14 @@ export default function SettingsPage() {
                                         <div className="bg-blue-900/10 border border-blue-500/20 p-8 rounded-3xl flex flex-col gap-6">
                                             <div className="flex items-center justify-between gap-4 flex-wrap">
                                                 <div>
-                                                    <h4 className="text-lg font-black text-white uppercase">Lanzar Configuración</h4>
-                                                    <p className="text-sm text-gray-400">
+                                                    <h4 className="text-lg font-black text-[var(--text-primary)] uppercase">Lanzar Configuración</h4>
+                                                    <p className="text-sm text-[var(--text-tertiary)]">
                                                         Se enviarán {Object.keys(selectedProfiles).length} perfiles a
                                                         {selectedStationIds.length > 0 ? ` ${selectedStationIds.length} estación(es)` : ' TODAS las estaciones activas'}.
                                                     </p>
                                                 </div>
                                                 <div className="flex items-center gap-3">
-                                                    <span className="text-xs font-bold text-gray-400">Preflight estricto</span>
+                                                    <span className="text-xs font-bold text-[var(--text-tertiary)]">Preflight estricto</span>
                                                     <button
                                                         onClick={() => setStrictDeploy((prev) => !prev)}
                                                         className={cn(
@@ -2111,7 +2148,7 @@ export default function SettingsPage() {
                                                         )}
                                                     >
                                                         <div className={cn(
-                                                            "absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-transform",
+                                                            "absolute top-1 left-1 w-5 h-5 rounded-full bg-[var(--bg-card)] transition-transform",
                                                             strictDeploy && "translate-x-7"
                                                         )} />
                                                     </button>
@@ -2126,8 +2163,8 @@ export default function SettingsPage() {
                                                         className={cn(
                                                             "px-3 py-1.5 rounded-lg text-[10px] font-black transition-all border",
                                                             selectedStationIds.includes(s.id)
-                                                                ? "bg-blue-600 border-blue-400 text-white"
-                                                                : "bg-gray-800 border-gray-700 text-gray-500"
+                                                                ? "bg-blue-600 border-blue-400 text-[var(--text-primary)]"
+                                                                : "bg-[var(--bg-elevated)] border-[var(--border-default)] text-[var(--text-tertiary)]"
                                                         )}
                                                     >
                                                         {s.name}{s.is_online ? '' : ' (offline)'}
@@ -2143,20 +2180,20 @@ export default function SettingsPage() {
                                                             .map((s: any) => s.id);
                                                         setSelectedStationIds(ids);
                                                     }}
-                                                    className="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-xs font-bold text-gray-300 hover:bg-gray-700"
+                                                    className="px-3 py-2 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-default)] text-xs font-bold text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
                                                 >
                                                     Seleccionar todas
                                                 </button>
                                                 <button
                                                     onClick={() => setSelectedStationIds([])}
-                                                    className="px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 text-xs font-bold text-gray-400 hover:text-white"
+                                                    className="px-3 py-2 rounded-lg bg-[var(--bg-card)] border border-[var(--border-default)] text-xs font-bold text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
                                                 >
                                                     Limpiar selección
                                                 </button>
                                                 <button
                                                     disabled={deployMutation.isPending || Object.keys(selectedProfiles).length === 0}
                                                     onClick={() => deployMutation.mutate()}
-                                                    className="ml-auto bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest transition-all shadow-[0_0_30px_rgba(37,99,235,0.3)] flex items-center gap-3"
+                                                    className="ml-auto bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-[var(--text-primary)] px-8 py-4 rounded-2xl font-black uppercase tracking-widest transition-all shadow-[0_0_30px_rgba(37,99,235,0.3)] flex items-center gap-3"
                                                 >
                                                     <Upload size={20} />
                                                     {deployMutation.isPending ? 'DESPLEGANDO...' : 'DESPLEGAR AHORA'}
@@ -2165,8 +2202,8 @@ export default function SettingsPage() {
                                         </div>
 
                                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                            <div className="bg-gray-800 p-6 rounded-3xl border border-gray-700 space-y-4">
-                                                <h4 className="text-sm font-black uppercase tracking-wider text-gray-300 flex items-center gap-2">
+                                            <div className="bg-[var(--bg-elevated)] p-6 rounded-3xl border border-[var(--border-default)] space-y-4">
+                                                <h4 className="text-sm font-black uppercase tracking-wider text-[var(--text-secondary)] flex items-center gap-2">
                                                     <Layout size={16} className="text-blue-400" /> Grupos De Estaciones
                                                 </h4>
                                                 <div className="flex gap-2">
@@ -2174,7 +2211,7 @@ export default function SettingsPage() {
                                                         value={newGroupName}
                                                         onChange={(e) => setNewGroupName(e.target.value)}
                                                         placeholder="Nombre del grupo"
-                                                        className="flex-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white"
+                                                        className="flex-1 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)]"
                                                     />
                                                     <button
                                                         onClick={() => {
@@ -2186,7 +2223,7 @@ export default function SettingsPage() {
                                                             }
                                                             saveGroupMutation.mutate({ name, station_ids: selectedStationIds });
                                                         }}
-                                                        className="px-3 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-500"
+                                                        className="px-3 py-2 rounded-xl bg-blue-600 text-[var(--text-primary)] text-xs font-bold hover:bg-blue-500"
                                                     >
                                                         Guardar
                                                     </button>
@@ -2196,7 +2233,7 @@ export default function SettingsPage() {
                                                     <select
                                                         value={selectedGroupName}
                                                         onChange={(e) => setSelectedGroupName(e.target.value)}
-                                                        className="flex-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white"
+                                                        className="flex-1 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-xl px-3 py-2 text-sm text-[var(--text-primary)]"
                                                     >
                                                         <option value="">Selecciona grupo</option>
                                                         {stationGroups.map((group) => (
@@ -2210,7 +2247,7 @@ export default function SettingsPage() {
                                                             if (!selectedGroupName) return;
                                                             applyGroupSelection(selectedGroupName);
                                                         }}
-                                                        className="px-3 py-2 rounded-xl bg-gray-700 text-white text-xs font-bold hover:bg-gray-600"
+                                                        className="px-3 py-2 rounded-xl bg-gray-700 text-[var(--text-primary)] text-xs font-bold hover:bg-gray-600"
                                                     >
                                                         Cargar
                                                     </button>
@@ -2221,20 +2258,20 @@ export default function SettingsPage() {
                                                                 deleteGroupMutation.mutate(selectedGroupName);
                                                             }
                                                         }}
-                                                        className="px-3 py-2 rounded-xl bg-red-500/20 border border-red-500/30 text-red-300 text-xs font-bold hover:bg-red-500 hover:text-white"
+                                                        className="px-3 py-2 rounded-xl bg-red-500/20 border border-red-500/30 text-red-300 text-xs font-bold hover:bg-red-500 hover:text-[var(--text-primary)]"
                                                     >
                                                         Borrar
                                                     </button>
                                                 </div>
                                             </div>
 
-                                            <div className="bg-gray-800 p-6 rounded-3xl border border-gray-700 space-y-4">
-                                                <h4 className="text-sm font-black uppercase tracking-wider text-gray-300 flex items-center gap-2">
+                                            <div className="bg-[var(--bg-elevated)] p-6 rounded-3xl border border-[var(--border-default)] space-y-4">
+                                                <h4 className="text-sm font-black uppercase tracking-wider text-[var(--text-secondary)] flex items-center gap-2">
                                                     <ShieldCheck size={16} className="text-green-400" /> Presets Hardware y Modo Seguro
                                                 </h4>
                                                 <div className="grid grid-cols-1 gap-3">
                                                     <div className="flex items-center justify-between">
-                                                        <span className="text-xs text-gray-400">Modo seguro de validación</span>
+                                                        <span className="text-xs text-[var(--text-tertiary)]">Modo seguro de validación</span>
                                                         <button
                                                             onClick={() => {
                                                                 const next = !safeModeEnabled;
@@ -2247,7 +2284,7 @@ export default function SettingsPage() {
                                                             )}
                                                         >
                                                             <div className={cn(
-                                                                "absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-transform",
+                                                                "absolute top-1 left-1 w-5 h-5 rounded-full bg-[var(--bg-card)] transition-transform",
                                                                 safeModeEnabled && "translate-x-7"
                                                             )} />
                                                         </button>
@@ -2256,32 +2293,32 @@ export default function SettingsPage() {
                                                     <div className="grid grid-cols-2 gap-2">
                                                         <button
                                                             onClick={() => setHardwarePresetDrafts((prev) => ({ ...prev, vr: { ...selectedProfiles } }))}
-                                                            className="px-3 py-2 rounded-xl bg-gray-900 border border-gray-700 text-xs font-bold text-gray-300 hover:border-blue-500"
+                                                            className="px-3 py-2 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] text-xs font-bold text-[var(--text-secondary)] hover:border-blue-500"
                                                         >
                                                             Guardar desde selección -&gt; VR
                                                         </button>
                                                         <button
                                                             onClick={() => setHardwarePresetDrafts((prev) => ({ ...prev, flat: { ...selectedProfiles } }))}
-                                                            className="px-3 py-2 rounded-xl bg-gray-900 border border-gray-700 text-xs font-bold text-gray-300 hover:border-blue-500"
+                                                            className="px-3 py-2 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] text-xs font-bold text-[var(--text-secondary)] hover:border-blue-500"
                                                         >
                                                             Guardar desde selección -&gt; FLAT
                                                         </button>
                                                         <button
                                                             onClick={() => applyHardwarePreset('vr')}
-                                                            className="px-3 py-2 rounded-xl bg-blue-600/20 border border-blue-500/30 text-xs font-bold text-blue-300 hover:bg-blue-600 hover:text-white"
+                                                            className="px-3 py-2 rounded-xl bg-blue-600/20 border border-blue-500/30 text-xs font-bold text-blue-300 hover:bg-blue-600 hover:text-[var(--text-primary)]"
                                                         >
                                                             Aplicar preset VR
                                                         </button>
                                                         <button
                                                             onClick={() => applyHardwarePreset('flat')}
-                                                            className="px-3 py-2 rounded-xl bg-blue-600/20 border border-blue-500/30 text-xs font-bold text-blue-300 hover:bg-blue-600 hover:text-white"
+                                                            className="px-3 py-2 rounded-xl bg-blue-600/20 border border-blue-500/30 text-xs font-bold text-blue-300 hover:bg-blue-600 hover:text-[var(--text-primary)]"
                                                         >
                                                             Aplicar preset FLAT
                                                         </button>
                                                     </div>
                                                     <button
                                                         onClick={() => saveHardwarePresetsMutation.mutate(hardwarePresetDrafts)}
-                                                        className="px-3 py-2 rounded-xl bg-green-600/20 border border-green-500/30 text-xs font-bold text-green-300 hover:bg-green-600 hover:text-white"
+                                                        className="px-3 py-2 rounded-xl bg-green-600/20 border border-green-500/30 text-xs font-bold text-green-300 hover:bg-green-600 hover:text-[var(--text-primary)]"
                                                     >
                                                         Guardar presets de hardware
                                                     </button>
@@ -2289,14 +2326,14 @@ export default function SettingsPage() {
                                             </div>
                                         </div>
 
-                                        <div className="bg-gray-800 p-6 rounded-3xl border border-gray-700 space-y-4">
-                                            <h4 className="text-sm font-black uppercase tracking-wider text-gray-300 flex items-center gap-2">
+                                        <div className="bg-[var(--bg-elevated)] p-6 rounded-3xl border border-[var(--border-default)] space-y-4">
+                                            <h4 className="text-sm font-black uppercase tracking-wider text-[var(--text-secondary)] flex items-center gap-2">
                                                 <History size={16} className="text-cyan-400" /> Historial De Despliegues
                                             </h4>
                                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                                 <div className="space-y-2 max-h-64 overflow-auto pr-1">
                                                     {deployJobs.length === 0 && (
-                                                        <p className="text-xs text-gray-500">No hay trabajos de despliegue todavía.</p>
+                                                        <p className="text-xs text-[var(--text-tertiary)]">No hay trabajos de despliegue todavía.</p>
                                                     )}
                                                     {deployJobs.map((job) => (
                                                         <button
@@ -2306,14 +2343,14 @@ export default function SettingsPage() {
                                                                 "w-full text-left p-3 rounded-xl border transition-all",
                                                                 activeDeployJobId === job.job_id
                                                                     ? "bg-blue-600/20 border-blue-500/40"
-                                                                    : "bg-gray-900/40 border-gray-700 hover:border-gray-500"
+                                                                    : "bg-[var(--bg-card)]/40 border-[var(--border-default)] hover:border-gray-500"
                                                             )}
                                                         >
                                                             <div className="flex items-center justify-between gap-2">
-                                                                <span className="text-xs font-bold text-white">{job.job_id.slice(0, 8)}</span>
-                                                                <span className="text-[10px] font-bold uppercase text-gray-400">{job.status}</span>
+                                                                <span className="text-xs font-bold text-[var(--text-primary)]">{job.job_id.slice(0, 8)}</span>
+                                                                <span className="text-[10px] font-bold uppercase text-[var(--text-tertiary)]">{job.status}</span>
                                                             </div>
-                                                            <p className="text-[11px] text-gray-500 mt-1">
+                                                            <p className="text-[11px] text-[var(--text-tertiary)] mt-1">
                                                                 ok:{job.summary?.success ?? 0} fail:{job.summary?.failed ?? 0} running:{job.summary?.running ?? 0}
                                                             </p>
                                                             {(job.summary?.failed || 0) > 0 && (
@@ -2332,35 +2369,35 @@ export default function SettingsPage() {
                                                         </button>
                                                     ))}
                                                 </div>
-                                                <div className="bg-gray-900/40 border border-gray-700 rounded-xl p-3 max-h-64 overflow-auto">
+                                                <div className="bg-[var(--bg-card)]/40 border border-[var(--border-default)] rounded-xl p-3 max-h-64 overflow-auto">
                                                     {!deployJobDetail && (
-                                                        <p className="text-xs text-gray-500">Selecciona un trabajo para ver detalle.</p>
+                                                        <p className="text-xs text-[var(--text-tertiary)]">Selecciona un trabajo para ver detalle.</p>
                                                     )}
                                                     {deployJobDetail && (
                                                         <div className="space-y-2">
                                                             {Object.values(deployJobDetail.station_results || {}).map((station) => (
-                                                                <div key={station.station_id} className="p-2 rounded-lg border border-gray-700 bg-gray-900/60">
+                                                                <div key={station.station_id} className="p-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-card)]/60">
                                                                     <div className="flex justify-between">
-                                                                        <span className="text-xs font-bold text-white">{station.station_name}</span>
-                                                                        <span className="text-[10px] uppercase text-gray-400">{station.status}</span>
+                                                                        <span className="text-xs font-bold text-[var(--text-primary)]">{station.station_name}</span>
+                                                                        <span className="text-[10px] uppercase text-[var(--text-tertiary)]">{station.status}</span>
                                                                     </div>
                                                                     {station.error && <p className="text-[11px] text-red-400 mt-1">{station.error}</p>}
-                                                                    {(station.preflight?.errors || []).length > 0 && (
+                                                                    {(station.preflight?.errors || []).length > 0 &&
                                                                         <p className="text-[11px] text-orange-400 mt-1">
                                                                             Preflight: {(station.preflight?.errors || []).slice(0, 2).join(' | ')}
                                                                         </p>
-                                                                    )}
+                                                                    }
                                                                 </div>
                                                             ))}
                                                         </div>
                                                     )}
                                                 </div>
                                             </div>
-                                            <div className="pt-2 border-t border-gray-700">
-                                                <p className="text-[11px] text-gray-500 mb-2">Auditoría reciente</p>
+                                            <div className="pt-2 border-t border-[var(--border-default)]">
+                                                <p className="text-[11px] text-[var(--text-tertiary)] mb-2">Auditoría reciente</p>
                                                 <div className="max-h-32 overflow-auto space-y-1">
                                                     {deployAudit.slice(0, 8).map((entry, idx) => (
-                                                        <p key={idx} className="text-[10px] text-gray-400">
+                                                        <p key={idx} className="text-[10px] text-[var(--text-tertiary)]">
                                                             [{entry?.event}] {entry?.payload?.job_id || ''} {entry?.payload?.status || ''}
                                                         </p>
                                                     ))}
@@ -2374,17 +2411,7 @@ export default function SettingsPage() {
                     )
                 }
 
-                {/* --- TAB: ADS --- */}
-                {
-                    activeTab === 'ads' && (
-                        <div className="max-w-5xl animate-in fade-in duration-300">
-                            <div className="bg-gray-900/50 p-8 rounded-3xl border border-gray-800">
-                                <p className="text-gray-400 mb-6 text-sm font-medium">Gestiona la publicidad y promociones que aparecen en las pantallas del local (TV Mode).</p>
-                                <AdsSettings />
-                            </div>
-                        </div>
-                    )
-                }
+
 
                 {/* --- TAB: LOGS --- */}
                 {
@@ -2400,29 +2427,29 @@ export default function SettingsPage() {
                     activeTab === 'database' && (
                         <div className="max-w-5xl animate-in fade-in duration-300">
                             <SystemUpdatePanel />
-                            <div className="bg-gray-800 p-8 rounded-3xl border border-gray-700">
-                                <h2 className="text-xl font-black text-white uppercase mb-6 flex items-center"><Database className="mr-2 text-blue-500" /> Copia de Seguridad</h2>
-                                <p className="text-gray-400 mb-8 font-medium">Gestiona la integridad de tus datos. Descarga copias de seguridad regularmente.</p>
+                            <div className="bg-[var(--bg-elevated)] p-8 rounded-3xl border border-[var(--border-default)]">
+                                <h2 className="text-xl font-black text-[var(--text-primary)] uppercase mb-6 flex items-center"><Database className="mr-2 text-blue-500" /> Copia de Seguridad</h2>
+                                <p className="text-[var(--text-tertiary)] mb-8 font-medium">Gestiona la integridad de tus datos. Descarga copias de seguridad regularmente.</p>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                    <div className="bg-gray-900 p-6 rounded-2xl border border-gray-800 flex flex-col items-center text-center">
+                                    <div className="bg-[var(--bg-card)] p-6 rounded-2xl border border-[var(--border-default)] flex flex-col items-center text-center">
                                         <div className="bg-blue-500/10 p-4 rounded-full mb-4">
                                             <Upload className="text-blue-500" size={32} />
                                         </div>
-                                        <h3 className="text-lg font-bold text-white mb-2">Exportar Datos</h3>
-                                        <p className="text-gray-500 text-xs mb-6">Descarga un archivo JSON con todos los eventos, pilotos, resultados y configuraciones.</p>
-                                        <button onClick={handleExport} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-colors">
+                                        <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">Exportar Datos</h3>
+                                        <p className="text-[var(--text-tertiary)] text-xs mb-6">Descarga un archivo JSON con todos los eventos, pilotos, resultados y configuraciones.</p>
+                                        <button onClick={handleExport} className="w-full bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] font-bold py-3 rounded-xl transition-colors">
                                             DESCARGAR BACKUP
                                         </button>
                                     </div>
 
-                                    <div className="bg-gray-900 p-6 rounded-2xl border border-gray-800 flex flex-col items-center text-center">
+                                    <div className="bg-[var(--bg-card)] p-6 rounded-2xl border border-[var(--border-default)] flex flex-col items-center text-center">
                                         <div className="bg-orange-500/10 p-4 rounded-full mb-4">
                                             <Database className="text-orange-500" size={32} />
                                         </div>
-                                        <h3 className="text-lg font-bold text-white mb-2">Restaurar Datos</h3>
-                                        <p className="text-gray-500 text-xs mb-6">Restaura el sistema desde un archivo. <span className="text-red-400 font-bold">ESTO BORRARÁ LOS DATOS ACTUALES.</span></p>
-                                        <label className="w-full bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 rounded-xl transition-colors cursor-pointer border border-gray-700 hover:border-gray-500">
+                                        <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">Restaurar Datos</h3>
+                                        <p className="text-[var(--text-tertiary)] text-xs mb-6">Restaura el sistema desde un archivo. <span className="text-red-400 font-bold">ESTO BORRARÁ LOS DATOS ACTUALES.</span></p>
+                                        <label className="w-full bg-[var(--bg-elevated)] hover:bg-[var(--bg-elevated)] text-[var(--text-primary)] font-bold py-3 rounded-xl transition-colors cursor-pointer border border-[var(--border-default)] hover:border-gray-500">
                                             SELECCIONAR ARCHIVO
                                             <input type="file" hidden onChange={handleImport} accept=".json" />
                                         </label>
@@ -2432,15 +2459,148 @@ export default function SettingsPage() {
                         </div>
                     )
                 }
+
+                {/* --- TAB: STREAMING OPTIMIZATION --- */}
+                {activeTab === 'streaming' && (
+                    <div className="max-w-4xl space-y-8 animate-in fade-in duration-300">
+                        <div className="bg-[var(--bg-elevated)] p-8 rounded-3xl border border-[var(--border-default)]">
+                            <h2 className="text-xl font-black text-[var(--text-primary)] uppercase mb-6 flex items-center">
+                                <Radio className="mr-3 text-red-500 animate-pulse" /> Optimización de Streaming Live
+                            </h2>
+                            <p className="text-[var(--text-secondary)] mb-8 leading-relaxed">
+                                Para reducir el **lag y delay** al mínimo (idealmente menos de 1 segundo), se recomienda el uso de 
+                                el protocolo **WHEP (WebRTC-HTTP Egress Protocol)** sobre una red local de baja latencia.
+                            </p>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="bg-[var(--bg-card)]/40 p-5 rounded-2xl border border-[var(--border-default)]">
+                                    <h4 className="text-xs font-black text-[var(--text-tertiary)] uppercase mb-3 text-blue-400">Configuración OBS / Encoder</h4>
+                                    <ul className="space-y-2 text-xs text-[var(--text-secondary)]">
+                                        <li className="flex items-center gap-2"><CheckCircle size={14} className="text-green-500" /> Encoder: <strong>NVIDIA NVENC H.264</strong></li>
+                                        <li className="flex items-center gap-2"><CheckCircle size={14} className="text-green-500" /> Profile: <strong>High</strong></li>
+                                        <li className="flex items-center gap-2"><CheckCircle size={14} className="text-green-500" /> Rate Control: <strong>CBR (4000-6000 Kbps)</strong></li>
+                                        <li className="flex items-center gap-2"><CheckCircle size={14} className="text-green-500" /> Preset: <strong>P1 to P3 (Ultra Low Latency)</strong></li>
+                                        <li className="flex items-center gap-2"><CheckCircle size={14} className="text-green-500" /> Tuning: <strong>Ultra Low Latency</strong></li>
+                                        <li className="flex items-center gap-2"><CheckCircle size={14} className="text-green-500" /> B-frames: <strong>0</strong></li>
+                                    </ul>
+                                </div>
+
+                                <div className="bg-[var(--bg-card)]/40 p-5 rounded-2xl border border-[var(--border-default)]">
+                                    <h4 className="text-xs font-black text-[var(--text-tertiary)] uppercase mb-3">Infraestructura (Servidor)</h4>
+                                    <ul className="space-y-2 text-xs text-[var(--text-secondary)]">
+                                        <li className="flex items-center gap-2"><CheckCircle size={14} className="text-green-500" /> Software: <strong>MediaMTX (rtsp-simple-server)</strong></li>
+                                        <li className="flex items-center gap-2"><CheckCircle size={14} className="text-green-500" /> Soporte WHEP Nativo activado</li>
+                                        <li className="flex items-center gap-2"><CheckCircle size={14} className="text-green-500" /> Red Local Gigabit (Cable Ethernet)</li>
+                                        <li className="flex items-center gap-2"><CheckCircle size={14} className="text-green-500" /> Desactivar Firewall en puerto UDP WebRTC</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <div className="bg-yellow-500/10 border border-yellow-500/20 p-4 rounded-xl flex items-start gap-3 mt-8">
+                                <AlertTriangle className="text-yellow-500 shrink-0" size={20} />
+                                <div>
+                                    <p className="text-xs font-bold text-yellow-400 uppercase">Nota sobre navegadores</p>
+                                    <p className="text-[11px] text-[var(--text-tertiary)] mt-1">
+                                        WHEP/WebRTC requiere HTTPS para funcionar en la mayoría de navegadores modernos si no se accede via localhost.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* --- TAB: MAINTENANCE & HARDWARE --- */}
+                {activeTab === 'maintenance' && (
+                    <div className="max-w-6xl space-y-8 animate-in fade-in duration-300">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                            <div className="lg:col-span-1 space-y-6">
+                                <div className="bg-[var(--bg-elevated)] p-6 rounded-3xl border border-[var(--border-default)]">
+                                    <h2 className="text-lg font-black text-[var(--text-primary)] uppercase mb-6 flex items-center">
+                                        <Cpu className="mr-3 text-blue-500" /> <HardDrive className="mr-2" size={18} /> Resumen Hardware
+                                    </h2>
+                                    <div className="space-y-4">
+                                        <div className="p-4 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-default)]">
+                                            <p className="text-[10px] font-black text-[var(--text-tertiary)] uppercase tracking-widest mb-1">Total Horas Simulador (PC)</p>
+                                            <p className="text-2xl font-black text-blue-400">1,248h</p>
+                                        </div>
+                                        <div className="p-4 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-default)]">
+                                            <p className="text-[10px] font-black text-[var(--text-tertiary)] uppercase tracking-widest mb-1">Mantenimiento General</p>
+                                            <p className="text-2xl font-black text-emerald-400">92% OK</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-8 pt-8 border-t border-[var(--border-default)]">
+                                        <h3 className="text-xs font-black text-[var(--text-tertiary)] uppercase tracking-widest mb-4">Checklist Preventivo</h3>
+                                        <div className="space-y-3">
+                                            {[
+                                                'Limpieza de ventiladores (Q2 2024)',
+                                                'Update Firmware Direct Drive (Puesto)',
+                                                'Reapriete pernos cockpit (Mensual)',
+                                                'Calibración de frenos (Semanal)'
+                                            ].map((item, idx) => (
+                                                <div key={idx} className="flex justify-between items-center text-[10px] text-[var(--text-secondary)]">
+                                                    <span>{item}</span>
+                                                    <ShieldCheck size={12} className="text-emerald-500" />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="lg:col-span-2">
+                                <div className="bg-[var(--bg-elevated)] p-8 rounded-3xl border border-[var(--border-default)] h-full">
+                                    <div className="flex items-center justify-between mb-8">
+                                        <h2 className="text-xl font-black text-[var(--text-primary)] uppercase flex items-center">
+                                            <Wrench className="mr-3 text-[var(--text-tertiary)]" /> Historial Técnico
+                                        </h2>
+                                        <button className="text-[10px] font-black bg-[var(--bg-card)] px-3 py-1.5 rounded-lg border border-[var(--border-default)] hover:text-blue-400 transition-all uppercase tracking-widest">
+                                            Descargar Reporte
+                                        </button>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        {[
+                                            { id: 1, station: 'SIM-01', action: 'Update Assetto Corsa v1.16', tech: 'AI System', date: 'HOY 10:24', detail: 'Actualización automática de ejecutables y librerías de físicas.' },
+                                            { id: 2, station: 'SIM-ALL', action: 'Limpieza de Caché', tech: 'Admin', date: 'AYER 22:15', detail: 'Limpieza de archivos temporales y logs antiguos en todas las estaciones.' },
+                                            { id: 3, station: 'SIM-04', action: 'Reparación de Pedalera', tech: 'Juan M.', date: '21 MAR', detail: 'Sustitución de elastómero en pedal de freno Heusinkveld.' }
+                                        ].map(log => (
+                                            <div key={log.id} className="p-5 rounded-2xl bg-[var(--bg-card)]/40 border border-[var(--border-default)] hover:border-blue-500/30 transition-all group">
+                                                <div className="flex justify-between items-start mb-3">
+                                                    <div className="flex items-center">
+                                                        <span className="text-[10px] font-black px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 uppercase tracking-tighter mr-2">{log.station}</span>
+                                                        <span className="text-sm font-bold text-[var(--text-primary)]">{log.action}</span>
+                                                    </div>
+                                                    <span className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase">{log.date}</span>
+                                                </div>
+                                                <p className="text-xs text-[var(--text-secondary)] mb-3">{log.detail}</p>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                                                        <ShieldCheck size={12} className="text-emerald-400" />
+                                                    </div>
+                                                    <span className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase">Por: {log.tech}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <button className="w-full mt-6 py-3 rounded-2xl border border-dashed border-[var(--border-default)] text-[var(--text-tertiary)] text-xs font-black uppercase tracking-widest hover:border-blue-500/50 hover:text-blue-400 transition-all">
+                                        <Info size={14} className="inline mr-2" /> Ver historial completo
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div >
 
             {/* Config Editor Modal */}
             {
                 isEditorOpen && (
                     <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-8 backdrop-blur-sm">
-                        <div className="bg-gray-900 w-full max-w-4xl h-full max-h-[90vh] rounded-3xl border border-gray-800 flex flex-col shadow-2xl overflow-hidden">
-                            <div className="p-6 border-b border-gray-800 flex justify-between items-center">
-                                <h3 className="text-xl font-black text-white uppercase">
+                        <div className="bg-[var(--bg-card)] w-full max-w-4xl h-full max-h-[90vh] rounded-3xl border border-[var(--border-default)] flex flex-col shadow-2xl overflow-hidden">
+                            <div className="p-6 border-b border-[var(--border-default)] flex justify-between items-center">
+                                <h3 className="text-xl font-black text-[var(--text-primary)] uppercase">
                                     Editor de {AC_CATEGORIES.find(c => c.id === selectedCategory)?.name}
                                 </h3>
                                 <button
@@ -2449,12 +2609,12 @@ export default function SettingsPage() {
                                         setIsEditorOpen(false);
                                     }}
                                 >
-                                    <Plus className="rotate-45 text-gray-500 hover:text-white" size={28} />
+                                    <Plus className="rotate-45 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]" size={28} />
                                 </button>
                             </div>
-                            <div className="p-8 overflow-y-auto flex-1 bg-gray-950">
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Nombre del perfil</label>
-                                <input value={newProfileName} onChange={e => setNewProfileName(e.target.value)} className="w-full text-xl font-bold bg-transparent border-b border-gray-700 focus:border-blue-500 outline-none text-white mb-8 pb-2" placeholder="Nombre del perfil..." />
+                            <div className="p-8 overflow-y-auto flex-1 bg-[var(--bg-app)]">
+                                <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">Nombre del perfil</label>
+                                <input value={newProfileName} onChange={e => setNewProfileName(e.target.value)} className="w-full text-xl font-bold bg-transparent border-b border-[var(--border-default)] focus:border-blue-500 outline-none text-[var(--text-primary)] mb-8 pb-2" placeholder="Nombre del perfil..." />
 
                                 {newProfileName && (
                                     <ACSettingsEditor
@@ -2472,11 +2632,11 @@ export default function SettingsPage() {
             {
                 contentStationId && (
                     <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-6 backdrop-blur-sm">
-                        <div className="bg-gray-900 w-full max-w-5xl max-h-[90vh] rounded-3xl border border-gray-800 flex flex-col shadow-2xl overflow-hidden">
-                            <div className="p-6 border-b border-gray-800 flex items-center justify-between">
+                        <div className="bg-[var(--bg-card)] w-full max-w-5xl max-h-[90vh] rounded-3xl border border-[var(--border-default)] flex flex-col shadow-2xl overflow-hidden">
+                            <div className="p-6 border-b border-[var(--border-default)] flex items-center justify-between">
                                 <div>
-                                    <h3 className="text-xl font-black text-white uppercase">Contenido escaneado</h3>
-                                    <p className="text-xs text-gray-500">
+                                    <h3 className="text-xl font-black text-[var(--text-primary)] uppercase">Contenido escaneado</h3>
+                                    <p className="text-xs text-[var(--text-tertiary)]">
                                         {contentStation ? contentStation.name : 'Estación'} {stationContent?.updated ? `· Actualizado ${new Date(stationContent.updated).toLocaleString('es-ES')}` : ''}
                                     </p>
                                 </div>
@@ -2487,13 +2647,13 @@ export default function SettingsPage() {
                                             scanContentMutation.mutate(contentStationId);
                                             setTimeout(() => refetchStationContent(), 1500);
                                         }}
-                                        className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold uppercase tracking-widest"
+                                        className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] text-xs font-bold uppercase tracking-widest"
                                     >
                                         Reescanear
                                     </button>
                                     <button
                                         onClick={() => setContentStationId(null)}
-                                        className="px-3 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-bold uppercase tracking-widest"
+                                        className="px-3 py-2 rounded-lg bg-[var(--bg-elevated)] hover:bg-[var(--bg-elevated)] text-[var(--text-secondary)] text-xs font-bold uppercase tracking-widest"
                                     >
                                         Cerrar
                                     </button>
@@ -2506,8 +2666,8 @@ export default function SettingsPage() {
                                     className={cn(
                                         "px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest border",
                                         contentTab === 'cars'
-                                            ? "bg-blue-600 border-blue-400 text-white"
-                                            : "bg-gray-800 border-gray-700 text-gray-400"
+                                            ? "bg-blue-600 border-blue-400 text-[var(--text-primary)]"
+                                            : "bg-[var(--bg-elevated)] border-[var(--border-default)] text-[var(--text-tertiary)]"
                                     )}
                                 >
                                     Coches ({stationContent?.cars?.length || 0})
@@ -2517,8 +2677,8 @@ export default function SettingsPage() {
                                     className={cn(
                                         "px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest border",
                                         contentTab === 'tracks'
-                                            ? "bg-blue-600 border-blue-400 text-white"
-                                            : "bg-gray-800 border-gray-700 text-gray-400"
+                                            ? "bg-blue-600 border-blue-400 text-[var(--text-primary)]"
+                                            : "bg-[var(--bg-elevated)] border-[var(--border-default)] text-[var(--text-tertiary)]"
                                     )}
                                 >
                                     Circuitos ({stationContent?.tracks?.length || 0})
@@ -2527,7 +2687,7 @@ export default function SettingsPage() {
 
                             <div className="p-6 overflow-y-auto">
                                 {stationContentLoading && (
-                                    <div className="text-center text-gray-400">Cargando contenido...</div>
+                                    <div className="text-center text-[var(--text-tertiary)]">Cargando contenido...</div>
                                 )}
                                 {!stationContentLoading && contentTab === 'cars' && (
                                     <>
@@ -2536,7 +2696,7 @@ export default function SettingsPage() {
                                                 {stationContent.cars.map((car: any) => {
                                                     const imageUrl = resolveContentUrl(car.image_url);
                                                     return (
-                                                        <div key={car.id} className="bg-gray-800/60 border border-gray-700 rounded-2xl p-4 flex gap-3">
+                                                        <div key={car.id} className="bg-[var(--bg-elevated)]/60 border border-[var(--border-default)] rounded-2xl p-4 flex gap-3">
                                                             {imageUrl && (
                                                                 <img
                                                                     src={imageUrl}
@@ -2546,15 +2706,15 @@ export default function SettingsPage() {
                                                                 />
                                                             )}
                                                             <div>
-                                                                <div className="text-white font-bold text-sm">{car.name}</div>
-                                                                <div className="text-[10px] text-gray-500">{car.brand || 'Sin marca'}</div>
+                                                                <div className="text-[var(--text-primary)] font-bold text-sm">{car.name}</div>
+                                                                <div className="text-[10px] text-[var(--text-tertiary)]">{car.brand || 'Sin marca'}</div>
                                                             </div>
                                                         </div>
                                                     );
                                                 })}
                                             </div>
                                         ) : (
-                                            <div className="text-gray-500 text-sm">No hay coches escaneados.</div>
+                                            <div className="text-[var(--text-tertiary)] text-sm">No hay coches escaneados.</div>
                                         )}
                                     </>
                                 )}
@@ -2567,7 +2727,7 @@ export default function SettingsPage() {
                                                     const imageUrl = resolveContentUrl(track.image_url);
                                                     const mapUrl = resolveContentUrl(track.map_url);
                                                     return (
-                                                        <div key={track.id} className="bg-gray-800/60 border border-gray-700 rounded-2xl p-4 flex gap-3">
+                                                        <div key={track.id} className="bg-[var(--bg-elevated)]/60 border border-[var(--border-default)] rounded-2xl p-4 flex gap-3">
                                                             {(imageUrl || mapUrl) && (
                                                                 <img
                                                                     src={imageUrl || mapUrl}
@@ -2577,23 +2737,23 @@ export default function SettingsPage() {
                                                                 />
                                                             )}
                                                             <div>
-                                                                <div className="text-white font-bold text-sm">{track.name}</div>
-                                                                <div className="text-[10px] text-gray-500">{track.layout || 'Sin layout'}</div>
+                                                                <div className="text-[var(--text-primary)] font-bold text-sm">{track.name}</div>
+                                                                <div className="text-[10px] text-[var(--text-tertiary)]">{track.layout || 'Sin layout'}</div>
                                                             </div>
                                                         </div>
                                                     );
                                                 })}
                                             </div>
                                         ) : (
-                                            <div className="text-gray-500 text-sm">No hay circuitos escaneados.</div>
+                                            <div className="text-[var(--text-tertiary)] text-sm">No hay circuitos escaneados.</div>
                                         )}
                                     </>
                                 )}
                             </div>
                         </div>
                     </div>
-                )
-            }
-        </div >
+                )}
+
+        </div>
     );
 }

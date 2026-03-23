@@ -30,6 +30,38 @@ def download_file(url, local_path):
         logger.error(f"Failed to download {url}: {e}")
         return False
 
+
+def delete_extra_file(file_path):
+    try:
+        target_path = (AC_CONTENT_DIR / file_path).resolve()
+        content_root = AC_CONTENT_DIR.resolve()
+        target_path.relative_to(content_root)
+    except Exception:
+        logger.warning(f"Skipping unsafe delete target: {file_path}")
+        return False
+
+    if not target_path.exists():
+        return True
+    if target_path.is_dir():
+        logger.warning(f"Skipping directory delete target: {target_path}")
+        return False
+
+    try:
+        target_path.unlink()
+        logger.info(f"Deleted stale file: {file_path}")
+
+        current = target_path.parent
+        while current != content_root:
+            try:
+                current.rmdir()
+            except OSError:
+                break
+            current = current.parent
+        return True
+    except Exception as e:
+        logger.error(f"Failed to delete stale file {file_path}: {e}")
+        return False
+
 def synchronize_content(station_id):
     logger.info("Starting synchronization check...")
 
@@ -100,7 +132,11 @@ def synchronize_content(station_id):
         else:
             logger.error(f"Failed to download: {file_path}")
             return "error" # Stop if download fails
-            
+
+    for file_path in files_to_delete:
+        if not delete_extra_file(file_path):
+            return "error"
+             
     return "online"
 
 def send_heartbeat(station_id, status="online"):

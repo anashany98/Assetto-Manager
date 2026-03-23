@@ -36,6 +36,22 @@ class AgentWSClient(threading.Thread):
     def run(self):
         asyncio.run(self.stream_telemetry())
 
+    async def _send_command_ack(self, websocket, data, status="accepted", detail=None):
+        command_id = data.get("command_id")
+        if not command_id:
+            return
+
+        payload = {
+            "type": "command_ack",
+            "station_id": self.station_id,
+            "command_id": command_id,
+            "command": data.get("command"),
+            "status": status,
+        }
+        if detail:
+            payload["detail"] = detail
+        await websocket.send(json.dumps(payload))
+
     async def stream_telemetry(self):
         logger.info(f"Connecting to Telemetry WS: {self.server_url}")
         while self.running:
@@ -57,6 +73,19 @@ class AgentWSClient(threading.Thread):
             except Exception as e:
                 logger.error(f"WS Error: {e}")
                 await asyncio.sleep(5)
+
+    async def _run_command_handler(self, websocket, data, handler, *args, failure_detail: str):
+        try:
+            ok = await asyncio.to_thread(handler, *args)
+        except Exception as e:
+            logger.exception("Command %s raised an exception", data.get("command"))
+            await self._send_command_ack(websocket, data, status="error", detail=str(e))
+            return
+
+        if ok:
+            await self._send_command_ack(websocket, data, status="completed")
+        else:
+            await self._send_command_ack(websocket, data, status="error", detail=failure_detail)
 
     async def send_loop(self, websocket):
         loop = asyncio.get_event_loop()
@@ -100,6 +129,7 @@ class AgentWSClient(threading.Thread):
                 command = data.get("command")
 
                 if data.get("type") == "obs_control":
+                    await self._send_command_ack(websocket, data, status="accepted")
                     params = data.get("params") or {}
                     if "host" not in params and OBS_HOST:
                         params["host"] = OBS_HOST
@@ -120,62 +150,98 @@ class AgentWSClient(threading.Thread):
                         response["stream_url"] = STREAM_URL
                     await websocket.send(json.dumps(response))
                     continue
-                
+                 
                 if command:
                     logger.info(f"Received command: {command}")
-                
+
+                handled = True
+
                 if command == "shutdown":
+                    await self._send_command_ack(websocket, data, status="accepted")
                     if platform.system() == "Windows":
                         os.system("shutdown /s /t 5")
-                
+                 
                 elif command == "restart":
-                     if platform.system() == "Windows":
+                    await self._send_command_ack(websocket, data, status="accepted")
+                    if platform.system() == "Windows":
                         os.system("shutdown /r /t 5")
-                
+                 
                 elif command == "panic":
+                    await self._send_command_ack(websocket, data, status="accepted")
                     stop_idle_display()
                     watchdog.stop()
                     os.system("taskkill /F /IM acs.exe")
                     start_idle_display()
-                
+                 
                 elif command == "stop_session":
+                    await self._send_command_ack(websocket, data, status="accepted")
                     stop_idle_display()
                     watchdog.stop()
                     os.system("taskkill /F /IM acs.exe")
                     start_idle_display()
-                
+                 
                 elif command == "launch_session":
                     stop_idle_display()
-                    threading.Thread(target=launch_session_logic, args=(data, self.station_id)).start()
-                
+                    await self._run_command_handler(
+                        websocket,
+                        data,
+                        launch_session_logic,
+                        data,
+                        self.station_id,
+                        failure_detail="Assetto Corsa did not start",
+                    )
+                 
                 elif command == "create_lobby":
                     stop_idle_display()
-                    threading.Thread(target=create_lobby_server, args=(data,)).start()
-                    
+                    await self._run_command_handler(
+                        websocket,
+                        data,
+                        create_lobby_server,
+                        data,
+                        failure_detail="acServer.exe did not start",
+                    )
+                     
                 elif command == "join_lobby":
                     stop_idle_display()
-                    threading.Thread(target=join_lobby_client, args=(data,)).start()
-                    
+                    await self._run_command_handler(
+                        websocket,
+                        data,
+                        join_lobby_client,
+                        data,
+                        failure_detail="Assetto Corsa client did not join the lobby",
+                    )
+                     
                 elif command == "stop_lobby":
+                    await self._send_command_ack(websocket, data, status="accepted")
                     stop_lobby_server()
                     start_idle_display()
-                    
-                elif command == "install_mod":
-                    threading.Thread(target=install_mod_logic, args=(data,)).start()
-                
-                elif command == "scan_content":
-                     ac_path = data.get("ac_path") or get_system_info().get("ac_path")
-                     content = scan_ac_content(ac_path, station_ip=data.get("station_ip"))
-                     await websocket.send(json.dumps({
-                         "type": "content_scan_result",
-                         "data": content
-                     }))
                      
+                elif command == "install_mod":
+                    await self._send_command_ack(websocket, data, status="accepted")
+                    threading.Thread(target=install_mod_logic, args=(data,)).start()
+                 
+                elif command == "scan_content":
+                    await self._send_command_ack(websocket, data, status="accepted")
+                    ac_path = data.get("ac_path") or get_system_info().get("ac_path")
+                    content = scan_ac_content(ac_path, station_ip=data.get("station_ip"))
+                    await websocket.send(json.dumps({
+                        "type": "content_scan_result",
+                        "data": content
+                    }))
+                      
                 elif command == "restart_agent":
+                    await self._send_command_ack(websocket, data, status="accepted")
                     threading.Thread(target=restart_agent_process).start()
 
                 elif command == "set_weather":
+                    await self._send_command_ack(websocket, data, status="accepted")
                     threading.Thread(target=set_weather_logic, args=(data.get("value"),)).start()
+
+                else:
+                    handled = False
+
+                if command and not handled:
+                    await self._send_command_ack(websocket, data, status="rejected", detail="Unknown command")
 
             except websockets.ConnectionClosed:
                 break

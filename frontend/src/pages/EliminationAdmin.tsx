@@ -84,7 +84,7 @@ export default function EliminationAdmin() {
     });
 
     return (
-        <div className="min-h-screen bg-gray-950 text-white p-8">
+        <div className="min-h-screen bg-[var(--bg-app)] text-[var(--text-primary)] p-8">
             <div className="max-w-6xl mx-auto">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-8">
@@ -93,13 +93,13 @@ export default function EliminationAdmin() {
                             <Zap className="mr-3 text-orange-500" />
                             Modo Eliminación
                         </h1>
-                        <p className="text-gray-400 mt-1">Crea y gestiona carreras por eliminación</p>
+                        <p className="text-[var(--text-tertiary)] mt-1">Crea y gestiona carreras por eliminación</p>
                     </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-8">
                     {/* Create Race */}
-                    <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
+                    <div className="bg-[var(--bg-card)] rounded-2xl p-6 border border-[var(--border-default)]">
                         <h2 className="text-xl font-black uppercase mb-6 flex items-center">
                             <Plus className="mr-2 text-green-400" />
                             Nueva Carrera
@@ -107,27 +107,27 @@ export default function EliminationAdmin() {
 
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Nombre del Evento</label>
+                                <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">Nombre del Evento</label>
                                 <input
                                     type="text"
-                                    className="w-full px-4 py-3 rounded-xl bg-gray-800 border border-gray-700 text-white font-bold"
+                                    className="w-full px-4 py-3 rounded-xl bg-[var(--bg-elevated)] border border-[var(--border-default)] text-[var(--text-primary)] font-bold"
                                     placeholder="Ej: Torneo Viernes Noche"
                                     value={newRaceName}
                                     onChange={e => setNewRaceName(e.target.value)}
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Circuito (opcional)</label>
+                                <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">Circuito (opcional)</label>
                                 <input
                                     type="text"
-                                    className="w-full px-4 py-3 rounded-xl bg-gray-800 border border-gray-700 text-white"
+                                    className="w-full px-4 py-3 rounded-xl bg-[var(--bg-elevated)] border border-[var(--border-default)] text-[var(--text-primary)]"
                                     placeholder="Ej: Monza, Spa..."
                                     value={newTrack}
                                     onChange={e => setNewTrack(e.target.value)}
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">
+                                <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">
                                     Vueltas de Calentamiento
                                 </label>
                                 <div className="flex items-center space-x-4">
@@ -141,7 +141,7 @@ export default function EliminationAdmin() {
                                     />
                                     <span className="text-2xl font-black text-orange-400 w-12 text-center">{warmupLaps}</span>
                                 </div>
-                                <p className="text-xs text-gray-500 mt-1">
+                                <p className="text-xs text-[var(--text-tertiary)] mt-1">
                                     Las eliminaciones empiezan después de la vuelta {warmupLaps}
                                 </p>
                             </div>
@@ -152,7 +152,7 @@ export default function EliminationAdmin() {
                                     "w-full py-4 rounded-xl font-black uppercase transition-all",
                                     newRaceName
                                         ? "bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-400 hover:to-red-400"
-                                        : "bg-gray-800 text-gray-600 cursor-not-allowed"
+                                        : "bg-[var(--bg-elevated)] text-gray-600 cursor-not-allowed"
                                 )}
                             >
                                 Crear Carrera
@@ -161,7 +161,7 @@ export default function EliminationAdmin() {
                     </div>
 
                     {/* Race List */}
-                    <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
+                    <div className="bg-[var(--bg-card)] rounded-2xl p-6 border border-[var(--border-default)]">
                         <h2 className="text-xl font-black uppercase mb-6 flex items-center">
                             <Trophy className="mr-2 text-yellow-400" />
                             Carreras Activas
@@ -176,13 +176,13 @@ export default function EliminationAdmin() {
                                         "p-4 rounded-xl border-2 cursor-pointer transition-all",
                                         selectedRace === race.id
                                             ? "bg-orange-900/30 border-orange-500"
-                                            : "bg-gray-800 border-gray-700 hover:border-gray-600"
+                                            : "bg-[var(--bg-elevated)] border-[var(--border-default)] hover:border-[var(--border-strong)]"
                                     )}
                                 >
                                     <div className="flex justify-between items-center">
                                         <div>
                                             <div className="font-black text-lg uppercase">{race.name}</div>
-                                            <div className="text-sm text-gray-400">Vuelta {race.current_lap}</div>
+                                            <div className="text-sm text-[var(--text-tertiary)]">Vuelta {race.current_lap}</div>
                                         </div>
                                         <div className="flex items-center space-x-2">
                                             <span className={cn(
@@ -208,7 +208,7 @@ export default function EliminationAdmin() {
 
                 {/* Selected Race Actions */}
                 {selectedRace && (
-                    <div className="mt-8 bg-gray-900 rounded-2xl p-6 border border-gray-800">
+                    <div className="mt-8 bg-[var(--bg-card)] rounded-2xl p-6 border border-[var(--border-default)]">
                         <h2 className="text-xl font-black uppercase mb-6 flex items-center">
                             <Users className="mr-2 text-blue-400" />
                             Gestionar Carrera #{selectedRace}
@@ -216,7 +216,7 @@ export default function EliminationAdmin() {
 
                         <div className="grid grid-cols-3 gap-6">
                             {/* Register Driver */}
-                            <div className="bg-gray-800 p-4 rounded-xl">
+                            <div className="bg-[var(--bg-elevated)] p-4 rounded-xl">
                                 <h3 className="font-bold mb-3 flex items-center">
                                     <UserPlus className="mr-2" size={18} />
                                     Registrar Piloto
@@ -224,7 +224,7 @@ export default function EliminationAdmin() {
                                 <div className="flex space-x-2">
                                     <input
                                         type="text"
-                                        className="flex-1 px-3 py-2 rounded-lg bg-gray-700 text-white"
+                                        className="flex-1 px-3 py-2 rounded-lg bg-gray-700 text-[var(--text-primary)]"
                                         placeholder="Nombre del piloto"
                                         value={newDriver}
                                         onChange={e => setNewDriver(e.target.value)}
@@ -240,7 +240,7 @@ export default function EliminationAdmin() {
                             </div>
 
                             {/* Start Race */}
-                            <div className="bg-gray-800 p-4 rounded-xl">
+                            <div className="bg-[var(--bg-elevated)] p-4 rounded-xl">
                                 <h3 className="font-bold mb-3 flex items-center">
                                     <Play className="mr-2" size={18} />
                                     Control
@@ -254,7 +254,7 @@ export default function EliminationAdmin() {
                             </div>
 
                             {/* Actions */}
-                            <div className="bg-gray-800 p-4 rounded-xl">
+                            <div className="bg-[var(--bg-elevated)] p-4 rounded-xl">
                                 <h3 className="font-bold mb-3 flex items-center">
                                     <AlertTriangle className="mr-2" size={18} />
                                     Acciones

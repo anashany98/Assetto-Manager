@@ -61,7 +61,7 @@ export default function AnalyticsPanel() {
 
     if (isLoading) {
         return (
-            <div className="bg-gray-800 rounded-2xl p-8 flex items-center justify-center">
+            <div className="bg-[var(--bg-elevated)] rounded-2xl p-8 flex items-center justify-center">
                 <div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
             </div>
         );
@@ -69,7 +69,7 @@ export default function AnalyticsPanel() {
 
     if (error || !data) {
         return (
-            <div className="bg-gray-800 rounded-2xl p-6 text-center text-gray-500">
+            <div className="bg-[var(--bg-elevated)] rounded-2xl p-6 text-center text-[var(--text-tertiary)]">
                 <p>No se pudieron cargar los analytics</p>
             </div>
         );
@@ -93,11 +93,11 @@ export default function AnalyticsPanel() {
         <div className="space-y-6 min-w-0">
             {/* Header */}
             <div className="flex items-center justify-between">
-                <h2 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tight flex items-center gap-2">
+                <h2 className="text-xl font-black text-[var(--text-primary)] uppercase tracking-tight flex items-center gap-2">
                     <TrendingUp className="text-green-500" size={24} />
                     Panel de Analitica
                 </h2>
-                <span className="text-xs text-gray-500 dark:text-gray-400">Actualizado cada 30s</span>
+                <span className="text-xs text-[var(--text-tertiary)]">Actualizado cada 30s</span>
             </div>
 
             {/* Quick Stats */}
@@ -129,8 +129,8 @@ export default function AnalyticsPanel() {
             </div>
 
             {/* Sessions Chart */}
-            <div className="bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 shadow-sm dark:shadow-none">
-                <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">
+            <div className="bg-[var(--bg-card)] dark:bg-[var(--bg-elevated)]/50 border border-[var(--border-default)] rounded-2xl p-6 shadow-sm dark:shadow-none">
+                <h3 className="text-sm font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-4">
                     Sesiones últimos 14 días
                 </h3>
                 <div className="h-48 min-w-0">
@@ -153,24 +153,24 @@ export default function AnalyticsPanel() {
             {/* Two Column Layout */}
             <div className="grid grid-cols-1 gap-6">
                 {/* Top Drivers */}
-                <div className="bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 shadow-sm dark:shadow-none">
-                    <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <div className="bg-[var(--bg-card)] dark:bg-[var(--bg-elevated)]/50 border border-[var(--border-default)] rounded-2xl p-6 shadow-sm dark:shadow-none">
+                    <h3 className="text-sm font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-4 flex items-center gap-2">
                         <Award className="text-yellow-500" size={16} />
                         Top Pilotos (Este Mes)
                     </h3>
                     <div className="space-y-3">
                         {topDrivers.length > 0 ? (
                             topDrivers.map((driver, i) => (
-                                <div key={driver.name} className="flex items-center justify-between bg-gray-50 dark:bg-gray-900/50 p-3 rounded-xl">
+                                <div key={driver.name} className="flex items-center justify-between bg-gray-50 dark:bg-[var(--bg-card)]/50 p-3 rounded-xl">
                                     <div className="flex items-center gap-3">
                                         <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-sm ${i === 0 ? 'bg-yellow-500 text-black' :
                                             i === 1 ? 'bg-gray-400 text-black' :
-                                                i === 2 ? 'bg-amber-700 text-white' :
-                                                    'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                                                i === 2 ? 'bg-amber-700 text-[var(--text-primary)]' :
+                                                    'bg-gray-200 dark:bg-gray-700 text-[var(--text-secondary)]'
                                             }`}>
                                             {i + 1}
                                         </div>
-                                        <span className="font-bold text-gray-900 dark:text-white">{driver.name}</span>
+                                        <span className="font-bold text-[var(--text-primary)]">{driver.name}</span>
                                     </div>
                                     <div className="text-right">
                                         <div className="text-blue-600 dark:text-blue-400 font-bold">{driver.sessions} sesiones</div>
@@ -178,14 +178,14 @@ export default function AnalyticsPanel() {
                                 </div>
                             ))
                         ) : (
-                            <p className="text-gray-500 dark:text-gray-600 text-sm text-center py-4">Sin datos todavía</p>
+                            <p className="text-[var(--text-tertiary)] dark:text-gray-600 text-sm text-center py-4">Sin datos todavía</p>
                         )}
                     </div>
                 </div>
 
                 {/* Popular Tracks */}
-                <div className="bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 shadow-sm dark:shadow-none">
-                    <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <div className="bg-[var(--bg-card)] dark:bg-[var(--bg-elevated)]/50 border border-[var(--border-default)] rounded-2xl p-6 shadow-sm dark:shadow-none">
+                    <h3 className="text-sm font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-4 flex items-center gap-2">
                         <MapPin className="text-green-500" size={16} />
                         Circuitos Populares
                     </h3>
@@ -200,14 +200,14 @@ export default function AnalyticsPanel() {
                                 </BarChart>
                             </ResponsiveContainer>
                         ) : (
-                            <p className="text-gray-500 dark:text-gray-600 text-sm text-center py-8">Sin datos todavía</p>
+                            <p className="text-[var(--text-tertiary)] dark:text-gray-600 text-sm text-center py-8">Sin datos todavía</p>
                         )}
                     </div>
                 </div>
 
                 {/* Popular Cars */}
-                <div className="bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 shadow-sm dark:shadow-none">
-                    <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <div className="bg-[var(--bg-card)] dark:bg-[var(--bg-elevated)]/50 border border-[var(--border-default)] rounded-2xl p-6 shadow-sm dark:shadow-none">
+                    <h3 className="text-sm font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-4 flex items-center gap-2">
                         <Car className="text-red-500" size={16} />
                         Coches Populares
                     </h3>
@@ -222,14 +222,14 @@ export default function AnalyticsPanel() {
                                 </BarChart>
                             </ResponsiveContainer>
                         ) : (
-                            <p className="text-gray-500 dark:text-gray-600 text-sm text-center py-8">Sin datos todavía</p>
+                            <p className="text-[var(--text-tertiary)] dark:text-gray-600 text-sm text-center py-8">Sin datos todavía</p>
                         )}
                     </div>
                 </div>
 
                 {/* Loyalty Tier Distribution */}
-                <div className="bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 shadow-sm dark:shadow-none">
-                    <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <div className="bg-[var(--bg-card)] dark:bg-[var(--bg-elevated)]/50 border border-[var(--border-default)] rounded-2xl p-6 shadow-sm dark:shadow-none">
+                    <h3 className="text-sm font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-4 flex items-center gap-2">
                         <Star className="text-amber-500" size={16} />
                         Distribución de Niveles
                     </h3>
@@ -251,21 +251,21 @@ export default function AnalyticsPanel() {
                                         ))}
                                     </Pie>
                                     <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px', color: '#fff' }} />
-                                    <Legend formatter={(value) => <span className="text-gray-500 dark:text-gray-400">{value}</span>} />
+                                    <Legend formatter={(value) => <span className="text-[var(--text-tertiary)]">{value}</span>} />
                                 </PieChart>
                             </ResponsiveContainer>
                         ) : (
-                            <p className="text-gray-500 dark:text-gray-600 text-sm text-center">Sin distribución todavía</p>
+                            <p className="text-[var(--text-tertiary)] dark:text-gray-600 text-sm text-center">Sin distribución todavía</p>
                         )}
                     </div>
                     <div className="mt-4 flex justify-around text-center">
                         <div>
                             <div className="text-2xl font-black text-green-500 dark:text-green-400">{loyalty.total_points_issued.toLocaleString()}</div>
-                            <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase">Puntos Emitidos</div>
+                            <div className="text-[10px] text-[var(--text-tertiary)] uppercase">Puntos Emitidos</div>
                         </div>
                         <div>
                             <div className="text-2xl font-black text-red-500 dark:text-red-400">{loyalty.total_points_redeemed.toLocaleString()}</div>
-                            <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase">Puntos Canjeados</div>
+                            <div className="text-[10px] text-[var(--text-tertiary)] uppercase">Puntos Canjeados</div>
                         </div>
                     </div>
                 </div>
@@ -273,23 +273,23 @@ export default function AnalyticsPanel() {
 
             {/* Bookings Summary */}
             <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 border border-blue-200 dark:border-blue-500/20 rounded-2xl p-6 shadow-sm dark:shadow-none">
-                <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">Resumen Reservas</h3>
+                <h3 className="text-sm font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-4">Resumen Reservas</h3>
                 <div className="grid grid-cols-2 gap-4 text-center">
                     <div>
-                        <div className="text-3xl font-black text-gray-900 dark:text-white">{bookings.total}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">Total</div>
+                        <div className="text-3xl font-black text-[var(--text-primary)]">{bookings.total}</div>
+                        <div className="text-xs text-[var(--text-tertiary)]">Total</div>
                     </div>
                     <div>
                         <div className="text-3xl font-black text-yellow-500 dark:text-yellow-400">{bookings.pending}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">Pendientes</div>
+                        <div className="text-xs text-[var(--text-tertiary)]">Pendientes</div>
                     </div>
                     <div>
                         <div className="text-3xl font-black text-green-500 dark:text-green-400">{bookings.confirmed}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">Confirmadas</div>
+                        <div className="text-xs text-[var(--text-tertiary)]">Confirmadas</div>
                     </div>
                     <div>
                         <div className="text-3xl font-black text-blue-500 dark:text-blue-400">{bookings.today}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">Hoy</div>
+                        <div className="text-xs text-[var(--text-tertiary)]">Hoy</div>
                     </div>
                 </div>
             </div>
@@ -307,12 +307,12 @@ function QuickStat({ label, value, icon: Icon, color }: { label: string; value: 
     };
 
     return (
-        <div className={`p-4 rounded-xl border ${colors[color]} shadow-sm dark:shadow-none bg-white dark:bg-transparent`}>
+        <div className={`p-4 rounded-xl border ${colors[color]} shadow-sm dark:shadow-none bg-[var(--bg-card)] dark:bg-transparent`}>
             <div className="flex items-center gap-2 mb-2">
                 <Icon size={16} />
                 <span className="text-xs font-bold uppercase tracking-wider opacity-80">{label}</span>
             </div>
-            <div className="text-3xl font-black text-gray-900 dark:text-gray-100">{value}</div>
+            <div className="text-3xl font-black text-[var(--text-primary)]">{value}</div>
         </div>
     );
 }

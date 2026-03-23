@@ -26,21 +26,21 @@ export default function BigCalendar({ events, onEdit }: BigCalendarProps) {
     const today = () => setCurrentDate(new Date());
 
     return (
-        <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden shadow-2xl">
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-default)] overflow-hidden shadow-2xl">
             {/* Header */}
-            <div className="p-4 flex items-center justify-between border-b border-gray-800 bg-gray-900/50">
+            <div className="p-4 flex items-center justify-between border-b border-[var(--border-default)] bg-[var(--bg-card)]/50">
                 <div className="flex items-center space-x-4">
-                    <h2 className="text-xl font-bold text-white capitalize">
+                    <h2 className="text-xl font-bold text-[var(--text-primary)] capitalize">
                         {format(currentDate, 'MMMM yyyy', { locale: es })}
                     </h2>
-                    <div className="flex items-center space-x-1 bg-gray-800 rounded-lg p-1">
-                        <button onClick={prevMonth} className="p-1 hover:bg-gray-700 rounded-md text-gray-400 hover:text-white">
+                    <div className="flex items-center space-x-1 bg-[var(--bg-elevated)] rounded-lg p-1">
+                        <button onClick={prevMonth} className="p-1 hover:bg-[var(--bg-elevated)] rounded-md text-[var(--text-tertiary)] hover:text-[var(--text-primary)]">
                             <ChevronLeft size={20} />
                         </button>
-                        <button onClick={today} className="px-3 py-1 text-xs font-bold text-gray-400 hover:text-white hover:bg-gray-700 rounded-md">
+                        <button onClick={today} className="px-3 py-1 text-xs font-bold text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] rounded-md">
                             HOY
                         </button>
-                        <button onClick={nextMonth} className="p-1 hover:bg-gray-700 rounded-md text-gray-400 hover:text-white">
+                        <button onClick={nextMonth} className="p-1 hover:bg-[var(--bg-elevated)] rounded-md text-[var(--text-tertiary)] hover:text-[var(--text-primary)]">
                             <ChevronRight size={20} />
                         </button>
                     </div>
@@ -48,9 +48,9 @@ export default function BigCalendar({ events, onEdit }: BigCalendarProps) {
             </div>
 
             {/* Grid Days Header */}
-            <div className="grid grid-cols-7 border-b border-gray-800 bg-gray-800/50">
+            <div className="grid grid-cols-7 border-b border-[var(--border-default)] bg-[var(--bg-elevated)]/50">
                 {weekDays.map(day => (
-                    <div key={day} className="py-2 text-center text-xs font-bold text-gray-500 uppercase tracking-widest">
+                    <div key={day} className="py-2 text-center text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-widest">
                         {day}
                     </div>
                 ))}
@@ -67,15 +67,15 @@ export default function BigCalendar({ events, onEdit }: BigCalendarProps) {
                         <div
                             key={day.toString()}
                             className={cn(
-                                "border-r border-b border-gray-800/50 p-2 transition-colors hover:bg-gray-800/30 flex flex-col group",
-                                !isCurrentMonth && "bg-gray-900/30 text-gray-600",
+                                "border-r border-b border-[var(--border-default)]/50 p-2 transition-colors hover:bg-[var(--bg-elevated)]/30 flex flex-col group",
+                                !isCurrentMonth && "bg-[var(--bg-card)]/30 text-gray-600",
                                 isToday && "bg-blue-900/10"
                             )}
                         >
                             <div className="flex justify-between items-start mb-1">
                                 <span className={cn(
                                     "text-sm font-bold w-7 h-7 flex items-center justify-center rounded-full",
-                                    isToday ? "bg-blue-600 text-white" : "text-gray-400 group-hover:text-white"
+                                    isToday ? "bg-blue-600 text-[var(--text-primary)]" : "text-[var(--text-tertiary)] group-hover:text-[var(--text-primary)]"
                                 )}>
                                     {format(day, 'd')}
                                 </span>
@@ -89,7 +89,7 @@ export default function BigCalendar({ events, onEdit }: BigCalendarProps) {
                                         className={cn(
                                             "w-full text-left px-2 py-1 rounded text-xs font-bold truncate transition-all hover:scale-[1.02]",
                                             event.status === 'active' ? "bg-green-600/20 text-green-400 border border-green-600/30" :
-                                                event.status === 'completed' ? "bg-gray-800 text-gray-500 line-through decoration-gray-600" :
+                                                event.status === 'completed' ? "bg-[var(--bg-elevated)] text-[var(--text-tertiary)] line-through decoration-gray-600" :
                                                     "bg-blue-600/20 text-blue-400 border border-blue-600/30"
                                         )}
                                     >

@@ -18,6 +18,7 @@ import {
 import { createScenario, deleteScenario, getScenarios, updateScenario } from '../api/scenarios';
 import type { Scenario } from '../api/scenarios';
 import { getAllGlobalCars, getAllGlobalTracks } from '../api/content';
+import { API_URL } from '../config';
 
 type FeedbackType = 'success' | 'error';
 
@@ -50,13 +51,13 @@ type ContentItem = {
 
 const DURATION_OPTIONS = [5, 10, 15, 20, 30, 45, 60];
 
-const SESSION_MODES: Array<{ id: string; label: string; color: string }> = [
+const ALL_SESSION_MODES: Array<{ id: string; label: string; color: string; isMod?: boolean }> = [
     { id: 'practice', label: 'PRACTICA', color: 'bg-emerald-600' },
     { id: 'race', label: 'CARRERA', color: 'bg-blue-600' },
     { id: 'drift', label: 'DRIFT', color: 'bg-orange-600' },
     { id: 'trackday', label: 'TANDAS', color: 'bg-green-600' },
-    { id: 'traffic', label: 'TRAFICO', color: 'bg-yellow-600' },
-    { id: 'overtake', label: 'OVERTAKE', color: 'bg-red-600' },
+    { id: 'traffic', label: 'TRAFICO', color: 'bg-yellow-600', isMod: true },
+    { id: 'overtake', label: 'OVERTAKE', color: 'bg-red-600', isMod: true },
 ];
 
 const BLANK_DRAFT: ScenarioDraft = {
@@ -171,6 +172,24 @@ function apiErrorMessage(error: unknown): string {
 }
 
 export default function ScenariosManager() {
+    const { data: branding = [] } = useQuery({
+        queryKey: ['settings'],
+        queryFn: async () => {
+            try {
+                const res = await axios.get(`${API_URL}/settings/`);
+                return Array.isArray(res.data) ? res.data : [];
+            } catch { return []; }
+        },
+        initialData: []
+    });
+
+    const simModsEnabled = useMemo(() => {
+        return (branding as any[]).find((s: any) => s.key === 'sim_mods_enabled')?.value === 'true';
+    }, [branding]);
+
+    const sessionModes = useMemo(() => {
+        return ALL_SESSION_MODES.filter(m => !m.isMod || simModsEnabled);
+    }, [simModsEnabled]);
     const queryClient = useQueryClient();
     const [editingId, setEditingId] = useState<number | null>(null);
     const [isCreating, setIsCreating] = useState(false);
@@ -428,7 +447,7 @@ export default function ScenariosManager() {
         : 'border-red-500/40 bg-red-500/10 text-red-200';
 
     return (
-        <div className="p-8 text-white h-full flex flex-col">
+        <div className="p-8 text-[var(--text-primary)] h-full flex flex-col">
             {undoDeletedScenario && undoSecondsLeft > 0 && (
                 <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-blue-500/40 bg-blue-500/10 p-3 text-sm text-blue-100">
                     <span>
@@ -437,7 +456,7 @@ export default function ScenariosManager() {
                     <button
                         onClick={() => restoreMutation.mutate(undoDeletedScenario)}
                         disabled={restoreMutation.isPending}
-                        className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-500 disabled:opacity-60"
+                        className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-[var(--text-primary)] hover:bg-blue-500 disabled:opacity-60"
                     >
                         <span className="inline-flex items-center gap-1">
                             <RotateCcw size={14} />
@@ -450,12 +469,12 @@ export default function ScenariosManager() {
             <div className="mb-8 flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-black italic">GESTOR DE ESCENARIOS</h1>
-                    <p className="text-gray-400">Configura eventos y contenido restringido para el Kiosko</p>
+                    <p className="text-[var(--text-tertiary)]">Configura eventos y contenido restringido para el Kiosko</p>
                 </div>
                 {!isEditorOpen && (
                     <button
                         onClick={openCreate}
-                        className="rounded-xl bg-blue-600 px-6 py-3 font-bold text-white transition-all hover:bg-blue-500"
+                        className="rounded-xl bg-blue-600 px-6 py-3 font-bold text-[var(--text-primary)] transition-all hover:bg-blue-500"
                     >
                         <span className="flex items-center gap-2">
                             <Plus size={20} />
@@ -472,13 +491,13 @@ export default function ScenariosManager() {
             )}
 
             {isEditorOpen && (
-                <div className="mb-8 rounded-2xl border border-gray-700 bg-gray-800 p-6 animate-in slide-in-from-top-4">
+                <div className="mb-8 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-elevated)] p-6 animate-in slide-in-from-top-4">
                     <div className="mb-6 flex items-center justify-between">
-                        <h2 className="flex items-center gap-2 text-xl font-bold text-white">
+                        <h2 className="flex items-center gap-2 text-xl font-bold text-[var(--text-primary)]">
                             {isCreating ? <Plus className="text-blue-500" /> : <Edit className="text-yellow-500" />}
                             {isCreating ? 'CREAR NUEVO ESCENARIO' : 'EDITAR ESCENARIO'}
                         </h2>
-                        <button onClick={closeEditor} className="text-gray-400 hover:text-white" title="Cerrar editor">
+                        <button onClick={closeEditor} className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)]" title="Cerrar editor">
                             <X />
                         </button>
                     </div>
@@ -486,12 +505,12 @@ export default function ScenariosManager() {
                     <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
                         <div className="space-y-6 lg:col-span-1">
                             <div>
-                                <label className="mb-1 block text-sm font-bold text-gray-400">NOMBRE</label>
+                                <label className="mb-1 block text-sm font-bold text-[var(--text-tertiary)]">NOMBRE</label>
                                 <input
                                     type="text"
                                     value={formData.name}
                                     onChange={(event) => setFormData((prev) => ({ ...prev, name: event.target.value }))}
-                                    className={`w-full rounded-lg border bg-gray-900 px-4 py-3 text-white outline-none ${validationErrors.name ? 'border-red-500' : 'border-gray-700 focus:border-blue-500'
+                                    className={`w-full rounded-lg border bg-[var(--bg-card)] px-4 py-3 text-[var(--text-primary)] outline-none ${validationErrors.name ? 'border-red-500' : 'border-[var(--border-default)] focus:border-blue-500'
                                         }`}
                                     placeholder="Ej. Torneo Drift JDM"
                                 />
@@ -501,17 +520,17 @@ export default function ScenariosManager() {
                             </div>
 
                             <div>
-                                <label className="mb-1 block text-sm font-bold text-gray-400">DESCRIPCION</label>
+                                <label className="mb-1 block text-sm font-bold text-[var(--text-tertiary)]">DESCRIPCION</label>
                                 <textarea
                                     value={formData.description}
                                     onChange={(event) => setFormData((prev) => ({ ...prev, description: event.target.value }))}
-                                    className="h-32 w-full resize-none rounded-lg border border-gray-700 bg-gray-900 px-4 py-3 text-white outline-none focus:border-blue-500"
+                                    className="h-32 w-full resize-none rounded-lg border border-[var(--border-default)] bg-[var(--bg-card)] px-4 py-3 text-[var(--text-primary)] outline-none focus:border-blue-500"
                                     placeholder="Descripcion breve para el usuario..."
                                 />
                             </div>
 
                             <div>
-                                <label className="mb-1 block text-sm font-bold text-gray-400">OPCIONES DE TIEMPO (MINUTOS)</label>
+                                <label className="mb-1 block text-sm font-bold text-[var(--text-tertiary)]">OPCIONES DE TIEMPO (MINUTOS)</label>
                                 <div className="flex flex-wrap gap-2">
                                     {DURATION_OPTIONS.map((minutes) => (
                                         <button
@@ -523,8 +542,8 @@ export default function ScenariosManager() {
                                                 }))
                                             }
                                             className={`rounded-lg border px-3 py-2 text-sm font-bold transition-all ${formData.allowed_durations.includes(minutes)
-                                                ? 'border-blue-500 bg-blue-600 text-white'
-                                                : 'border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-500'
+                                                ? 'border-blue-500 bg-blue-600 text-[var(--text-primary)]'
+                                                : 'border-[var(--border-default)] bg-[var(--bg-card)] text-[var(--text-tertiary)] hover:border-gray-500'
                                                 }`}
                                         >
                                             {minutes}m
@@ -537,15 +556,15 @@ export default function ScenariosManager() {
                             </div>
 
                             <div>
-                                <label className="mb-1 block text-sm font-bold text-gray-400">MODO DE JUEGO</label>
+                                <label className="mb-1 block text-sm font-bold text-[var(--text-tertiary)]">MODO DE JUEGO</label>
                                 <div className="grid grid-cols-2 gap-2">
-                                    {SESSION_MODES.map((mode) => (
+                                    {sessionModes.map((mode: { id: string; label: string; color: string }) => (
                                         <button
                                             key={mode.id}
                                             onClick={() => setFormData((prev) => ({ ...prev, session_type: mode.id }))}
                                             className={`flex items-center justify-center gap-2 rounded-lg border p-3 text-sm font-black transition-all ${formData.session_type === mode.id
-                                                ? `${mode.color} scale-[1.02] border-white text-white shadow-lg`
-                                                : 'border-gray-700 bg-gray-900 text-gray-500 hover:border-gray-500'
+                                                ? `${mode.color} scale-[1.02] border-white text-[var(--text-primary)] shadow-lg`
+                                                : 'border-[var(--border-default)] bg-[var(--bg-card)] text-[var(--text-tertiary)] hover:border-gray-500'
                                                 }`}
                                         >
                                             {mode.label}
@@ -555,11 +574,11 @@ export default function ScenariosManager() {
                             </div>
 
                             <div>
-                                <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-gray-700 bg-gray-900 p-3 transition-colors hover:border-blue-500">
+                                <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-[var(--border-default)] bg-[var(--bg-card)] p-3 transition-colors hover:border-blue-500">
                                     <div className={`h-6 w-10 rounded-full p-1 transition-colors ${formData.is_active ? 'bg-green-500' : 'bg-gray-700'}`}>
-                                        <div className={`h-4 w-4 rounded-full bg-white transition-transform ${formData.is_active ? 'translate-x-4' : 'translate-x-0'}`} />
+                                        <div className={`h-4 w-4 rounded-full bg-[var(--bg-card)] transition-transform ${formData.is_active ? 'translate-x-4' : 'translate-x-0'}`} />
                                     </div>
-                                    <span className="text-sm font-bold text-gray-300">ESCENARIO ACTIVO</span>
+                                    <span className="text-sm font-bold text-[var(--text-secondary)]">ESCENARIO ACTIVO</span>
                                     <input
                                         type="checkbox"
                                         className="hidden"
@@ -570,23 +589,23 @@ export default function ScenariosManager() {
                             </div>
                         </div>
 
-                        <div className="flex h-[520px] flex-col rounded-xl border border-gray-700 bg-gray-900/50 p-4 lg:col-span-1">
-                            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-gray-400">
+                        <div className="flex h-[520px] flex-col rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)]/50 p-4 lg:col-span-1">
+                            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-[var(--text-tertiary)]">
                                 <Car size={16} /> COCHES PERMITIDOS
                             </h3>
                             <div className="mb-3 flex items-center gap-2">
                                 <div className="relative flex-1">
-                                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" />
                                     <input
                                         value={carSearch}
                                         onChange={(event) => setCarSearch(event.target.value)}
                                         placeholder="Buscar coche..."
-                                        className="w-full rounded-lg border border-gray-700 bg-gray-900 py-2 pl-8 pr-3 text-sm text-gray-200 outline-none focus:border-blue-500"
+                                        className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-card)] py-2 pl-8 pr-3 text-sm text-[var(--text-primary)] outline-none focus:border-blue-500"
                                     />
                                 </div>
                                 <button
                                     onClick={() => setShowSelectedCarsOnly((prev) => !prev)}
-                                    className={`rounded-lg px-2 py-2 text-xs font-bold ${showSelectedCarsOnly ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                                    className={`rounded-lg px-2 py-2 text-xs font-bold ${showSelectedCarsOnly ? 'bg-blue-600 text-[var(--text-primary)]' : 'bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]'
                                         }`}
                                 >
                                     Seleccionados
@@ -607,30 +626,30 @@ export default function ScenariosManager() {
                                             }
                                             className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm transition-colors ${selected
                                                 ? 'border-blue-600/30 bg-blue-600/20 text-blue-400'
-                                                : 'border-transparent text-gray-400 hover:bg-gray-800'
+                                                : 'border-transparent text-[var(--text-tertiary)] hover:bg-[var(--bg-card-hover)]'
                                                 }`}
                                         >
-                                            <div className={`flex h-5 w-5 items-center justify-center rounded border ${selected ? 'border-blue-600 bg-blue-600' : 'border-gray-600'}`}>
-                                                {selected && <Check size={14} className="text-white" />}
+                                            <div className={`flex h-5 w-5 items-center justify-center rounded border ${selected ? 'border-blue-600 bg-blue-600' : 'border-[var(--border-strong)]'}`}>
+                                                {selected && <Check size={14} className="text-[var(--text-primary)]" />}
                                             </div>
                                             <span className="truncate font-medium">{car.name || id}</span>
                                         </div>
                                     );
                                 })}
                                 {!visibleCars.length && (
-                                    <p className="px-2 py-6 text-center text-xs text-gray-500">No hay coches que coincidan con el filtro.</p>
+                                    <p className="px-2 py-6 text-center text-xs text-[var(--text-tertiary)]">No hay coches que coincidan con el filtro.</p>
                                 )}
                             </div>
                             {filteredCars.length > carsRenderLimit && (
                                 <button
                                     onClick={() => setCarsRenderLimit((prev) => prev + 120)}
-                                    className="mt-3 rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-xs font-bold text-gray-300 hover:bg-gray-700"
+                                    className="mt-3 rounded-lg border border-[var(--border-default)] bg-[var(--bg-elevated)] px-3 py-2 text-xs font-bold text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
                                 >
                                     Mostrar mas ({filteredCars.length - carsRenderLimit})
                                 </button>
                             )}
-                            <div className="mt-3 border-t border-gray-700 pt-3">
-                                <div className="mb-2 text-xs font-bold uppercase text-gray-500">
+                            <div className="mt-3 border-t border-[var(--border-default)] pt-3">
+                                <div className="mb-2 text-xs font-bold uppercase text-[var(--text-tertiary)]">
                                     {formData.allowed_cars.length} coches seleccionados (0 = todos)
                                 </div>
                                 <div className="flex flex-wrap gap-2">
@@ -644,13 +663,13 @@ export default function ScenariosManager() {
                                                 ]),
                                             }))
                                         }
-                                        className="rounded bg-gray-800 px-2 py-1 text-xs font-bold text-blue-400 hover:bg-gray-700"
+                                        className="rounded bg-[var(--bg-elevated)] px-2 py-1 text-xs font-bold text-blue-400 hover:bg-[var(--bg-elevated)]"
                                     >
                                         SELECCIONAR FILTRADOS
                                     </button>
                                     <button
                                         onClick={() => setFormData((prev) => ({ ...prev, allowed_cars: [] }))}
-                                        className="rounded bg-gray-800 px-2 py-1 text-xs font-bold text-gray-300 hover:bg-gray-700"
+                                        className="rounded bg-[var(--bg-elevated)] px-2 py-1 text-xs font-bold text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
                                     >
                                         LIMPIAR
                                     </button>
@@ -658,23 +677,23 @@ export default function ScenariosManager() {
                             </div>
                         </div>
 
-                        <div className="flex h-[520px] flex-col rounded-xl border border-gray-700 bg-gray-900/50 p-4 lg:col-span-1">
-                            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-gray-400">
+                        <div className="flex h-[520px] flex-col rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)]/50 p-4 lg:col-span-1">
+                            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-[var(--text-tertiary)]">
                                 <Flag size={16} /> CIRCUITOS PERMITIDOS
                             </h3>
                             <div className="mb-3 flex items-center gap-2">
                                 <div className="relative flex-1">
-                                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" />
                                     <input
                                         value={trackSearch}
                                         onChange={(event) => setTrackSearch(event.target.value)}
                                         placeholder="Buscar circuito..."
-                                        className="w-full rounded-lg border border-gray-700 bg-gray-900 py-2 pl-8 pr-3 text-sm text-gray-200 outline-none focus:border-green-500"
+                                        className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-card)] py-2 pl-8 pr-3 text-sm text-[var(--text-primary)] outline-none focus:border-green-500"
                                     />
                                 </div>
                                 <button
                                     onClick={() => setShowSelectedTracksOnly((prev) => !prev)}
-                                    className={`rounded-lg px-2 py-2 text-xs font-bold ${showSelectedTracksOnly ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                                    className={`rounded-lg px-2 py-2 text-xs font-bold ${showSelectedTracksOnly ? 'bg-green-600 text-[var(--text-primary)]' : 'bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]'
                                         }`}
                                 >
                                     Seleccionados
@@ -695,30 +714,30 @@ export default function ScenariosManager() {
                                             }
                                             className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm transition-colors ${selected
                                                 ? 'border-green-600/30 bg-green-600/20 text-green-400'
-                                                : 'border-transparent text-gray-400 hover:bg-gray-800'
+                                                : 'border-transparent text-[var(--text-tertiary)] hover:bg-[var(--bg-card-hover)]'
                                                 }`}
                                         >
-                                            <div className={`flex h-5 w-5 items-center justify-center rounded border ${selected ? 'border-green-600 bg-green-600' : 'border-gray-600'}`}>
-                                                {selected && <Check size={14} className="text-white" />}
+                                            <div className={`flex h-5 w-5 items-center justify-center rounded border ${selected ? 'border-green-600 bg-green-600' : 'border-[var(--border-strong)]'}`}>
+                                                {selected && <Check size={14} className="text-[var(--text-primary)]" />}
                                             </div>
                                             <span className="truncate font-medium">{track.name || id}</span>
                                         </div>
                                     );
                                 })}
                                 {!visibleTracks.length && (
-                                    <p className="px-2 py-6 text-center text-xs text-gray-500">No hay circuitos que coincidan con el filtro.</p>
+                                    <p className="px-2 py-6 text-center text-xs text-[var(--text-tertiary)]">No hay circuitos que coincidan con el filtro.</p>
                                 )}
                             </div>
                             {filteredTracks.length > tracksRenderLimit && (
                                 <button
                                     onClick={() => setTracksRenderLimit((prev) => prev + 120)}
-                                    className="mt-3 rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-xs font-bold text-gray-300 hover:bg-gray-700"
+                                    className="mt-3 rounded-lg border border-[var(--border-default)] bg-[var(--bg-elevated)] px-3 py-2 text-xs font-bold text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
                                 >
                                     Mostrar mas ({filteredTracks.length - tracksRenderLimit})
                                 </button>
                             )}
-                            <div className="mt-3 border-t border-gray-700 pt-3">
-                                <div className="mb-2 text-xs font-bold uppercase text-gray-500">
+                            <div className="mt-3 border-t border-[var(--border-default)] pt-3">
+                                <div className="mb-2 text-xs font-bold uppercase text-[var(--text-tertiary)]">
                                     {formData.allowed_tracks.length} circuitos seleccionados (0 = todos)
                                 </div>
                                 <div className="flex flex-wrap gap-2">
@@ -732,13 +751,13 @@ export default function ScenariosManager() {
                                                 ]),
                                             }))
                                         }
-                                        className="rounded bg-gray-800 px-2 py-1 text-xs font-bold text-green-400 hover:bg-gray-700"
+                                        className="rounded bg-[var(--bg-elevated)] px-2 py-1 text-xs font-bold text-green-400 hover:bg-[var(--bg-elevated)]"
                                     >
                                         SELECCIONAR FILTRADOS
                                     </button>
                                     <button
                                         onClick={() => setFormData((prev) => ({ ...prev, allowed_tracks: [] }))}
-                                        className="rounded bg-gray-800 px-2 py-1 text-xs font-bold text-gray-300 hover:bg-gray-700"
+                                        className="rounded bg-[var(--bg-elevated)] px-2 py-1 text-xs font-bold text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
                                     >
                                         LIMPIAR
                                     </button>
@@ -747,17 +766,17 @@ export default function ScenariosManager() {
                         </div>
                     </div>
 
-                    <div className="flex justify-end gap-4 border-t border-gray-700 pt-6">
+                    <div className="flex justify-end gap-4 border-t border-[var(--border-default)] pt-6">
                         <button
                             onClick={closeEditor}
-                            className="px-6 py-3 font-bold text-gray-400 hover:text-white"
+                            className="px-6 py-3 font-bold text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
                         >
                             CANCELAR
                         </button>
                         <button
                             onClick={handleSave}
                             disabled={!canSave}
-                            className="rounded-xl bg-green-600 px-8 py-3 font-bold text-white shadow-lg shadow-green-600/20 hover:bg-green-500 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="rounded-xl bg-green-600 px-8 py-3 font-bold text-[var(--text-primary)] shadow-lg shadow-green-600/20 hover:bg-green-500 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                             <span className="flex items-center gap-2">
                                 <Save size={20} />
@@ -770,17 +789,17 @@ export default function ScenariosManager() {
 
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {isLoading ? (
-                    <p className="text-gray-500">Cargando escenarios...</p>
+                    <p className="text-[var(--text-tertiary)]">Cargando escenarios...</p>
                 ) : scenarios.length === 0 ? (
-                    <div className="col-span-full rounded-3xl border-2 border-dashed border-gray-800 py-20 text-center text-gray-600">
+                    <div className="col-span-full rounded-3xl border-2 border-dashed border-[var(--border-default)] py-20 text-center text-gray-600">
                         <p className="text-xl font-bold">No hay escenarios creados</p>
                         <p className="text-sm">Crea uno para empezar a personalizar el Kiosko</p>
                     </div>
                 ) : (
                     scenarios.map((scenario) => (
-                        <div key={scenario.id} className="group rounded-2xl border border-gray-700 bg-gray-800 p-6 transition-all hover:border-blue-500">
+                        <div key={scenario.id} className="group rounded-2xl border border-[var(--border-default)] bg-[var(--bg-elevated)] p-6 transition-all hover:border-blue-500">
                             <div className="mb-4 flex items-start justify-between">
-                                <h3 className="text-xl font-black text-white">{scenario.name}</h3>
+                                <h3 className="text-xl font-black text-[var(--text-primary)]">{scenario.name}</h3>
                                 <button
                                     onClick={(event) => {
                                         event.stopPropagation();
@@ -794,32 +813,32 @@ export default function ScenariosManager() {
                                     }}
                                     className={`rounded px-3 py-1 text-xs font-bold transition-colors ${scenario.is_active
                                         ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
-                                        : 'bg-gray-700 text-gray-500 hover:bg-gray-600'
+                                        : 'bg-gray-700 text-[var(--text-tertiary)] hover:bg-gray-600'
                                         }`}
                                 >
                                     {scenario.is_active ? 'ACTIVO' : 'INACTIVO'}
                                 </button>
                             </div>
-                            <p className="mb-6 h-10 line-clamp-2 text-sm text-gray-400">{scenario.description || 'Sin descripcion'}</p>
+                            <p className="mb-6 h-10 line-clamp-2 text-sm text-[var(--text-tertiary)]">{scenario.description || 'Sin descripcion'}</p>
 
-                            <div className="mb-6 space-y-2 text-sm text-gray-500">
+                            <div className="mb-6 space-y-2 text-sm text-[var(--text-tertiary)]">
                                 <div className="flex items-center gap-2">
                                     <Car size={16} />
-                                    <span className="font-bold text-gray-300">
+                                    <span className="font-bold text-[var(--text-secondary)]">
                                         {scenario.allowed_cars?.length ? scenario.allowed_cars.length : 'TODOS'}
                                     </span>
                                     Coches
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <Flag size={16} />
-                                    <span className="font-bold text-gray-300">
+                                    <span className="font-bold text-[var(--text-secondary)]">
                                         {scenario.allowed_tracks?.length ? scenario.allowed_tracks.length : 'TODOS'}
                                     </span>
                                     Circuitos
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <Clock size={16} />
-                                    <span className="font-bold text-gray-300">
+                                    <span className="font-bold text-[var(--text-secondary)]">
                                         {scenario.allowed_durations?.join(', ') || 'Default'}
                                     </span>
                                     Min
@@ -829,7 +848,7 @@ export default function ScenariosManager() {
                             <div className="flex gap-2">
                                 <button
                                     onClick={() => handleEdit(scenario)}
-                                    className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-gray-700 py-2 font-bold text-white hover:bg-gray-600"
+                                    className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-gray-700 py-2 font-bold text-[var(--text-primary)] hover:bg-gray-600"
                                 >
                                     <Edit size={16} />
                                     EDITAR
@@ -839,7 +858,7 @@ export default function ScenariosManager() {
                                         setDeleteTarget(scenario);
                                         setDeleteNameInput('');
                                     }}
-                                    className="rounded-lg border border-red-900/50 bg-red-900/30 px-4 text-red-500 transition-colors hover:bg-red-600 hover:text-white"
+                                    className="rounded-lg border border-red-900/50 bg-red-900/30 px-4 text-red-500 transition-colors hover:bg-red-600 hover:text-[var(--text-primary)]"
                                     title="Eliminar escenario"
                                 >
                                     <Trash2 size={18} />
@@ -852,19 +871,19 @@ export default function ScenariosManager() {
 
             {deleteTarget && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-                    <div className="w-full max-w-lg rounded-2xl border border-red-800/60 bg-gray-900 p-6">
+                    <div className="w-full max-w-lg rounded-2xl border border-red-800/60 bg-[var(--bg-card)] p-6">
                         <h3 className="mb-2 flex items-center gap-2 text-lg font-black text-red-300">
                             <AlertTriangle size={18} />
                             Confirmar eliminacion
                         </h3>
-                        <p className="mb-4 text-sm text-gray-300">
+                        <p className="mb-4 text-sm text-[var(--text-secondary)]">
                             Para eliminar este escenario, escribe exactamente su nombre:
-                            <span className="ml-1 font-black text-white">{deleteTarget.name}</span>
+                            <span className="ml-1 font-black text-[var(--text-primary)]">{deleteTarget.name}</span>
                         </p>
                         <input
                             value={deleteNameInput}
                             onChange={(event) => setDeleteNameInput(event.target.value)}
-                            className="mb-6 w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-3 text-white outline-none focus:border-red-500"
+                            className="mb-6 w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-elevated)] px-4 py-3 text-[var(--text-primary)] outline-none focus:border-red-500"
                             placeholder="Nombre del escenario"
                         />
                         <div className="flex justify-end gap-3">
@@ -873,7 +892,7 @@ export default function ScenariosManager() {
                                     setDeleteTarget(null);
                                     setDeleteNameInput('');
                                 }}
-                                className="rounded-lg px-4 py-2 font-bold text-gray-300 hover:bg-gray-800"
+                                className="rounded-lg px-4 py-2 font-bold text-[var(--text-secondary)] hover:bg-[var(--bg-card-hover)]"
                             >
                                 CANCELAR
                             </button>
@@ -885,7 +904,7 @@ export default function ScenariosManager() {
                                     })
                                 }
                                 disabled={deleteMutation.isPending || deleteNameInput.trim() !== deleteTarget.name}
-                                className="rounded-lg bg-red-600 px-4 py-2 font-bold text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+                                className="rounded-lg bg-red-600 px-4 py-2 font-bold text-[var(--text-primary)] hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 {deleteMutation.isPending ? 'ELIMINANDO...' : 'ELIMINAR'}
                             </button>

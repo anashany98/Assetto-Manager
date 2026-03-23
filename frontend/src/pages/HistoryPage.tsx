@@ -124,21 +124,21 @@ export default function HistoryPage() {
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
                 <div>
-                    <h1 className="text-5xl font-black text-gray-900 dark:text-white italic uppercase tracking-tighter flex items-center gap-4">
+                    <h1 className="text-5xl font-black text-[var(--text-primary)] italic uppercase tracking-tighter flex items-center gap-4">
                         <HistoryIcon className="text-yellow-500" size={48} /> Historial de Carreras
                     </h1>
-                    <p className="text-gray-500 dark:text-gray-400 font-bold uppercase tracking-[0.2em] text-sm mt-3">
+                    <p className="text-[var(--text-tertiary)] font-bold uppercase tracking-[0.2em] text-sm mt-3">
                         Explora cada vuelta, cada sesión y cada dato histórico
                     </p>
                 </div>
 
-                <div className="flex bg-white dark:bg-white/5 p-1 rounded-2xl border border-gray-200 dark:border-white/10 backdrop-blur-xl shadow-sm dark:shadow-none">
+                <div className="flex bg-[var(--bg-card)] dark:bg-[var(--bg-card)]/5 p-1 rounded-2xl border border-gray-200 dark:border-white/10 backdrop-blur-xl shadow-sm dark:shadow-none">
                     <div className="px-6 py-3 text-center">
-                        <div data-testid="history-sessions-count" className="text-2xl font-black text-gray-900 dark:text-white italic">{sessions.length}</div>
-                        <div className="text-[10px] text-gray-500 dark:text-gray-400 font-black uppercase">Sesiones</div>
+                        <div data-testid="history-sessions-count" className="text-2xl font-black text-[var(--text-primary)] italic">{sessions.length}</div>
+                        <div className="text-[10px] text-[var(--text-tertiary)] font-black uppercase">Sesiones</div>
                     </div>
                     {isFetching && !isLoading && !isFetchingNextPage && (
-                        <div className="px-4 py-3 flex items-center text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">
+                        <div className="px-4 py-3 flex items-center text-[10px] font-black uppercase tracking-widest text-[var(--text-tertiary)]">
                             Actualizando...
                         </div>
                     )}
@@ -146,17 +146,17 @@ export default function HistoryPage() {
             </div>
 
             {/* Filters Bar */}
-            <div className="bg-white dark:bg-gray-900/50 backdrop-blur-xl border border-gray-200 dark:border-white/5 rounded-3xl p-6 mb-10 shadow-xl dark:shadow-2xl">
+            <div className="bg-[var(--bg-card)]/50 backdrop-blur-xl border border-gray-200 dark:border-white/5 rounded-3xl p-6 mb-10 shadow-xl dark:shadow-2xl">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                     <div className="space-y-2">
-                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Piloto</label>
+                        <label className="text-[10px] font-black text-[var(--text-tertiary)] uppercase tracking-widest ml-1">Piloto</label>
                         <div className="relative">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" size={16} />
                             <input
                                 data-testid="history-filter-driver"
                                 type="text"
                                 placeholder="Buscar piloto..."
-                                className="w-full input-racing pl-12 pr-4 font-bold focus:border-yellow-500 outline-none transition-all placeholder:text-gray-400"
+                                className="w-full input-racing pl-12 pr-4 font-bold focus:border-yellow-500 outline-none transition-all placeholder:text-[var(--text-tertiary)]"
                                 value={draftFilters.driver_name}
                                 onKeyDown={onFilterKeyDown}
                                 onChange={e => setDraftFilters({ ...draftFilters, driver_name: e.target.value })}
@@ -165,14 +165,14 @@ export default function HistoryPage() {
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Circuito</label>
+                        <label className="text-[10px] font-black text-[var(--text-tertiary)] uppercase tracking-widest ml-1">Circuito</label>
                         <div className="relative">
-                            <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                            <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" size={16} />
                             <input
                                 data-testid="history-filter-track"
                                 type="text"
                                 placeholder="Filtrar por pista..."
-                                className="w-full input-racing pl-12 pr-4 font-bold focus:border-yellow-500 outline-none transition-all placeholder:text-gray-400"
+                                className="w-full input-racing pl-12 pr-4 font-bold focus:border-yellow-500 outline-none transition-all placeholder:text-[var(--text-tertiary)]"
                                 value={draftFilters.track_name}
                                 onKeyDown={onFilterKeyDown}
                                 onChange={e => setDraftFilters({ ...draftFilters, track_name: e.target.value })}
@@ -181,14 +181,14 @@ export default function HistoryPage() {
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Vehículo</label>
+                        <label className="text-[10px] font-black text-[var(--text-tertiary)] uppercase tracking-widest ml-1">Vehículo</label>
                         <div className="relative">
-                            <Gauge className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                            <Gauge className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" size={16} />
                             <input
                                 data-testid="history-filter-car"
                                 type="text"
                                 placeholder="Modelo de coche..."
-                                className="w-full input-racing pl-12 pr-4 font-bold focus:border-yellow-500 outline-none transition-all placeholder:text-gray-400"
+                                className="w-full input-racing pl-12 pr-4 font-bold focus:border-yellow-500 outline-none transition-all placeholder:text-[var(--text-tertiary)]"
                                 value={draftFilters.car_model}
                                 onKeyDown={onFilterKeyDown}
                                 onChange={e => setDraftFilters({ ...draftFilters, car_model: e.target.value })}
@@ -201,7 +201,7 @@ export default function HistoryPage() {
                             data-testid="history-apply-filters"
                             disabled={!hasPendingChanges}
                             onClick={applyFilters}
-                            className="w-full bg-gray-100 hover:bg-gray-200 dark:bg-white/5 dark:hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white font-black uppercase italic tracking-tighter py-3 rounded-xl border border-gray-200 dark:border-white/10 transition-all flex items-center justify-center gap-2"
+                            className="w-full bg-gray-100 hover:bg-gray-200 dark:bg-[var(--bg-card)]/5 dark:hover:bg-[var(--bg-card)]/10 disabled:opacity-50 disabled:cursor-not-allowed text-[var(--text-primary)] font-black uppercase italic tracking-tighter py-3 rounded-xl border border-gray-200 dark:border-white/10 transition-all flex items-center justify-center gap-2"
                         >
                             <Filter size={18} /> {(isFetching && !isLoading && !isFetchingNextPage) ? 'Aplicando...' : 'Aplicar Filtros'}
                         </button>
@@ -210,10 +210,10 @@ export default function HistoryPage() {
             </div>
 
             {/* Sessions Table */}
-            <div className="bg-white dark:bg-gray-900/40 backdrop-blur-xl border border-gray-200 dark:border-white/5 rounded-3xl overflow-hidden shadow-xl dark:shadow-2xl">
+            <div className="bg-[var(--bg-card)]/40 backdrop-blur-xl border border-gray-200 dark:border-white/5 rounded-3xl overflow-hidden shadow-xl dark:shadow-2xl">
                 <div className="overflow-x-auto">
                     <div className="min-w-[980px]">
-                        <div className="grid grid-cols-[200px_1.2fr_1fr_1fr_160px_140px] bg-gray-50 dark:bg-black/40 text-gray-500 text-[10px] uppercase tracking-[0.2em] font-black border-b border-gray-200 dark:border-white/5">
+                        <div className="grid grid-cols-[200px_1.2fr_1fr_1fr_160px_140px] bg-gray-50 dark:bg-black/40 text-[var(--text-tertiary)] text-[10px] uppercase tracking-[0.2em] font-black border-b border-gray-200 dark:border-white/5">
                             <div className="p-6">Fecha / Hora</div>
                             <div className="p-6">Piloto</div>
                             <div className="p-6">Circuito</div>
@@ -225,7 +225,7 @@ export default function HistoryPage() {
                         {isLoading ? (
                             <div>
                                 {Array.from({ length: 5 }).map((_, i) => (
-                                    <div key={i} className="h-20 bg-gray-50 dark:bg-white/[0.01] animate-pulse border-b border-gray-100 dark:border-white/5" />
+                                    <div key={i} className="h-20 bg-gray-50 dark:bg-[var(--bg-card)]/[0.01] animate-pulse border-b border-gray-100 dark:border-white/5" />
                                 ))}
                             </div>
                         ) : sessions.length > 0 ? (
@@ -243,7 +243,7 @@ export default function HistoryPage() {
                                                 key={session.id}
                                                 data-index={virtualRow.index}
                                                 ref={rowVirtualizer.measureElement}
-                                                className="group hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-all border-b border-gray-100 dark:border-white/5"
+                                                className="group hover:bg-gray-50 dark:hover:bg-[var(--bg-card)]/[0.02] transition-all border-b border-gray-100 dark:border-white/5"
                                                 style={{
                                                     position: 'absolute',
                                                     top: 0,
@@ -255,26 +255,26 @@ export default function HistoryPage() {
                                                 <div className="grid grid-cols-[200px_1.2fr_1fr_1fr_160px_140px]">
                                                     <div className="p-6">
                                                         <div className="flex flex-col">
-                                                            <span className="text-gray-900 dark:text-white font-bold text-sm">
+                                                            <span className="text-[var(--text-primary)] font-bold text-sm">
                                                                 {session.date ? format(new Date(session.date), 'dd MMM yyyy') : 'Sin Fecha'}
                                                             </span>
-                                                            <span className="text-gray-500 dark:text-gray-600 text-[10px] font-black uppercase mt-0.5">
+                                                            <span className="text-[var(--text-tertiary)] dark:text-gray-600 text-[10px] font-black uppercase mt-0.5">
                                                                 {session.date ? format(new Date(session.date), 'HH:mm') : '--:--'}
                                                             </span>
                                                         </div>
                                                     </div>
                                                     <div className="p-6">
-                                                        <div className="font-black text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-yellow-500 transition-colors uppercase italic">
+                                                        <div className="font-black text-[var(--text-primary)] group-hover:text-blue-600 dark:group-hover:text-yellow-500 transition-colors uppercase italic">
                                                             {session.driver_name}
                                                         </div>
                                                     </div>
                                                     <div className="p-6">
-                                                        <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-xs font-bold uppercase">
+                                                        <div className="flex items-center gap-2 text-[var(--text-tertiary)] text-xs font-bold uppercase">
                                                             <MapPin size={12} className="text-blue-500" /> {session.track_name}
                                                         </div>
                                                     </div>
                                                     <div className="p-6 text-xs font-bold uppercase">
-                                                        <span className="bg-gray-100 dark:bg-white/5 px-2.5 py-1 rounded-lg text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-white/5">
+                                                        <span className="bg-[var(--bg-badge)] px-2.5 py-1 rounded-lg text-[var(--text-secondary)] border border-gray-200 dark:border-white/5">
                                                             {session.car_model}
                                                         </span>
                                                     </div>
@@ -288,12 +288,12 @@ export default function HistoryPage() {
                                                             <Link
                                                                 to={`/telemetry/${session.best_lap_id}`}
                                                                 onMouseEnter={() => prefetchLapTelemetry(session.best_lap_id)}
-                                                                className="inline-flex items-center gap-2 bg-gray-100 hover:bg-white dark:bg-white/5 dark:hover:bg-yellow-500 dark:hover:text-black py-2 px-4 rounded-xl border border-gray-200 dark:border-white/10 transition-all text-[10px] font-black uppercase tracking-widest text-gray-600 hover:text-blue-600 dark:text-gray-300"
+                                                                className="inline-flex items-center gap-2 bg-gray-100 hover:bg-[var(--bg-card)] dark:bg-[var(--bg-card)]/5 dark:hover:bg-yellow-500 dark:hover:text-black py-2 px-4 rounded-xl border border-gray-200 dark:border-white/10 transition-all text-[10px] font-black uppercase tracking-widest text-gray-600 hover:text-blue-600 dark:text-[var(--text-secondary)]"
                                                             >
                                                                 Analizar <ChevronRight size={14} />
                                                             </Link>
                                                         ) : (
-                                                            <div className="inline-flex items-center gap-2 bg-gray-100 dark:bg-white/5 py-2 px-4 rounded-xl border border-gray-200 dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-600 opacity-60 cursor-not-allowed">
+                                                            <div className="inline-flex items-center gap-2 bg-[var(--bg-badge)] py-2 px-4 rounded-xl border border-gray-200 dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-[var(--text-tertiary)] dark:text-gray-600 opacity-60 cursor-not-allowed">
                                                                 Sin datos
                                                             </div>
                                                         )}
@@ -305,7 +305,7 @@ export default function HistoryPage() {
                                 </div>
                             </div>
                         ) : (
-                            <div className="p-20 text-center text-gray-500 dark:text-gray-600 italic">
+                            <div className="p-20 text-center text-[var(--text-tertiary)] dark:text-gray-600 italic">
                                 {error ? (
                                     <div className="flex flex-col items-center">
                                         <AlertTriangle size={32} className="text-red-500/50 mb-2" />
@@ -325,12 +325,12 @@ export default function HistoryPage() {
                             data-testid="history-load-more"
                             onClick={() => fetchNextPage()}
                             disabled={isFetchingNextPage}
-                            className="bg-gray-100 hover:bg-gray-200 dark:bg-white/5 dark:hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white font-black uppercase italic tracking-tighter py-3 px-6 rounded-xl border border-gray-200 dark:border-white/10 transition-all"
+                            className="bg-gray-100 hover:bg-gray-200 dark:bg-[var(--bg-card)]/5 dark:hover:bg-[var(--bg-card)]/10 disabled:opacity-50 disabled:cursor-not-allowed text-[var(--text-primary)] font-black uppercase italic tracking-tighter py-3 px-6 rounded-xl border border-gray-200 dark:border-white/10 transition-all"
                         >
                             {isFetchingNextPage ? 'Cargando...' : 'Cargar más'}
                         </button>
                     ) : (
-                        <div className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">
+                        <div className="text-[10px] font-black uppercase tracking-widest text-[var(--text-tertiary)]">
                             No hay más sesiones
                         </div>
                     )}

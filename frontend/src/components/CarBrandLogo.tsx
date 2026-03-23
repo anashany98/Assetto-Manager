@@ -37,7 +37,7 @@ export const CarBrandLogo = ({ carModel, className = "w-8 h-8" }: { carModel: st
         // Fallback: Text or Generic Icon
         return (
             <div className={`flex items-center justify-center bg-gray-700 rounded p-1 ${className}`} title={carModel}>
-                <span className="text-[10px] font-bold text-gray-400 uppercase truncate px-1">
+                <span className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase truncate px-1">
                     {modelLower.substring(0, 3)}
                 </span>
             </div>
@@ -58,7 +58,7 @@ export const CarBrandLogo = ({ carModel, className = "w-8 h-8" }: { carModel: st
                 className="w-full h-full object-contain filter drop-shadow-md"
                 alt={brandKey}
             />
-            <div className="hidden absolute inset-0 flex items-center justify-center bg-gray-800 rounded text-[8px] text-gray-400">
+            <div className="hidden absolute inset-0 flex items-center justify-center bg-[var(--bg-elevated)] rounded text-[8px] text-[var(--text-tertiary)]">
                 {brandKey?.toUpperCase().slice(0, 3)}
             </div>
         </div>

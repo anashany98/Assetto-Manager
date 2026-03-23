@@ -30,17 +30,17 @@ export default function ChampionshipsPage() {
     };
 
     if (isLoading) return (
-        <div className="p-10 text-white text-center min-h-[400px] flex flex-col items-center justify-center">
+        <div className="p-10 text-[var(--text-primary)] text-center min-h-[400px] flex flex-col items-center justify-center">
             <div className="w-10 h-10 border-4 border-yellow-500/20 border-t-yellow-500 rounded-full animate-spin mb-4" />
             <p className="font-bold text-yellow-500 animate-pulse uppercase tracking-widest text-sm">Cargando campeonatos...</p>
         </div>
     );
 
     if (error) return (
-        <div className="p-10 text-white text-center min-h-[400px] flex flex-col items-center justify-center">
+        <div className="p-10 text-[var(--text-primary)] text-center min-h-[400px] flex flex-col items-center justify-center">
             <AlertTriangle size={48} className="text-red-500 mb-4" />
             <p className="font-bold text-red-400 uppercase tracking-widest text-sm">Error al cargar campeonatos</p>
-            <p className="text-gray-500 text-xs mt-2">No se ha podido conectar con el servidor.</p>
+            <p className="text-[var(--text-tertiary)] text-xs mt-2">No se ha podido conectar con el servidor.</p>
         </div>
     );
 
@@ -48,10 +48,10 @@ export default function ChampionshipsPage() {
         <div className="p-8 max-w-7xl mx-auto min-h-screen">
             <div className="flex justify-between items-center mb-10">
                 <div>
-                    <h1 className="text-4xl font-black text-white italic uppercase tracking-tight mb-2">
+                    <h1 className="text-4xl font-black text-[var(--text-primary)] italic uppercase tracking-tight mb-2">
                         Campeonatos & Ligas
                     </h1>
-                    <p className="text-gray-400">Gestiona temporadas completas y clasificaciones generales.</p>
+                    <p className="text-[var(--text-tertiary)]">Gestiona temporadas completas y clasificaciones generales.</p>
                 </div>
                 <button
                     onClick={() => setIsCreating(true)}
@@ -63,20 +63,20 @@ export default function ChampionshipsPage() {
             </div>
 
             {isCreating && (
-                <div className="mb-8 bg-gray-900 border border-gray-800 p-6 rounded-2xl animate-in slide-in-from-top-4">
+                <div className="mb-8 bg-[var(--bg-card)] border border-[var(--border-default)] p-6 rounded-2xl animate-in slide-in-from-top-4">
                     <form onSubmit={handleCreate} className="flex gap-4">
                         <input
                             type="text"
                             value={newChampName}
                             onChange={(e) => setNewChampName(e.target.value)}
                             placeholder="Nombre de la Temporada (ej. Copa Invierno 2026)"
-                            className="flex-1 bg-black/50 border border-gray-700 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 outline-none"
+                            className="flex-1 bg-black/50 border border-[var(--border-default)] rounded-lg px-4 py-3 text-[var(--text-primary)] focus:ring-2 focus:ring-yellow-500 outline-none"
                             autoFocus
                         />
-                        <button type="submit" className="bg-blue-600 hover:bg-blue-500 text-white px-6 rounded-lg font-bold">
+                        <button type="submit" className="bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] px-6 rounded-lg font-bold">
                             Crear
                         </button>
-                        <button type="button" onClick={() => setIsCreating(false)} className="text-gray-400 hover:text-white px-4">
+                        <button type="button" onClick={() => setIsCreating(false)} className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] px-4">
                             Cancelar
                         </button>
                     </form>
@@ -89,23 +89,23 @@ export default function ChampionshipsPage() {
                         <Link
                             key={champ.id}
                             to={`/championships/${champ.id}`}
-                            className="group bg-gray-900 hover:bg-gray-800 border border-white/5 hover:border-yellow-500/50 rounded-2xl p-6 transition-all relative overflow-hidden"
+                            className="group bg-[var(--bg-card)] hover:bg-[var(--bg-elevated)] border border-white/5 hover:border-yellow-500/50 rounded-2xl p-6 transition-all relative overflow-hidden"
                         >
                             <div className="relative z-10">
                                 <div className="flex justify-between items-start mb-4">
                                     <div className="p-3 bg-yellow-500/10 rounded-xl">
                                         <Crown className="text-yellow-500" size={32} />
                                     </div>
-                                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest ${champ.is_active ? 'bg-green-500/20 text-green-400' : 'bg-gray-700 text-gray-400'}`}>
+                                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest ${champ.is_active ? 'bg-green-500/20 text-green-400' : 'bg-gray-700 text-[var(--text-tertiary)]'}`}>
                                         {champ.is_active ? 'Activo' : 'Finalizado'}
                                     </span>
                                 </div>
 
-                                <h2 className="text-2xl font-black text-white italic uppercase tracking-tight mb-2 group-hover:text-yellow-400 transition-colors">
+                                <h2 className="text-2xl font-black text-[var(--text-primary)] italic uppercase tracking-tight mb-2 group-hover:text-yellow-400 transition-colors">
                                     {champ.name}
                                 </h2>
 
-                                <div className="flex items-center text-gray-500 text-sm mb-6">
+                                <div className="flex items-center text-[var(--text-tertiary)] text-sm mb-6">
                                     <Calendar size={14} className="mr-2" />
                                     <span>Iniciado: {new Date(champ.start_date).toLocaleDateString()}</span>
                                 </div>
@@ -116,11 +116,11 @@ export default function ChampionshipsPage() {
                             </div>
 
                             {/* Background Decoration */}
-                            <Crown className="absolute -bottom-4 -right-4 text-white/5 rotate-[-15deg] transition-transform group-hover:rotate-12 group-hover:scale-110" size={150} />
+                            <Crown className="absolute -bottom-4 -right-4 text-[var(--text-primary)]/5 rotate-[-15deg] transition-transform group-hover:rotate-12 group-hover:scale-110" size={150} />
                         </Link>
                     ))
                 ) : (
-                    <div className="col-span-full py-20 text-center text-gray-500 bg-gray-900/50 rounded-3xl border-2 border-dashed border-gray-800">
+                    <div className="col-span-full py-20 text-center text-[var(--text-tertiary)] bg-[var(--bg-card)]/50 rounded-3xl border-2 border-dashed border-[var(--border-default)]">
                         <Trophy size={48} className="mx-auto mb-4 opacity-20" />
                         <p className="font-bold uppercase tracking-widest text-xs">No hay campeonatos disponibles</p>
                     </div>

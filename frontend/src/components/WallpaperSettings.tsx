@@ -78,27 +78,27 @@ export default function WallpaperSettings() {
     };
 
     return (
-        <div className="bg-gray-900 border border-gray-800 rounded-3xl p-8">
-            <h2 className="text-2xl font-black text-white mb-6 uppercase flex items-center gap-3">
+        <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-3xl p-8">
+            <h2 className="text-2xl font-black text-[var(--text-primary)] mb-6 uppercase flex items-center gap-3">
                 <Play className="text-blue-500" /> Wallpapers Dinámicos
             </h2>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Configuration Panel */}
-                <div className="col-span-1 bg-gray-800/50 rounded-2xl p-6 h-fit">
-                    <h3 className="text-lg font-bold text-gray-300 mb-4 flex items-center gap-2">
+                <div className="col-span-1 bg-[var(--bg-elevated)]/50 rounded-2xl p-6 h-fit">
+                    <h3 className="text-lg font-bold text-[var(--text-secondary)] mb-4 flex items-center gap-2">
                         <Clock size={20} /> Configuración de Rotación
                     </h3>
 
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-gray-400 text-sm mb-2">Intervalo de cambio (segundos)</label>
+                            <label className="block text-[var(--text-tertiary)] text-sm mb-2">Intervalo de cambio (segundos)</label>
                             <input
                                 type="number"
                                 min="10"
                                 value={config?.interval_seconds || 30}
                                 onChange={(e) => updateInterval(parseInt(e.target.value))}
-                                className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-blue-500 outline-none"
+                                className="w-full bg-[var(--bg-card)] border border-[var(--border-default)] rounded-xl px-4 py-3 text-[var(--text-primary)] focus:border-blue-500 outline-none"
                             />
                         </div>
 
@@ -108,15 +108,15 @@ export default function WallpaperSettings() {
                             </p>
                         </div>
 
-                        <div className="pt-4 border-t border-gray-700">
-                            <label className="block text-gray-400 text-sm mb-2">Subir Nuevo Video</label>
-                            <label className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-2xl cursor-pointer hover:bg-gray-700/50 transition-all ${uploading ? 'border-blue-500 bg-blue-500/10' : 'border-gray-600'}`}>
+                        <div className="pt-4 border-t border-[var(--border-default)]">
+                            <label className="block text-[var(--text-tertiary)] text-sm mb-2">Subir Nuevo Video</label>
+                            <label className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-2xl cursor-pointer hover:bg-[var(--bg-elevated)]/50 transition-all ${uploading ? 'border-blue-500 bg-blue-500/10' : 'border-[var(--border-strong)]'}`}>
                                 <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                    <Upload className={`mb-3 ${uploading ? 'animate-bounce text-blue-400' : 'text-gray-400'}`} />
-                                    <p className="mb-2 text-sm text-gray-500 dark:text-gray-400">
+                                    <Upload className={`mb-3 ${uploading ? 'animate-bounce text-blue-400' : 'text-[var(--text-tertiary)]'}`} />
+                                    <p className="mb-2 text-sm text-[var(--text-tertiary)]">
                                         {uploading ? 'Subiendo...' : <span className="font-semibold">Click para subir video</span>}
                                     </p>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400">MP4, WEBM (Max 100MB)</p>
+                                    <p className="text-xs text-[var(--text-tertiary)]">MP4, WEBM (Max 100MB)</p>
                                 </div>
                                 <input type="file" className="hidden" accept="video/mp4,video/webm" onChange={handleFileSelect} disabled={uploading} />
                             </label>
@@ -126,10 +126,10 @@ export default function WallpaperSettings() {
 
                 {/* Files List */}
                 <div className="col-span-2 space-y-4">
-                    <h3 className="text-lg font-bold text-gray-300 mb-4">Videos Disponibles ({files.length})</h3>
+                    <h3 className="text-lg font-bold text-[var(--text-secondary)] mb-4">Videos Disponibles ({files.length})</h3>
 
                     {files.length === 0 ? (
-                        <div className="text-center py-12 text-gray-500 italic border border-gray-800 rounded-2xl">
+                        <div className="text-center py-12 text-[var(--text-tertiary)] italic border border-[var(--border-default)] rounded-2xl">
                             No hay videos subidos.
                         </div>
                     ) : (
@@ -137,7 +137,7 @@ export default function WallpaperSettings() {
                             {files.map(file => {
                                 const isActive = config?.active_wallpapers?.includes(file.filename);
                                 return (
-                                    <div key={file.filename} className={`relative group rounded-2xl overflow-hidden border-2 transition-all ${isActive ? 'border-green-500 shadow-[0_0_20px_rgba(34,197,94,0.2)]' : 'border-gray-800 hover:border-gray-600'}`}>
+                                    <div key={file.filename} className={`relative group rounded-2xl overflow-hidden border-2 transition-all ${isActive ? 'border-green-500 shadow-[0_0_20px_rgba(34,197,94,0.2)]' : 'border-[var(--border-default)] hover:border-[var(--border-strong)]'}`}>
                                         <video
                                             src={file.url}
                                             className="w-full h-40 object-cover bg-black"
@@ -153,14 +153,14 @@ export default function WallpaperSettings() {
 
                                         <div className="absolute bottom-0 left-0 right-0 p-4 flex justify-between items-end">
                                             <div className="overflow-hidden">
-                                                <p className="text-white font-bold truncate text-sm" title={file.filename}>{file.filename}</p>
-                                                <p className="text-gray-400 text-xs">{(file.size / 1024 / 1024).toFixed(1)} MB</p>
+                                                <p className="text-[var(--text-primary)] font-bold truncate text-sm" title={file.filename}>{file.filename}</p>
+                                                <p className="text-[var(--text-tertiary)] text-xs">{(file.size / 1024 / 1024).toFixed(1)} MB</p>
                                             </div>
 
                                             <div className="flex gap-2 pointer-events-auto">
                                                 <button
                                                     onClick={() => toggleActive(file.filename)}
-                                                    className={`p-2 rounded-lg transition-colors ${isActive ? 'bg-green-500 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}
+                                                    className={`p-2 rounded-lg transition-colors ${isActive ? 'bg-green-500 text-[var(--text-primary)]' : 'bg-gray-700 text-[var(--text-tertiary)] hover:bg-gray-600'}`}
                                                     title={isActive ? "Desactivar" : "Activar"}
                                                 >
                                                     <CheckCircle size={18} />
@@ -169,7 +169,7 @@ export default function WallpaperSettings() {
                                                     onClick={() => {
                                                         if (confirm('¿Eliminar este video?')) deleteMutation.mutate(file.filename);
                                                     }}
-                                                    className="p-2 bg-red-900/50 hover:bg-red-600 text-red-200 hover:text-white rounded-lg transition-colors"
+                                                    className="p-2 bg-red-900/50 hover:bg-red-600 text-red-200 hover:text-[var(--text-primary)] rounded-lg transition-colors"
                                                     title="Eliminar"
                                                 >
                                                     <Trash2 size={18} />
@@ -178,7 +178,7 @@ export default function WallpaperSettings() {
                                         </div>
 
                                         {isActive && (
-                                            <div className="absolute top-3 right-3 bg-green-500 text-white text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-widest shadow-lg">
+                                            <div className="absolute top-3 right-3 bg-green-500 text-[var(--text-primary)] text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-widest shadow-lg">
                                                 Activo
                                             </div>
                                         )}
