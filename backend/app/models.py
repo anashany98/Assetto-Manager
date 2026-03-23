@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey, Table, JSON, Index
+from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey, Table, JSON, Index, text
 from sqlalchemy.orm import relationship, declared_attr
 from sqlalchemy.ext.declarative import declared_attr
 from .database import Base
@@ -129,7 +129,7 @@ class Driver(Base, SoftDeleteMixin):
     # Note: deleted_at is inherited from SoftDeleteMixin
 
     __table_args__ = (
-        Index('ix_drivers_name_not_deleted', 'name', postgresql_where=deleted_at.is_(None)),
+        Index('ix_drivers_name_not_deleted', 'name', postgresql_where=text('deleted_at IS NULL')),
     )
 
 class Station(Base, SoftDeleteMixin):
@@ -172,8 +172,8 @@ class Station(Base, SoftDeleteMixin):
     # Note: deleted_at is inherited from SoftDeleteMixin
 
     __table_args__ = (
-        Index('ix_stations_name_not_deleted', 'name', postgresql_where=deleted_at.is_(None)),
-        Index('ix_stations_mac_not_deleted', 'mac_address', postgresql_where=deleted_at.is_(None)),
+        Index('ix_stations_name_not_deleted', 'name', postgresql_where=text('deleted_at IS NULL')),
+        Index('ix_stations_mac_not_deleted', 'mac_address', postgresql_where=text('deleted_at IS NULL')),
     )
 
 
@@ -192,6 +192,7 @@ class Lobby(Base):
     # Race configuration
     track = Column(String)
     car = Column(String)  # Single car model for equal races
+    session_type = Column(String, default="race")  # practice, qualify, race, drift, hotlap, trackday, traffic, overtake
     max_players = Column(Integer, default=8)
     laps = Column(Integer, default=5)
     duration_minutes = Column(Integer, default=15)
@@ -207,6 +208,14 @@ class Lobby(Base):
     
     # Connected players (via association table)
     players = relationship("Station", secondary=lobby_players, backref="lobbies")
+
+
+class LobbyPortReservation(Base):
+    __tablename__ = "lobby_port_reservations"
+
+    port = Column(Integer, primary_key=True)
+    lobby_id = Column(Integer, ForeignKey("lobbies.id", ondelete="SET NULL"), nullable=True, unique=True, index=True)
+    reserved_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
 
 class Mod(Base):

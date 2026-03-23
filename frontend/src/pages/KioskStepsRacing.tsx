@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import axios from 'axios';
 import { API_URL } from '../config';
 import { soundManager } from '../utils/sound';
 import {
     Trophy, Flag, Shield, Activity, Clock,
-    ChevronRight, Play, Settings, Gauge, AlertTriangle
+    ChevronRight, Play, Settings, Gauge, AlertTriangle, LogOut
 } from 'lucide-react';
 import type { Scenario } from '../api/scenarios';
 import type { KioskSelection } from './KioskStepsModern'; // Reusing type
@@ -29,7 +30,7 @@ export const AttractModeRacing: React.FC<AttractModeProps> = ({ isIdle, t, onUnp
             {/* Dynamic Background */}
             <div className="absolute inset-0 z-0">
                 <IdleVideoBackground className="w-full h-full object-cover opacity-40" />
-                <div className="absolute inset-0 bg-[url('/assets/asphalt-texture.png')] opacity-50 mixing-blend-overlay" />
+                <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.05)_0,rgba(255,255,255,0.05)_1px,transparent_1px,transparent_18px)] opacity-20" />
                 <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-transparent to-black/80" />
                 {/* Racing Stripes Animation */}
                 <div className="absolute inset-0 racing-stripe opacity-10 animate-slide-up" style={{ backgroundSize: '200% 200%' }} />
@@ -430,6 +431,9 @@ interface WaitingRoomRacingProps {
 
 export const WaitingRoomRacing: React.FC<WaitingRoomRacingProps> = ({ selection, stationId, setIsLaunched, clientTokenHeaders }) => {
     const [lobbyError, setLobbyError] = useState<string | null>(null);
+    const [isAbandoning, setIsAbandoning] = useState(false);
+    const navigate = useNavigate();
+    const LOBBY_TIMEOUT_SECONDS = 300;
     const resolveApiError = (error: unknown, fallback: string) => {
         if (axios.isAxiosError(error)) {
             const detail = (error.response?.data as any)?.detail;
@@ -438,7 +442,7 @@ export const WaitingRoomRacing: React.FC<WaitingRoomRacingProps> = ({ selection,
         return fallback;
     };
     const lobbyId = selection?.lobbyId && selection.lobbyId > 0 ? selection.lobbyId : null;
-    const { data: fetchedLobbyData, refetch } = useQuery({
+    const { data: fetchedLobbyData, refetch, isError: isLobbyError } = useQuery({
         queryKey: ['lobby', lobbyId],
         queryFn: () => axios.get(`${API_URL}/lobby/${lobbyId}`, { headers: clientTokenHeaders }).then(res => res.data),
         refetchInterval: 1000,
@@ -489,26 +493,38 @@ export const WaitingRoomRacing: React.FC<WaitingRoomRacingProps> = ({ selection,
     const readyPlayersCount = players.filter((p: any) => p?.ready).length;
     const canHostStart = isReady && readyPlayersCount >= 2;
 
-    // Timer Logic
-    const [timeLeft, setTimeLeft] = React.useState(120);
-    React.useEffect(() => {
-        if (!lobbyData?.created_at) return;
-        const updateTimer = () => {
-            const createdTime = new Date(lobbyData.created_at).getTime();
-            const now = new Date().getTime();
-            const WAIT_TIME_SEC = 180;
-            const elapsedSec = Math.floor((now - createdTime) / 1000);
-            const remaining = Math.max(0, WAIT_TIME_SEC - elapsedSec);
-            setTimeLeft(remaining);
+    useEffect(() => {
+        if (lobbyData?.status === 'cancelled') {
+            setLobbyError('La sala ha sido cancelada.');
+        }
+    }, [lobbyData?.status]);
 
-            if (remaining === 0 && isHost && lobbyData.status === 'waiting' && canHostStart && !StartRaceMutation.isPending) {
+    useEffect(() => {
+        if (!isLobbyError) return;
+        setLobbyError((current) => current ?? 'No se pudo actualizar la sala.');
+    }, [isLobbyError]);
+
+    const timeLeft = typeof lobbyData?.timeout_remaining_seconds === 'number'
+        ? lobbyData.timeout_remaining_seconds
+        : LOBBY_TIMEOUT_SECONDS;
+
+    useEffect(() => {
+        if (lobbyData?.status !== 'waiting' || timeLeft !== 0) return;
+
+        if (isHost) {
+            if (canHostStart && !StartRaceMutation.isPending) {
                 StartRaceMutation.mutate();
             }
-        };
-        updateTimer();
-        const interval = setInterval(updateTimer, 1000);
-        return () => clearInterval(interval);
-    }, [lobbyData?.created_at, lobbyData?.status, isHost, StartRaceMutation, canHostStart]);
+            return;
+        }
+
+        if (isAbandoning) return;
+
+        setLobbyError('Tiempo de espera agotado. La sala sera cerrada.');
+        setIsAbandoning(true);
+        const timeoutId = window.setTimeout(() => navigate('/'), 2000);
+        return () => window.clearTimeout(timeoutId);
+    }, [lobbyData?.status, timeLeft, isHost, canHostStart, isAbandoning, navigate, StartRaceMutation]);
 
     const formatTime = (seconds: number) => {
         const m = Math.floor(seconds / 60);
@@ -569,6 +585,7 @@ export const WaitingRoomRacing: React.FC<WaitingRoomRacingProps> = ({ selection,
                             setLobbyError(null);
                             ReadyMutation.mutate(!isReady);
                         }}
+                        disabled={ReadyMutation.isPending || isAbandoning}
                         className={`px-8 py-4 font-racing italic text-xl skew-box transition-all ${isReady ? 'bg-racing-yellow text-black' : 'bg-gray-700 text-white hover:bg-gray-600'}`}
                     >
                         <div className="skew-content-inverse">{isReady ? 'CANCEL READY' : 'SET READY'}</div>
@@ -576,16 +593,34 @@ export const WaitingRoomRacing: React.FC<WaitingRoomRacingProps> = ({ selection,
 
                     {isHost && (
                         <button
+                        onClick={() => {
+                            soundManager.playClick();
+                            setLobbyError(null);
+                            StartRaceMutation.mutate();
+                        }}
+                        disabled={!canHostStart || StartRaceMutation.isPending || isAbandoning}
+                        className="px-8 py-4 bg-racing-green text-white font-racing italic text-xl skew-box hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(52,199,89,0.4)]"
+                    >
+                        <div className="skew-content-inverse flex items-center gap-2">
+                            GREEN FLAG <Play fill="white" size={20} />
+                        </div>
+                    </button>
+                    )}
+                    {!isHost && (
+                        <button
                             onClick={() => {
-                                soundManager.playClick();
-                                setLobbyError(null);
-                                StartRaceMutation.mutate();
+                                if (window.confirm('Estas seguro de abandonar la sala?')) {
+                                    soundManager.playClick();
+                                    setIsAbandoning(true);
+                                    navigate('/');
+                                }
                             }}
-                            disabled={!canHostStart || StartRaceMutation.isPending}
-                            className="px-8 py-4 bg-racing-green text-white font-racing italic text-xl skew-box hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(52,199,89,0.4)]"
+                            disabled={isAbandoning}
+                            className="px-8 py-4 bg-gray-800 text-white font-racing italic text-xl skew-box hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <div className="skew-content-inverse flex items-center gap-2">
-                                GREEN FLAG <Play fill="white" size={20} />
+                                <LogOut size={20} />
+                                {isAbandoning ? 'EXITING' : 'LEAVE'}
                             </div>
                         </button>
                     )}

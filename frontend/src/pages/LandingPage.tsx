@@ -116,26 +116,30 @@ export default function LandingPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl w-full">
                 {isLoading && (
-                    Array.from({ length: 6 }).map((_, idx) => (
-                        <div
-                            key={idx}
-                            className="relative overflow-hidden p-8 rounded-3xl border border-gray-800 bg-gray-900 text-left animate-pulse"
-                        >
-                            <div className="w-12 h-12 rounded-xl bg-gray-800 mb-6" />
-                            <div className="h-6 w-2/3 rounded bg-gray-800 mb-3" />
-                            <div className="h-4 w-full rounded bg-gray-800 mb-2" />
-                            <div className="h-4 w-5/6 rounded bg-gray-800" />
-                        </div>
-                    ))
-                )}
+                        Array.from({ length: 6 }).map((_, idx) => (
+                            <div
+                                key={idx}
+                                role="status"
+                                aria-label="Cargando opciones del menú"
+                                className="relative overflow-hidden p-8 rounded-3xl border border-gray-800 bg-gray-900 text-left animate-pulse"
+                            >
+                                <span className="sr-only">Cargando...</span>
+                                <div className="w-12 h-12 rounded-xl bg-gray-800 mb-6" />
+                                <div className="h-6 w-2/3 rounded bg-gray-800 mb-3" />
+                                <div className="h-4 w-full rounded bg-gray-800 mb-2" />
+                                <div className="h-4 w-5/6 rounded bg-gray-800" />
+                            </div>
+                        ))
+                    )}
 
-                {!isLoading && visibleItems.map((item) => {
+                    {!isLoading && visibleItems.map((item) => {
                     const styles = COLOR_STYLES[item.color];
                     return (
                         <button
                             key={item.title}
                             onClick={() => navigate(item.path)}
-                            className={`relative overflow-hidden group p-8 rounded-3xl border border-gray-800 bg-gray-900 ${styles.hoverBorder} transition-all duration-300 hover:shadow-2xl hover:scale-105 text-left`}
+                            aria-label={`${item.title}: ${item.description}`}
+                            className={`relative overflow-hidden group p-8 rounded-3xl border border-gray-800 bg-gray-900 ${styles.hoverBorder} transition-all duration-300 hover:shadow-2xl hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-950 text-left`}
                         >
                             <div className={`absolute top-0 right-0 p-32 ${styles.glow} rounded-full blur-3xl ${styles.glowHover} transition-all duration-500 -mr-16 -mt-16`} />
 

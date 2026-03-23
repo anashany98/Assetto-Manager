@@ -1,9 +1,10 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { soundManager } from '../utils/sound';
 import {
     ChevronRight, Trophy,
     Sun, Sunset, Cloud, CloudRain,
-    Activity, ShieldCheck, Play, Clock, Users
+    Activity, ShieldCheck, Play, Clock, Users, LogOut
 } from 'lucide-react';
 import type { Scenario } from '../api/scenarios';
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -366,6 +367,10 @@ interface WaitingRoomModernProps {
 
 export const WaitingRoomModern: React.FC<WaitingRoomModernProps> = ({ selection, stationId, setIsLaunched, clientTokenHeaders }) => {
     const [lobbyError, setLobbyError] = React.useState<string | null>(null);
+    const [isAbandoning, setIsAbandoning] = React.useState(false);
+    const navigate = useNavigate();
+    const LOBBY_TIMEOUT_SECONDS = 300;
+    const WARNING_THRESHOLD_SECONDS = 60;
     const resolveApiError = (error: unknown, fallback: string) => {
         if (axios.isAxiosError(error)) {
             const detail = (error.response?.data as any)?.detail;
@@ -374,7 +379,7 @@ export const WaitingRoomModern: React.FC<WaitingRoomModernProps> = ({ selection,
         return fallback;
     };
     const lobbyId = selection?.lobbyId && selection.lobbyId > 0 ? selection.lobbyId : null;
-    const { data: lobbyData, refetch } = useQuery({
+    const { data: lobbyData, refetch, isError: isLobbyError } = useQuery({
         queryKey: ['lobby', lobbyId],
         queryFn: () => axios.get(`${API_URL}/lobby/${lobbyId}`, { headers: clientTokenHeaders }).then(res => res.data),
         refetchInterval: 1000,
@@ -423,25 +428,38 @@ export const WaitingRoomModern: React.FC<WaitingRoomModernProps> = ({ selection,
     const readyPlayersCount = players.filter((p: any) => p?.ready).length;
     const canHostStart = isReady && readyPlayersCount >= 2;
 
-    const [timeLeft, setTimeLeft] = React.useState(120);
     React.useEffect(() => {
-        if (!lobbyData?.created_at) return;
-        const updateTimer = () => {
-            const createdTime = new Date(lobbyData.created_at).getTime();
-            const now = new Date().getTime();
-            const WAIT_TIME_SEC = 180;
-            const elapsedSec = Math.floor((now - createdTime) / 1000);
-            const remaining = Math.max(0, WAIT_TIME_SEC - elapsedSec);
-            setTimeLeft(remaining);
+        if (lobbyData?.status === 'cancelled') {
+            setLobbyError('La sala ha sido cancelada.');
+        }
+    }, [lobbyData?.status]);
 
-            if (remaining === 0 && isHost && lobbyData.status === 'waiting' && canHostStart && !StartRaceMutation.isPending) {
+    React.useEffect(() => {
+        if (!isLobbyError) return;
+        setLobbyError((current) => current ?? 'No se pudo actualizar la sala.');
+    }, [isLobbyError]);
+
+    const timeLeft = typeof lobbyData?.timeout_remaining_seconds === 'number'
+        ? lobbyData.timeout_remaining_seconds
+        : LOBBY_TIMEOUT_SECONDS;
+
+    React.useEffect(() => {
+        if (lobbyData?.status !== 'waiting' || timeLeft !== 0) return;
+
+        if (isHost) {
+            if (canHostStart && !StartRaceMutation.isPending) {
                 StartRaceMutation.mutate();
             }
-        };
-        updateTimer();
-        const interval = setInterval(updateTimer, 1000);
-        return () => clearInterval(interval);
-    }, [lobbyData?.created_at, lobbyData?.status, isHost, StartRaceMutation, canHostStart]);
+            return;
+        }
+
+        if (isAbandoning) return;
+
+        setLobbyError('Tiempo de espera agotado. La sala sera cerrada.');
+        setIsAbandoning(true);
+        const timeoutId = window.setTimeout(() => navigate('/'), 2000);
+        return () => window.clearTimeout(timeoutId);
+    }, [lobbyData?.status, timeLeft, isHost, canHostStart, isAbandoning, navigate, StartRaceMutation]);
 
     const formatTime = (seconds: number) => {
         const m = Math.floor(seconds / 60);
@@ -472,6 +490,12 @@ export const WaitingRoomModern: React.FC<WaitingRoomModernProps> = ({ selection,
                     </div>
                 </div>
             </div>
+
+            {timeLeft <= WARNING_THRESHOLD_SECONDS && (
+                <div className="mb-4 rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-center text-xs font-bold uppercase tracking-widest text-amber-200">
+                    {isHost ? 'La sala se cerrara pronto.' : 'Tiempo de espera agotandose.'}
+                </div>
+            )}
 
             {/* Players Grid */}
             <div className="flex-1 min-h-0 mb-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 content-start">
@@ -524,6 +548,7 @@ export const WaitingRoomModern: React.FC<WaitingRoomModernProps> = ({ selection,
                         setLobbyError(null);
                         ReadyMutation.mutate(!isReady);
                     }}
+                    disabled={ReadyMutation.isPending || isAbandoning}
                     className={`rounded-2xl font-black text-sm md:text-xl flex items-center justify-center gap-2 transition-all touch-manipulation hover:scale-[1.02] active:scale-95 ${isReady
                         ? 'bg-orange-500 hover:bg-orange-400 text-black shadow-[0_0_30px_rgba(249,115,22,0.3)]'
                         : 'bg-green-600 hover:bg-green-500 text-white shadow-[0_0_30px_rgba(22,163,74,0.3)]'
@@ -543,16 +568,27 @@ export const WaitingRoomModern: React.FC<WaitingRoomModernProps> = ({ selection,
                             setLobbyError(null);
                             StartRaceMutation.mutate();
                         }}
-                        disabled={!canHostStart || StartRaceMutation.isPending}
+                        disabled={!canHostStart || StartRaceMutation.isPending || isAbandoning}
                         className="bg-white hover:bg-gray-100 disabled:opacity-50 disabled:hover:bg-white text-black rounded-2xl font-black text-sm md:text-xl flex items-center justify-center gap-2 transition-all touch-manipulation hover:scale-[1.02] active:scale-95 shadow-[0_0_30px_rgba(255,255,255,0.3)]"
                     >
                         COMENZAR <Play size={18} fill="black" />
                     </button>
                 )}
                 {!isHost && (
-                    <div className="flex items-center justify-center text-gray-500 text-[11px] md:text-sm font-bold uppercase tracking-widest bg-white/5 rounded-2xl border border-white/5">
-                        Esperando al anfitrion...
-                    </div>
+                    <button
+                        onClick={() => {
+                            if (window.confirm('Estas seguro de abandonar la sala?')) {
+                                soundManager.playClick();
+                                setIsAbandoning(true);
+                                navigate('/');
+                            }
+                        }}
+                        disabled={isAbandoning}
+                        className="bg-white/5 hover:bg-white/10 disabled:opacity-50 text-gray-300 rounded-2xl font-black text-sm md:text-xl flex items-center justify-center gap-2 transition-all touch-manipulation border border-white/10"
+                    >
+                        <LogOut size={18} />
+                        {isAbandoning ? 'SALIENDO' : 'ABANDONAR'}
+                    </button>
                 )}
             </div>
             {isHost && !canHostStart && (

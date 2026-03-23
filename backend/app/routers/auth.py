@@ -153,6 +153,30 @@ def require_admin_or_public_token(
     # Backwards-compatible default: any configured client token, no scope enforcement.
     return require_admin_or_public_token_scoped()(request, current_user, client_token)
 
+
+def require_admin_or_public_token_or_kiosk(
+    request: Request,
+    current_user: Annotated[Optional[models.User], Depends(get_current_user_optional)],
+    client_token: Annotated[Optional[str], Header(alias="X-Client-Token")] = None,
+    kiosk_code: Annotated[Optional[str], Header(alias="X-Kiosk-Code")] = None,
+):
+    if current_user:
+        if not current_user.is_active:
+            raise HTTPException(status_code=400, detail="Inactive user")
+        if current_user.role == "admin":
+            return current_user
+
+    # Kiosk-specific routes should prefer the paired kiosk code over any generic
+    # public token that may also be present in the request.
+    normalized_kiosk = (kiosk_code or "").strip()
+    if normalized_kiosk:
+        return "kiosk"
+
+    resolved = _resolve_public_token(client_token, request)
+    if _is_public_token_allowed(resolved):
+        return resolved or "public"
+    raise HTTPException(status_code=403, detail="Not authenticated")
+
 def require_public_token(
     request: Request,
     client_token: Annotated[Optional[str], Header(alias="X-Client-Token")] = None

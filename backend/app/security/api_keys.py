@@ -86,12 +86,20 @@ def get_client_tokens() -> dict[str, frozenset[str]]:
     if parsed:
         return parsed
 
-    # Backward-compat: legacy single-token env vars (treated as full access).
+    # Backward-compat: legacy env vars are intentionally read-only/public-scoped.
+    # Kiosk control now relies on a paired kiosk code instead of a universal token
+    # embedded in the frontend bundle.
     legacy: dict[str, frozenset[str]] = {}
-    for key in ("PUBLIC_API_TOKEN", "PUBLIC_WS_TOKEN"):
-        tok = (os.getenv(key) or "").strip()
-        if tok:
-            legacy[tok] = frozenset({"*"})
+    public_api_token = (os.getenv("PUBLIC_API_TOKEN") or "").strip()
+    public_ws_token = (os.getenv("PUBLIC_WS_TOKEN") or "").strip()
+
+    if public_api_token:
+        legacy[public_api_token] = frozenset({"public:read"})
+
+    if public_ws_token:
+        existing = legacy.get(public_ws_token, frozenset())
+        legacy[public_ws_token] = frozenset(set(existing) | {"ws:public"})
+
     return legacy
 
 
@@ -166,4 +174,3 @@ def is_agent_token_allowed(
     if not scopes:
         return False
     return _token_has_scopes(scopes, required)
-

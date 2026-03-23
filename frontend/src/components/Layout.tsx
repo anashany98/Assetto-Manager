@@ -33,6 +33,7 @@ import axios from 'axios';
 import { API_URL, PUBLIC_API_TOKEN } from '../config';
 import { FEATURES } from '../config/features';
 import AppUpdateBanner from './AppUpdateBanner';
+import Breadcrumbs from './Breadcrumbs';
 import { getPairedStationId } from '../utils/stationPairing';
 
 
@@ -54,6 +55,7 @@ const NavItem = ({
     const { user } = useAuth();
     const { isModuleEnabled } = useLicense();
     const isActive = location.pathname === to;
+    const itemId = `nav-item-${to.replace(/\//g, '-')}`;
 
     // Permission/Module Check
     // Keys should match BOTH backend user permissions AND license modules.
@@ -116,7 +118,10 @@ const NavItem = ({
         <Link
             to={to}
             onClick={onNavigate}
-            className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-4 py-3 rounded-xl transition-all duration-200 group ${isActive
+            role="menuitem"
+            id={itemId}
+            aria-current={isActive ? 'page' : undefined}
+            className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-4 py-3 rounded-xl transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${isActive
                 ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25'
                 : 'text-slate-600 hover:bg-slate-100 hover:text-blue-600 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white'
                 }`}
@@ -126,7 +131,7 @@ const NavItem = ({
                 <Icon size={20} />
             </span>
             <span className={`font-medium transition-all ${collapsed ? 'hidden w-0 opacity-0' : 'block opacity-100'}`}>{children}</span>
-            {isActive && !collapsed && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
+            {isActive && !collapsed && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white animate-pulse" aria-hidden="true" />}
         </Link>
     );
 };
@@ -138,13 +143,14 @@ const ThemeToggle = ({ collapsed }: { collapsed: boolean }) => {
     return (
         <button
             onClick={toggleTheme}
-            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 transition-all hover:scale-105"
+            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+            aria-label={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
             title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
         >
             {theme === 'dark' ? (
-                <Sun size={collapsed ? 16 : 18} className="text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.5)]" />
+                <Sun size={collapsed ? 16 : 18} className="text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.5)]" aria-hidden="true" />
             ) : (
-                <Moon size={collapsed ? 16 : 18} className="text-blue-600 dark:text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.5)]" />
+                <Moon size={collapsed ? 16 : 18} className="text-blue-600 dark:text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.5)]" aria-hidden="true" />
             )}
         </button>
     );
@@ -156,20 +162,35 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         if (typeof window === 'undefined') return false;
         return window.innerWidth < 1024;
     });
-    const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
+    const [isTablet, setIsTablet] = useState(() => {
+        if (typeof window === 'undefined') return false;
+        return window.innerWidth >= 768 && window.innerWidth < 1024;
+    });
+    const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(() => {
+        if (typeof window === 'undefined') return false;
+        const saved = localStorage.getItem('sidebar-collapsed');
+        return saved === 'true';
+    });
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const location = useLocation();
     const { isAuthenticated } = useAuth();
 
     useEffect(() => {
         const onResize = () => {
-            setIsMobile(window.innerWidth < 1024);
+            const width = window.innerWidth;
+            setIsMobile(width < 768);
+            setIsTablet(width >= 768 && width < 1024);
         };
 
         onResize();
         window.addEventListener('resize', onResize);
         return () => window.removeEventListener('resize', onResize);
     }, []);
+
+    // Persist sidebar collapsed state
+    useEffect(() => {
+        localStorage.setItem('sidebar-collapsed', String(isDesktopCollapsed));
+    }, [isDesktopCollapsed]);
 
     useEffect(() => {
         if (!isMobile) {
@@ -178,10 +199,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     }, [isMobile]);
 
     useEffect(() => {
-        if (isMobile) {
-            setIsMobileMenuOpen(false);
-        }
-    }, [location.pathname, isMobile]);
+        // Solo cerrar cuando cambia la ruta
+        setIsMobileMenuOpen(false);
+    }, [location.pathname]);
 
     // Determine if we should show the full layout or just the content (e.g. for TV/Mobile/Public views)
     const publicPaths = [
@@ -290,9 +310,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     });
 
     const hardwareWarning = lockStatus && (lockStatus.is_online === false || !lockStatus.wheel_connected || !lockStatus.pedals_connected);
-    const collapsed = !isMobile && isDesktopCollapsed;
+    const collapsed = !isMobile && !isTablet && isDesktopCollapsed;
     const closeMobileNav = () => {
-        if (isMobile) setIsMobileMenuOpen(false);
+        if (isMobile || isTablet) setIsMobileMenuOpen(false);
     };
 
 
@@ -308,28 +328,39 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
     return (
         <div className="app-shell flex h-screen text-slate-900 dark:text-gray-100 overflow-hidden bg-slate-50 dark:bg-slate-900">
-            {isMobile && !isMobileMenuOpen && (
+            {/* Skip to main content link for accessibility */}
+            <a
+                href="#main-content"
+                className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white focus:rounded-lg focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+            >
+                Saltar al contenido principal
+            </a>
+            {(isMobile || isTablet) && !isMobileMenuOpen && (
                 <button
                     onClick={() => setIsMobileMenuOpen(true)}
-                    className="fixed top-3 left-3 z-40 h-10 w-10 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-lg flex items-center justify-center text-slate-700 dark:text-gray-200"
-                    aria-label="Abrir menu"
+                    className="fixed top-3 left-3 z-40 h-11 w-11 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-lg flex items-center justify-center text-slate-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    aria-label="Abrir menú de navegación"
                 >
-                    <Menu size={18} />
+                    <Menu size={20} />
                 </button>
             )}
 
-            {isMobile && isMobileMenuOpen && (
+            {(isMobile || isTablet) && isMobileMenuOpen && (
                 <div
                     className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[1px]"
                     onClick={() => setIsMobileMenuOpen(false)}
-                    aria-hidden
+                    onKeyDown={(e) => e.key === 'Escape' && setIsMobileMenuOpen(false)}
+                    aria-hidden="true"
                 />
             )}
 
             {/* Sidebar */}
             <div className={`${collapsed ? 'lg:w-20' : 'lg:w-64'} w-0 flex-shrink-0`}>
                 <div
-                    className={`bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 text-slate-900 dark:text-white flex flex-col transition-all duration-300 relative fixed inset-y-0 left-0 z-50 w-72 transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:z-auto lg:w-full lg:translate-x-0`}
+                    className={`bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 text-slate-900 dark:text-white flex flex-col transition-all duration-300 relative fixed inset-y-0 left-0 z-50 w-72 transform ${(isMobile || isTablet) ? (isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full') : 'lg:relative lg:z-auto lg:w-full lg:translate-x-0'}`}
+                    role="dialog"
+                    aria-modal={(isMobile || isTablet) && isMobileMenuOpen ? 'true' : undefined}
+                    aria-label="Menú de navegación"
                 >
                 {/* Desktop Toggle */}
                 <button
@@ -343,10 +374,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 {/* Mobile Close */}
                 <button
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className="absolute right-3 top-3 lg:hidden h-8 w-8 rounded-lg bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-gray-200 flex items-center justify-center"
-                    aria-label="Cerrar menu"
+                    className="absolute right-3 top-3 lg:hidden h-11 w-11 rounded-lg bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-gray-200 flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    aria-label="Cerrar menú"
                 >
-                    <X size={16} />
+                    <X size={20} />
                 </button>
 
                 {/* Logo Section */}
@@ -363,7 +394,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 </div>
 
                 {/* Navigation */}
-                <nav className="flex-1 px-4 space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-800 py-4">
+                <nav role="navigation" aria-label="Navegación principal" className="flex-1 px-4 space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-800 py-4">
                     <div className={`text-[10px] text-gray-500 dark:text-gray-500 font-bold uppercase mt-4 mb-2 px-2 tracking-wider ${collapsed ? 'hidden' : ''}`}>
                         Gestion
                     </div>
@@ -402,11 +433,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <div className="p-4 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-black/20">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-bold flex-shrink-0 shadow-lg shadow-blue-500/30 text-white text-sm">A</div>
+                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-bold flex-shrink-0 shadow-lg shadow-blue-500/30 text-white text-sm" aria-hidden="true">A</div>
                             <div className={`transition-all overflow-hidden ${collapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'}`}>
                                 <p className="text-sm font-semibold whitespace-nowrap text-gray-900 dark:text-gray-200">Operador</p>
-                                <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                <p className="text-xs text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true"></span>
                                     Conectado
                                 </p>
                             </div>
@@ -418,23 +449,22 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </div>
 
             {/* Main Content Area */}
-            <div className={`flex-1 overflow-auto relative ${isMobile ? 'pt-14' : ''}`}>
-                <div className="min-h-full">
-                    <AppUpdateBanner />
-                    {hardwareWarning && (
-                        <div className="mx-4 lg:mx-8 mt-4 lg:mt-6 mb-2 bg-red-500/10 border border-red-500/30 rounded-2xl p-4 text-red-600 dark:text-red-200 font-bold text-sm flex items-center gap-3">
-                            <AlertTriangle size={18} />
-                            <span>
-                                {!lockStatus?.is_online && 'Agente desconectado. '}
-                                {lockStatus?.is_online && (!lockStatus?.wheel_connected || !lockStatus?.pedals_connected) && 'Hardware no detectado: '}
-                                {lockStatus?.is_online && !lockStatus?.wheel_connected && 'volante '}
-                                {lockStatus?.is_online && !lockStatus?.pedals_connected && 'pedales'}
-                            </span>
-                        </div>
-                    )}
-                    {children}
-                </div>
-            </div>
+            <main id="main-content" className={`flex-1 overflow-auto relative ${(isMobile || isTablet) ? 'pt-14' : ''}`} role="main" aria-label="Contenido principal">
+                {hardwareWarning && (
+                    <div className="mx-4 lg:mx-6 mt-4 mb-2 bg-red-500/10 border border-red-500/30 rounded-2xl p-4 text-red-600 dark:text-red-200 font-bold text-sm flex items-center gap-3" role="alert">
+                        <AlertTriangle size={18} aria-hidden="true" />
+                        <span>
+                            {!lockStatus?.is_online && 'Agente desconectado. '}
+                            {lockStatus?.is_online && (!lockStatus?.wheel_connected || !lockStatus?.pedals_connected) && 'Hardware no detectado: '}
+                            {lockStatus?.is_online && !lockStatus?.wheel_connected && 'volante '}
+                            {lockStatus?.is_online && !lockStatus?.pedals_connected && 'pedales'}
+                        </span>
+                    </div>
+                )}
+                <AppUpdateBanner />
+                <Breadcrumbs />
+                {children}
+            </main>
         </div>
     );
 

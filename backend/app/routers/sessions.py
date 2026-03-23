@@ -7,7 +7,7 @@ from ..database import get_db
 from ..models import Session, Station
 from .. import schemas, models
 from ..services.pricing import calculate_price
-from ..routers.auth import require_admin, require_admin_or_public_token
+from ..routers.auth import require_admin, require_admin_or_public_token_or_kiosk
 from ..security.api_keys import is_client_token_allowed
 
 router = APIRouter(
@@ -23,6 +23,10 @@ def _is_admin(user_or_client: object) -> bool:
 def _require_client_scope(user_or_client: object, required_scope: str) -> None:
     if _is_admin(user_or_client):
         return
+    if user_or_client == "kiosk":
+        if required_scope == "kiosk:control":
+            return
+        raise HTTPException(status_code=403, detail="Kiosk client missing required scope")
     token = None if user_or_client in (None, "public") else str(user_or_client)
     if not is_client_token_allowed(token=token, required_scopes=(required_scope,)):
         raise HTTPException(status_code=403, detail="Client token missing required scope")
@@ -35,7 +39,7 @@ def _require_kiosk_access(station: Station, kiosk_code: Optional[str], user_or_c
         raise HTTPException(status_code=404, detail="Station not found")
     if not station.is_kiosk_mode:
         raise HTTPException(status_code=403, detail="Kiosk mode disabled for station")
-    if not kiosk_code or station.kiosk_code != kiosk_code:
+    if (station.kiosk_code or "").strip().upper() != (kiosk_code or "").strip().upper():
         raise HTTPException(status_code=403, detail="Invalid kiosk code")
 
 
@@ -43,7 +47,7 @@ def _require_kiosk_access(station: Station, kiosk_code: Optional[str], user_or_c
 def start_session(
     session_data: schemas.SessionStart,
     db: DBSession = Depends(get_db),
-    user_or_client: models.User | str = Depends(require_admin_or_public_token),
+    user_or_client: models.User | str = Depends(require_admin_or_public_token_or_kiosk),
     kiosk_code: Optional[str] = Header(None, alias="X-Kiosk-Code"),
 ):
     # Check if station exists
@@ -52,8 +56,8 @@ def start_session(
         raise HTTPException(status_code=404, detail="Station not found")
 
     # Public clients can only create sessions for their paired kiosk station.
-    _require_client_scope(user_or_client, "kiosk:control")
     _require_kiosk_access(station, kiosk_code, user_or_client)
+    _require_client_scope(user_or_client, "kiosk:control")
 
     # Check if station already has an active session
     active_session = db.query(Session).filter(

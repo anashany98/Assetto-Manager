@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 
 import axios from 'axios';
 import { soundManager } from '../utils/sound';
@@ -19,7 +20,7 @@ import { API_URL } from '../config';
 import { cn } from '../lib/utils';
 import type { Scenario } from '../api/scenarios';
 import { getPaymentStatus, createPaymentCheckout } from '../api/payments';
-import type { PaymentProvider } from '../api/payments';
+import type { PaymentProvider, PaymentStatus } from '../api/payments';
 import { startSession } from '../api/sessions';
 import IdleVideoBackground from '../components/IdleVideoBackground';
 
@@ -639,6 +640,8 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
     clientTokenHeaders, sessionPrice, paymentHandledRef, setStep,
     launchSessionMutation, buildLaunchPayload
 }) => {
+    const [isPaidAccessRunning, setIsPaidAccessRunning] = useState(false);
+    const paidAccessInFlightRef = useRef(false);
     const resolveApiError = (error: unknown, fallback: string) => {
         if (axios.isAxiosError(error)) {
             const detail = (error.response?.data as any)?.detail;
@@ -677,6 +680,8 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
             }, { headers: clientTokenHeaders });
             return res.data;
         },
+        retry: 2,
+        retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 4000),
         onSuccess: (data) => {
             const lobbyId = Number(data?.id ?? data?.lobby_id);
             setSelection((prev: any) => ({ ...prev, lobbyId: Number.isFinite(lobbyId) ? lobbyId : prev?.lobbyId }));
@@ -695,6 +700,8 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
                 station_id: stationId
             }, { headers: clientTokenHeaders });
         },
+        retry: 2,
+        retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 4000),
         onSuccess: () => {
             setPaymentError(null);
             setStep(6);
@@ -713,8 +720,49 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
         queryKey: ['payment-status', paymentInfo?.id],
         queryFn: () => getPaymentStatus(paymentInfo!.id, clientTokenHeaders),
         enabled: !!paymentInfo?.id,
-        refetchInterval: 2000
+        refetchInterval: (query) => query.state.data?.status === 'paid' ? false : 2000
     });
+
+    const handlePaidAccess = async (paidPayment: PaymentStatus | null | undefined) => {
+        if (!paidPayment || paidAccessInFlightRef.current) return;
+
+        paidAccessInFlightRef.current = true;
+        setIsPaidAccessRunning(true);
+        setPaymentError(null);
+
+        try {
+            try {
+                await startSession({
+                    station_id: stationId,
+                    driver_name: driver?.name || undefined,
+                    duration_minutes: duration,
+                    price: paidPayment.amount,
+                    payment_method: paidPayment.provider,
+                    is_vr: false
+                }, { headers: clientTokenHeaders });
+            } catch (err) {
+                console.error('Error creating session:', err);
+            }
+
+            if (selection?.isLobby) {
+                if (selection.isHost) {
+                    await createLobbyMutation.mutateAsync();
+                } else {
+                    await joinLobbyMutation.mutateAsync();
+                }
+                return;
+            }
+
+            await launchSessionMutation.mutateAsync(buildLaunchPayload());
+        } catch (err) {
+            console.error('Error handling paid access:', err);
+            paymentHandledRef.current = false;
+            setPaymentError(resolveApiError(err, 'Pago confirmado, pero no se pudo completar el acceso.'));
+        } finally {
+            paidAccessInFlightRef.current = false;
+            setIsPaidAccessRunning(false);
+        }
+    };
 
     useEffect(() => {
         if (paymentStatus) {
@@ -722,42 +770,14 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
         }
         if (paymentStatus?.status === 'paid' && !paymentHandledRef.current && !paymentError) {
             paymentHandledRef.current = true;
-            (async () => {
-                try {
-                    await startSession({
-                        station_id: stationId,
-                        driver_name: driver?.name || undefined,
-                        duration_minutes: duration,
-                        price: paymentStatus.amount,
-                        payment_method: paymentStatus.provider,
-                        is_vr: false
-                    }, { headers: clientTokenHeaders });
-                } catch (err) {
-                    console.error('Error creating session:', err);
-                }
-
-                if (selection?.isLobby) {
-                    if (selection.isHost) {
-                        await createLobbyMutation.mutateAsync();
-                    } else {
-                        await joinLobbyMutation.mutateAsync();
-                    }
-                    return;
-                }
-
-                try {
-                    await launchSessionMutation.mutateAsync(buildLaunchPayload());
-                } catch (err) {
-                    console.error('Error launching session:', err);
-                    setPaymentError(resolveApiError(err, 'Pago confirmado, pero no se pudo lanzar la sesion.'));
-                }
-            })();
+            void handlePaidAccess(paymentStatus);
         }
     }, [paymentStatus, paymentError]);
 
     const displayAmount = paymentInfo?.amount ?? sessionPrice;
     const currency = paymentInfo?.currency || 'EUR';
-    const isPaid = paymentStatus?.status === 'paid' || paymentInfo?.status === 'paid';
+    const effectivePayment = paymentStatus ?? paymentInfo;
+    const isPaid = effectivePayment?.status === 'paid';
 
     return (
         <div className="h-full flex flex-col items-center justify-center animate-in zoom-in duration-300 max-w-4xl mx-auto w-full">
@@ -826,13 +846,17 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
                         setPaymentError(null);
                         if (isPaid) {
                             paymentHandledRef.current = false;
+                            void handlePaidAccess(effectivePayment);
                             return;
                         }
                         createCheckout.mutate(paymentProvider);
                     }}
-                    className="flex-1 bg-red-500 hover:bg-red-400 text-white font-bold py-4 rounded-xl touch-manipulation"
+                    disabled={createCheckout.isPending || isPaidAccessRunning}
+                    className="flex-1 bg-red-500 hover:bg-red-400 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl touch-manipulation"
                 >
-                    {isPaid ? 'Reintentar acceso a sala' : t('kiosk.retryPayment')}
+                    {isPaid
+                        ? (isPaidAccessRunning ? 'Reintentando acceso...' : 'Reintentar acceso a sala')
+                        : t('kiosk.retryPayment')}
                 </button>
             </div>
         </div>
@@ -872,6 +896,13 @@ interface WaitingRoomProps {
 
 export const WaitingRoom: React.FC<WaitingRoomProps> = ({ selection, stationId, setIsLaunched, clientTokenHeaders }) => {
     const [lobbyError, setLobbyError] = useState<string | null>(null);
+    const [isAbandoning, setIsAbandoning] = useState(false);
+    const navigate = useNavigate();
+    
+    // K-002: Timeout configuration - 5 minutes max
+    const LOBBY_TIMEOUT_SECONDS = 300; // 5 minutes
+    const WARNING_THRESHOLD_SECONDS = 60; // Show warning at 1 minute
+    
     const resolveApiError = (error: unknown, fallback: string) => {
         if (axios.isAxiosError(error)) {
             const detail = (error.response?.data as any)?.detail;
@@ -879,12 +910,16 @@ export const WaitingRoom: React.FC<WaitingRoomProps> = ({ selection, stationId, 
         }
         return fallback;
     };
+    
     const lobbyId = selection?.lobbyId && selection.lobbyId > 0 ? selection.lobbyId : null;
-    const { data: fetchedLobbyData, refetch } = useQuery({
+    const { data: fetchedLobbyData, refetch, isError: isLobbyError } = useQuery({
         queryKey: ['lobby', lobbyId],
         queryFn: () => axios.get(`${API_URL}/lobby/${lobbyId}`, { headers: clientTokenHeaders }).then(res => res.data),
         refetchInterval: 1000,
-        enabled: !!selection?.isLobby && !!lobbyId
+        enabled: !!selection?.isLobby && !!lobbyId,
+        // K-001: Add retry logic for network errors
+        retry: 3,
+        retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
     });
     const lobbyData = fetchedLobbyData;
 
@@ -894,6 +929,7 @@ export const WaitingRoom: React.FC<WaitingRoomProps> = ({ selection, stationId, 
         }
     }, [selection?.isLobby, lobbyId]);
 
+    // K-001: Improved mutation with retry
     const StartRaceMutation = useMutation({
         mutationFn: async () => {
             if (!lobbyId) throw new Error('Missing lobby id');
@@ -902,10 +938,13 @@ export const WaitingRoom: React.FC<WaitingRoomProps> = ({ selection, stationId, 
                 headers: clientTokenHeaders
             });
         },
+        retry: 2,
+        retryDelay: 1000,
         onSuccess: () => setLobbyError(null),
         onError: (error) => setLobbyError(resolveApiError(error, 'No se pudo iniciar la carrera.'))
     });
 
+    // K-001: Improved mutation with retry and debounce
     const ReadyMutation = useMutation({
         mutationFn: async (isReady: boolean) => {
             if (!lobbyId) throw new Error('Missing lobby id');
@@ -915,6 +954,8 @@ export const WaitingRoom: React.FC<WaitingRoomProps> = ({ selection, stationId, 
             });
             refetch();
         },
+        retry: 2,
+        retryDelay: 1000,
         onSuccess: () => setLobbyError(null),
         onError: (error) => setLobbyError(resolveApiError(error, 'No se pudo actualizar tu estado LISTO.'))
     });
@@ -930,37 +971,38 @@ export const WaitingRoom: React.FC<WaitingRoomProps> = ({ selection, stationId, 
     const readyPlayersCount = players.filter((p: any) => p?.ready).length;
     const canHostStart = isReady && readyPlayersCount >= 2;
 
-    const [timeLeft, setTimeLeft] = useState(180);
+    const timeLeft = typeof lobbyData?.timeout_remaining_seconds === 'number'
+        ? lobbyData.timeout_remaining_seconds
+        : LOBBY_TIMEOUT_SECONDS;
 
     useEffect(() => {
-        // Robust Timer Logic: Calculate remaining time relative to server creation time
-        // This ensures all clients are synced even if they join late or refresh.
-        if (!lobbyData?.created_at) return;
+        if (lobbyData?.status === 'cancelled') {
+            setLobbyError('La sala ha sido cancelada.');
+        }
+    }, [lobbyData?.status]);
 
-        const updateTimer = () => {
-            const createdTime = new Date(lobbyData.created_at).getTime();
-            const now = new Date().getTime();
-            // Standard 180s (3min) wait time for lobby start
-            const WAIT_TIME_SEC = 180;
+    useEffect(() => {
+        if (!isLobbyError) return;
+        setLobbyError((current) => current ?? 'No se pudo actualizar la sala.');
+    }, [isLobbyError]);
 
-            const elapsedSec = Math.floor((now - createdTime) / 1000);
-            const remaining = Math.max(0, WAIT_TIME_SEC - elapsedSec);
+    useEffect(() => {
+        if (lobbyData?.status !== 'waiting' || timeLeft !== 0) return;
 
-            setTimeLeft(remaining);
-
-            if (remaining === 0 && isHost && lobbyData.status === 'waiting' && canHostStart && !StartRaceMutation.isPending) {
-                // Auto-start when timer hits zero
+        if (isHost) {
+            if (canHostStart && !StartRaceMutation.isPending) {
                 StartRaceMutation.mutate();
             }
-        };
+            return;
+        }
 
-        // Update immediately
-        updateTimer();
+        if (isAbandoning) return;
 
-        // Interval for display update
-        const timer = setInterval(updateTimer, 1000);
-        return () => clearInterval(timer);
-    }, [lobbyData?.created_at, lobbyData?.status, isHost, lobbyData?.duration_minutes, canHostStart]);
+        setLobbyError('Tiempo de espera agotado. La sala sera cerrada.');
+        setIsAbandoning(true);
+        const timeoutId = window.setTimeout(() => navigate('/'), 2000);
+        return () => window.clearTimeout(timeoutId);
+    }, [lobbyData?.status, timeLeft, isHost, canHostStart, isAbandoning, navigate, StartRaceMutation]);
 
     const formatTime = (seconds: number) => {
         const m = Math.floor(seconds / 60);
@@ -979,10 +1021,24 @@ export const WaitingRoom: React.FC<WaitingRoomProps> = ({ selection, stationId, 
                     <p className="text-slate-400 mt-1 font-mono text-xs md:text-sm line-clamp-1">{lobbyData?.track} | {lobbyData?.car}</p>
                 </div>
                 <div className="text-right flex flex-col items-end">
-                    <p className="text-gray-500 font-bold uppercase tracking-widest mb-1 text-[10px] md:text-xs">INICIO EN</p>
-                    <p className={`text-2xl md:text-4xl font-black font-mono ${timeLeft <= 10 ? 'text-red-500 animate-pulse' : 'text-white'}`}>{formatTime(timeLeft)}</p>
+                    <p className="text-gray-500 font-bold uppercase tracking-widest mb-1 text-[10px] md:text-xs">
+                        {timeLeft <= WARNING_THRESHOLD_SECONDS ? 'SE ACABA' : 'INICIO EN'}
+                    </p>
+                    <p className={`text-2xl md:text-4xl font-black font-mono ${
+                        timeLeft <= 10 ? 'text-red-500 animate-pulse' :
+                        timeLeft <= WARNING_THRESHOLD_SECONDS ? 'text-orange-500 animate-pulse' : 'text-white'
+                    }`}>{formatTime(timeLeft)}</p>
                 </div>
             </div>
+
+            {/* K-002: Timeout warning banner */}
+            {timeLeft <= WARNING_THRESHOLD_SECONDS && (
+                <div className="w-full mb-3 p-2 bg-orange-500/20 border border-orange-500/50 rounded-lg text-center">
+                    <p className="text-orange-400 text-xs font-bold">
+                        {isHost ? 'La sala se cerrara pronto.' : 'Tiempo de espera agotandose. La sala se cerrara pronto.'}
+                    </p>
+                </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full flex-1 min-h-0 mb-4 content-start">
                 {visiblePlayers.map((player: any, idx: number) => {
@@ -1020,7 +1076,8 @@ export const WaitingRoom: React.FC<WaitingRoomProps> = ({ selection, stationId, 
                             setLobbyError(null);
                             ReadyMutation.mutate(true);
                         }}
-                        className="flex-1 bg-green-600 hover:bg-green-500 text-white font-black py-4 rounded-2xl text-base md:text-xl shadow-xl shadow-green-600/20 transition-all flex items-center justify-center gap-2"
+                        disabled={ReadyMutation.isPending || isAbandoning}
+                        className="flex-1 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-black py-4 rounded-2xl text-base md:text-xl shadow-xl shadow-green-600/20 transition-all flex items-center justify-center gap-2"
                     >
                         ESTOY LISTO <ShieldCheck size={20} />
                     </button>
@@ -1032,7 +1089,8 @@ export const WaitingRoom: React.FC<WaitingRoomProps> = ({ selection, stationId, 
                             setLobbyError(null);
                             ReadyMutation.mutate(false);
                         }}
-                        className="flex-1 bg-orange-600 hover:bg-orange-500 text-white font-black py-4 rounded-2xl text-base md:text-xl shadow-xl shadow-orange-600/20 transition-all flex items-center justify-center gap-2"
+                        disabled={ReadyMutation.isPending || isAbandoning}
+                        className="flex-1 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white font-black py-4 rounded-2xl text-base md:text-xl shadow-xl shadow-orange-600/20 transition-all flex items-center justify-center gap-2"
                     >
                         CANCELAR LISTO <Clock size={20} />
                     </button>
@@ -1045,10 +1103,29 @@ export const WaitingRoom: React.FC<WaitingRoomProps> = ({ selection, stationId, 
                             setLobbyError(null);
                             StartRaceMutation.mutate();
                         }}
-                        disabled={!canHostStart || StartRaceMutation.isPending}
+                        disabled={!canHostStart || StartRaceMutation.isPending || isAbandoning}
                         className="flex-1 bg-red-500 hover:bg-red-400 disabled:opacity-50 text-white font-black py-4 rounded-2xl text-base md:text-xl shadow-xl shadow-red-500/30 transition-all flex items-center justify-center gap-2"
                     >
                         COMENZAR CARRERA <Play size={20} fill="currentColor" />
+                    </button>
+                )}
+                {/* K-002: Abandon lobby button */}
+                {!isHost && (
+                    <button
+                        onMouseEnter={() => soundManager.playHover()}
+                        onClick={() => {
+                            if (window.confirm('Estas seguro de abandonar la sala?')) {
+                                soundManager.playClick();
+                                setIsAbandoning(true);
+                                navigate('/');
+                            }
+                        }}
+                        disabled={isAbandoning}
+                        className="px-4 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white font-bold py-4 rounded-2xl transition-all flex items-center justify-center gap-2"
+                        title="Abandonar sala"
+                    >
+                        <LogOut size={20} />
+                        <span className="hidden md:inline">{isAbandoning ? 'Saliendo...' : 'Salir'}</span>
                     </button>
                 )}
             </div>
@@ -1777,10 +1854,3 @@ export const ResultsStep: React.FC<ResultsStepProps> = ({ driver, selection }) =
         </div>
     );
 };
-
-
-
-
-
-
-

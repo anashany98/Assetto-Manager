@@ -93,6 +93,20 @@ Ensure-Value "AGENT_TOKEN" (Get-RandomToken 16)
 Ensure-Value "UPDATE_SIGNING_KEY" (Get-RandomToken 32)
 Ensure-Value "PUBLIC_API_TOKEN" (Get-RandomToken 16)
 Ensure-Value "PUBLIC_WS_TOKEN" (Get-RandomToken 16)
+if (-not $envMap.ContainsKey("CLIENT_TOKENS") -or [string]::IsNullOrWhiteSpace($envMap["CLIENT_TOKENS"]) -or $envMap["CLIENT_TOKENS"] -eq 'change-me') {
+  $clientTokens = @()
+  $publicApiToken = $envMap["PUBLIC_API_TOKEN"]
+  $publicWsToken = $envMap["PUBLIC_WS_TOKEN"]
+  if ($publicApiToken -and $publicApiToken -eq $publicWsToken) {
+    $clientTokens += "$publicApiToken:public:read,ws:public"
+  } else {
+    if ($publicApiToken) { $clientTokens += "$publicApiToken:public:read" }
+    if ($publicWsToken) { $clientTokens += "$publicWsToken:ws:public" }
+  }
+  if ($clientTokens.Count -gt 0) {
+    $envMap["CLIENT_TOKENS"] = ($clientTokens -join ";")
+  }
+}
 $envMap["AUTO_SCHEMA"] = "false"
 $envMap["ALLOW_PUBLIC_TOKEN_QUERY"] = "false"
 $envMap["REQUIRE_SECRETS"] = "true"
@@ -111,6 +125,7 @@ $feWsToken = $envMap["PUBLIC_WS_TOKEN"]
 @(
   "VITE_PUBLIC_API_TOKEN=$feApiToken"
   "VITE_PUBLIC_WS_TOKEN=$feWsToken"
+  "VITE_USE_WS_QUERY_TOKEN=false"
 ) | Set-Content -Encoding ASCII $feEnvPath
 Write-Host "Wrote $feEnvPath"
 

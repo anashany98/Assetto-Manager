@@ -9,7 +9,7 @@ from pydantic import BaseModel
 import uuid
 from sqlalchemy.exc import IntegrityError
 import os
-from ..routers.auth import require_admin, require_admin_or_public_token
+from ..routers.auth import require_admin
 from ..limiters import limiter
 from ..security.license import require_license_module
 
@@ -105,13 +105,13 @@ def update_layout(tables: List[TableSync], db: Session = Depends(get_db)):
         if t_data.id and t_data.id in existing_map:
             db_table = existing_map[t_data.id]
             # Update fields
-            for key, value in t_data.dict(exclude={'id'}).items():
+            for key, value in t_data.model_dump(exclude={'id'}).items():
                 setattr(db_table, key, value)
             processed_ids.add(t_data.id)
         else:
             # Create new
             # Exclude ID so DB generates it
-            table_dict = t_data.dict(exclude={'id'})
+            table_dict = t_data.model_dump(exclude={'id'})
             db_table = models.RestaurantTable(**table_dict)
             db.add(db_table)
         
@@ -155,7 +155,7 @@ def update_table(table_id: int, table: TableUpdate, db: Session = Depends(get_db
     if not db_table:
         raise HTTPException(status_code=404, detail="Table not found")
     
-    for key, value in table.dict(exclude_unset=True).items():
+    for key, value in table.model_dump(exclude_unset=True).items():
         setattr(db_table, key, value)
     
     db.commit()
@@ -204,7 +204,7 @@ class BookingCreate(BaseModel):
     notes: Optional[str] = None
     status: str = "confirmed"
 
-@router.post("/bookings", dependencies=[Depends(require_admin_or_public_token)])
+@router.post("/bookings")
 @limiter.limit("30/minute")
 def create_booking(
     request: Request,
@@ -241,7 +241,7 @@ def create_booking(
             detail=f"Conflict: Table(s) {conflict_tables} already booked during this time."
         )
 
-    db_booking = models.TableBooking(**booking.dict())
+    db_booking = models.TableBooking(**booking.model_dump())
     db_booking.start_time = start_time
     db_booking.end_time = end_time
     db_booking.table_ids = table_ids
@@ -292,7 +292,7 @@ def create_booking(
         
     return db_booking
 
-@router.get("/bookings/manage/{token}", dependencies=[Depends(require_admin_or_public_token)])
+@router.get("/bookings/manage/{token}")
 @limiter.limit("60/minute")
 def get_booking_by_token(request: Request, token: str, db: Session = Depends(get_db)):
     booking = db.query(models.TableBooking).filter(models.TableBooking.manage_token == token).first()
@@ -325,7 +325,7 @@ class BookingUpdate(BaseModel):
     notes: Optional[str] = None
     allergies: Optional[List[str]] = None
 
-@router.put("/bookings/manage/{token}", dependencies=[Depends(require_admin_or_public_token)])
+@router.put("/bookings/manage/{token}")
 @limiter.limit("30/minute")
 def update_booking_by_token(
     request: Request,
@@ -389,7 +389,7 @@ class SmartAssignRequest(BaseModel):
     date: str # ISO Date
     time: str # "HH:MM"
 
-@router.post("/find-best-fit", dependencies=[Depends(require_admin_or_public_token)])
+@router.post("/find-best-fit")
 @limiter.limit("60/minute")
 def find_best_fit(request: Request, payload: SmartAssignRequest, db: Session = Depends(get_db)):
     """Suggest best tables for a group"""

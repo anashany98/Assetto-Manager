@@ -5,6 +5,54 @@
    Racing-inspired dark theme with glassmorphism
    ============================================ */
 
+/* Design System Tokens */
+:root {
+    /* Border Radius System */
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 16px;
+    --radius-xl: 24px;
+    
+    /* Focus Ring */
+    --focus-ring-color: #3b82f6;
+    --focus-ring-offset: 2px;
+}
+
+/* Skip link for accessibility */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+
+.sr-only:focus {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: 0.5rem 1rem;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+}
+
+/* Smooth transitions for theme changes */
+.app-shell, .public-shell {
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Focus visible utility */
+.focus-visible-ring:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 var(--focus-ring-offset) var(--focus-ring-color);
+}
+
 @layer base {
   :root {
     /* Core Colors - Light Mode Defaults */
@@ -23,7 +71,7 @@
         #111 2px,
         #111 4px
     );
-    --asphalt: url('/assets/asphalt-texture.png'); /* Placeholder if needed, or use noise */
+    --asphalt: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0, rgba(255, 255, 255, 0.05) 1px, transparent 1px, transparent 18px);
   }
 
   /* ... dark mode overrides ... */

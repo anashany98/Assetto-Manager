@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from .websockets import manager
 from ..database import get_db
 from ..models import Station as StationModel
-from ..routers.auth import require_admin, require_admin_or_public_token
+from ..routers.auth import require_admin, require_admin_or_public_token_or_kiosk
 from .. import models
 import logging
 import json
@@ -29,7 +29,7 @@ def _require_kiosk_access(station: StationModel, kiosk_code: Optional[str], user
         raise HTTPException(status_code=404, detail="Station not found")
     if not station.is_kiosk_mode:
         raise HTTPException(status_code=403, detail="Kiosk mode disabled for station")
-    if not kiosk_code or station.kiosk_code != kiosk_code:
+    if (station.kiosk_code or "").strip().upper() != (kiosk_code or "").strip().upper():
         raise HTTPException(status_code=403, detail="Invalid kiosk code")
 
 
@@ -37,6 +37,10 @@ def _require_client_scope(user_or_client: object, required_scope: str) -> None:
     # Admin bypass.
     if _is_admin(user_or_client):
         return
+    if user_or_client == "kiosk":
+        if required_scope == "kiosk:control":
+            return
+        raise HTTPException(status_code=403, detail="Kiosk client missing required scope")
     token = None if user_or_client in (None, "public") else str(user_or_client)
     if not is_client_token_allowed(token=token, required_scopes=(required_scope,)):
         raise HTTPException(status_code=403, detail="Client token missing required scope")
@@ -153,7 +157,7 @@ async def launch_station_session(
     station_id: int,
     cmd: LaunchSessionCommand,
     db: Session = Depends(get_db),
-    user_or_client: models.User | str = Depends(require_admin_or_public_token),
+    user_or_client: models.User | str = Depends(require_admin_or_public_token_or_kiosk),
     kiosk_code: Optional[str] = Header(None, alias="X-Kiosk-Code")
 ):
     """
@@ -171,8 +175,8 @@ async def launch_station_session(
     ac_path = station.ac_path if station else None
 
     # Enforce kiosk access for public clients
-    _require_client_scope(user_or_client, "kiosk:control")
     _require_kiosk_access(station, kiosk_code, user_or_client)
+    _require_client_scope(user_or_client, "kiosk:control")
 
     # Map difficulty to assist settings
     assists = {
@@ -342,7 +346,7 @@ async def stop_station_session(
     request: Request,
     station_id: int,
     db: Session = Depends(get_db),
-    user_or_client: models.User | str = Depends(require_admin_or_public_token),
+    user_or_client: models.User | str = Depends(require_admin_or_public_token_or_kiosk),
     kiosk_code: Optional[str] = Header(None, alias="X-Kiosk-Code")
 ):
     """
@@ -351,8 +355,8 @@ async def stop_station_session(
     logger.info(f"Stopping session on Station {station_id}")
     
     station = db.query(StationModel).filter(StationModel.id == station_id).first()
-    _require_client_scope(user_or_client, "kiosk:control")
     _require_kiosk_access(station, kiosk_code, user_or_client)
+    _require_client_scope(user_or_client, "kiosk:control")
 
     command = "panic" if request.url.path.endswith("/panic") else "stop_session"
     ok = await manager.send_command(station_id, {"command": command})

@@ -249,12 +249,20 @@ def cleanup_orphan_lobbies():
         for lobby in lobbies:
             host = db.query(models.Station).filter(models.Station.id == lobby.host_station_id).first()
             if not host:
+                db.query(models.LobbyPortReservation).filter(
+                    (models.LobbyPortReservation.lobby_id == lobby.id) |
+                    (models.LobbyPortReservation.port == lobby.port)
+                ).delete(synchronize_session=False)
                 lobby.status = "cancelled"
                 lobby.finished_at = datetime.now(timezone.utc)
                 updated += 1
                 continue
             last_seen = host.last_seen
             if host.is_online is False or (last_seen and last_seen < cutoff):
+                db.query(models.LobbyPortReservation).filter(
+                    (models.LobbyPortReservation.lobby_id == lobby.id) |
+                    (models.LobbyPortReservation.port == lobby.port)
+                ).delete(synchronize_session=False)
                 lobby.status = "cancelled"
                 lobby.finished_at = datetime.now(timezone.utc)
                 updated += 1

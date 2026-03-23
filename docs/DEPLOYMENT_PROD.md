@@ -16,7 +16,10 @@ separate Windows stations running the Agent.
 - Set SETUP_TOKEN (one-time admin creation).
 - Set AGENT_TOKEN (Agent auth).
 - Set UPDATE_SIGNING_KEY (HMAC for agent update verification).
-- Set PUBLIC_API_TOKEN / PUBLIC_WS_TOKEN (public kiosk or display access).
+- Set PUBLIC_API_TOKEN / PUBLIC_WS_TOKEN only for read-only public access.
+- Set CLIENT_TOKENS with explicit scopes, for example:
+  - `<PUBLIC_API_TOKEN>:public:read`
+  - `<PUBLIC_WS_TOKEN>:ws:public`
 - Set ALLOW_PUBLIC_TOKEN_QUERY=false (avoid tokens in query params).
 - Set ALLOW_WS_TOKEN_QUERY=false (WebSocket auth should use identify frame, not query params).
 - Keep ALLOW_INSECURE_QUERY_TOKENS=false.
@@ -33,13 +36,16 @@ Or run the one-click script:
   scripts/deploy_prod.ps1 -UseSqlite
 Set REQUIRE_SECRETS=true to enforce strict validation at startup.
 
-## 2b) Create frontend/.env.production (public tokens)
-If you use kiosk/public screens in production, the frontend must send a client token.
+## 2b) Create frontend/.env.production (read-only public tokens)
+If you use kiosk/public screens in production, the frontend should only ship read-only client tokens.
 Create frontend/.env.production with:
   VITE_PUBLIC_API_TOKEN=<PUBLIC_API_TOKEN or a scoped CLIENT_TOKENS token>
   VITE_PUBLIC_WS_TOKEN=<PUBLIC_WS_TOKEN or same as above>
   VITE_USE_WS_QUERY_TOKEN=false
 Then rebuild the frontend (the token is baked at build time).
+Notes:
+- Kiosk control/write flows now rely on the paired `X-Kiosk-Code`, not on a universal public token.
+- Public simulator and table reservation forms no longer need client-token write scopes.
 
 ## 2c) LAN low-latency streaming profile (recommended for 4 stations)
 - Set a central media endpoint and WebRTC fallback in backend/.env:

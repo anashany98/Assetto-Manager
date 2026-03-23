@@ -79,6 +79,7 @@ def client():
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[auth_router.require_admin] = _test_admin
     app.dependency_overrides[auth_router.require_admin_or_public_token] = _test_admin
+    app.dependency_overrides[auth_router.require_admin_or_public_token_or_kiosk] = _test_admin
     app.dependency_overrides[auth_router.require_admin_or_agent] = _test_admin
     app.dependency_overrides[auth_router.get_current_active_user] = _test_admin
     app.dependency_overrides[auth_router.require_public_token] = lambda: "public"

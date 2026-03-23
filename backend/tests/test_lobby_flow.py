@@ -101,3 +101,56 @@ def test_lobby_rejoin_running_keeps_existing_slot_even_if_full(client, monkeypat
         assert data.get("slot") == 1
     finally:
         db.close()
+
+
+def test_lobby_start_rolls_back_started_at_when_host_fails(client, monkeypatch):
+    db = SessionLocal()
+    try:
+        host = _make_station(db, "host")
+        joiner = _make_station(db, "joiner")
+
+        create_res = _create_lobby(client, host.id, max_players=4)
+        assert create_res.status_code == 200
+        lobby_id = create_res.json()["id"]
+
+        assert client.post(f"/lobby/{lobby_id}/join", json={"station_id": joiner.id}).status_code == 200
+        assert client.post(f"/lobby/{lobby_id}/ready", params={"station_id": host.id, "is_ready": True}).status_code == 200
+        assert client.post(f"/lobby/{lobby_id}/ready", params={"station_id": joiner.id, "is_ready": True}).status_code == 200
+
+        async def _mock_send_command(*args, **kwargs):
+            return False
+
+        monkeypatch.setattr(lobby_router.manager, "send_command", _mock_send_command)
+
+        start_res = client.post(f"/lobby/{lobby_id}/start", params={"requesting_station_id": host.id})
+        assert start_res.status_code == 500
+
+        lobby_obj = db.query(models.Lobby).filter(models.Lobby.id == lobby_id).first()
+        assert lobby_obj is not None
+        assert lobby_obj.status == "waiting"
+        assert lobby_obj.started_at is None
+    finally:
+        db.close()
+
+
+def test_lobby_port_reservation_is_released_after_cancel(client, monkeypatch):
+    db = SessionLocal()
+    try:
+        host = _make_station(db, "host")
+        monkeypatch.setattr(lobby_router, "LOBBY_PORT_RANGE_START", 9600)
+        monkeypatch.setattr(lobby_router, "LOBBY_PORT_RANGE_END", 9600)
+        monkeypatch.setattr(lobby_router, "LOBBY_PORT_RANGE", 1)
+
+        first_res = _create_lobby(client, host.id, max_players=4)
+        assert first_res.status_code == 200
+        first_lobby_id = first_res.json()["id"]
+        assert first_res.json()["port"] == 9600
+
+        cancel_res = client.delete(f"/lobby/{first_lobby_id}", params={"requesting_station_id": host.id})
+        assert cancel_res.status_code == 200
+
+        second_res = _create_lobby(client, host.id, max_players=4)
+        assert second_res.status_code == 200
+        assert second_res.json()["port"] == 9600
+    finally:
+        db.close()

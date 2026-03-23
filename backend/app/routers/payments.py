@@ -1,11 +1,11 @@
 import os
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Header
 from sqlalchemy.orm import Session
 
 from ..database import get_db
 from .. import models, schemas
 from ..services.pricing import calculate_price
-from ..routers.auth import require_admin, require_admin_or_public_token
+from ..routers.auth import require_admin, require_admin_or_public_token_or_kiosk
 from ..limiters import limiter
 from ..security.api_keys import is_client_token_allowed
 
@@ -22,9 +22,24 @@ def _is_admin(user_or_client: object) -> bool:
 def _require_client_scope(user_or_client: object, required_scope: str) -> None:
     if _is_admin(user_or_client):
         return
+    if user_or_client == "kiosk":
+        if required_scope in {"payments:write", "payments:read"}:
+            return
+        raise HTTPException(status_code=403, detail="Kiosk client missing required scope")
     token = None if user_or_client in (None, "public") else str(user_or_client)
     if not is_client_token_allowed(token=token, required_scopes=(required_scope,)):
         raise HTTPException(status_code=403, detail="Client token missing required scope")
+
+
+def _require_kiosk_access(station: models.Station | None, kiosk_code: str | None, user_or_client: object) -> None:
+    if _is_admin(user_or_client) or user_or_client != "kiosk":
+        return
+    if not station:
+        raise HTTPException(status_code=404, detail="Station not found")
+    if not station.is_kiosk_mode:
+        raise HTTPException(status_code=403, detail="Kiosk mode disabled for station")
+    if (station.kiosk_code or "").strip().upper() != (kiosk_code or "").strip().upper():
+        raise HTTPException(status_code=403, detail="Invalid kiosk code")
 
 def _get_config_value(db: Session, env_key: str, setting_key: str, default: str | None = None):
     value = os.getenv(env_key)
@@ -41,10 +56,13 @@ def _get_config_value(db: Session, env_key: str, setting_key: str, default: str 
 def create_checkout(
     request: Request,
     payload: schemas.PaymentCreate,
-    user_or_client: models.User | str = Depends(require_admin_or_public_token),
+    user_or_client: models.User | str = Depends(require_admin_or_public_token_or_kiosk),
     db: Session = Depends(get_db),
+    kiosk_code: str | None = Header(None, alias="X-Kiosk-Code"),
 ):
     _require_client_scope(user_or_client, "payments:write")
+    station = db.query(models.Station).filter(models.Station.id == payload.station_id).first()
+    _require_kiosk_access(station, kiosk_code, user_or_client)
     amount = calculate_price(db, payload.duration_minutes, payload.is_vr)
     currency = _get_config_value(db, "PAYMENT_CURRENCY", "payment_currency", "EUR")
     if amount <= 0:
@@ -136,13 +154,16 @@ def create_checkout(
 @router.get("/{payment_id}", response_model=schemas.PaymentResponse)
 def get_payment(
     payment_id: int,
-    user_or_client: models.User | str = Depends(require_admin_or_public_token),
+    user_or_client: models.User | str = Depends(require_admin_or_public_token_or_kiosk),
     db: Session = Depends(get_db),
+    kiosk_code: str | None = Header(None, alias="X-Kiosk-Code"),
 ):
     _require_client_scope(user_or_client, "payments:read")
     payment = db.query(models.Payment).filter(models.Payment.id == payment_id).first()
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
+    station = db.query(models.Station).filter(models.Station.id == payment.station_id).first() if payment.station_id else None
+    _require_kiosk_access(station, kiosk_code, user_or_client)
 
     instructions = None
     reference = None

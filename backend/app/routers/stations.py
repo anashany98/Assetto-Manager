@@ -11,6 +11,7 @@ from .. import models, schemas, database
 from ..routers.auth import require_admin, require_agent_token_scoped, require_admin_or_agent, require_admin_or_public_token
 from ..paths import PUBLIC_STORAGE_DIR
 from ..utils.wol import send_magic_packet
+from . import lobby as lobby_router
 from .websockets import manager as ws_manager
 
 router = APIRouter(
@@ -437,9 +438,8 @@ async def mass_launch(
         # 1. Pick host (first online station)
         host = online_stations[0]
 
-        # 2. Create lobby entry in DB (simulating lobby/create logic)
-        last_lobby = db.query(models.Lobby).order_by(models.Lobby.id.desc()).first()
-        port = 9600 + ((last_lobby.id + 1) % 100 if last_lobby else 0)
+        # 2. Create lobby entry in DB using the same atomic port reservation logic.
+        reservation = lobby_router.reserve_lobby_port(db)
 
         lobby = models.Lobby(
             name=request.name or "Mass Launch Race",
@@ -448,18 +448,19 @@ async def mass_launch(
             car=request.car,
             max_players=len(online_stations),
             laps=request.laps,
-            port=port,
+            port=reservation.port,
             server_ip=host.ip_address,
             status="starting"
         )
         db.add(lobby)
-        db.commit()
-        db.refresh(lobby)
+        db.flush()
+        reservation.lobby_id = lobby.id
 
         # Add all online stations as players
         for s in online_stations:
             lobby.players.append(s)
         db.commit()
+        db.refresh(lobby)
 
         # 3. Send create_lobby to host
         await ws_manager.send_command(host.id, {

@@ -1,11 +1,13 @@
 import { Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import Layout from './components/Layout';
+import { LayoutV2 } from './components/v2';
 import ErrorBoundary from './components/ErrorBoundary';
 import PrivateRoute from './components/PrivateRoute';
 import { LoginPage } from './pages/LoginPage';
 // Pages - Lazy Loaded
 const Dashboard = lazy(() => import('./pages/Dashboard'));
+const DashboardV2 = lazy(() => import('./pages/DashboardV2'));
 const ProfilesPage = lazy(() => import('./pages/ProfilesPage'));
 const ModsLibrary = lazy(() => import('./pages/ModsLibrary'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
@@ -68,9 +70,15 @@ function App() {
     <Router>
       <ErrorBoundary>
         <LicenseProvider>
-          <Layout>
-            <Suspense fallback={<PageLoader />}>
-              <Routes>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              {/* V2 Routes with LayoutV2 */}
+              <Route path="/v2" element={<LayoutV2 />}>
+                <Route path="admin" element={<PrivateRoute><DashboardV2 /></PrivateRoute>} />
+              </Route>
+              
+              {/* V1 Routes with Layout */}
+              <Route element={<Layout><Outlet /></Layout>}>
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/admin" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
                 <Route path="/admin/scenarios" element={<PrivateRoute><ScenariosManager /></PrivateRoute>} />
@@ -136,9 +144,9 @@ function App() {
 
                 {/* Fallback */}
                 <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </Suspense>
-          </Layout>
+              </Route>
+            </Routes>
+          </Suspense>
         </LicenseProvider>
       </ErrorBoundary>
     </Router>

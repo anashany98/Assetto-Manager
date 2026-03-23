@@ -13,10 +13,9 @@ from ..database import get_db
 from ..services.email_service import send_booking_confirmation, send_booking_status_update
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from ..routers.auth import require_admin, require_admin_or_public_token
+from ..routers.auth import require_admin
 from ..limiters import limiter
 from ..utils.ttl_cache import TTLCache
-from ..security.api_keys import is_client_token_allowed
 from ..security.license import require_license_module
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
@@ -33,18 +32,6 @@ _calendar_cache = TTLCache(ttl_seconds=CALENDAR_CACHE_TTL, maxsize=128)
 def _invalidate_booking_caches() -> None:
     _availability_cache.clear()
     _calendar_cache.clear()
-
-
-def _is_admin(user_or_client: object) -> bool:
-    return hasattr(user_or_client, "role") and getattr(user_or_client, "role") == "admin"
-
-
-def _require_client_scope(user_or_client: object, required_scope: str) -> None:
-    if _is_admin(user_or_client):
-        return
-    token = None if user_or_client in (None, "public") else str(user_or_client)
-    if not is_client_token_allowed(token=token, required_scopes=(required_scope,)):
-        raise HTTPException(status_code=403, detail="Client token missing required scope")
 
 
 def _booking_lock_key(target_date: dt_date, time_slot: str, station_id: Optional[int]) -> int:
@@ -301,13 +288,11 @@ async def list_bookings(
 @limiter.limit("60/minute")
 async def get_available_slots(
     request: Request,
-    user_or_client: models.User | str = Depends(require_admin_or_public_token),
     target_date: dt_date = Query(..., description="Date to check availability"),
     station_id: Optional[int] = None,
     db: Session = Depends(get_db)
 ):
     """Get available time slots for a specific date"""
-    _require_client_scope(user_or_client, "bookings:read")
     cache_key = f"{target_date.isoformat()}|{station_id or 'all'}"
     cached = _availability_cache.get(cache_key)
     if cached is not None:
@@ -369,11 +354,9 @@ async def create_booking(
     request: Request,
     data: BookingCreate,
     background_tasks: BackgroundTasks,
-    user_or_client: models.User | str = Depends(require_admin_or_public_token),
     db: Session = Depends(get_db)
 ):
     """Create a new booking"""
-    _require_client_scope(user_or_client, "bookings:write")
     try:
         booking = create_booking_record(data, db, background_tasks=background_tasks, send_email=True)
         booking_date = booking.date.date().isoformat() if booking.date else None
@@ -551,8 +534,6 @@ async def get_week_calendar(request: Request, start_date: Optional[dt_date] = No
 @limiter.limit("300/minute")
 async def get_time_slots(
     request: Request,
-    user_or_client: models.User | str = Depends(require_admin_or_public_token),
 ):
     """Get configured time slots"""
-    _require_client_scope(user_or_client, "bookings:read")
     return {"slots": TIME_SLOTS}

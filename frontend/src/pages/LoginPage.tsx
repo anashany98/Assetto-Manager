@@ -56,37 +56,41 @@ export const LoginPage: React.FC = () => {
 
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1">Username</label>
+                        <label htmlFor="login-username" className="block text-sm font-medium text-gray-400 mb-1">Username</label>
                         <div className="relative">
-                            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
+                            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500" aria-hidden="true">
                                 <User size={18} />
                             </span>
                             <input
                                 type="text"
+                                id="login-username"
                                 required
                                 data-testid="login-username"
                                 value={username}
                                 onChange={(e) => setUsername(e.target.value)}
-                                className="w-full bg-gray-700 border border-gray-600 rounded pl-10 pr-3 py-2 focus:outline-none focus:border-blue-500 transition-colors text-white"
+                                className="w-full bg-gray-700 border border-gray-600 rounded pl-10 pr-3 py-2 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-800 transition-colors text-white"
                                 placeholder="admin"
+                                autoComplete="username"
                             />
                         </div>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1">Password</label>
+                        <label htmlFor="login-password" className="block text-sm font-medium text-gray-400 mb-1">Password</label>
                         <div className="relative">
-                            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
+                            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500" aria-hidden="true">
                                 <Lock size={18} />
                             </span>
                             <input
                                 type="password"
+                                id="login-password"
                                 required
                                 data-testid="login-password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="w-full bg-gray-700 border border-gray-600 rounded pl-10 pr-3 py-2 focus:outline-none focus:border-blue-500 transition-colors text-white"
+                                className="w-full bg-gray-700 border border-gray-600 rounded pl-10 pr-3 py-2 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-800 transition-colors text-white"
                                 placeholder="********"
+                                autoComplete="current-password"
                             />
                         </div>
                     </div>
