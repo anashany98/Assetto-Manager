@@ -17,7 +17,15 @@
       "Bash(grep -r \"TODO\\\\|FIXME\\\\|XXX\\\\|HACK\\\\|KLUDGE\" /c/Users/PC/Desktop/AC-MANAGER/frontend/src --include=*.tsx --include=*.ts)",
       "Bash(grep -r \"TODO\\\\|FIXME\\\\|XXX\\\\|HACK\\\\|KLUDGE\" /c/Users/PC/Desktop/AC-MANAGER/agent --include=*.py)",
       "Bash(wc -l /c/Users/PC/Desktop/AC-MANAGER/backend/tests/*.py)",
-      "Bash(xargs cat:*)"
+      "Bash(xargs cat:*)",
+      "Bash(curl -s http://localhost:8011/health)",
+      "Bash(curl -s http://localhost:8011/)",
+      "Bash(xargs grep:*)",
+      "Bash(python -m alembic -c backend/alembic.ini upgrade head)",
+      "Bash(python -c \":*)",
+      "Bash(curl -s http://localhost:8011/lobby/list?status=active)",
+      "Bash(python -m json.tool)",
+      "Bash(curl -s \"http://localhost:8011/lobby/list\")"
     ]
   }
 }

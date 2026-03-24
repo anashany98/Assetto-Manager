@@ -54,8 +54,9 @@ export default function KioskMode() {
     const queryClient = useQueryClient();
 
     // Station Pairing State
-    const [stationId, setStationId] = useState<number>(() => getPairedStationId() || 0);
-    const [showPairing, setShowPairing] = useState<boolean>(() => !getPairedStationId());
+    const stationFromUrl = Number(searchParams.get('station')) || 0;
+    const [stationId, setStationId] = useState<number>(() => stationFromUrl || getPairedStationId() || 0);
+    const [showPairing, setShowPairing] = useState<boolean>(() => !stationFromUrl && !getPairedStationId());
     const [pairedKioskCode, setPairedKioskCode] = useState<string | null>(() => getPairedKioskCode());
     const [pairingByCode, setPairingByCode] = useState(false);
     const [pairingCodeError, setPairingCodeError] = useState<string | null>(null);
@@ -325,6 +326,7 @@ export default function KioskMode() {
                         name: `GRUPO DE ${driver?.name?.toUpperCase() || 'INVITADO'}`,
                         track: selection.track,
                         car: selection.car,
+                        allowed_cars: selection.allowedCars?.length ? selection.allowedCars : undefined,
                         duration: duration,
                         max_players: 10
                     }, { headers: clientTokenHeaders });
@@ -336,6 +338,7 @@ export default function KioskMode() {
                     if (!selection.lobbyId) throw new Error("Missing Lobby ID");
                     await axios.post(`${API_URL}/lobby/${selection.lobbyId}/join`, {
                         station_id: stationId,
+                        car: selection.car || undefined,
                         driver_name: driver?.name || undefined
                     }, { headers: clientTokenHeaders });
                     setStep(6); // Go to Waiting Room
@@ -466,6 +469,8 @@ export default function KioskMode() {
                             onNext={() => setStep(3)}
                             prefetchedCars={cars}
                             prefetchedTracks={tracks}
+                            allowedCarIds={selection?.allowedCars}
+                            lockTrack={selection?.isLobby && !selection?.isHost ? (selection.track || undefined) : undefined}
                         />
                     );
                 case 3:

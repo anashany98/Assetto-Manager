@@ -486,10 +486,11 @@ class LobbyCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=50)
     track: str
     car: str
+    allowed_cars: Optional[List[str]] = None  # Cars players can choose from (from scenario)
     station_id: Optional[int] = None  # For Kiosk direct creation
     driver_name: Optional[str] = Field(default=None, min_length=1, max_length=50)
     duration: Optional[int] = 15  # For Kiosk direct creation
-    max_players: int = Field(default=8, ge=2, le=24)
+    max_players: int = Field(default=8, ge=1, le=24)
     laps: int = Field(default=5, ge=1, le=100)
     session_type: Optional[str] = "race"  # practice, qualify, race, drift, hotlap, trackday, traffic, overtake
 
@@ -498,6 +499,7 @@ class LobbyPlayer(BaseModel):
     station_name: str
     slot: int
     ready: bool
+    car: Optional[str] = None  # Each player's chosen car
 
 class Lobby(BaseModel):
     id: int
@@ -506,6 +508,7 @@ class Lobby(BaseModel):
     host_station_id: int
     track: str
     car: str
+    allowed_cars: Optional[List[str]] = None
     session_type: Optional[str] = "race"
     max_players: int
     laps: int
@@ -522,6 +525,7 @@ class Lobby(BaseModel):
 
 class LobbyJoin(BaseModel):
     station_id: int
+    car: Optional[str] = None  # Player's chosen car
     driver_name: Optional[str] = Field(default=None, min_length=1, max_length=50)
 
 

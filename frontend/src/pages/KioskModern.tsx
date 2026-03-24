@@ -278,6 +278,7 @@ export default function KioskModern() {
                 name: `GRUPO DE ${driver?.name?.toUpperCase() || 'INVITADO'}`,
                 track: selection?.track,
                 car: selection?.car,
+                allowed_cars: selection?.allowedCars?.length ? selection.allowedCars : undefined,
                 duration,
                 max_players: 10
             };
@@ -304,7 +305,7 @@ export default function KioskModern() {
             if (!selection?.lobbyId) throw new Error('Missing lobby id');
             await axios.post(
                 `${API_URL}/lobby/${selection.lobbyId}/join`,
-                { station_id: stationId, driver_name: driver?.name || undefined },
+                { station_id: stationId, car: selection?.car || undefined, driver_name: driver?.name || undefined },
                 { headers: clientTokenHeaders }
             );
         },
@@ -526,6 +527,8 @@ export default function KioskModern() {
                         onNext={() => setStep(3)}
                         prefetchedCars={cars}
                         prefetchedTracks={tracks}
+                        allowedCarIds={selection?.allowedCars}
+                        lockTrack={selection?.isLobby && !selection?.isHost ? (selection.track || undefined) : undefined}
                     />
                 );
                 break;

@@ -91,6 +91,7 @@ lobby_players = Table(
     Column("slot", Integer),  # Car slot number (0-7)
     Column("ready", Boolean, default=False),
     Column("driver_name", String, nullable=True),
+    Column("car", String, nullable=True),
     Column("joined_at", DateTime(timezone=True)),
 )
 
@@ -192,7 +193,8 @@ class Lobby(Base):
     
     # Race configuration
     track = Column(String)
-    car = Column(String)  # Single car model for equal races
+    car = Column(String)  # Default/host car
+    allowed_cars = Column(JSON, nullable=True)  # List of allowed car IDs for this lobby
     session_type = Column(String, default="race")  # practice, qualify, race, drift, hotlap, trackday, traffic, overtake
     max_players = Column(Integer, default=8)
     laps = Column(Integer, default=5)

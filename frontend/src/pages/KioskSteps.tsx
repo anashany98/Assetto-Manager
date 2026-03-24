@@ -38,6 +38,7 @@ export interface KioskSelection {
     isLobby?: boolean;
     scenarioId?: number;
     time?: number;
+    allowedCars?: string[];  // Cars allowed in this lobby/scenario
 }
 
 // --- ATTRACT MODE ---
@@ -207,11 +208,12 @@ export const ScenarioStep: React.FC<ScenarioStepProps> = ({
         setSelection({
             type: sessionType,
             scenarioId: scenario.id!,
-            track: '',
+            track: scenario.allowed_tracks?.[0] || '',
             car: '',
             time: time,
             isLobby: true,
-            isHost: true
+            isHost: true,
+            allowedCars: scenario.allowed_cars || [],
         });
         setDuration(time);
         setStep(2);
@@ -230,17 +232,21 @@ export const ScenarioStep: React.FC<ScenarioStepProps> = ({
         }
         soundManager.playClick();
         const duration = Number(lobby?.duration_minutes ?? lobby?.duration) || 10;
+        const allowedCars: string[] = Array.isArray(lobby.allowed_cars) && lobby.allowed_cars.length > 0
+            ? lobby.allowed_cars
+            : (lobby.car ? [lobby.car] : []);
         setSelection({
             type: 'race',
             track: lobby.track || '',
-            car: lobby.car || '',
+            car: '',
             isLobby: true,
             isHost: false,
             lobbyId: lobby.id,
-            time: duration
+            time: duration,
+            allowedCars,
         });
         setDuration(duration);
-        setStep(3); // Go to Driver Registration directly
+        setStep(2); // Go to car selection first
     };
 
     const getDurationLabel = (scenario: Scenario) => {
@@ -390,7 +396,24 @@ export const ScenarioStep: React.FC<ScenarioStepProps> = ({
                                         <span className="text-[10px] text-amber-300 font-mono">{lobby.player_count ?? lobby.players_count ?? 0}/{lobby.max_players ?? 10}</span>
                                     </div>
                                     <div className="text-xs text-slate-400 line-clamp-1">{lobby.track}</div>
-                                    <div className="text-[11px] text-slate-500 line-clamp-1">{lobby.car}</div>
+                                    {Array.isArray(lobby.allowed_cars) && lobby.allowed_cars.length > 0 ? (
+                                        <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                                            <span className="text-[9px] uppercase tracking-widest text-slate-600 mr-0.5">Coches:</span>
+                                            {lobby.allowed_cars.slice(0, 3).map((carId: string) => (
+                                                <span
+                                                    key={carId}
+                                                    className="text-[9px] bg-amber-500/15 border border-amber-500/25 text-amber-300/80 px-1.5 py-0.5 rounded font-mono capitalize leading-none"
+                                                >
+                                                    {carId.replace(/^[a-z0-9]+_/, '').replace(/_/g, ' ')}
+                                                </span>
+                                            ))}
+                                            {lobby.allowed_cars.length > 3 && (
+                                                <span className="text-[9px] text-slate-600">+{lobby.allowed_cars.length - 3} más</span>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">{lobby.car}</div>
+                                    )}
                                 </button>
                             );
                         }) : (
@@ -1008,8 +1031,7 @@ export const WaitingRoom: React.FC<WaitingRoomProps> = ({ selection, stationId, 
     const myPlayer = lobbyData?.players?.find((p: any) => p.station_id === stationId);
     const isReady = myPlayer?.ready || false;
     const players = Array.isArray(lobbyData?.players) ? lobbyData.players : [];
-    const readyPlayersCount = players.filter((p: any) => p?.ready).length;
-    const canHostStart = isReady && readyPlayersCount >= 2;
+    const canHostStart = isReady;
 
     const timeLeft = typeof lobbyData?.timeout_remaining_seconds === 'number'
         ? lobbyData.timeout_remaining_seconds

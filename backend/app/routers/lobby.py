@@ -85,6 +85,7 @@ def _build_lobby_payload(lobby: models.Lobby, players: Optional[list[schemas.Lob
         host_station_id=lobby.host_station_id,
         track=lobby.track,
         car=lobby.car,
+        allowed_cars=lobby.allowed_cars,
         session_type=lobby.session_type,
         max_players=lobby.max_players,
         laps=lobby.laps,
@@ -104,7 +105,7 @@ def _get_lobby_player_rows(db: Session, lobby_id: int):
     return db.execute(stmt).fetchall()
 
 
-def _get_lobby_player_state(rows) -> tuple[dict[int, bool], dict[int, int], dict[int, str], list[int]]:
+def _get_lobby_player_state(rows) -> tuple[dict[int, bool], dict[int, int], dict[int, str], list[int], dict[int, str]]:
     ordered_rows = sorted(
         rows,
         key=lambda row: (
@@ -116,6 +117,7 @@ def _get_lobby_player_state(rows) -> tuple[dict[int, bool], dict[int, int], dict
     ready_map: dict[int, bool] = {}
     slot_map: dict[int, int] = {}
     driver_name_map: dict[int, str] = {}
+    car_map: dict[int, str] = {}
     ordered_station_ids: list[int] = []
 
     for index, row in enumerate(ordered_rows):
@@ -123,9 +125,10 @@ def _get_lobby_player_state(rows) -> tuple[dict[int, bool], dict[int, int], dict
         ready_map[station_id] = bool(row.ready)
         slot_map[station_id] = int(row.slot) if row.slot is not None else index
         driver_name_map[station_id] = (getattr(row, "driver_name", None) or "").strip()
+        car_map[station_id] = (getattr(row, "car", None) or "").strip()
         ordered_station_ids.append(station_id)
 
-    return ready_map, slot_map, driver_name_map, ordered_station_ids
+    return ready_map, slot_map, driver_name_map, ordered_station_ids, car_map
 
 
 def _ordered_lobby_players(players: list[models.Station], ordered_station_ids: list[int]) -> list[models.Station]:
@@ -138,7 +141,7 @@ def _ordered_lobby_players(players: list[models.Station], ordered_station_ids: l
 
 def _build_lobby_players(db: Session, lobby: models.Lobby) -> list[schemas.LobbyPlayer]:
     rows = _get_lobby_player_rows(db, lobby.id)
-    ready_map, slot_map, _, ordered_station_ids = _get_lobby_player_state(rows)
+    ready_map, slot_map, _, ordered_station_ids, car_map = _get_lobby_player_state(rows)
     ordered_players = _ordered_lobby_players(list(lobby.players), ordered_station_ids)
 
     players: list[schemas.LobbyPlayer] = []
@@ -149,6 +152,7 @@ def _build_lobby_players(db: Session, lobby: models.Lobby) -> list[schemas.Lobby
                 station_name=station.name,
                 slot=slot_map.get(station.id, fallback_slot),
                 ready=ready_map.get(station.id, False),
+                car=car_map.get(station.id) or None,
             )
         )
     return players
@@ -156,7 +160,7 @@ def _build_lobby_players(db: Session, lobby: models.Lobby) -> list[schemas.Lobby
 
 def _next_lobby_slot(db: Session, lobby_id: int) -> int:
     rows = _get_lobby_player_rows(db, lobby_id)
-    _, slot_map, _, _ = _get_lobby_player_state(rows)
+    _, slot_map, _, _, _ = _get_lobby_player_state(rows)
     return max(slot_map.values(), default=-1) + 1
 
 
@@ -168,6 +172,7 @@ def _set_lobby_player_metadata(
     slot: Optional[int] = None,
     ready: Optional[bool] = None,
     driver_name: Optional[str] = None,
+    car: Optional[str] = None,
     joined_at: Optional[datetime] = None,
 ) -> None:
     values: dict[str, object] = {}
@@ -177,6 +182,8 @@ def _set_lobby_player_metadata(
         values["ready"] = ready
     if driver_name is not None:
         values["driver_name"] = driver_name.strip() or None
+    if car is not None:
+        values["car"] = car.strip() or None
     if joined_at is not None:
         values["joined_at"] = joined_at
     if not values:
@@ -276,6 +283,7 @@ def _build_join_lobby_command(
     *,
     slot: Optional[int],
     driver_name: Optional[str],
+    car: Optional[str] = None,
     is_spectator: bool,
 ) -> dict:
     payload = {
@@ -284,7 +292,7 @@ def _build_join_lobby_command(
         "server_ip": lobby.server_ip,
         "port": lobby.port,
         "track": lobby.track,
-        "car": lobby.car,
+        "car": car or lobby.car,  # Per-player car, fallback to lobby default
         "ac_path": station.ac_path,
         "is_spectator": is_spectator,
     }
@@ -441,6 +449,7 @@ async def create_lobby(
         host_station_id=active_host_id,
         track=lobby_data.track,
         car=lobby_data.car,
+        allowed_cars=lobby_data.allowed_cars or [lobby_data.car],
         session_type=lobby_data.session_type or "race",
         max_players=lobby_data.max_players,
         laps=lobby_data.laps,
@@ -463,6 +472,7 @@ async def create_lobby(
         host.id,
         slot=0,
         ready=False,
+        car=lobby_data.car,
         driver_name=lobby_data.driver_name,
         joined_at=datetime.now(timezone.utc),
     )
@@ -584,12 +594,13 @@ async def join_lobby(
         if lobby.status != "running":
             return {"status": "already_joined", "lobby_id": lobby_id}
         rows = _get_lobby_player_rows(db, lobby_id)
-        _, slot_map, _, _ = _get_lobby_player_state(rows)
+        _, slot_map, _, _, _ = _get_lobby_player_state(rows)
         slot_idx = slot_map.get(station.id)
         _set_lobby_player_metadata(
             db,
             lobby_id,
             station.id,
+            car=join_data.car,
             driver_name=join_data.driver_name,
             joined_at=datetime.now(timezone.utc),
         )
@@ -606,17 +617,18 @@ async def join_lobby(
             station.id,
             slot=slot_idx,
             ready=False,
+            car=join_data.car,
             driver_name=join_data.driver_name,
             joined_at=datetime.now(timezone.utc),
         )
         db.commit()
-    
+
     logger.info(f"Station {station.name} joined lobby {lobby.name} (Status: {lobby.status})")
 
     # If lobby is already running, send join command immediately
     if lobby.status == "running":
         rows = _get_lobby_player_rows(db, lobby_id)
-        _, slot_map, driver_name_map, _ = _get_lobby_player_state(rows)
+        _, slot_map, driver_name_map, _, car_map = _get_lobby_player_state(rows)
         ok = await manager.send_command(
             station.id,
             _build_join_lobby_command(
@@ -624,6 +636,7 @@ async def join_lobby(
                 station,
                 slot=slot_map.get(station.id, slot_idx),
                 driver_name=driver_name_map.get(station.id) or station.name,
+                car=car_map.get(station.id) or None,
                 is_spectator=False,
             ),
         )
@@ -703,9 +716,6 @@ async def start_lobby(
     if lobby.status != "waiting":
         raise HTTPException(status_code=400, detail="Lobby already started or finished")
     
-    if len(lobby.players) < 2:
-        raise HTTPException(status_code=400, detail="Need at least 2 players to start")
-
     # Get host station
     host = db.query(models.Station).filter(models.Station.id == lobby.host_station_id).first()
     if not host or not host.is_online:
@@ -713,15 +723,13 @@ async def start_lobby(
 
     # Enforce ready players only. Unready players are auto-removed to allow partial participation.
     player_rows = _get_lobby_player_rows(db, lobby_id)
-    ready_map, slot_map, driver_name_map, ordered_station_ids = _get_lobby_player_state(player_rows)
+    ready_map, slot_map, driver_name_map, ordered_station_ids, car_map = _get_lobby_player_state(player_rows)
     ordered_players = _ordered_lobby_players(list(lobby.players), ordered_station_ids)
     ready_players = [player for player in ordered_players if ready_map.get(player.id, False)]
     unready_players = [player for player in ordered_players if not ready_map.get(player.id, False)]
 
     if host.id not in [p.id for p in ready_players]:
         raise HTTPException(status_code=400, detail="Host must be ready to start")
-    if len(ready_players) < 2:
-        raise HTTPException(status_code=400, detail="Need at least 2 ready players to start")
 
     # Remove unready players from lobby before starting
     if unready_players:
@@ -735,7 +743,7 @@ async def start_lobby(
     _reassign_lobby_slots(db, lobby_id, [player.id for player in ready_players])
     db.commit()
     player_rows = _get_lobby_player_rows(db, lobby_id)
-    ready_map, slot_map, driver_name_map, ordered_station_ids = _get_lobby_player_state(player_rows)
+    ready_map, slot_map, driver_name_map, ordered_station_ids, car_map = _get_lobby_player_state(player_rows)
     ordered_players = _ordered_lobby_players(list(lobby.players), ordered_station_ids)
     ready_players = [player for player in ordered_players if ready_map.get(player.id, False)]
 
@@ -743,13 +751,14 @@ async def start_lobby(
     lobby.status = "starting"
     lobby.started_at = datetime.now(timezone.utc)
     db.commit()
-    
-    # Send create_lobby command to host agent
+
+    # Send create_lobby command to host agent (includes all allowed cars for AC server config)
     ok = await manager.send_command(host.id, {
         "command": "create_lobby",
         "lobby_id": lobby.id,
         "track": lobby.track,
         "car": lobby.car,
+        "allowed_cars": lobby.allowed_cars or [lobby.car],
         "laps": lobby.laps,
         "max_players": lobby.max_players,
         "port": lobby.port,
@@ -758,6 +767,7 @@ async def start_lobby(
             {
                 "name": driver_name_map.get(player.id) or player.name,
                 "slot": slot_map.get(player.id, idx),
+                "car": car_map.get(player.id) or lobby.car,
             }
             for idx, player in enumerate(ready_players)
         ]
@@ -768,7 +778,7 @@ async def start_lobby(
         _cancel_lobby_record(db, lobby, "host_server_start_failed")
         db.commit()
         raise HTTPException(status_code=500, detail="Host Agent not connected. Lobby cancelled.")
-    
+
     logger.info(f"Sent create_lobby to host {host.name}")
 
     host_join_ok = await manager.send_command(
@@ -778,6 +788,7 @@ async def start_lobby(
             host,
             slot=slot_map.get(host.id, 0),
             driver_name=driver_name_map.get(host.id) or host.name,
+            car=car_map.get(host.id) or None,
             is_spectator=False,
         ),
     )
@@ -808,6 +819,7 @@ async def start_lobby(
                         station,
                         slot=slot_map.get(station.id, idx),
                         driver_name=driver_name_map.get(station.id) or station.name,
+                        car=car_map.get(station.id) or None,
                         is_spectator=False,
                     ),
                 )

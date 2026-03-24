@@ -16,6 +16,8 @@ interface ContentStepProps {
     onNext: () => void;
     prefetchedCars?: Car[];
     prefetchedTracks?: Track[];
+    allowedCarIds?: string[];  // When set, only show these cars (joiner lobby flow)
+    lockTrack?: string;        // When set, skip track phase and use this track
 }
 
 export const ContentStep: React.FC<ContentStepProps> = ({
@@ -23,7 +25,9 @@ export const ContentStep: React.FC<ContentStepProps> = ({
     onSelectionChange,
     onNext,
     prefetchedCars,
-    prefetchedTracks
+    prefetchedTracks,
+    allowedCarIds,
+    lockTrack,
 }) => {
     // 1. Data Fetching
     const { data: universalCars = [], isLoading: loadingCars } = useQuery({
@@ -54,7 +58,10 @@ export const ContentStep: React.FC<ContentStepProps> = ({
     const [trackIndex, setTrackIndex] = useState(0);
 
     // 3. Filtering
-    const allCars = carsToUse;
+    // If allowedCarIds is provided (joiner lobby mode), restrict to those cars only
+    const allCars = (allowedCarIds && allowedCarIds.length > 0)
+        ? carsToUse.filter((c: any) => allowedCarIds.includes(c.id))
+        : carsToUse;
     // Get Unique Brands
     const uniqueBrands = Array.from(new Set(allCars.map((c: any) => c.brand || 'Unknown'))).sort();
     // Filter cars by brand
@@ -164,7 +171,14 @@ export const ContentStep: React.FC<ContentStepProps> = ({
     const confirmSelection = () => {
         soundManager.playConfirm();
         if (phase === 'car') {
-            setPhase('country');
+            if (lockTrack) {
+                // Joiner lobby mode: track is fixed, skip straight to next step
+                setSelTrack(lockTrack);
+                onSelectionChange(selCar, lockTrack);
+                onNext();
+            } else {
+                setPhase('country');
+            }
         } else if (phase === 'track') {
             onNext();
         }
