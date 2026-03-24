@@ -7,7 +7,7 @@ import uuid
 from collections.abc import Iterable
 from pathlib import Path
 from config import (
-    AC_CONTENT_DIR, AC_PATH, STATION_NAME, STEAM_EXE, 
+    AC_CONTENT_DIR, AC_PATH, STATION_NAME, MAC_ADDRESS, STEAM_EXE, 
     STEAM_APP_ID, LAUNCH_VIA_STEAM, logger
 )
 
@@ -100,6 +100,8 @@ def launch_ac(ac_path: str, timeout_seconds: int = 25) -> bool:
     return False
 
 def get_mac_address():
+    if MAC_ADDRESS:
+        return MAC_ADDRESS
     mac = ':'.join(['{:02x}'.format((uuid.getnode() >> elements) & 0xff) 
                     for elements in range(0, 2 * 6, 2)][::-1])
     return mac

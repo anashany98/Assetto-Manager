@@ -1,9 +1,8 @@
 {
     "server_url": "http://localhost:8000",
-    "ac_content_dir": "ac_content",
+    "ac_content_dir": "ac_content_root",
     "ac_path": "ac_root",
-    "station_name": "Station 1",
-    "agent_token": "test-token-123",
-    "obs_password": "123123123",
-    "stream_url": "http://localhost:8889/live/sim1/"
+    "station_name": "AC-SIM-TEST-NEW",
+    "mac_address": "00:11:22:33:44:55",
+    "agent_token": "test-token-123"
 }

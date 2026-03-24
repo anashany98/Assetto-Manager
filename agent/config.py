@@ -5,8 +5,6 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 # --- LOGGING INIT ---
-# We initialize logger here so it's available globally with consistent formatting
-
 class JSONFormatter(logging.Formatter):
     def format(self, record):
         log_obj = {
@@ -33,6 +31,7 @@ SERVER_URL = os.getenv("SERVER_URL", "http://localhost:8000")
 AC_CONTENT_DIR = Path(os.getenv("AC_CONTENT_DIR", "ac_content_root"))
 AC_PATH = os.getenv("AC_PATH", "")
 STATION_NAME = os.getenv("STATION_NAME", "")
+MAC_ADDRESS = os.getenv("MAC_ADDRESS", "")
 AGENT_TOKEN = os.getenv("AGENT_TOKEN", "")
 STEAM_EXE = os.getenv("STEAM_EXE", "")
 STEAM_APP_ID = os.getenv("STEAM_APP_ID", "244210")
@@ -83,6 +82,8 @@ for config_path in config_paths:
                 AC_PATH = config.get("ac_path", AC_PATH)
             if config.get("station_name"):
                 STATION_NAME = config.get("station_name", STATION_NAME)
+            if config.get("mac_address"):
+                MAC_ADDRESS = config.get("mac_address", MAC_ADDRESS)
             if config.get("agent_token"):
                 AGENT_TOKEN = config.get("agent_token", AGENT_TOKEN)
             if config.get("steam_exe"):
@@ -124,9 +125,13 @@ for config_path in config_paths:
         logger.error(f"Failed to load config file {config_path}: {e}")
         break
 
-# Ensure token is available to child modules that read env vars
+# Ensure variables are available to child modules that read env vars
 if AGENT_TOKEN:
     os.environ["AGENT_TOKEN"] = AGENT_TOKEN
+if MAC_ADDRESS:
+    os.environ["MAC_ADDRESS"] = MAC_ADDRESS
+if STATION_NAME:
+    os.environ["STATION_NAME"] = STATION_NAME
 
 # Global Timeout for stability
 REQUEST_TIMEOUT = 10

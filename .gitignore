@@ -54,3 +54,6 @@ logs/
 # Output directories
 output/
 frontend/output/
+
+# Markers
+.installed
