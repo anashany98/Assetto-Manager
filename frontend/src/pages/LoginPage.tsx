@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { useAuth } from "../context/useAuth";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Lock, User, AlertCircle, Loader2 } from "lucide-react";
+import { loginSchema, userSetupSchema } from "../lib/schemas";
 
 export const LoginPage: React.FC = () => {
     const { login, setupAdmin } = useAuth();
@@ -20,8 +21,19 @@ export const LoginPage: React.FC = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
-        setLoading(true);
 
+        const schema = isSetup ? userSetupSchema : loginSchema;
+        const result = schema.safeParse(
+            isSetup
+                ? { username, password, confirmPassword: password }
+                : { username, password }
+        );
+        if (!result.success) {
+            setError(result.error.issues[0]?.message ?? "Datos inválidos");
+            return;
+        }
+
+        setLoading(true);
         try {
             if (isSetup) {
                 await setupAdmin(username, password);

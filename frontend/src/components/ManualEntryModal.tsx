@@ -61,7 +61,7 @@ export default function ManualEntryModal({ isOpen, onClose, preselectedTrack }: 
         e.preventDefault();
         setError('');
 
-        if (!minutes || !seconds || !millis) {
+        if (minutes === '' || seconds === '' || millis === '') {
             setError('Por favor ingrese el tiempo completo');
             return;
         }

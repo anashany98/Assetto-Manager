@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /c/Users/PC/Desktop/AC-MANAGER -name docker* -o -name Dockerfile*)",
+      "Bash(ls /c/Users/PC/Desktop/AC-MANAGER/frontend/src/context*)",
+      "Bash(npx tsc:*)",
+      "Bash(find /c/Users/PC/Desktop/AC-MANAGER -name *.test.* -o -name *.spec.* -o -name test_*.py)",
+      "Bash(grep -r \"console\\\\.log\\\\|console\\\\.warn\\\\|console\\\\.error\" /c/Users/PC/Desktop/AC-MANAGER/frontend/src --include=*.ts --include=*.tsx -l)",
+      "Bash(grep -r \"TODO\\\\|FIXME\\\\|HACK\\\\|XXX\" /c/Users/PC/Desktop/AC-MANAGER/backend/app --include=*.py -c)",
+      "Bash(sort -t: -k2 -rn)",
+      "Bash(grep -rn \"TODO\\\\|FIXME\\\\|# TODO\\\\|# FIXME\" /c/Users/PC/Desktop/AC-MANAGER/backend/app --include=*.py)",
+      "Bash(grep -E \"\\\\.py$\")",
+      "Bash(python -m pytest --collect-only -q)",
+      "Bash(python -m pytest -q)",
+      "Bash(ls /c/Users/PC/Desktop/AC-MANAGER/*.bat)",
+      "Bash(grep -r \"TODO\\\\|FIXME\\\\|HACK\" /c/Users/PC/Desktop/AC-MANAGER/backend/app --include=*.py)",
+      "Bash(grep -r \"TODO\\\\|FIXME\\\\|XXX\\\\|HACK\\\\|KLUDGE\" /c/Users/PC/Desktop/AC-MANAGER/frontend/src --include=*.tsx --include=*.ts)",
+      "Bash(grep -r \"TODO\\\\|FIXME\\\\|XXX\\\\|HACK\\\\|KLUDGE\" /c/Users/PC/Desktop/AC-MANAGER/agent --include=*.py)",
+      "Bash(wc -l /c/Users/PC/Desktop/AC-MANAGER/backend/tests/*.py)",
+      "Bash(xargs cat:*)"
+    ]
+  }
+}

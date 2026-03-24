@@ -156,9 +156,12 @@ export default function SettingsPage() {
         mutationFn: async (stationId: number) => {
             await axios.get(`${API_URL}/control/station/${stationId}/content`);
         },
-        onSuccess: () => {
+        onSuccess: (_data, stationId) => {
             alert("Escaneo de contenido iniciado. Los coches y pistas aparecerán en unos segundos.");
             queryClient.invalidateQueries({ queryKey: ['stations'] });
+            setTimeout(() => {
+                if (contentStationId === stationId) refetchStationContent();
+            }, 2000);
         },
         onError: () => alert("Error al escanear contenido. ¿Está el agente conectado?")
     });
@@ -243,7 +246,7 @@ export default function SettingsPage() {
         mutationFn: async () => {
             const res = await axios.post(`${API_URL}/stations/archive-ghosts`, {
                 older_than_hours: ghostThresholdHours,
-                include_never_seen: true,
+                include_never_seen: ghostArchiveIncludeNeverSeen,
                 dry_run: false
             });
             return res.data;
@@ -379,6 +382,33 @@ export default function SettingsPage() {
         return stations.find((station) => station.id === contentStationId) || null;
     }, [stations, contentStationId]);
 
+    // --- MAINTENANCE DATA ---
+    const { data: maintenanceLogs = [] } = useQuery({
+        queryKey: ['maintenance-logs'],
+        queryFn: async () => {
+            const token = localStorage.getItem('token');
+            const res = await axios.get(`${API_URL}/maintenance/logs`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
+            return Array.isArray(res.data) ? res.data : [];
+        },
+        enabled: activeTab === 'maintenance',
+        staleTime: 30000,
+    });
+
+    const { data: usageSummary } = useQuery({
+        queryKey: ['maintenance-usage-summary'],
+        queryFn: async () => {
+            const token = localStorage.getItem('token');
+            const res = await axios.get(`${API_URL}/maintenance/usage/summary`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
+            return res.data;
+        },
+        enabled: activeTab === 'maintenance',
+        staleTime: 60000,
+    });
+
     const visibleStations = Array.isArray(stations)
         ? stations.filter((station) => showInactiveStations ? true : station.is_active !== false)
         : [];
@@ -413,7 +443,8 @@ export default function SettingsPage() {
     const [stationWheelDrafts, setStationWheelDrafts] = useState<Record<number, string>>({});
     const stationMutation = useMutation({
         mutationFn: ({ id, data }: { id: number; data: Partial<Station> }) => updateStation(id, data),
-        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['stations'] }); setEditingId(null); }
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['stations'] }); setEditingId(null); },
+        onError: () => alert("Error al guardar la estación. Inténtalo de nuevo.")
     });
     const applyWheelProfileMutation = useMutation({
         mutationFn: async ({ stationId, profileId }: { stationId: number; profileId: string }) => {
@@ -2520,29 +2551,22 @@ export default function SettingsPage() {
                                     </h2>
                                     <div className="space-y-4">
                                         <div className="p-4 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-default)]">
-                                            <p className="text-[10px] font-black text-[var(--text-tertiary)] uppercase tracking-widest mb-1">Total Horas Simulador (PC)</p>
-                                            <p className="text-2xl font-black text-blue-400">1,248h</p>
+                                            <p className="text-[10px] font-black text-[var(--text-tertiary)] uppercase tracking-widest mb-1">Total Horas PC (todos los puestos)</p>
+                                            <p className="text-2xl font-black text-blue-400">
+                                                {usageSummary ? `${usageSummary.total_hours_pc.toLocaleString()}h` : '—'}
+                                            </p>
                                         </div>
                                         <div className="p-4 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-default)]">
-                                            <p className="text-[10px] font-black text-[var(--text-tertiary)] uppercase tracking-widest mb-1">Mantenimiento General</p>
-                                            <p className="text-2xl font-black text-emerald-400">92% OK</p>
+                                            <p className="text-[10px] font-black text-[var(--text-tertiary)] uppercase tracking-widest mb-1">Horas Base (volante/pedales)</p>
+                                            <p className="text-2xl font-black text-emerald-400">
+                                                {usageSummary ? `${usageSummary.total_hours_base.toLocaleString()}h` : '—'}
+                                            </p>
                                         </div>
-                                    </div>
-
-                                    <div className="mt-8 pt-8 border-t border-[var(--border-default)]">
-                                        <h3 className="text-xs font-black text-[var(--text-tertiary)] uppercase tracking-widest mb-4">Checklist Preventivo</h3>
-                                        <div className="space-y-3">
-                                            {[
-                                                'Limpieza de ventiladores (Q2 2024)',
-                                                'Update Firmware Direct Drive (Puesto)',
-                                                'Reapriete pernos cockpit (Mensual)',
-                                                'Calibración de frenos (Semanal)'
-                                            ].map((item, idx) => (
-                                                <div key={idx} className="flex justify-between items-center text-[10px] text-[var(--text-secondary)]">
-                                                    <span>{item}</span>
-                                                    <ShieldCheck size={12} className="text-emerald-500" />
-                                                </div>
-                                            ))}
+                                        <div className="p-4 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-default)]">
+                                            <p className="text-[10px] font-black text-[var(--text-tertiary)] uppercase tracking-widest mb-1">Puestos con datos de uso</p>
+                                            <p className="text-2xl font-black text-gray-300">
+                                                {usageSummary ? usageSummary.station_count : '—'}
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
@@ -2554,39 +2578,42 @@ export default function SettingsPage() {
                                         <h2 className="text-xl font-black text-[var(--text-primary)] uppercase flex items-center">
                                             <Wrench className="mr-3 text-[var(--text-tertiary)]" /> Historial Técnico
                                         </h2>
-                                        <button className="text-[10px] font-black bg-[var(--bg-card)] px-3 py-1.5 rounded-lg border border-[var(--border-default)] hover:text-blue-400 transition-all uppercase tracking-widest">
-                                            Descargar Reporte
-                                        </button>
                                     </div>
 
                                     <div className="space-y-3">
-                                        {[
-                                            { id: 1, station: 'SIM-01', action: 'Update Assetto Corsa v1.16', tech: 'AI System', date: 'HOY 10:24', detail: 'Actualización automática de ejecutables y librerías de físicas.' },
-                                            { id: 2, station: 'SIM-ALL', action: 'Limpieza de Caché', tech: 'Admin', date: 'AYER 22:15', detail: 'Limpieza de archivos temporales y logs antiguos en todas las estaciones.' },
-                                            { id: 3, station: 'SIM-04', action: 'Reparación de Pedalera', tech: 'Juan M.', date: '21 MAR', detail: 'Sustitución de elastómero en pedal de freno Heusinkveld.' }
-                                        ].map(log => (
-                                            <div key={log.id} className="p-5 rounded-2xl bg-[var(--bg-card)]/40 border border-[var(--border-default)] hover:border-blue-500/30 transition-all group">
-                                                <div className="flex justify-between items-start mb-3">
-                                                    <div className="flex items-center">
-                                                        <span className="text-[10px] font-black px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 uppercase tracking-tighter mr-2">{log.station}</span>
+                                        {maintenanceLogs.length === 0 ? (
+                                            <div className="py-12 text-center">
+                                                <Info size={32} className="mx-auto mb-3 text-[var(--text-tertiary)] opacity-40" />
+                                                <p className="text-sm text-[var(--text-tertiary)]">Sin registros de mantenimiento aún.</p>
+                                                <p className="text-xs text-[var(--text-tertiary)] mt-1 opacity-60">Usa el endpoint <code>POST /maintenance/logs</code> para registrar intervenciones.</p>
+                                            </div>
+                                        ) : maintenanceLogs.slice(0, 10).map((log: any) => (
+                                            <div key={log.id} className="p-5 rounded-2xl bg-[var(--bg-card)]/40 border border-[var(--border-default)] hover:border-blue-500/30 transition-all">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[10px] font-black px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 uppercase tracking-tighter">
+                                                            #{log.station_id}
+                                                        </span>
                                                         <span className="text-sm font-bold text-[var(--text-primary)]">{log.action}</span>
+                                                        {log.component_type && (
+                                                            <span className="text-[10px] text-[var(--text-tertiary)] bg-[var(--bg-card)] px-2 py-0.5 rounded-full">{log.component_type}</span>
+                                                        )}
                                                     </div>
-                                                    <span className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase">{log.date}</span>
+                                                    <span className="text-[10px] font-bold text-[var(--text-tertiary)] whitespace-nowrap">
+                                                        {new Date(log.date).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                    </span>
                                                 </div>
-                                                <p className="text-xs text-[var(--text-secondary)] mb-3">{log.detail}</p>
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                                                {log.detail && <p className="text-xs text-[var(--text-secondary)] mb-2">{log.detail}</p>}
+                                                {log.performed_by && (
+                                                    <div className="flex items-center gap-2">
                                                         <ShieldCheck size={12} className="text-emerald-400" />
+                                                        <span className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase">Por: {log.performed_by}</span>
+                                                        {log.cost > 0 && <span className="text-[10px] text-yellow-400 ml-auto">{log.cost.toFixed(2)}€</span>}
                                                     </div>
-                                                    <span className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase">Por: {log.tech}</span>
-                                                </div>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
-
-                                    <button className="w-full mt-6 py-3 rounded-2xl border border-dashed border-[var(--border-default)] text-[var(--text-tertiary)] text-xs font-black uppercase tracking-widest hover:border-blue-500/50 hover:text-blue-400 transition-all">
-                                        <Info size={14} className="inline mr-2" /> Ver historial completo
-                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -2645,7 +2672,6 @@ export default function SettingsPage() {
                                         onClick={() => {
                                             if (!contentStationId) return;
                                             scanContentMutation.mutate(contentStationId);
-                                            setTimeout(() => refetchStationContent(), 1500);
                                         }}
                                         className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] text-xs font-bold uppercase tracking-widest"
                                     >

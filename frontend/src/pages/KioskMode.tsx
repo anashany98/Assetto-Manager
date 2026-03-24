@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 
 import { useIdleTimer } from 'react-idle-timer';
@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import { API_URL, PUBLIC_API_TOKEN } from '../config';
-import { getCars, getTracks } from '../api/content';
+import { getCars, getTracks, triggerContentScan } from '../api/content';
 import { getScenarios } from '../api/scenarios';
 import type { Scenario } from '../api/scenarios';
 import { type PaymentProvider, type PaymentStatus } from '../api/payments';
@@ -51,6 +51,7 @@ import {
 
 export default function KioskMode() {
     const [searchParams] = useSearchParams();
+    const queryClient = useQueryClient();
 
     // Station Pairing State
     const [stationId, setStationId] = useState<number>(() => getPairedStationId() || 0);
@@ -92,6 +93,18 @@ export default function KioskMode() {
         }
     }, [duration, isLaunched]);
 
+    // Auto-trigger content scan when station is paired so real AC data appears
+    useEffect(() => {
+        if (!stationId) return;
+        triggerContentScan(stationId).catch(() => {/* agent may be offline, ignore */});
+        // Refetch after giving the agent time to scan and report back
+        const timer = setTimeout(() => {
+            queryClient.invalidateQueries({ queryKey: ['cars', stationId] });
+            queryClient.invalidateQueries({ queryKey: ['tracks', stationId] });
+        }, 8000);
+        return () => clearTimeout(timer);
+    }, [stationId]);
+
     const { language, setLanguage, t } = useLanguage();
     const [paymentProvider, setPaymentProvider] = useState<PaymentProvider>('stripe_qr');
     const [paymentInfo, setPaymentInfo] = useState<PaymentStatus | null>(null);
@@ -100,6 +113,14 @@ export default function KioskMode() {
     const noPaymentHandledRef = useRef(false);
     const [launchingNoPayment, setLaunchingNoPayment] = useState(false);
     // lastHardwareSnapshot removed
+
+    // Reset payment refs when user navigates away from payment step
+    useEffect(() => {
+        if (step < 5) {
+            paymentHandledRef.current = false;
+            noPaymentHandledRef.current = false;
+        }
+    }, [step]);
 
     const clientTokenHeaders = useMemo<Record<string, string>>(() => {
         const headers: Record<string, string> = { ...baseClientTokenHeaders };

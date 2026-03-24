@@ -10,6 +10,8 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 ENVIRONMENT = (os.getenv("ENVIRONMENT", "development") or "development").lower().strip()
+# Email sending is disabled until EMAILS_ENABLED=true is set in .env
+_EMAILS_ENABLED = os.getenv("EMAILS_ENABLED", "false").lower() in {"1", "true", "yes"}
 
 # Email Configuration (from environment variables)
 SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
@@ -49,6 +51,9 @@ def send_email(to_email: str, subject: str, html_content: str, text_content: Opt
     Send an email using SMTP.
     Returns True if successful, False otherwise.
     """
+    if not _EMAILS_ENABLED:
+        logger.debug("Email feature disabled (EMAILS_ENABLED=false). Skipping send.")
+        return False
     if not is_email_configured():
         if ENVIRONMENT != "test":
             logger.warning("Email not configured. Skipping email send.")

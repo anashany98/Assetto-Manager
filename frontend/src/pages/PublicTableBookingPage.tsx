@@ -6,7 +6,7 @@ import axios from 'axios';
 import { API_URL } from '../config';
 import { cn } from '../lib/utils';
 
-const TIME_OPTIONS = [
+const DEFAULT_TIME_OPTIONS = [
     '12:00', '12:30', '13:00', '13:30', '14:00', '14:30',
     '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00', '22:30', '23:00'
 ];
@@ -47,6 +47,10 @@ export default function PublicTableBookingPage() {
 
     const barName = settings?.find((s: { key: string; value: string }) => s.key === 'bar_name')?.value || 'VRacing Lounge';
     const barLogo = settings?.find((s: { key: string; value: string }) => s.key === 'bar_logo')?.value || '/logo.png';
+    const rawTimeSlots = settings?.find((s: { key: string; value: string }) => s.key === 'table_booking_time_slots')?.value;
+    const TIME_OPTIONS = rawTimeSlots
+        ? rawTimeSlots.split(',').map((s: string) => s.trim()).filter(Boolean)
+        : DEFAULT_TIME_OPTIONS;
 
     // Check availability mutation
     const checkAvailability = useMutation({

@@ -111,7 +111,7 @@ def parse_fast_lane_ai(file_path: Path) -> List[Dict[str, float]]:
                         if len(data) < 4:
                             break
                         floats.append(struct.unpack('<f', data)[0])
-                    except:
+                    except struct.error:
                         break
                 
                 # Group into xyz triplets

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import type { EventCreate, Event } from '../types';
+import { eventSchema } from '../lib/schemas';
 
 interface EventFormProps {
     initialData?: Event | null;
@@ -20,15 +21,36 @@ export default function EventForm({ initialData, onSubmit, onCancel, isLoading }
         status: 'upcoming',
         rules: ''
     });
+    const [errors, setErrors] = useState<Record<string, string>>({});
 
-    // Initialize form with prop data
+    // Initialize form with prop data when editing
     useEffect(() => {
         if (initialData) {
-            // Form reset logic
+            setFormData({
+                name: initialData.name || '',
+                description: initialData.description || '',
+                start_date: initialData.start_date || '',
+                end_date: initialData.end_date || '',
+                track_name: initialData.track_name || '',
+                allowed_cars: initialData.allowed_cars || '',
+                status: initialData.status || 'upcoming',
+                rules: initialData.rules || ''
+            });
         }
     }, [initialData]);
 
     const handleSubmit = () => {
+        const result = eventSchema.safeParse(formData);
+        if (!result.success) {
+            const fieldErrors: Record<string, string> = {};
+            for (const issue of result.error.issues) {
+                const field = issue.path[0] as string;
+                if (!fieldErrors[field]) fieldErrors[field] = issue.message;
+            }
+            setErrors(fieldErrors);
+            return;
+        }
+        setErrors({});
         onSubmit(formData);
     };
 
@@ -41,12 +63,15 @@ export default function EventForm({ initialData, onSubmit, onCancel, isLoading }
                 <button onClick={onCancel}><X className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)]" /></button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <input
-                    placeholder="Nombre del Evento"
-                    className="bg-[var(--bg-card)] border border-[var(--border-strong)] p-3 rounded-xl text-[var(--text-primary)] placeholder-gray-500 focus:border-[var(--border-focus)] outline-none"
-                    value={formData.name}
-                    onChange={e => setFormData({ ...formData, name: e.target.value })}
-                />
+                <div className="flex flex-col">
+                    <input
+                        placeholder="Nombre del Evento"
+                        className={`bg-[var(--bg-card)] border p-3 rounded-xl text-[var(--text-primary)] placeholder-gray-500 focus:border-[var(--border-focus)] outline-none ${errors.name ? 'border-red-500' : 'border-[var(--border-strong)]'}`}
+                        value={formData.name}
+                        onChange={e => setFormData({ ...formData, name: e.target.value })}
+                    />
+                    {errors.name && <span className="text-red-400 text-xs mt-1">{errors.name}</span>}
+                </div>
                 <input
                     placeholder="Descripción (Opcional)"
                     className="bg-[var(--bg-card)] border border-[var(--border-strong)] p-3 rounded-xl text-[var(--text-primary)] placeholder-gray-500 focus:border-[var(--border-focus)] outline-none"
@@ -57,19 +82,21 @@ export default function EventForm({ initialData, onSubmit, onCancel, isLoading }
                     <label className="text-xs text-[var(--text-tertiary)] mb-1 font-bold">Fecha Inicio</label>
                     <input
                         type="datetime-local"
-                        className="bg-[var(--bg-card)] border border-[var(--border-strong)] p-3 rounded-xl text-[var(--text-primary)] focus:border-[var(--border-focus)] outline-none"
+                        className={`bg-[var(--bg-card)] border p-3 rounded-xl text-[var(--text-primary)] focus:border-[var(--border-focus)] outline-none ${errors.start_date ? 'border-red-500' : 'border-[var(--border-strong)]'}`}
                         value={formData.start_date}
                         onChange={e => setFormData({ ...formData, start_date: e.target.value })}
                     />
+                    {errors.start_date && <span className="text-red-400 text-xs mt-1">{errors.start_date}</span>}
                 </div>
                 <div className="flex flex-col">
                     <label className="text-xs text-[var(--text-tertiary)] mb-1 font-bold">Fecha Fin</label>
                     <input
                         type="datetime-local"
-                        className="bg-[var(--bg-card)] border border-[var(--border-strong)] p-3 rounded-xl text-[var(--text-primary)] focus:border-[var(--border-focus)] outline-none"
+                        className={`bg-[var(--bg-card)] border p-3 rounded-xl text-[var(--text-primary)] focus:border-[var(--border-focus)] outline-none ${errors.end_date ? 'border-red-500' : 'border-[var(--border-strong)]'}`}
                         value={formData.end_date}
                         onChange={e => setFormData({ ...formData, end_date: e.target.value })}
                     />
+                    {errors.end_date && <span className="text-red-400 text-xs mt-1">{errors.end_date}</span>}
                 </div>
                 <input
                     placeholder="Circuito (Track ID/Name)"

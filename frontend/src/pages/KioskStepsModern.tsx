@@ -97,6 +97,12 @@ export const ScenarioStepModern: React.FC<ScenarioStepProps> = ({
             window.alert('Sala no valida. Recarga la lista de salas en vivo.');
             return;
         }
+        const playerCount = lobby.player_count ?? lobby.players_count ?? 0;
+        const maxPlayers = lobby.max_players ?? 10;
+        if (playerCount >= maxPlayers) {
+            window.alert('La sala está llena. Por favor elige otra.');
+            return;
+        }
         soundManager.playClick();
         const duration = Number(lobby?.duration_minutes ?? lobby?.duration) || 10;
         setSelection({
@@ -494,7 +500,7 @@ export const WaitingRoomModern: React.FC<WaitingRoomModernProps> = ({ selection,
         : LOBBY_TIMEOUT_SECONDS;
 
     React.useEffect(() => {
-        if (lobbyData?.status !== 'waiting' || timeLeft !== 0) return;
+        if (lobbyData?.status !== 'waiting' || timeLeft > 0) return;
         if (isAbandoning) return;
 
         setLobbyError('Tiempo de espera agotado. La sala se ha cerrado.');

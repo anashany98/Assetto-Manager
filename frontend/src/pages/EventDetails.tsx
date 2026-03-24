@@ -136,7 +136,7 @@ export default function EventDetails() {
                 )}
             </div>
 
-            {showLaunchModal && (
+            {showLaunchModal && event && (
                 <MassLaunchModal
                     onClose={() => setShowLaunchModal(false)}
                     initialTrack={event.track_name}

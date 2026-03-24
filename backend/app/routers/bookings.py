@@ -2,7 +2,7 @@
 Bookings Router - Manage simulator time slot reservations
 """
 from fastapi import APIRouter, HTTPException, Query, Depends, BackgroundTasks, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, field_validator, Field
 from typing import Optional, List
 from datetime import datetime, date as dt_date, timedelta, time as dt_time
 import os
@@ -64,16 +64,16 @@ TIME_SLOTS = [
 # Schemas
 class BookingCreate(BaseModel):
     station_id: Optional[int] = None
-    customer_name: str
-    customer_email: Optional[str] = None
-    customer_phone: Optional[str] = None
-    num_players: int = 1  # Number of players in the group
+    customer_name: str = Field(..., min_length=1, max_length=120)
+    customer_email: Optional[EmailStr] = None
+    customer_phone: Optional[str] = Field(default=None, max_length=30)
+    num_players: int = Field(default=1, ge=1, le=50)
     date: Optional[dt_date] = None
     time_slot: Optional[str] = None
     start_time: Optional[datetime] = None
-    duration_minutes: int = 60
-    notes: Optional[str] = None
-    price: Optional[float] = None
+    duration_minutes: int = Field(default=60, ge=5, le=480)
+    notes: Optional[str] = Field(default=None, max_length=1000)
+    price: Optional[float] = Field(default=None, ge=0)
     paid: Optional[bool] = False
 
 

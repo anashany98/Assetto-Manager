@@ -222,6 +222,12 @@ export const ScenarioStep: React.FC<ScenarioStepProps> = ({
             window.alert('Sala no valida. Recarga la lista de salas en vivo.');
             return;
         }
+        const playerCount = lobby.player_count ?? lobby.players_count ?? 0;
+        const maxPlayers = lobby.max_players ?? 10;
+        if (playerCount >= maxPlayers) {
+            window.alert('La sala está llena. Por favor elige otra.');
+            return;
+        }
         soundManager.playClick();
         const duration = Number(lobby?.duration_minutes ?? lobby?.duration) || 10;
         setSelection({
@@ -442,15 +448,7 @@ export const DifficultyStep: React.FC<DifficultyStepProps> = ({
     rainEnabled = false
 }) => {
 
-    const getMockSpecs = (id: string = '') => {
-        const seed = id.charCodeAt(0) || 0;
-        return {
-            bhp: `${400 + (seed % 20) * 10} HP`,
-            weight: `${1100 + (seed % 10) * 20} kg`,
-            top_speed: `${260 + (seed % 15) * 5} km/h`
-        };
-    };
-    const specs = selectedCarObj?.specs?.bhp ? selectedCarObj.specs : getMockSpecs(selectedCarObj?.id);
+    const specs = selectedCarObj?.specs?.bhp ? selectedCarObj.specs : null;
     const carImageUrl = resolveAssetUrl(selectedCarObj?.image_url);
     const trackImageUrl = resolveAssetUrl(selectedTrackObj?.image_url);
     const mapUrl = resolveAssetUrl(selectedTrackObj?.map_url)
@@ -467,20 +465,22 @@ export const DifficultyStep: React.FC<DifficultyStepProps> = ({
                     <h4 className="text-slate-400 font-bold text-xs md:text-sm tracking-widest uppercase mb-2">VEHICULO</h4>
                     {carImageUrl && <img src={carImageUrl} className="w-full h-24 md:h-28 object-cover rounded-2xl mb-3 border border-gray-700/60" alt="" />}
                     <div className="text-xl md:text-2xl font-black text-white mb-3 truncate">{selectedCarObj?.name || selection?.car}</div>
-                    <div className="grid grid-cols-3 gap-2.5 mt-auto">
-                        <div className="bg-black/30 rounded-xl p-2.5 md:p-3.5 text-center">
-                            <div className="text-gray-500 text-[9px] md:text-[11px] uppercase">{t('kiosk.power') !== 'kiosk.power' ? t('kiosk.power') : 'POTENCIA'}</div>
-                            <div className="text-white font-black text-sm md:text-base">{specs.bhp}</div>
+                    {specs && (
+                        <div className="grid grid-cols-3 gap-2.5 mt-auto">
+                            <div className="bg-black/30 rounded-xl p-2.5 md:p-3.5 text-center">
+                                <div className="text-gray-500 text-[9px] md:text-[11px] uppercase">{t('kiosk.power') !== 'kiosk.power' ? t('kiosk.power') : 'POTENCIA'}</div>
+                                <div className="text-white font-black text-sm md:text-base">{specs.bhp}</div>
+                            </div>
+                            <div className="bg-black/30 rounded-xl p-2.5 md:p-3.5 text-center">
+                                <div className="text-gray-500 text-[9px] md:text-[11px] uppercase">Peso</div>
+                                <div className="text-white font-black text-sm md:text-base">{specs.weight}</div>
+                            </div>
+                            <div className="bg-black/30 rounded-xl p-2.5 md:p-3.5 text-center">
+                                <div className="text-gray-500 text-[9px] md:text-[11px] uppercase">{t('kiosk.topSpeed') !== 'kiosk.topSpeed' ? t('kiosk.topSpeed') : 'VELOCIDAD MAX'}</div>
+                                <div className="text-white font-black text-sm md:text-base">{specs.top_speed}</div>
+                            </div>
                         </div>
-                        <div className="bg-black/30 rounded-xl p-2.5 md:p-3.5 text-center">
-                            <div className="text-gray-500 text-[9px] md:text-[11px] uppercase">Peso</div>
-                            <div className="text-white font-black text-sm md:text-base">{specs.weight}</div>
-                        </div>
-                        <div className="bg-black/30 rounded-xl p-2.5 md:p-3.5 text-center">
-                            <div className="text-gray-500 text-[9px] md:text-[11px] uppercase">{t('kiosk.topSpeed') !== 'kiosk.topSpeed' ? t('kiosk.topSpeed') : 'VELOCIDAD MAX'}</div>
-                            <div className="text-white font-black text-sm md:text-base">{specs.top_speed}</div>
-                        </div>
-                    </div>
+                    )}
                 </div>
 
                 <div className="bg-slate-950/65 border border-white/10 rounded-3xl p-4 md:p-5 flex flex-col relative overflow-hidden min-h-[170px] md:min-h-[200px]">
@@ -1042,7 +1042,7 @@ export const WaitingRoom: React.FC<WaitingRoomProps> = ({ selection, stationId, 
     }, [exitWaitingRoom, isAbandoning, lobbyData, players, selection?.isLobby, stationId]);
 
     useEffect(() => {
-        if (lobbyData?.status !== 'waiting' || timeLeft !== 0) return;
+        if (lobbyData?.status !== 'waiting' || timeLeft > 0) return;
         if (isAbandoning) return;
 
         setLobbyError('Tiempo de espera agotado. La sala se ha cerrado.');

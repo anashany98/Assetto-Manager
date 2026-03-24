@@ -27,6 +27,9 @@ export default function TournamentAdmin({ eventId, isCompleted }: { eventId: num
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['bracket', eventId] });
+        },
+        onError: (err: any) => {
+            alert('Error al generar el bracket: ' + (err?.response?.data?.detail || err?.message || 'Error desconocido'));
         }
     });
 

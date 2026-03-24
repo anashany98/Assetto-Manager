@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTelemetry } from '../hooks/useTelemetry';
 import StreamPlayer from '../components/StreamPlayer';
 import axios from 'axios';
@@ -59,33 +59,39 @@ export default function TVSpectatorFullscreen() {
     const demoMode = new URLSearchParams(window.location.search).get('demo') === '1';
     const [streamUrl, setStreamUrl] = useState<string | null>(null);
 
-    const { liveCars } = useTelemetry();
+    const { liveCars, streamingStations } = useTelemetry();
     const demoTelemetry = useDemoTelemetry(demoMode);
+    const initialFetchDone = useRef(false);
 
+    // Seed initial streaming state from REST, then rely on WebSocket updates
     useEffect(() => {
-        if (demoMode) return;
+        if (demoMode || initialFetchDone.current) return;
+        initialFetchDone.current = true;
 
-        // Fetch station details to get stream URL
         const fetchStation = async () => {
             try {
                 const headers = PUBLIC_API_TOKEN ? { 'X-Client-Token': PUBLIC_API_TOKEN } : {};
                 const res = await axios.get(`${API_URL}/spectator/stations`, { headers });
                 const station = res.data.find((s: any) => String(s.id) === stationId);
-                if (station && station.is_streaming) {
-                    setStreamUrl(station.stream_url);
-                } else {
-                    setStreamUrl(null); // Clear stream if not found or not streaming
+                if (station?.is_streaming) {
+                    setStreamUrl(station.stream_url ?? null);
                 }
             } catch (e) {
                 console.error("Error fetching station stream", e);
-                setStreamUrl(null); // Clear stream on error
             }
         };
 
         fetchStation();
-        const interval = setInterval(fetchStation, 5000);
-        return () => clearInterval(interval);
     }, [stationId, demoMode]);
+
+    // Keep stream URL in sync with real-time WebSocket updates
+    useEffect(() => {
+        if (demoMode) return;
+        const state = streamingStations[stationId];
+        if (state !== undefined) {
+            setStreamUrl(state.is_streaming ? (state.stream_url ?? null) : null);
+        }
+    }, [streamingStations, stationId, demoMode]);
 
     const telemetry = demoMode
         ? demoTelemetry
@@ -104,7 +110,9 @@ export default function TVSpectatorFullscreen() {
             {/* Background - Video Stream */}
             <div className="absolute inset-0 bg-gray-900">
                 {streamUrl ? (
-                    streamUrl.toLowerCase().includes(':8889/') ? (
+                    // WebRTC/WHEP pages served as HTML are loaded in an iframe;
+                    // FLV/HLS/RTMP streams are handled by StreamPlayer.
+                    streamUrl.match(/\.(html?|whep)$/i) || streamUrl.includes(':8889/') ? (
                         <iframe
                             src={`${streamUrl}${streamUrl.includes('?') ? '&' : '?'}autoplay=1&muted=1&playsinline=1`}
                             className="w-full h-full border-0"

@@ -15,7 +15,6 @@ import {
 import axios from 'axios';
 import { API_URL, PUBLIC_API_TOKEN } from '../config';
 import { useTelemetry } from '../hooks/useTelemetry';
-import type { TelemetryPacket } from '../hooks/useTelemetry';
 import StreamPlayer from '../components/StreamPlayer';
 import { DEMO_STATIONS } from '../data/demoData';
 
@@ -45,10 +44,11 @@ export function DirectorPage() {
     const [events, setEvents] = useState<ProductionEvent[]>([]);
     
     // -- Hooks --
-    const { liveCars } = useTelemetry();
+    const { liveCars, streamingStations } = useTelemetry();
     const [demoMode, setDemoMode] = useState(() => new URLSearchParams(window.location.search).get('demo') === 'true');
     const autoDirectorTimer = useRef<any>(null);
     const lastSwitchTime = useRef<number>(Date.now());
+    const stationsRef = useRef<Station[]>([]);
 
     // -- Derived Data --
     const telemetryEntries = useMemo(() => Object.values(liveCars), [liveCars]);
@@ -57,11 +57,31 @@ export function DirectorPage() {
     // -- Lifecycle --
     useEffect(() => {
         fetchStations();
-        const interval = setInterval(fetchStations, 5000);
+        const interval = setInterval(fetchStations, 30000);
         return () => clearInterval(interval);
     }, [demoMode]);
 
-    // -- Auto-Director Logic (The "Smart" part) --
+    // Keep stationsRef current so the auto-director interval never uses stale data
+    useEffect(() => {
+        stationsRef.current = stations;
+    }, [stations]);
+
+    // Sync real-time streaming state from WebSocket into the stations list
+    useEffect(() => {
+        if (demoMode || Object.keys(streamingStations).length === 0) return;
+        setStations(prev => prev.map(s => {
+            const ws = streamingStations[String(s.id)];
+            if (!ws) return s;
+            return { ...s, is_streaming: ws.is_streaming, stream_url: ws.stream_url ?? s.stream_url };
+        }));
+        // If the selected station stopped streaming, reflect that
+        if (selectedStation) {
+            const ws = streamingStations[String(selectedStation.id)];
+            if (ws && !ws.is_streaming) setStreaming(false);
+        }
+    }, [streamingStations, demoMode]);
+
+    // -- Auto-Director Logic --
     useEffect(() => {
         if (!isAutoDirector || telemetryEntries.length === 0) {
             if (autoDirectorTimer.current) clearInterval(autoDirectorTimer.current);
@@ -71,28 +91,30 @@ export function DirectorPage() {
         const directorInterval = setInterval(() => {
             const now = Date.now();
             const timeSinceLastSwitch = now - lastSwitchTime.current;
-            
+            // Read fresh stations from ref to avoid stale closure
+            const currentStations = stationsRef.current;
+
             // 1. Critical Events (Incident) - Immediate Switch
             const incidentCar = telemetryEntries.find(c => (c.g_lat || 0) > 4.0 || (c.g_lon || 0) > 4.0);
             if (incidentCar && (!selectedStation || incidentCar.station_id !== selectedStation.id)) {
                 addEvent('incident', `¡Incidente detectado! Enfocando a ${incidentCar.driver}`, incidentCar.station_id);
-                handleSwitchByStationId(incidentCar.station_id);
+                const st = currentStations.find(s => s.id === incidentCar.station_id);
+                if (st) { startStream(st); lastSwitchTime.current = Date.now(); }
                 return;
             }
 
-            // 2. Battles (Gap < 0.5s)
-            // Sort by pos to find battles
+            // 2. Battles (normalized_pos gap < 0.02)
             const sorted = [...telemetryEntries].sort((a, b) => a.pos - b.pos);
             for (let i = 0; i < sorted.length - 1; i++) {
                 const a = sorted[i];
-                const b = sorted[i+1];
-                // In a real system we'd calculate distance gap, here we use normalized_pos or just assume proximity
+                const b = sorted[i + 1];
                 const dist = Math.abs((a.normalized_pos || 0) - (b.normalized_pos || 0));
-                if (dist < 0.02) { // Battle condition
+                if (dist < 0.02) {
                     if (!selectedStation || (selectedStation.id !== a.station_id && selectedStation.id !== b.station_id)) {
-                        if (timeSinceLastSwitch > 10000) { // Don't flip too often
+                        if (timeSinceLastSwitch > 10000) {
                             addEvent('battle', `Batalla intensa entre ${a.driver} y ${b.driver}`, a.station_id);
-                            handleSwitchByStationId(a.station_id);
+                            const st = currentStations.find(s => s.id === a.station_id);
+                            if (st) { startStream(st); lastSwitchTime.current = Date.now(); }
                             return;
                         }
                     }
@@ -104,7 +126,8 @@ export function DirectorPage() {
                 const nextIndex = (telemetryEntries.findIndex(c => selectedStation && c.station_id === selectedStation.id) + 1) % telemetryEntries.length;
                 const nextCar = telemetryEntries[nextIndex];
                 addEvent('switch', `Rotación de cámara: Ahora viendo a ${nextCar.driver}`, nextCar.station_id);
-                handleSwitchByStationId(nextCar.station_id);
+                const st = currentStations.find(s => s.id === nextCar.station_id);
+                if (st) { startStream(st); lastSwitchTime.current = Date.now(); }
             }
 
         }, 2000);
@@ -133,14 +156,6 @@ export function DirectorPage() {
         setEvents(prev => [newEvent, ...prev].slice(0, 50));
     };
 
-    const handleSwitchByStationId = (id: number) => {
-        const station = stations.find(s => s.id === id);
-        if (station) {
-            startStream(station);
-            lastSwitchTime.current = Date.now();
-        }
-    };
-
     const startStream = async (station: Station) => {
         if (selectedStation?.id === station.id && streaming) return;
         
@@ -158,7 +173,6 @@ export function DirectorPage() {
         }
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const stopStream = async () => {
         if (!selectedStation || demoMode) {
             setStreaming(false);
@@ -174,6 +188,14 @@ export function DirectorPage() {
     };
 
     const formatTime = (date: Date) => date.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+    const formatLapTime = (ms: number) => {
+        if (!ms) return '--:--.---';
+        const min = Math.floor(ms / 60000);
+        const sec = Math.floor((ms % 60000) / 1000);
+        const mils = ms % 1000;
+        return `${min}:${sec.toString().padStart(2, '0')}.${mils.toString().padStart(3, '0')}`;
+    };
 
     return (
         <div className="flex flex-col h-[calc(100vh-64px)] bg-gray-950 text-gray-100 overflow-hidden">
@@ -205,9 +227,21 @@ export function DirectorPage() {
                         </button>
                     </div>
 
+                    {streaming && (
+                        <>
+                            <div className="h-8 w-px bg-gray-800" />
+                            <button
+                                onClick={stopStream}
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-600/20 border border-red-500/50 text-red-400 hover:bg-red-600/40 transition-all text-xs font-bold"
+                            >
+                                <span className="w-2 h-2 bg-red-400 rounded-full" /> DETENER STREAM
+                            </button>
+                        </>
+                    )}
+
                     <div className="h-8 w-px bg-gray-800" />
-                    
-                    <button 
+
+                    <button
                         onClick={() => window.location.href = isTVMode ? '/director' : '/director-tv'}
                         className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-800 border border-gray-700 text-gray-400 hover:text-white transition-all text-xs font-bold"
                         title={isTVMode ? "Salir de Pantalla Completa" : "Pantalla Completa (Sin Menus)"}
@@ -311,8 +345,8 @@ export function DirectorPage() {
                                         {focusedTelemetry?.pos || '-'}
                                     </div>
                                     <div>
-                                        <p className="text-xl font-black italic tracking-tighter uppercase">{focusedTelemetry?.driver || 'SPEED HUNTER'}</p>
-                                        <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">{focusedTelemetry?.car || 'RACING PRO'}</p>
+                                        <p className="text-xl font-black italic tracking-tighter uppercase">{focusedTelemetry?.driver || selectedStation?.name || '—'}</p>
+                                        <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">{focusedTelemetry?.car || '—'}</p>
                                     </div>
                                 </div>
 
@@ -324,7 +358,7 @@ export function DirectorPage() {
                                     <div className="bg-black/80 backdrop-blur-md rounded-2xl px-5 py-3 border border-white/10 text-center min-w-[100px]">
                                         <p className="text-[10px] text-gray-500 font-bold uppercase mb-1">Lap Time</p>
                                         <p className="text-2xl font-mono font-black">
-                                            {focusedTelemetry?.lap_time_ms ? (focusedTelemetry.lap_time_ms / 1000).toFixed(3) : '0.000'}
+                                            {formatLapTime(focusedTelemetry?.lap_time_ms || 0)}
                                         </p>
                                     </div>
                                 </div>
@@ -347,15 +381,23 @@ export function DirectorPage() {
                                 <Trophy size={16} /> <h3 className="text-xs font-bold uppercase">Líderes</h3>
                             </div>
                             <div className="space-y-3">
-                                {telemetryEntries.sort((a,b) => a.pos - b.pos).slice(0, 3).map((car, idx) => (
-                                    <div key={idx} className="flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-xs font-bold text-blue-500 italic">P{car.pos}</span>
-                                            <span className="text-sm font-medium">{car.driver}</span>
-                                        </div>
-                                        <span className="text-[10px] font-mono text-gray-500">GAP: {idx === 0 ? '--' : `+${(Math.random() * 2).toFixed(2)}s`}</span>
-                                    </div>
-                                ))}
+                                {(() => {
+                                    const sorted = [...telemetryEntries].sort((a, b) => a.pos - b.pos).slice(0, 3);
+                                    const leader = sorted[0];
+                                    return sorted.map((car, idx) => {
+                                        const gapPos = leader ? Math.abs((leader.normalized_pos || 0) - (car.normalized_pos || 0)) : 0;
+                                        const gapStr = idx === 0 ? '--' : `+${gapPos.toFixed(3)}`;
+                                        return (
+                                            <div key={car.station_id} className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-xs font-bold text-blue-500 italic">P{car.pos}</span>
+                                                    <span className="text-sm font-medium">{car.driver}</span>
+                                                </div>
+                                                <span className="text-[10px] font-mono text-gray-500">GAP: {gapStr}</span>
+                                            </div>
+                                        );
+                                    });
+                                })()}
                                 {telemetryEntries.length === 0 && <p className="text-xs text-gray-600 italic">Sin actividad en pista</p>}
                             </div>
                         </div>
@@ -370,7 +412,7 @@ export function DirectorPage() {
                                     <p className="text-[10px] text-gray-500 font-bold uppercase">Corredores</p>
                                 </div>
                                 <div className="text-center">
-                                    <p className="text-2xl font-black text-blue-500">{telemetryEntries.length > 0 ? '19°C' : '--'}</p>
+                                    <p className="text-2xl font-black text-blue-500">{focusedTelemetry?.track_temp != null ? `${Math.round(focusedTelemetry.track_temp)}°C` : telemetryEntries.length > 0 ? `${Math.round(telemetryEntries[0]?.track_temp ?? 0) || '--'}°C` : '--'}</p>
                                     <p className="text-[10px] text-gray-500 font-bold uppercase">Temp Suelo</p>
                                 </div>
                                 <div className="text-center col-span-2 mt-2 pt-4 border-t border-gray-800">

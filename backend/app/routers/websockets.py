@@ -662,11 +662,22 @@ async def websocket_agent_endpoint(websocket: WebSocket):
                         try:
                             station = db.query(models.Station).filter(models.Station.id == station_id_int).first()
                             if station:
+                                changed = False
                                 if "is_streaming" in data:
                                     station.is_streaming = bool(data.get("is_streaming"))
+                                    changed = True
                                 if data.get("stream_url"):
                                     station.stream_url = data.get("stream_url")
-                                db.commit()
+                                    changed = True
+                                if changed:
+                                    db.commit()
+                                    # Broadcast real-time streaming status to all connected clients
+                                    await manager.broadcast(json.dumps({
+                                        "type": "station_streaming_update",
+                                        "station_id": station_id_int,
+                                        "is_streaming": station.is_streaming,
+                                        "stream_url": station.stream_url,
+                                    }))
                         finally:
                             db.close()
                     continue
@@ -677,20 +688,17 @@ async def websocket_agent_endpoint(websocket: WebSocket):
                 # 2. Process for Auto-Lap (Backend Logic)
                 # Check if this message indicates a LAP COMPLETION
                 if data.get("event") == "LapCompleted":
-                    # Extract necessary info
-                    # Expected format: { "event": "LapCompleted", "driver_name": "...", "car_model": "...", "track_name": "...", "lap_time": 123456, "sectors": [1,2,3] }
-                    
+                    # Expected format: { "event": "LapCompleted", "driver_name": "...", "car_model": "...", "track_name": "...", "lap_time": 123456, "position": 1, "total_drivers": 3 }
+
                     driver_name = data.get("driver_name", "Unknown Driver")
                     car_model = data.get("car_model", "unknown_car")
                     track_name = data.get("track_name", "unknown_track")
                     lap_time = data.get("lap_time", 0)
-                    
+
                     if lap_time > 0:
-                        # Save to DB
                         db = SessionLocal()
                         try:
-                            # Create SessionResult object manually (replacing crud)
-                            new_session = models.SessionResult(
+                            new_result = models.SessionResult(
                                 driver_name=driver_name,
                                 car_model=car_model,
                                 track_name=track_name,
@@ -699,11 +707,119 @@ async def websocket_agent_endpoint(websocket: WebSocket):
                                 session_type="practice",
                                 track_config=None
                             )
-                            db.add(new_session)
+                            db.add(new_result)
+                            db.flush()  # get new_result.id without full commit yet
+
+                            # ── Loyalty: award points for lap completion ──
+                            driver = db.query(models.Driver).filter(
+                                models.Driver.name == driver_name,
+                                models.Driver.deleted_at.is_(None)
+                            ).first()
+                            if driver:
+                                LAP_POINTS = 10
+                                driver.loyalty_points = (driver.loyalty_points or 0) + LAP_POINTS
+                                driver.total_points_earned = (driver.total_points_earned or 0) + LAP_POINTS
+                                # Update membership tier
+                                from .loyalty import get_tier
+                                driver.membership_tier = get_tier(driver.total_points_earned)
+                                db.add(models.PointsTransaction(
+                                    driver_id=driver.id,
+                                    points=LAP_POINTS,
+                                    reason="lap_completed",
+                                    description=f"Vuelta completada en {track_name}"
+                                ))
+
+                                # Check personal best → bonus points
+                                prev_best = db.query(models.SessionResult).filter(
+                                    models.SessionResult.driver_name == driver_name,
+                                    models.SessionResult.track_name == track_name,
+                                    models.SessionResult.best_lap > 0,
+                                    models.SessionResult.id != new_result.id
+                                ).order_by(models.SessionResult.best_lap.asc()).first()
+                                if prev_best is None or lap_time < prev_best.best_lap:
+                                    PB_POINTS = 25
+                                    driver.loyalty_points += PB_POINTS
+                                    driver.total_points_earned += PB_POINTS
+                                    driver.membership_tier = get_tier(driver.total_points_earned)
+                                    db.add(models.PointsTransaction(
+                                        driver_id=driver.id,
+                                        points=PB_POINTS,
+                                        reason="personal_best",
+                                        description=f"Mejor tiempo en {track_name}: {lap_time}ms"
+                                    ))
+
                             db.commit()
-                            db.refresh(new_session)
-                            
                             logger.info(f"Auto-saved lap for {driver_name}: {lap_time}ms")
+                        except Exception:
+                            logger.exception("Error saving LapCompleted result for %s", driver_name)
+                            db.rollback()
+                        finally:
+                            db.close()
+
+                # RaceFinished: update ELO + podium loyalty points
+                elif data.get("event") == "RaceFinished":
+                    # Expected format: { "event": "RaceFinished", "results": [{"driver_name": "...", "position": 1}, ...] }
+                    results_raw = data.get("results", [])
+                    if len(results_raw) >= 2:
+                        db = SessionLocal()
+                        try:
+                            from ..services.elo import calculate_race_elo_changes, update_driver_elo, DEFAULT_RATING
+                            from .loyalty import get_tier, POINTS_RULES
+
+                            elo_inputs = []
+                            for r in results_raw:
+                                drv = db.query(models.Driver).filter(
+                                    models.Driver.name == r.get("driver_name"),
+                                    models.Driver.deleted_at.is_(None)
+                                ).first()
+                                if drv:
+                                    elo_inputs.append({
+                                        "driver_id": drv.id,
+                                        "rating": drv.elo_rating or DEFAULT_RATING,
+                                        "position": r.get("position", 99),
+                                    })
+
+                            if len(elo_inputs) >= 2:
+                                changes = calculate_race_elo_changes(elo_inputs)
+                                for entry in elo_inputs:
+                                    drv = db.query(models.Driver).filter(
+                                        models.Driver.id == entry["driver_id"]
+                                    ).first()
+                                    if drv:
+                                        old_rating = drv.elo_rating or DEFAULT_RATING
+                                        drv.elo_rating = max(0.0, old_rating + changes.get(drv.id, 0.0))
+                                        drv.total_races = (drv.total_races or 0) + 1
+                                        if entry["position"] == 1:
+                                            drv.total_wins = (drv.total_wins or 0) + 1
+                                        if entry["position"] <= 3:
+                                            drv.total_podiums = (drv.total_podiums or 0) + 1
+
+                            # Award podium loyalty points
+                            podium_pts = {1: POINTS_RULES.get("podium_1", 100), 2: POINTS_RULES.get("podium_2", 75), 3: POINTS_RULES.get("podium_3", 50)}
+                            for r in results_raw:
+                                pos = r.get("position")
+                                if pos in podium_pts:
+                                    drv = db.query(models.Driver).filter(
+                                        models.Driver.name == r.get("driver_name"),
+                                        models.Driver.deleted_at.is_(None)
+                                    ).first()
+                                    if drv:
+                                        pts = podium_pts[pos]
+                                        drv.loyalty_points = (drv.loyalty_points or 0) + pts
+                                        drv.total_points_earned = (drv.total_points_earned or 0) + pts
+                                        drv.membership_tier = get_tier(drv.total_points_earned)
+                                        db.add(models.PointsTransaction(
+                                            driver_id=drv.id,
+                                            points=pts,
+                                            reason=f"podium_{pos}",
+                                            description=f"P{pos} en carrera"
+                                        ))
+
+                            db.commit()
+                            logger.info("ELO + loyalty updated for %d drivers after race", len(elo_inputs))
+                        except Exception:
+                            logger.exception("Error processing RaceFinished ELO update")
+                            db.rollback()
                         finally:
                             db.close()
                             

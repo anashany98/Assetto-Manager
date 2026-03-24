@@ -20,7 +20,7 @@ router = APIRouter(
 
 
 class OBSCommandRequest(BaseModel):
-    command: str  # connect, start_stream, stop_stream, status, set_scene
+    command: str  # connect, start_stream, stop_stream, status, set_scene, get_scenes
     scene: Optional[str] = None
     password: Optional[str] = None
 
@@ -169,6 +169,21 @@ async def get_stream_status(
     return await control_obs(
         station_id,
         OBSCommandRequest(command="status"),
+        db,
+        user_or_client
+    )
+
+
+@router.get("/{station_id}/scenes")
+async def get_obs_scenes(
+    station_id: int,
+    db: Session = Depends(database.get_db),
+    user_or_client: models.User | str = Depends(require_admin_or_public_token)
+):
+    """Get the list of available OBS scenes from a specific station."""
+    return await control_obs(
+        station_id,
+        OBSCommandRequest(command="get_scenes"),
         db,
         user_or_client
     )

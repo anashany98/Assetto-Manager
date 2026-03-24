@@ -34,6 +34,12 @@ export default function KioskRacing() {
     const [duration, setDuration] = useState(10);
     const [difficulty, setDifficulty] = useState('amateur');
     const [transmission, setTransmission] = useState('automatic');
+    const weather = 'sun' as const;
+    const timeOfDay = 'noon' as const;
+
+    const weatherMap: Record<string, string> = {
+        sun: 'clear', cloud: 'windy', rain: 'rainy', fog: 'fog',
+    };
     const [stationId, setStationId] = useState<number>(() => getPairedStationId() || 0);
     const [showPairing, setShowPairing] = useState<boolean>(() => !getPairedStationId());
     const [pairedKioskCode, setPairedKioskCode] = useState<string | null>(() => getPairedKioskCode());
@@ -209,7 +215,7 @@ export default function KioskRacing() {
         mutationFn: async () => {
             const payload = {
                 station_id: stationId,
-                driver_name: `Racer ${stationId}`,
+                driver_name: activeDriver.name,
                 name: `RACE LOBBY ${stationId}`,
                 track: selection?.track,
                 car: selection?.car,
@@ -236,7 +242,7 @@ export default function KioskRacing() {
             if (!selection?.lobbyId) throw new Error('Missing lobby id');
             await axios.post(
                 `${API_URL}/lobby/${selection.lobbyId}/join`,
-                { station_id: stationId, driver_name: `Racer ${stationId}` },
+                { station_id: stationId, driver_name: activeDriver.name },
                 { headers: clientTokenHeaders }
             );
         },
@@ -271,8 +277,8 @@ export default function KioskRacing() {
         const payload = {
             car: selection?.car,
             track: selection?.track,
-            weather: 'sun',
-            time_of_day: 'noon',
+            weather: weatherMap[weather] ?? 'clear',
+            time_of_day: timeOfDay,
             difficulty,
             transmission,
             duration_minutes: duration,

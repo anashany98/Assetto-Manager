@@ -1,0 +1,97 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'   # Trigger on version tags: v1.0.0, v2.3.1, etc.
+
+jobs:
+  build-and-release:
+    name: Build & Package Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+
+      - name: Package client ZIP
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          DIST="ac-manager-${VERSION}"
+          mkdir -p "$DIST"
+
+          # Backend source (no venv, no tests, no __pycache__)
+          rsync -a --exclude='.venv' --exclude='__pycache__' \
+                   --exclude='*.pyc' --exclude='tests/' \
+                   --exclude='storage/' --exclude='.env' \
+                   backend/ "$DIST/backend/"
+
+          # Pre-built frontend (client doesn't need Node)
+          cp -r frontend/dist "$DIST/frontend_dist/"
+
+          # Copy pre-built dist so the server can serve it directly
+          mkdir -p "$DIST/frontend/dist"
+          cp -r frontend/dist/. "$DIST/frontend/dist/"
+
+          # Scripts
+          cp -r scripts/ "$DIST/scripts/"
+
+          # Root launchers and config
+          cp SETUP_CLIENTE.bat INICIAR_SERVIDOR.bat \
+             start_system_prod.bat start_server_prod.bat \
+             ACTUALIZAR_Y_ABRIR.bat \
+             bootstrap_db.py \
+             "$DIST/" 2>/dev/null || true
+
+          # Docs for client
+          cp QUICKSTART.md "$DIST/" 2>/dev/null || true
+          cp docs/DEPLOYMENT_PROD.md "$DIST/DEPLOYMENT_GUIDE.md" 2>/dev/null || true
+          cp backend/.env.example "$DIST/backend/.env.example" 2>/dev/null || true
+
+          # Version file
+          echo "$VERSION" > "$DIST/VERSION.txt"
+          echo "Build date: $(date -u '+%Y-%m-%d %H:%M UTC')" >> "$DIST/VERSION.txt"
+
+          zip -r "${DIST}.zip" "$DIST/"
+          echo "DIST_NAME=${DIST}" >> "$GITHUB_ENV"
+          echo "ZIP_NAME=${DIST}.zip" >> "$GITHUB_ENV"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "AC Manager ${{ github.ref_name }}"
+          body: |
+            ## AC Manager ${{ github.ref_name }}
+
+            ### Instalación para clientes nuevos
+            1. Descarga `ac-manager-${{ github.ref_name }}.zip`
+            2. Extrae en `C:\AC-Manager\`
+            3. Ejecuta `SETUP_CLIENTE.bat` como Administrador
+            4. Sigue las instrucciones en pantalla
+
+            ### Actualización desde versión anterior
+            1. Descarga el ZIP y extrae en la misma carpeta (sobrescribe)
+            2. Ejecuta `ACTUALIZAR_Y_ABRIR.bat`
+
+            ### Requisitos
+            - Windows 10/11
+            - Python 3.11+ ([python.org](https://www.python.org/downloads/))
+            - Node.js LTS ([nodejs.org](https://nodejs.org/)) *(solo si actualizas el frontend)*
+
+            ---
+            Ver `QUICKSTART.md` incluido en el ZIP para instrucciones completas.
+          files: ${{ env.ZIP_NAME }}
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') }}

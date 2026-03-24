@@ -17,15 +17,14 @@ interface DriverData {
     clutch?: number;
     pos?: number;
     best_lap_ms?: number;
-    image?: string;
 }
 
-// Demo data for multiple drivers with racing car images
+// Demo data for multiple drivers
 const demoDrivers: DriverData[] = [
-    { station_id: 1, driver: 'Carlos Sainz', car: 'Ferrari 488 GT3', track: 'Monza', speed_kmh: 285, rpm: 7500, gear: 6, lap_time_ms: 92340, laps: 5, gas: 0.9, brake: 0, clutch: 0, pos: 1, image: 'https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?w=800&q=80' },
-    { station_id: 2, driver: 'Max Verstappen', car: 'Red Bull X2019', track: 'Monza', speed_kmh: 278, rpm: 7200, gear: 6, lap_time_ms: 92890, laps: 5, gas: 0.85, brake: 0.1, clutch: 0.1, pos: 2, image: 'https://images.unsplash.com/photo-1544636331-e26879cd4d9b?w=800&q=80' },
-    { station_id: 3, driver: 'Lewis Hamilton', car: 'Mercedes AMG GT3', track: 'Monza', speed_kmh: 265, rpm: 6800, gear: 5, lap_time_ms: 93450, laps: 5, gas: 0.7, brake: 0.3, clutch: 0, pos: 3, image: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=800&q=80' },
-    { station_id: 4, driver: 'Fernando Alonso', car: 'Aston Martin GT3', track: 'Monza', speed_kmh: 255, rpm: 6500, gear: 5, lap_time_ms: 94120, laps: 5, gas: 0.5, brake: 0.5, clutch: 0.2, pos: 4, image: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800&q=80' },
+    { station_id: 1, driver: 'Carlos Sainz', car: 'Ferrari 488 GT3', track: 'Monza', speed_kmh: 285, rpm: 7500, gear: 6, lap_time_ms: 92340, laps: 5, gas: 0.9, brake: 0, clutch: 0, pos: 1 },
+    { station_id: 2, driver: 'Max Verstappen', car: 'Red Bull X2019', track: 'Monza', speed_kmh: 278, rpm: 7200, gear: 6, lap_time_ms: 92890, laps: 5, gas: 0.85, brake: 0.1, clutch: 0.1, pos: 2 },
+    { station_id: 3, driver: 'Lewis Hamilton', car: 'Mercedes AMG GT3', track: 'Monza', speed_kmh: 265, rpm: 6800, gear: 5, lap_time_ms: 93450, laps: 5, gas: 0.7, brake: 0.3, clutch: 0, pos: 3 },
+    { station_id: 4, driver: 'Fernando Alonso', car: 'Aston Martin GT3', track: 'Monza', speed_kmh: 255, rpm: 6500, gear: 5, lap_time_ms: 94120, laps: 5, gas: 0.5, brake: 0.5, clutch: 0.2, pos: 4 },
 ];
 
 const useDemoMulti = (enabled: boolean) => {
@@ -63,7 +62,7 @@ export default function TVSpectatorMulti() {
     const { liveCars } = useTelemetry();
     const demoDrivers = useDemoMulti(demoMode);
 
-    const drivers: DriverData[] = demoMode
+    const rawDrivers: DriverData[] = demoMode
         ? demoDrivers
         : Object.values(liveCars).map(c => ({
             station_id: c.station_id,
@@ -79,6 +78,14 @@ export default function TVSpectatorMulti() {
             brake: c.brake,
             pos: c.pos,
         }));
+
+    // Calculate positions from live data: more laps = ahead; same laps = lower time = ahead
+    const drivers: DriverData[] = [...rawDrivers]
+        .sort((a, b) => {
+            if (b.laps !== a.laps) return b.laps - a.laps;
+            return (a.lap_time_ms || 0) - (b.lap_time_ms || 0);
+        })
+        .map((d, idx) => ({ ...d, pos: d.pos ?? idx + 1 }));
 
     const formatLapTime = (ms: number) => {
         if (!ms) return '--:--.---';
@@ -135,15 +142,6 @@ export default function TVSpectatorMulti() {
                         key={driver.station_id}
                         className="relative bg-gray-900 rounded-xl overflow-hidden border-2 border-gray-800"
                     >
-                        {/* Background Image for Demo */}
-                        {driver.image && (
-                            <img
-                                src={driver.image}
-                                alt=""
-                                className="absolute inset-0 w-full h-full object-cover"
-                            />
-                        )}
-
                         {/* Dark overlay for readability */}
                         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-black/40" />
 

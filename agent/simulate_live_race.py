@@ -71,9 +71,9 @@ class SimCar:
         # Temps
         self.tyre_temp = 80 + math.sin(time.time() * 0.5) * 10
 
-    def to_json(self):
+    def to_json(self, position: int = 1):
         current_lap_time = (time.time() - self.lap_time_start) * 1000
-        
+
         return {
             "type": "telemetry",
             "station_id": self.station_id,
@@ -85,7 +85,7 @@ class SimCar:
             "gear": self.gear,
             "lap_time_ms": int(current_lap_time),
             "laps": self.lap,
-            "pos": 1, # TODO: Calc real pos
+            "pos": position,
             "normalized_pos": self.angle / (2 * math.pi),
             
             # Live Data
@@ -122,9 +122,17 @@ async def run_simulation():
                 dt = now - last_time
                 last_time = now
                 
-                for car in cars:
+                # Calculate positions: higher normalized_pos + more laps = further ahead
+                # Build (total_progress, index) list and sort descending
+                progress = [(c.lap + c.angle / (2 * math.pi), i) for i, c in enumerate(cars)]
+                progress.sort(key=lambda x: x[0], reverse=True)
+                positions = [0] * len(cars)
+                for rank, (_, idx) in enumerate(progress):
+                    positions[idx] = rank + 1
+
+                for i, car in enumerate(cars):
                     car.update(dt)
-                    data = car.to_json()
+                    data = car.to_json(position=positions[i])
                     await websocket.send(json.dumps(data))
                 
                 # Update frequency 20Hz

@@ -27,6 +27,16 @@ def create_maintenance_log(
     db.refresh(db_log)
     return db_log
 
+@router.get("/logs", response_model=List[schemas.StationMaintenance])
+def get_all_maintenance_logs(
+    limit: int = 50,
+    db: Session = Depends(get_db)
+):
+    """Get recent maintenance logs across all stations."""
+    return db.query(models.StationMaintenance).order_by(
+        models.StationMaintenance.date.desc()
+    ).limit(limit).all()
+
 @router.get("/logs/{station_id}", response_model=List[schemas.StationMaintenance])
 def get_station_maintenance_logs(
     station_id: int,
@@ -36,6 +46,18 @@ def get_station_maintenance_logs(
     return db.query(models.StationMaintenance).filter(
         models.StationMaintenance.station_id == station_id
     ).order_by(models.StationMaintenance.date.desc()).all()
+
+@router.get("/usage/summary")
+def get_usage_summary(db: Session = Depends(get_db)):
+    """Get total usage hours summed across all stations."""
+    all_usage = db.query(models.HardwareUsage).all()
+    return {
+        "total_hours_pc": round(sum(u.total_hours_pc for u in all_usage), 1),
+        "total_hours_base": round(sum(u.total_hours_base for u in all_usage), 1),
+        "total_hours_pedals": round(sum(u.total_hours_pedals for u in all_usage), 1),
+        "total_hours_vr": round(sum(u.total_hours_vr for u in all_usage), 1),
+        "station_count": len(all_usage),
+    }
 
 # --- Hardware Usage ---
 

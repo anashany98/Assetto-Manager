@@ -1,0 +1,86 @@
+# Development docker-compose
+# Usage: docker compose up
+# Backend available at http://localhost:8000
+# Frontend available at http://localhost:3010
+#
+# Note: uses SQLite by default so no Postgres setup is needed for dev.
+# To switch to Postgres, uncomment the db service and update DATABASE_URL.
+
+services:
+  backend:
+    build:
+      context: ./backend
+      target: runtime
+    ports:
+      - "8000:8000"
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: sqlite:////data/ac_manager_dev.db
+      AUTO_SCHEMA: "true"
+      SECRET_KEY: dev-secret-change-in-production
+      SETUP_TOKEN: dev-setup-token
+      AGENT_TOKEN: dev-agent-token
+      ALLOWED_ORIGINS: "http://localhost:3010,http://localhost:80"
+      PAYMENTS_ENABLED: "false"
+      EMAILS_ENABLED: "false"
+      # Uncomment to enable multi-worker WebSocket fan-out via Redis:
+      # ALLOW_MULTI_WORKER_WS: "true"
+      # WS_PUBSUB: redis
+      # REDIS_URL: redis://redis:6379/0
+    volumes:
+      - backend_data:/data
+      - ./backend/storage:/app/storage   # AC game files mount
+      - ./backend/app:/app/app           # live-reload source (dev only)
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  frontend:
+    build:
+      context: ./frontend
+      target: builder        # dev: serve via vite dev server
+    ports:
+      - "3010:3010"
+    environment:
+      VITE_API_URL: http://localhost:8000
+    volumes:
+      - ./frontend/src:/app/src         # live-reload source
+      - /app/node_modules               # keep container node_modules
+    command: npm run dev -- --host 0.0.0.0
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Optional: Postgres (uncomment for a closer-to-prod dev setup) ──────────
+  # db:
+  #   image: postgres:16-alpine
+  #   environment:
+  #     POSTGRES_DB: ac_manager
+  #     POSTGRES_USER: ac_manager
+  #     POSTGRES_PASSWORD: devpassword
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U ac_manager"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+  # ── Optional: Redis (needed for multi-worker WS) ───────────────────────────
+  # redis:
+  #   image: redis:7-alpine
+  #   ports:
+  #     - "6379:6379"
+  #   restart: unless-stopped
+
+volumes:
+  backend_data:
+  # postgres_data:

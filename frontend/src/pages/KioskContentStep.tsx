@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import axios from 'axios';
 import { Car as CarIcon, ChevronRight, ChevronLeft, Gauge, Zap, Weight } from 'lucide-react';
 import { getUniversalCars, getUniversalTracks, type Car, type Track } from '../api/content';
 import { resolveAssetUrl, cn } from '../lib/utils';
 import type { Scenario } from '../api/scenarios';
 import { soundManager } from '../utils/sound';
+import { API_URL, PUBLIC_API_TOKEN } from '../config';
 
 interface ContentStepProps {
     stationId: number;
@@ -62,10 +64,10 @@ export const ContentStep: React.FC<ContentStepProps> = ({
 
     const allTracks = tracksToUse;
 
-    // Helper to deduce country if missing
+    // Helper to deduce country — uses real country field from AC data first
     const getTrackCountry = (t: any) => {
         if (t.country) return t.country;
-        const name = (t.name || '').toLowerCase();
+        const name = (t.name || t.id || '').toLowerCase();
         if (name.includes('spa')) return 'Belgium';
         if (name.includes('nordschleife') || name.includes('nurburgring')) return 'Germany';
         if (name.includes('monza') || name.includes('imola') || name.includes('mugello') || name.includes('vallelunga')) return 'Italy';
@@ -195,28 +197,20 @@ export const ContentStep: React.FC<ContentStepProps> = ({
         }
     };
 
-    // 6. Helper for specs (Mock if missing)
+    // 6. Helper for specs — only show real data from the mod database
     const getSpecs = (c: any) => {
         if (c.specs && c.specs.bhp) return c.specs;
-        const seed = String(c.id).charCodeAt(0) || 0;
-        return {
-            bhp: `${450 + (seed % 20) * 10} HP`,
-            weight: `${1100 + (seed % 10) * 20} kg`,
-            top_speed: `${260 + (seed % 15) * 5} km/h`,
-            acceleration: `${(2.8 + (seed % 10) * 0.1).toFixed(1)}s`
-        };
+        return null; // No fake fallback
     };
 
-    // Leaderboard Data (Mock for now, would be a real query)
-    const getTrackRecords = (trackId: string) => {
-        // Deterministic mock records based on track ID
-        const seed = trackId.length;
-        return [
-            { name: "Carlos S.", time: `1:${42 + (seed % 5)}.${100 + (seed * 12)}`, car: "Ferrari 488 GT3" },
-            { name: "Marc G.", time: `1:${43 + (seed % 5)}.${200 + (seed * 8)}`, car: "Porsche 911 GT3" },
-            { name: "Javi R.", time: `1:${43 + (seed % 5)}.${800 + (seed * 5)}`, car: "AMG GT3" },
-        ];
-    };
+    // Brand badge map: first badge_url found per brand
+    const brandBadges: Record<string, string | null> = {};
+    for (const car of allCars) {
+        const brand = (car as any).brand || 'Unknown';
+        if (!brandBadges[brand] && (car as any).badge_url) {
+            brandBadges[brand] = (car as any).badge_url;
+        }
+    }
 
     if (isLoading) {
         return (
@@ -227,8 +221,26 @@ export const ContentStep: React.FC<ContentStepProps> = ({
         );
     }
 
-    // Determine current item context
+    // Determine current item context — must be declared before activeTrackName
     const currentItem = (phase === 'car' ? filteredCars[carIndex] : (phase === 'track' ? filteredTracks[trackIndex] : null)) as any;
+
+    // Active track name for the leaderboard query
+    const activeTrackName = phase === 'track' && currentItem ? (currentItem as Track).name : null;
+
+    // Leaderboard: real data from API
+    const { data: trackRecords = [] } = useQuery({
+        queryKey: ['leaderboard-top', activeTrackName],
+        queryFn: async () => {
+            const headers = PUBLIC_API_TOKEN ? { 'X-Client-Token': PUBLIC_API_TOKEN } : {};
+            const res = await axios.get(`${API_URL}/leaderboard/top`, {
+                params: { track: activeTrackName, limit: 3 },
+                headers
+            });
+            return res.data as { rank: number; driver_name: string; car: string; time: string }[];
+        },
+        enabled: !!activeTrackName,
+        staleTime: 30000,
+    });
 
     // Background Logic
     let bgImage = '/default-car.jpg';
@@ -297,9 +309,17 @@ export const ContentStep: React.FC<ContentStepProps> = ({
                                     onClick={() => { soundManager.playClick(); selectBrand(brand); }}
                                     className="group relative bg-slate-950/60 hover:bg-slate-900/60 border border-white/10 hover:border-red-400/50 backdrop-blur-md rounded-2xl p-6 transition-all hover:scale-105 flex flex-col items-center justify-center gap-4 aspect-video"
                                 >
-                                    {/* Mock Logo Placeholder - In production use actual brand logos */}
-                                    <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-red-500 transition-colors">
-                                        <CarIcon size={32} className="text-white" />
+                                    <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-red-500/20 transition-colors overflow-hidden">
+                                        {brandBadges[brand] ? (
+                                            <img
+                                                src={resolveAssetUrl(brandBadges[brand]) || ''}
+                                                alt={brand}
+                                                className="w-12 h-12 object-contain filter brightness-125 drop-shadow-lg"
+                                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                            />
+                                        ) : (
+                                            <CarIcon size={32} className="text-white" />
+                                        )}
                                     </div>
                                     <span className="text-xl md:text-2xl font-black text-white tracking-widest uppercase">{brand}</span>
                                     <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-red-900/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -378,7 +398,7 @@ export const ContentStep: React.FC<ContentStepProps> = ({
                                                     </div>
                                                     <div className="bg-slate-950/60 backdrop-blur-md border border-white/10 rounded-2xl md:rounded-3xl p-4 md:p-8 flex flex-col items-center gap-2 md:gap-4">
                                                         <CarIcon className="text-red-400 w-8 h-8 md:w-12 md:h-12" />
-                                                        <span className="text-white font-black text-2xl md:text-4xl">{specs.acceleration || '2.9s'}</span>
+                                                        <span className="text-white font-black text-2xl md:text-4xl">{specs.acceleration || '—'}</span>
                                                         <span className="text-gray-400 text-[10px] md:text-sm uppercase tracking-widest font-bold">0-100 km/h</span>
                                                     </div>
                                                 </>
@@ -403,10 +423,12 @@ export const ContentStep: React.FC<ContentStepProps> = ({
                                                 <h3 className="font-black text-xl uppercase italic">Records Locales</h3>
                                             </div>
                                             <div className="space-y-3">
-                                                {getTrackRecords(currentItem.id).map((rec, i) => (
+                                                {trackRecords.length === 0 ? (
+                                                    <p className="text-gray-500 text-sm text-center py-4">Sin registros aún</p>
+                                                ) : trackRecords.map((rec, i) => (
                                                     <div key={i} className="flex justify-between items-center text-sm border-b border-white/10 pb-2 last:border-0">
                                                         <div>
-                                                            <div className="text-white font-bold">{rec.name}</div>
+                                                            <div className="text-white font-bold">{rec.driver_name}</div>
                                                             <div className="text-gray-500 text-xs truncate w-24">{rec.car}</div>
                                                         </div>
                                                         <div className="font-mono text-amber-300 font-bold text-lg">{rec.time}</div>

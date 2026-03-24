@@ -241,6 +241,7 @@ def mark_stale_stations_offline():
         if updated:
             logger.info("Marked %s stale stations offline (cutoff %s)", updated, cutoff.isoformat())
     except Exception as e:
+        db.rollback()
         logger.error(f"Error marking stale stations offline: {e}")
     finally:
         db.close()
@@ -282,6 +283,7 @@ def cleanup_orphan_lobbies():
         if updated:
             logger.info("Cancelled %s orphan lobbies (cutoff %s)", updated, cutoff.isoformat())
     except Exception as e:
+        db.rollback()
         logger.error(f"Error cleaning up orphan lobbies: {e}")
     finally:
         db.close()
@@ -318,6 +320,7 @@ def archive_ghost_stations():
             db.commit()
         logger.info(f"Archived {archived} ghost stations (cutoff {cutoff.isoformat()})")
     except Exception as e:
+        db.rollback()
         logger.error(f"Error archiving ghost stations: {e}")
     finally:
         db.close()

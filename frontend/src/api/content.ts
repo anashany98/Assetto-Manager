@@ -6,6 +6,7 @@ export interface Car {
     name: string;
     brand?: string;
     image_url?: string;
+    badge_url?: string;
     specs?: {
         bhp?: string;
         torque?: string;
@@ -20,6 +21,7 @@ export interface Track {
     id: string;
     name: string;
     layout?: string;
+    country?: string;
     image_url?: string;
     map_url?: string;
     geotags?: number[];

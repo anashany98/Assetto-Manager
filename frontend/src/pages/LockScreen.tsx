@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Lock, QrCode, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
-import { API_URL } from '../config';
+import { API_URL, STATION_ID } from '../config';
 
 export default function LockScreen() {
     const [currentTime, setCurrentTime] = useState(new Date());
@@ -44,21 +44,25 @@ export default function LockScreen() {
     }, []);
 
     const handleUnlock = async () => {
+        if (!unlockPin) return;
         try {
-            // In a real scenario, validate PIN with backend
-            if (unlockPin === '1234') { // Mock PIN
-                // Call backend to unlock
-                await axios.post(`${API_URL}/stations/${1}/unlock`, null, { // Hardcoded station 1 for now
-                    params: { pin: unlockPin }
-                });
-                document.exitFullscreen().catch(() => { });
-                window.location.href = '/';
+            const token = localStorage.getItem('token');
+            const stationId = STATION_ID ?? 1;
+            await axios.post(`${API_URL}/stations/${stationId}/unlock`, null, {
+                params: { pin: Number(unlockPin) },
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
+            document.exitFullscreen().catch(() => { });
+            window.location.href = '/';
+        } catch (error: any) {
+            const status = error?.response?.status;
+            if (status === 401 || status === 403) {
+                // Needs admin login
+                window.location.href = `/login?redirect=/lock-screen`;
             } else {
-                alert('PIN Incorrecto');
-                setUnlockPin('');
+                alert('PIN Incorrecto o error al desbloquear');
             }
-        } catch (error) {
-            console.error("Error unlocking", error);
+            setUnlockPin('');
         }
     };
 
@@ -97,7 +101,7 @@ export default function LockScreen() {
                         <Lock className="text-red-500 animate-pulse" size={24} />
                         <span className="font-bold text-red-100 tracking-widest text-lg">SIMULATOR LOCKED</span>
                     </div>
-                    <p className="text-gray-500 font-mono text-sm tracking-widest uppercase">ID: STATION-{Math.floor(Math.random() * 99) + 1}</p>
+                    <p className="text-gray-500 font-mono text-sm tracking-widest uppercase">ID: STATION-{STATION_ID ?? '?'}</p>
                 </div>
 
                 {/* Call to Action */}

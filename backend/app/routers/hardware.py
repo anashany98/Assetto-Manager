@@ -115,7 +115,7 @@ async def report_health(report: StationHealthReport, db: Session = Depends(get_d
 @router.get("/status", response_model=List[StationHealthStatus], dependencies=[Depends(require_admin)])
 async def get_all_health(db: Session = Depends(get_db)):
     """Get health status of all stations."""
-    stations = db.query(Station).order_by(Station.id).all()
+    stations = db.query(Station).filter(Station.deleted_at.is_(None)).order_by(Station.id).all()
     
     result = []
     now = datetime.now(timezone.utc)
@@ -246,8 +246,8 @@ async def get_station_health(station_id: int, db: Session = Depends(get_db)):
 @router.get("/summary", dependencies=[Depends(require_admin)])
 async def get_health_summary(db: Session = Depends(get_db)):
     """Get summary of all stations health."""
-    stations = db.query(Station).all()
-    
+    stations = db.query(Station).filter(Station.deleted_at.is_(None)).all()
+
     total = len(stations)
     online = 0
     with_alerts = 0

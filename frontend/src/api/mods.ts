@@ -72,8 +72,9 @@ export const toggleMod = async (modId: number): Promise<Mod> => {
 };
 
 export const bulkToggleMods = async (modIds: number[], state: boolean): Promise<{ updated: number }> => {
-    const response = await axios.post(`${API_URL}/mods/bulk/toggle`, modIds, {
-        params: { target_state: state }
+    const response = await axios.post(`${API_URL}/mods/bulk/toggle`, {
+        mod_ids: modIds,
+        target_state: state
     });
     return response.data;
 };

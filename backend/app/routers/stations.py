@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Union
 from pathlib import Path
 import os
 import secrets
@@ -32,7 +32,7 @@ def _next_sim_name(db: Session) -> str:
     for (name,) in existing:
         if not name:
             continue
-        match = re.match(r"(?i)^sim\\s*(\\d+)$", name.strip())
+        match = re.match(r"(?i)^sim\s*(\d+)$", name.strip())
         if match:
             max_num = max(max_num, int(match.group(1)))
     return f"SIM {max_num + 1}"
@@ -112,8 +112,16 @@ def get_station_by_kiosk(kiosk_code: str, db: Session = Depends(database.get_db)
     }
 
 @router.get("/", response_model=List[schemas.Station], dependencies=[Depends(require_admin_or_public_token)])
-def read_stations(skip: int = 0, limit: int = 100, db: Session = Depends(database.get_db)):
-    stations = db.query(models.Station).offset(skip).limit(limit).all()
+def read_stations(
+    skip: int = 0,
+    limit: int = 100,
+    include_deleted: bool = False,
+    db: Session = Depends(database.get_db)
+):
+    query = db.query(models.Station)
+    if not include_deleted:
+        query = query.filter(models.Station.deleted_at.is_(None))
+    stations = query.offset(skip).limit(limit).all()
     return stations
 
 import json
@@ -123,7 +131,7 @@ def update_station(
     station_id: int,
     station_update: schemas.StationUpdate,
     db: Session = Depends(database.get_db),
-    user_or_client: models.User | str = Depends(require_admin_or_agent)
+    user_or_client: Union[models.User, str] = Depends(require_admin_or_agent)
 ):
     db_station = db.query(models.Station).filter(models.Station.id == station_id).first()
     if not db_station:

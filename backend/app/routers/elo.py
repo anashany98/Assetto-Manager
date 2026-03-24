@@ -32,7 +32,7 @@ def get_elo_rankings(
     db: Session = Depends(get_db)
 ):
     """Get drivers ranked by ELO rating."""
-    query = db.query(Driver).filter(Driver.total_races > 0)
+    query = db.query(Driver).filter(Driver.total_races > 0, Driver.deleted_at.is_(None))
     
     # Filter by tier if specified
     if tier:
@@ -69,18 +69,19 @@ def get_elo_rankings(
 @router.get("/driver/{driver_name}")
 def get_driver_elo(driver_name: str, db: Session = Depends(get_db)):
     """Get ELO rating details for a specific driver."""
-    driver = db.query(Driver).filter(Driver.name == driver_name).first()
-    
+    driver = db.query(Driver).filter(Driver.name == driver_name, Driver.deleted_at.is_(None)).first()
+
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
-    
+
     elo = driver.elo_rating or DEFAULT_RATING
     tier = get_elo_tier(elo)
-    
+
     # Get ranking position
     rank = db.query(Driver).filter(
         Driver.elo_rating > elo,
-        Driver.total_races > 0
+        Driver.total_races > 0,
+        Driver.deleted_at.is_(None)
     ).count() + 1
     
     return {

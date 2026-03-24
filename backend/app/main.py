@@ -12,8 +12,7 @@ from .database import (
 from .routers import stations, mods, websockets, settings, profiles, events, config_manager, championships, integrations, tournament, logs, ads, auth, backup, exports, loyalty, bookings, analytics, push, elimination, elo, hardware, control, drivers, payments, tables, tracks, deploy_sync, maintenance
 from .routers.telemetry import router as telemetry_router  # Modular telemetry package
 import logging
-
-# ...
+from .logging_config import configure_logging
 
 
 from .routers.logs import MemoryLogHandler
@@ -261,36 +260,9 @@ from fastapi.exceptions import RequestValidationError
 from time import perf_counter
 from uuid import uuid4
 from .observability import record_request
-import logging
-from logging.handlers import RotatingFileHandler
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+configure_logging()
 logger = logging.getLogger(__name__)
-
-# Persistent log file
-LOG_DIR = Path(os.getenv("LOG_DIR", str(REPO_ROOT / "logs")))
-LOG_DIR.mkdir(parents=True, exist_ok=True)
-
-def _configure_file_logging():
-    log_path = LOG_DIR / "backend.log"
-    root_logger = logging.getLogger()
-    for handler in root_logger.handlers:
-        if isinstance(handler, RotatingFileHandler) and getattr(handler, "baseFilename", "") == str(log_path):
-            return
-    max_bytes = int(os.getenv("LOG_MAX_BYTES", str(10 * 1024 * 1024)))
-    backup_count = int(os.getenv("LOG_BACKUP_COUNT", "5"))
-    file_handler = RotatingFileHandler(
-        str(log_path),
-        maxBytes=max_bytes,
-        backupCount=backup_count,
-        encoding="utf-8"
-    )
-    file_handler.setLevel(logging.INFO)
-    file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
-    root_logger.addHandler(file_handler)
-
-_configure_file_logging()
 
 # Attach Memory Handler for UI Logs
 # Use protected handler to prevent crash

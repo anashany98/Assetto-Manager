@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from ..database import get_db
 from .. import models, schemas
 from ..services.email_service import send_table_confirmation, send_booking_status_update
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field
 import uuid
 from sqlalchemy.exc import IntegrityError
 import os
@@ -194,14 +194,14 @@ def get_bookings(
     return [_booking_payload(b) for b in bookings]
 
 class BookingCreate(BaseModel):
-    customer_name: str
-    customer_email: Optional[str] = None
-    customer_phone: Optional[str] = None
+    customer_name: str = Field(..., min_length=1, max_length=120)
+    customer_email: Optional[EmailStr] = None
+    customer_phone: Optional[str] = Field(default=None, max_length=30)
     start_time: datetime
     end_time: datetime
-    pax: int
+    pax: int = Field(..., ge=1, le=50)
     table_ids: List[int]
-    notes: Optional[str] = None
+    notes: Optional[str] = Field(default=None, max_length=1000)
     status: str = "confirmed"
 
 @router.post("/bookings")

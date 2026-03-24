@@ -110,7 +110,7 @@ export default function HistoryPage() {
         update();
         window.addEventListener('resize', update);
         return () => window.removeEventListener('resize', update);
-    }, [sessions.length]);
+    }, []);
 
     const rowVirtualizer = useWindowVirtualizer({
         count: sessions.length,
@@ -280,7 +280,7 @@ export default function HistoryPage() {
                                                     </div>
                                                     <div className="p-6 text-center">
                                                         <div className="text-blue-600 dark:text-yellow-500 font-mono text-lg font-black italic">
-                                                            {(session.best_lap / 1000).toFixed(3)}s
+                                                            {(typeof session.best_lap === 'number' ? session.best_lap / 1000 : parseFloat(session.best_lap) / 1000 || 0).toFixed(3)}s
                                                         </div>
                                                     </div>
                                                     <div className="p-6 text-right">

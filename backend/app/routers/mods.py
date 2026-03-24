@@ -487,7 +487,8 @@ def _find_preview_url(mod_path: Path, mod_name: str, mod_type: str) -> str:
                         try:
                             skin_rel = skin_preview.resolve().relative_to(storage_root)
                             image_url = f"/static/{str(skin_rel).replace(os.sep, '/')}"
-                        except: pass
+                        except (ValueError, OSError) as e:
+                            logger.warning(f"Could not resolve skin preview path: {e}")
 
         # 2. UI Folder Fallbacks
         if not image_url:
@@ -502,12 +503,13 @@ def _find_preview_url(mod_path: Path, mod_name: str, mod_type: str) -> str:
                 else:
                     parent_dir = ui_path.parent
                     if (parent_dir / "logo.png").exists():
-                         parent_rel = parent_dir.resolve().relative_to(storage_root)
-                         parent_base = f"/static/{str(parent_rel).replace(os.sep, '/')}"
-                         image_url = f"{parent_base}/logo.png"
+                        parent_rel = parent_dir.resolve().relative_to(storage_root)
+                        parent_base = f"/static/{str(parent_rel).replace(os.sep, '/')}"
+                        image_url = f"{parent_base}/logo.png"
                     elif (ui_path / "badge.png").exists():
-                          image_url = f"{base_url}/badge.png"
-            except: pass
+                        image_url = f"{base_url}/badge.png"
+            except (ValueError, OSError) as e:
+                logger.warning(f"Could not resolve UI folder path for mod preview: {e}")
             
         return image_url
 
@@ -782,15 +784,15 @@ def get_mod_metadata(
         try:
             with open(ui_path / "ui_car.json", 'r', encoding='utf-8') as f:
                 metadata = json.load(f)
-        except:
+        except Exception:
             pass
-            
+
     # Try reading ui_track.json
     elif (ui_path / "ui_track.json").exists():
          try:
             with open(ui_path / "ui_track.json", 'r', encoding='utf-8') as f:
                 metadata = json.load(f)
-         except:
+         except Exception:
             pass
 
     # Construct Image URLs

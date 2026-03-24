@@ -8,6 +8,9 @@ from pathlib import Path
 
 # Force a unique SQLite file DB per test session
 os.environ["ENVIRONMENT"] = "test"
+# Enable all features so tests exercise the actual feature logic
+os.environ.setdefault("PAYMENTS_ENABLED", "true")
+os.environ.setdefault("EMAILS_ENABLED", "true")
 TEST_DB_PATH = Path(tempfile.gettempdir()) / f"ac_manager_test_{uuid.uuid4().hex}.db"
 os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DB_PATH}"
 

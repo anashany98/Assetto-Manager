@@ -6,10 +6,11 @@ import platform
 import os
 import threading
 import time
+import random
 from config import AGENT_TOKEN, logger, OBS_HOST, OBS_PORT, OBS_PASSWORD, STREAM_URL
 from scanner import scan_ac_content
 from commands import (
-    launch_session_logic, create_lobby_server, join_lobby_client, 
+    launch_session_logic, create_lobby_server, join_lobby_client,
     stop_lobby_server, install_mod_logic, restart_agent_process, set_weather_logic,
     watchdog
 )
@@ -19,6 +20,22 @@ import telemetry # The existing telemetry module for saving results
 from obs_controller import handle_obs_command
 from idle_display import start_idle_display, stop_idle_display
 
+# ---------------------------------------------------------------------------
+# Reconnection constants
+# ---------------------------------------------------------------------------
+_RECONNECT_BASE_DELAY = 1.0   # seconds
+_RECONNECT_MAX_DELAY  = 60.0  # seconds
+_RECONNECT_FACTOR     = 2.0   # exponential multiplier
+_RECONNECT_JITTER     = 0.25  # ±25 % random jitter
+
+
+def _backoff_delay(attempt: int) -> float:
+    """Return the number of seconds to wait before reconnect attempt `attempt` (0-indexed)."""
+    delay = min(_RECONNECT_BASE_DELAY * (_RECONNECT_FACTOR ** attempt), _RECONNECT_MAX_DELAY)
+    jitter = delay * _RECONNECT_JITTER * (2 * random.random() - 1)
+    return max(0.0, delay + jitter)
+
+
 class AgentWSClient(threading.Thread):
     def __init__(self, station_id, server_url):
         super().__init__()
@@ -27,11 +44,15 @@ class AgentWSClient(threading.Thread):
         self.running = True
         self.daemon = True
         self.ac = ac_telemetry.ACSharedMemory()
-        
+
         # Telemetry Buffer
         self.current_lap_buffer = []
         self.last_lap_count = -1
         self.last_lap_timestamp = time.time()
+
+        # Command queue — commands received while another is executing are
+        # buffered here so none are silently dropped.
+        self._command_queue: asyncio.Queue = None  # initialised in stream_telemetry
 
     def run(self):
         asyncio.run(self.stream_telemetry())
@@ -52,12 +73,26 @@ class AgentWSClient(threading.Thread):
             payload["detail"] = detail
         await websocket.send(json.dumps(payload))
 
+    async def _heartbeat_loop(self, websocket):
+        """Send a ping every 20 s so the server marks this station as online."""
+        try:
+            while True:
+                await asyncio.sleep(20)
+                await websocket.ping()
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            pass  # Connection gone — send_loop / receive_loop will exit too
+
     async def stream_telemetry(self):
-        logger.info(f"Connecting to Telemetry WS: {self.server_url}")
+        self._command_queue = asyncio.Queue()
+        logger.info("Connecting to Telemetry WS: %s", self.server_url)
+        attempt = 0
         while self.running:
             try:
                 async with websockets.connect(self.server_url) as websocket:
-                    logger.info("WS Connected")
+                    logger.info("WS Connected (attempt %d)", attempt)
+                    attempt = 0  # reset on successful connection
                     await websocket.send(json.dumps({
                         "type": "identify",
                         "station_id": self.station_id,
@@ -68,11 +103,32 @@ class AgentWSClient(threading.Thread):
                     await asyncio.gather(
                         self.send_loop(websocket),
                         self.receive_loop(websocket),
+                        self.command_worker(websocket),
+                        self._heartbeat_loop(websocket),
                         return_exceptions=True
                     )
             except Exception as e:
-                logger.error(f"WS Error: {e}")
-                await asyncio.sleep(5)
+                delay = _backoff_delay(attempt)
+                logger.error("WS Error (attempt %d): %s — reconnecting in %.1fs", attempt, e, delay)
+                attempt += 1
+                await asyncio.sleep(delay)
+
+    # -----------------------------------------------------------------------
+    # Command queue worker
+    # -----------------------------------------------------------------------
+    async def command_worker(self, websocket):
+        """
+        Drains self._command_queue one item at a time.
+        Commands received while one is running are buffered, never dropped.
+        """
+        while True:
+            data = await self._command_queue.get()
+            try:
+                await self._dispatch_command(websocket, data)
+            except Exception as e:
+                logger.exception("Unhandled error in command_worker for %s: %s", data.get("command"), e)
+            finally:
+                self._command_queue.task_done()
 
     async def _run_command_handler(self, websocket, data, handler, *args, failure_detail: str):
         try:
@@ -103,7 +159,16 @@ class AgentWSClient(threading.Thread):
                     
                     self.current_lap_buffer.append({
                         "t": data.get('lap_time_ms', 0),
-                         # ... (Full buffer logic skipped for brevity, but should be here)
+                        "speed": data.get('speed_kmh', 0),
+                        "rpm": data.get('rpm', 0),
+                        "gear": data.get('gear', 0),
+                        "gas": data.get('gas', 0),
+                        "brake": data.get('brake', 0),
+                        "steer": data.get('steer', 0),
+                        "g_lat": data.get('g_lat', 0),
+                        "g_lon": data.get('g_lon', 0),
+                        "x": data.get('x', 0),
+                        "z": data.get('z', 0),
                     })
                     
                     if current_laps > self.last_lap_count:
@@ -118,16 +183,22 @@ class AgentWSClient(threading.Thread):
                 break
 
     async def receive_loop(self, websocket):
+        """
+        Reads incoming messages and either handles OBS control directly
+        (fast, no blocking I/O) or pushes regular commands onto the queue
+        so command_worker serialises their execution.
+        """
         while self.running:
             try:
                 try:
                     msg = await asyncio.wait_for(websocket.recv(), timeout=5.0)
                 except asyncio.TimeoutError:
                     continue
-                    
+
                 data = json.loads(msg)
                 command = data.get("command")
 
+                # OBS control is handled immediately — it uses async I/O only.
                 if data.get("type") == "obs_control":
                     await self._send_command_ack(websocket, data, status="accepted")
                     params = data.get("params") or {}
@@ -150,101 +221,94 @@ class AgentWSClient(threading.Thread):
                         response["stream_url"] = STREAM_URL
                     await websocket.send(json.dumps(response))
                     continue
-                 
+
+                # All other commands are queued for serialised execution.
                 if command:
-                    logger.info(f"Received command: {command}")
-
-                handled = True
-
-                if command == "shutdown":
-                    await self._send_command_ack(websocket, data, status="accepted")
-                    if platform.system() == "Windows":
-                        os.system("shutdown /s /t 5")
-                 
-                elif command == "restart":
-                    await self._send_command_ack(websocket, data, status="accepted")
-                    if platform.system() == "Windows":
-                        os.system("shutdown /r /t 5")
-                 
-                elif command == "panic":
-                    await self._send_command_ack(websocket, data, status="accepted")
-                    stop_idle_display()
-                    watchdog.stop()
-                    os.system("taskkill /F /IM acs.exe")
-                    start_idle_display()
-                 
-                elif command == "stop_session":
-                    await self._send_command_ack(websocket, data, status="accepted")
-                    stop_idle_display()
-                    watchdog.stop()
-                    os.system("taskkill /F /IM acs.exe")
-                    start_idle_display()
-                 
-                elif command == "launch_session":
-                    stop_idle_display()
-                    await self._run_command_handler(
-                        websocket,
-                        data,
-                        launch_session_logic,
-                        data,
-                        self.station_id,
-                        failure_detail="Assetto Corsa did not start",
-                    )
-                 
-                elif command == "create_lobby":
-                    stop_idle_display()
-                    await self._run_command_handler(
-                        websocket,
-                        data,
-                        create_lobby_server,
-                        data,
-                        failure_detail="acServer.exe did not start",
-                    )
-                     
-                elif command == "join_lobby":
-                    stop_idle_display()
-                    await self._run_command_handler(
-                        websocket,
-                        data,
-                        join_lobby_client,
-                        data,
-                        failure_detail="Assetto Corsa client did not join the lobby",
-                    )
-                     
-                elif command == "stop_lobby":
-                    await self._send_command_ack(websocket, data, status="accepted")
-                    stop_lobby_server()
-                    start_idle_display()
-                     
-                elif command == "install_mod":
-                    await self._send_command_ack(websocket, data, status="accepted")
-                    threading.Thread(target=install_mod_logic, args=(data,)).start()
-                 
-                elif command == "scan_content":
-                    await self._send_command_ack(websocket, data, status="accepted")
-                    ac_path = data.get("ac_path") or get_system_info().get("ac_path")
-                    content = scan_ac_content(ac_path, station_ip=data.get("station_ip"))
-                    await websocket.send(json.dumps({
-                        "type": "content_scan_result",
-                        "data": content
-                    }))
-                      
-                elif command == "restart_agent":
-                    await self._send_command_ack(websocket, data, status="accepted")
-                    threading.Thread(target=restart_agent_process).start()
-
-                elif command == "set_weather":
-                    await self._send_command_ack(websocket, data, status="accepted")
-                    threading.Thread(target=set_weather_logic, args=(data.get("value"),)).start()
-
-                else:
-                    handled = False
-
-                if command and not handled:
-                    await self._send_command_ack(websocket, data, status="rejected", detail="Unknown command")
+                    logger.info("Queuing command: %s (queue depth: %d)", command, self._command_queue.qsize())
+                    # Attach websocket reference so the worker can send acks.
+                    data["_websocket"] = websocket
+                    await self._command_queue.put(data)
 
             except websockets.ConnectionClosed:
                 break
             except Exception as e:
-                logger.error(f"Error processing WS message: {e}")
+                logger.error("Error processing WS message: %s", e)
                 break
+
+    async def _dispatch_command(self, websocket, data):
+        """Execute a single queued command."""
+        command = data.get("command")
+
+        if command == "shutdown":
+            await self._send_command_ack(websocket, data, status="accepted")
+            if platform.system() == "Windows":
+                os.system("shutdown /s /t 5")
+
+        elif command == "restart":
+            await self._send_command_ack(websocket, data, status="accepted")
+            if platform.system() == "Windows":
+                os.system("shutdown /r /t 5")
+
+        elif command == "panic":
+            await self._send_command_ack(websocket, data, status="accepted")
+            stop_idle_display()
+            watchdog.stop()
+            os.system("taskkill /F /IM acs.exe")
+            start_idle_display()
+
+        elif command == "stop_session":
+            await self._send_command_ack(websocket, data, status="accepted")
+            stop_idle_display()
+            watchdog.stop()
+            os.system("taskkill /F /IM acs.exe")
+            start_idle_display()
+
+        elif command == "launch_session":
+            stop_idle_display()
+            await self._run_command_handler(
+                websocket, data, launch_session_logic, data, self.station_id,
+                failure_detail="Assetto Corsa did not start",
+            )
+
+        elif command == "create_lobby":
+            stop_idle_display()
+            await self._run_command_handler(
+                websocket, data, create_lobby_server, data,
+                failure_detail="acServer.exe did not start",
+            )
+
+        elif command == "join_lobby":
+            stop_idle_display()
+            await self._run_command_handler(
+                websocket, data, join_lobby_client, data,
+                failure_detail="Assetto Corsa client did not join the lobby",
+            )
+
+        elif command == "stop_lobby":
+            await self._send_command_ack(websocket, data, status="accepted")
+            stop_lobby_server()
+            start_idle_display()
+
+        elif command == "install_mod":
+            await self._send_command_ack(websocket, data, status="accepted")
+            threading.Thread(target=install_mod_logic, args=(data,), daemon=True).start()
+
+        elif command == "scan_content":
+            await self._send_command_ack(websocket, data, status="accepted")
+            ac_path = data.get("ac_path") or get_system_info().get("ac_path")
+            content = scan_ac_content(ac_path, station_ip=data.get("station_ip"))
+            await websocket.send(json.dumps({
+                "type": "content_scan_result",
+                "data": content
+            }))
+
+        elif command == "restart_agent":
+            await self._send_command_ack(websocket, data, status="accepted")
+            threading.Thread(target=restart_agent_process, daemon=True).start()
+
+        elif command == "set_weather":
+            await self._send_command_ack(websocket, data, status="accepted")
+            threading.Thread(target=set_weather_logic, args=(data.get("value"),), daemon=True).start()
+
+        else:
+            await self._send_command_ack(websocket, data, status="rejected", detail="Unknown command")

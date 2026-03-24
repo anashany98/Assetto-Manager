@@ -37,19 +37,25 @@ export interface TelemetryPacket {
     damage?: number[];
 }
 
+export interface StationStreamingState {
+    is_streaming: boolean;
+    stream_url: string | null;
+}
+
 export const useTelemetry = () => {
     const [liveCars, setLiveCars] = useState<Record<string, TelemetryPacket>>({});
     const [isConnected, setIsConnected] = useState(false);
+    const [streamingStations, setStreamingStations] = useState<Record<string, StationStreamingState>>({});
     const ws = useRef<WebSocket | null>(null);
     const reconnectTimeout = useRef<number | null>(null);
     const latestDataRef = useRef<Record<string, TelemetryPacket>>({});
 
-    // Global Demo Mode Check
-    const isDemo = new URLSearchParams(window.location.search).get('demo') === 'true';
+    // Demo mode is only available in development builds (never in production)
+    const isDemo = import.meta.env.DEV &&
+        new URLSearchParams(window.location.search).get('demo') === 'true';
 
     useEffect(() => {
         if (isDemo) {
-            console.log("🏎️ Demo Mode: Starting Telemetry Simulation");
             setIsConnected(true);
 
             // Initialize Demo Cars
@@ -164,6 +170,14 @@ export const useTelemetry = () => {
                             ...latestDataRef.current,
                             [String(stationId)]: { ...data, station_id: stationId, timestamp: Date.now() }
                         };
+                    } else if (data.type === 'station_streaming_update' && data.station_id != null) {
+                        setStreamingStations(prev => ({
+                            ...prev,
+                            [String(data.station_id)]: {
+                                is_streaming: Boolean(data.is_streaming),
+                                stream_url: data.stream_url ?? null,
+                            },
+                        }));
                     }
                 } catch {
                     // Silently ignore parse errors
@@ -208,5 +222,5 @@ export const useTelemetry = () => {
         };
     }, [isDemo]); // Re-run if demo mode changes (though usually page reload)
 
-    return { liveCars, isConnected };
+    return { liveCars, isConnected, streamingStations };
 };

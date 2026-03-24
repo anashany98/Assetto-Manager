@@ -1,0 +1,91 @@
+# Production docker-compose
+# Usage: docker compose -f docker-compose.prod.yml up -d
+#
+# Before first deploy:
+#   1. Copy backend/.env.example to backend/.env and fill in all values
+#   2. Set POSTGRES_PASSWORD and SECRET_KEY to strong random values
+#   3. Run: docker compose -f docker-compose.prod.yml run --rm backend alembic upgrade head
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ac_manager}
+      POSTGRES_USER: ${POSTGRES_USER:-ac_manager}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ac_manager}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Not exposed externally — only reachable within Docker network
+
+  backend:
+    build:
+      context: ./backend
+      target: runtime
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ac_manager}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-ac_manager}
+      AUTO_SCHEMA: "false"
+      REQUIRE_SECRETS: "true"
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set}
+      SETUP_TOKEN: ${SETUP_TOKEN:?SETUP_TOKEN must be set}
+      AGENT_TOKEN: ${AGENT_TOKEN:?AGENT_TOKEN must be set}
+      UPDATE_SIGNING_KEY: ${UPDATE_SIGNING_KEY:?UPDATE_SIGNING_KEY must be set}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost}
+      PUBLIC_API_TOKEN: ${PUBLIC_API_TOKEN}
+      PUBLIC_WS_TOKEN: ${PUBLIC_WS_TOKEN}
+      CLIENT_TOKENS: ${CLIENT_TOKENS}
+      AGENT_TOKENS: ${AGENT_TOKENS}
+      PAYMENTS_ENABLED: ${PAYMENTS_ENABLED:-false}
+      EMAILS_ENABLED: ${EMAILS_ENABLED:-false}
+      # Redis for multi-worker WebSocket fan-out (recommended in production with >1 worker)
+      ALLOW_MULTI_WORKER_WS: ${ALLOW_MULTI_WORKER_WS:-false}
+      WS_PUBSUB: ${WS_PUBSUB:-}
+      REDIS_URL: ${REDIS_URL:-}
+    volumes:
+      - backend_storage:/app/storage
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    # Not exposed directly — traffic goes through nginx (frontend)
+
+  frontend:
+    build:
+      context: ./frontend
+      target: runtime
+      args:
+        VITE_API_URL: /api
+    ports:
+      - "80:80"
+      - "443:443"   # Mount TLS certs via volume if using HTTPS
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: always
+    # Optionally mount TLS certificates:
+    # volumes:
+    #   - ./certs:/etc/nginx/certs:ro
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    volumes:
+      - redis_data:/data
+    # Not exposed externally
+
+volumes:
+  postgres_data:
+  backend_storage:
+  redis_data:

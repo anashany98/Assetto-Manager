@@ -1,5 +1,6 @@
 import { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import { useBranding } from './hooks/useBranding';
 import { LicenseProvider } from './context/LicenseProvider';
 import Layout from './components/Layout';
@@ -69,6 +70,7 @@ function App() {
 
   return (
     <Router>
+      <Toaster richColors position="top-right" />
       <ErrorBoundary>
         <LicenseProvider>
           <Suspense fallback={<PageLoader />}>

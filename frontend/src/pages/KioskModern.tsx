@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useIdleTimer } from 'react-idle-timer';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
@@ -7,7 +7,7 @@ import { Activity, AlertCircle, Disc, Footprints, WifiOff } from 'lucide-react';
 import axios from 'axios';
 import { API_URL, PUBLIC_API_TOKEN } from '../config';
 import { useLanguage } from '../contexts/useLanguage';
-import { getCars, getTracks } from '../api/content';
+import { getCars, getTracks, triggerContentScan } from '../api/content';
 import { getScenarios } from '../api/scenarios';
 import type { Scenario } from '../api/scenarios';
 import { type PaymentProvider, type PaymentStatus } from '../api/payments';
@@ -41,6 +41,7 @@ const baseClientTokenHeaders: Record<string, string> = PUBLIC_API_TOKEN ? { 'X-C
 export default function KioskModern() {
     const [searchParams] = useSearchParams();
     const { t } = useLanguage();
+    const queryClient = useQueryClient();
 
     const [stationId, setStationId] = useState<number>(() => getPairedStationId() || 0);
     const [showPairing, setShowPairing] = useState<boolean>(() => !getPairedStationId());
@@ -69,6 +70,14 @@ export default function KioskModern() {
     const paymentHandledRef = useRef(false);
     const noPaymentHandledRef = useRef(false);
     const [launchingNoPayment, setLaunchingNoPayment] = useState(false);
+
+    // Reset payment refs when user navigates away from payment step
+    useEffect(() => {
+        if (step < 5) {
+            paymentHandledRef.current = false;
+            noPaymentHandledRef.current = false;
+        }
+    }, [step]);
 
     const { isIdle } = useIdleTimer({
         onIdle: () => {
@@ -100,6 +109,17 @@ export default function KioskModern() {
             setRemainingSeconds(duration * 60);
         }
     }, [duration, isLaunched]);
+
+    // Auto-trigger content scan when station is paired so real AC data appears
+    useEffect(() => {
+        if (!stationId) return;
+        triggerContentScan(stationId).catch(() => {/* agent may be offline, ignore */});
+        const timer = setTimeout(() => {
+            queryClient.invalidateQueries({ queryKey: ['cars', stationId] });
+            queryClient.invalidateQueries({ queryKey: ['tracks', stationId] });
+        }, 8000);
+        return () => clearTimeout(timer);
+    }, [stationId]);
 
     const clientTokenHeaders = useMemo<Record<string, string>>(() => {
         const headers: Record<string, string> = { ...baseClientTokenHeaders };

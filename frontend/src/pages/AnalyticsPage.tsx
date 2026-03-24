@@ -17,7 +17,7 @@ import {
     Cell,
     Legend
 } from 'recharts';
-import { BadgeDollarSign, TrendingUp, Calendar, Clock, CreditCard } from 'lucide-react';
+import { BadgeDollarSign, TrendingUp, Calendar, Clock, CreditCard, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 
 // --- API ---
@@ -45,25 +45,33 @@ const getPaymentMethods = async (range: number) => {
 export default function AnalyticsPage() {
     const [range, setRange] = useState(30);
 
-    const { data: revenueData } = useQuery({
+    const { data: revenueData, isLoading: loadingRevenue } = useQuery({
         queryKey: ['analytics-revenue', range],
         queryFn: () => getRevenue(range)
     });
 
-    const { data: utilizationData } = useQuery({
+    const { data: utilizationData, isLoading: loadingUtil } = useQuery({
         queryKey: ['analytics-utilization', range],
         queryFn: () => getUtilization(range)
     });
 
-    const { data: kpis } = useQuery({
+    const { data: kpis, isLoading: loadingKpis } = useQuery({
         queryKey: ['analytics-kpi', range],
         queryFn: () => getKPIs(range)
     });
 
-    const { data: paymentMethodsData } = useQuery({
+    const { data: paymentMethodsData, isLoading: loadingPayments } = useQuery({
         queryKey: ['analytics-payment-methods', range],
         queryFn: () => getPaymentMethods(range)
     });
+
+    const isLoading = loadingRevenue || loadingUtil || loadingKpis || loadingPayments;
+
+    if (isLoading) return (
+        <div className="flex items-center justify-center min-h-[400px]">
+            <Loader2 className="animate-spin text-green-500" size={32} />
+        </div>
+    );
 
     return (
         <div className="p-8 max-w-[1600px] mx-auto min-h-screen">

@@ -28,6 +28,8 @@ export default function StationPairing({ onPaired, initialCode, errorMessage }: 
     const [pairingByCode, setPairingByCode] = useState(false);
     const [pairingByCodeError, setPairingByCodeError] = useState<string | null>(null);
 
+    const activeStations = stations.filter((s) => s.is_active !== false);
+
     const handlePair = () => {
         if (!selectedId) {
             return;
@@ -69,8 +71,6 @@ export default function StationPairing({ onPaired, initialCode, errorMessage }: 
             setPairingByCode(false);
         }
     };
-
-    const activeStations = stations.filter((s) => s.is_active !== false);
 
     return (
         <div className="fixed inset-0 bg-[var(--bg-app)] flex flex-col items-center justify-center p-8 z-50">

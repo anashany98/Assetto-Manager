@@ -64,8 +64,9 @@ export default function ManageBooking() {
                 allergies: selectedAllergies
             });
             alert('Preferencias actualizadas correctamente');
-        } catch (e) {
-            alert('Error al guardar notas');
+        } catch (e: any) {
+            console.error('Error al guardar preferencias:', e);
+            alert('Error al guardar notas: ' + (e?.response?.data?.detail || e?.message || 'Error desconocido'));
         } finally {
             setSaving(false);
         }

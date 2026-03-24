@@ -30,7 +30,7 @@ def load_bracket(event: models.Event):
         if isinstance(event.bracket_data, str):
             return json.loads(event.bracket_data)
         return event.bracket_data
-    except:
+    except Exception:
         return None
 
 def build_bracket(participants: list[str]) -> dict:

@@ -68,8 +68,8 @@ def get_tier(total_points: int) -> str:
 @router.get("/points/{driver_name}")
 async def get_driver_points(driver_name: str, db: Session = Depends(get_db)):
     """Get points balance and tier for a driver"""
-    driver = db.query(models.Driver).filter(models.Driver.name == driver_name).first()
-    
+    driver = db.query(models.Driver).filter(models.Driver.name == driver_name, models.Driver.deleted_at.is_(None)).first()
+
     if not driver:
         # Return defaults for unknown drivers (they might just be lap times)
         return {
@@ -105,7 +105,7 @@ async def get_driver_points(driver_name: str, db: Session = Depends(get_db)):
 @router.get("/history/{driver_name}")
 async def get_points_history(driver_name: str, limit: int = 50, db: Session = Depends(get_db)):
     """Get recent points transactions for a driver"""
-    driver = db.query(models.Driver).filter(models.Driver.name == driver_name).first()
+    driver = db.query(models.Driver).filter(models.Driver.name == driver_name, models.Driver.deleted_at.is_(None)).first()
     if not driver:
         return []
     
@@ -129,8 +129,8 @@ async def get_points_history(driver_name: str, limit: int = 50, db: Session = De
 async def award_points(data: PointsAward, db: Session = Depends(get_db)):
     """Award points to a driver"""
     try:
-        # Find or create driver
-        driver = db.query(models.Driver).filter(models.Driver.name == data.driver_name).first()
+        # Find or create driver (only non-deleted ones)
+        driver = db.query(models.Driver).filter(models.Driver.name == data.driver_name, models.Driver.deleted_at.is_(None)).first()
         if not driver:
             driver = models.Driver(name=data.driver_name)
             db.add(driver)
@@ -212,10 +212,10 @@ async def create_reward(data: RewardCreate, db: Session = Depends(get_db)):
 async def redeem_reward(data: RedeemRequest, db: Session = Depends(get_db)):
     """Redeem a reward using points"""
     try:
-        driver = db.query(models.Driver).filter(models.Driver.name == data.driver_name).first()
+        driver = db.query(models.Driver).filter(models.Driver.name == data.driver_name, models.Driver.deleted_at.is_(None)).first()
         if not driver:
             raise HTTPException(status_code=404, detail="Driver not found")
-        
+
         reward = db.query(models.Reward).filter(models.Reward.id == data.reward_id).first()
         if not reward:
             raise HTTPException(status_code=404, detail="Reward not found")
@@ -272,7 +272,8 @@ async def redeem_reward(data: RedeemRequest, db: Session = Depends(get_db)):
 async def get_points_leaderboard(limit: int = 20, db: Session = Depends(get_db)):
     """Get top drivers by total points earned"""
     drivers = db.query(models.Driver).filter(
-        models.Driver.total_points_earned > 0
+        models.Driver.total_points_earned > 0,
+        models.Driver.deleted_at.is_(None)
     ).order_by(models.Driver.total_points_earned.desc()).limit(limit).all()
     
     return [

@@ -24,8 +24,11 @@ DRIVERS_DIR = PUBLIC_STORAGE_DIR / "drivers"
 DRIVERS_DIR.mkdir(parents=True, exist_ok=True)
 
 @router.get("/", response_model=List[dict])
-def read_drivers(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), _auth: object = Depends(require_admin)):
-    drivers = db.query(Driver).offset(skip).limit(limit).all()
+def read_drivers(skip: int = 0, limit: int = 100, include_deleted: bool = False, db: Session = Depends(get_db), _auth: object = Depends(require_admin)):
+    query = db.query(Driver)
+    if not include_deleted:
+        query = query.filter(Driver.deleted_at.is_(None))
+    drivers = query.offset(skip).limit(limit).all()
     # Map to schema-like dict manually for simplicity or use Pydantic schema
     return [
         {
@@ -45,7 +48,7 @@ def read_drivers(skip: int = 0, limit: int = 100, db: Session = Depends(get_db),
 
 @router.get("/{driver_id}")
 def read_driver(driver_id: int, db: Session = Depends(get_db), _auth: object = Depends(require_admin)):
-    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    driver = db.query(Driver).filter(Driver.id == driver_id, Driver.deleted_at.is_(None)).first()
     if driver is None:
         raise HTTPException(status_code=404, detail="Driver not found")
     
@@ -71,7 +74,7 @@ def upload_driver_photo(
     db: Session = Depends(get_db),
     _auth: object = Depends(require_admin)
 ):
-    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    driver = db.query(Driver).filter(Driver.id == driver_id, Driver.deleted_at.is_(None)).first()
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
 

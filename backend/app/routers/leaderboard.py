@@ -28,11 +28,10 @@ async def get_top_times(
     track: str,
     car: Optional[str] = None,
     limit: int = 10,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    """
-    Get top lap times for a specific track (and optional car).
-    """
+    limit = min(limit, 100)  # Cap to prevent expensive unbounded queries
+    # Get top lap times for a specific track (and optional car).
     query = db.query(SessionResult).filter(
         SessionResult.track_name == track,
         SessionResult.best_lap > 0

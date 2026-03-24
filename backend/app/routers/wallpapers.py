@@ -81,7 +81,7 @@ def get_config(db: Session = Depends(database.get_db), _auth: object = Depends(r
     interval = int(interval_setting.value) if interval_setting else 30
     try:
         playlist = json.loads(playlist_setting.value) if playlist_setting and playlist_setting.value else []
-    except:
+    except Exception:
         playlist = []
         
     return WallpaperConfig(interval_seconds=interval, active_wallpapers=playlist)

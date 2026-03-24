@@ -194,7 +194,8 @@ def install_mod_logic(data):
             # Cleanup
             try:
                 os.remove(local_zip_path)
-            except: pass
+            except OSError as e:
+                logger.warning(f"Could not remove temp file {local_zip_path}: {e}")
             
         except Exception as e:
             logger.error(f"Extraction failed: {e}")
@@ -484,12 +485,17 @@ TRACTION_CONTROL={tc_value}
     # 3. Write race.ini
     race_ini_path = os.path.join(ac_docs_path, "race.ini")
     try:
+        # Support multi-layout tracks: id may be "track_folder/layout_name"
+        track_parts = track.split('/', 1)
+        track_name = track_parts[0]
+        config_track = track_parts[1] if len(track_parts) > 1 else ''
+
         race_content = f"""[RACE]
 MODEL={car}
 MODEL_CONFIG=
 SKIN=
-TRACK={track}
-CONFIG_TRACK=
+TRACK={track_name}
+CONFIG_TRACK={config_track}
 CARS={1 + ai_count}
 AI_LEVEL={ai_level}
 FIXED_SETUP=0

@@ -559,7 +559,7 @@ export const WaitingRoomRacing: React.FC<WaitingRoomRacingProps> = ({ selection,
         : LOBBY_TIMEOUT_SECONDS;
 
     useEffect(() => {
-        if (lobbyData?.status !== 'waiting' || timeLeft !== 0) return;
+        if (lobbyData?.status !== 'waiting' || timeLeft > 0) return;
         if (isAbandoning) return;
 
         setLobbyError('Tiempo de espera agotado. La sala se ha cerrado.');

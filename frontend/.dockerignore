@@ -1,0 +1,25 @@
+# Dependencies (installed fresh in container)
+node_modules/
+
+# Build output
+dist/
+
+# Dev/editor files
+.env
+*.env
+.env.*
+!.env.example
+.git/
+.gitignore
+*.md
+
+# Test files (not needed in production image)
+e2e/
+src/**/*.test.*
+src/**/*.spec.*
+src/test/
+
+# Playwright
+.playwright-cli/
+playwright-report/
+test-results/

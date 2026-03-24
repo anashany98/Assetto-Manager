@@ -9,9 +9,19 @@ from ..routers.auth import require_admin, require_admin_or_public_token_or_kiosk
 from ..limiters import limiter
 from ..security.api_keys import is_client_token_allowed
 
+# Payments are disabled until configured. Set PAYMENTS_ENABLED=true in .env to activate.
+_PAYMENTS_ENABLED = os.getenv("PAYMENTS_ENABLED", "false").lower() in {"1", "true", "yes"}
+
+
+def _require_payments_enabled():
+    if not _PAYMENTS_ENABLED:
+        raise HTTPException(status_code=503, detail="Payment feature is not enabled yet")
+
+
 router = APIRouter(
     prefix="/payments",
-    tags=["payments"]
+    tags=["payments"],
+    dependencies=[Depends(_require_payments_enabled)]
 )
 
 
@@ -32,8 +42,10 @@ def _require_client_scope(user_or_client: object, required_scope: str) -> None:
 
 
 def _require_kiosk_access(station: models.Station | None, kiosk_code: str | None, user_or_client: object) -> None:
-    if _is_admin(user_or_client) or user_or_client != "kiosk":
+    if _is_admin(user_or_client):
         return
+    if user_or_client != "kiosk":
+        raise HTTPException(status_code=403, detail="Kiosk access required")
     if not station:
         raise HTTPException(status_code=404, detail="Station not found")
     if not station.is_kiosk_mode:

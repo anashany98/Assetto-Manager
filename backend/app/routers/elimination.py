@@ -82,8 +82,8 @@ async def broadcast_race_update(race_id: int, data: dict):
         for connection in active_connections[race_id]:
             try:
                 await connection.send_json(data)
-            except:
-                pass
+            except Exception:
+                pass  # Client disconnected; will be cleaned up on next WebSocketDisconnect
 
 # --- Endpoints ---
 

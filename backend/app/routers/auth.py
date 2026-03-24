@@ -378,10 +378,18 @@ def read_users_me(current_user: Annotated[models.User, Depends(get_current_activ
     }
 
 # Initial Setup Endpoint (Only works if no users exist)
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
+
 class UserSetup(BaseModel):
-    username: str
-    password: str
+    username: str = Field(..., min_length=3, max_length=50, pattern=r"^[a-zA-Z0-9_\-\.]+$")
+    password: str = Field(..., min_length=8, max_length=128)
+
+    @field_validator("password")
+    @classmethod
+    def password_not_trivial(cls, v: str) -> str:
+        if v.lower() in {"password", "12345678", "admin1234", "changeme1"}:
+            raise ValueError("Password is too common")
+        return v
 
 @router.post("/users/setup")
 @limiter.limit("3/hour")

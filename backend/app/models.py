@@ -56,8 +56,8 @@ class SoftDeleteMixin:
     @classmethod
     @declared_attr
     def with_deleted(cls):
-        """Return all records including soft deleted ones (no filter)."""
-        return True  # No filter applied
+        """Return a filter expression that includes all records (soft deleted or not)."""
+        return cls.deleted_at.isnot(None) | cls.deleted_at.is_(None)
 
 
 # Association Tables

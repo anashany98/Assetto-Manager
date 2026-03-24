@@ -1,7 +1,10 @@
-﻿from fastapi import APIRouter, Depends, HTTPException, Body, Header
+﻿import logging
+from fastapi import APIRouter, Depends, HTTPException, Body, Header
 from sqlalchemy.orm import Session as DBSession
 from typing import List, Optional
 from datetime import datetime, timezone, timedelta
+
+logger = logging.getLogger(__name__)
 
 from ..database import get_db
 from ..models import Session, Station
@@ -67,6 +70,11 @@ def start_session(
 
     if active_session:
         # Auto-close existing session to prevent "stuck" stations
+        logger.warning(
+            "Auto-closing stuck session id=%s for station_id=%s before starting new session",
+            active_session.id,
+            session_data.station_id,
+        )
         active_session.status = "completed"
         active_session.end_time = datetime.now(timezone.utc)
         db.add(active_session)

@@ -191,7 +191,7 @@ def get_session_pdf(session_id: int, db: Session = Depends(database.get_db)):
     logo_img = None
     if os.path.exists(logo_path):
         try: logo_img = Image(logo_path, width=2.5*cm, height=2.5*cm, kind='proportional')
-        except: pass
+        except Exception: pass
 
     title_box = [
         Paragraph("PERFORMANCE REPORT", style_report_title),
@@ -226,7 +226,7 @@ def get_session_pdf(session_id: int, db: Session = Depends(database.get_db)):
                     for file in files:
                         if file.lower() in ["map.png", "map.jpg"]:
                             try: track_map_img = Image(os.path.join(root, file), width=3*cm, height=3*cm, kind='proportional')
-                            except: pass
+                            except Exception: pass
                             break
                     if track_map_img: break
             if track_map_img: break

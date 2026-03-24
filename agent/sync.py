@@ -35,7 +35,10 @@ def delete_extra_file(file_path):
     try:
         target_path = (AC_CONTENT_DIR / file_path).resolve()
         content_root = AC_CONTENT_DIR.resolve()
-        target_path.relative_to(content_root)
+        target_path.relative_to(content_root)  # Raises ValueError if outside content root
+    except ValueError:
+        logger.warning(f"Skipping unsafe delete target (path traversal): {file_path}")
+        return False
     except Exception:
         logger.warning(f"Skipping unsafe delete target: {file_path}")
         return False
@@ -125,18 +128,38 @@ def synchronize_content(station_id):
         timeout=REQUEST_TIMEOUT
     )
 
-    for file_path, info in files_to_download:
-        local_path = AC_CONTENT_DIR / file_path
-        if download_file(info['url'], local_path):
-            logger.info(f"Downloaded: {file_path}")
-        else:
-            logger.error(f"Failed to download: {file_path}")
-            return "error" # Stop if download fails
+    downloaded_paths = []  # Track for rollback
+    try:
+        for file_path, info in files_to_download:
+            local_path = AC_CONTENT_DIR / file_path
+            if download_file(info['url'], local_path):
+                logger.info(f"Downloaded: {file_path}")
+                downloaded_paths.append(local_path)
+            else:
+                logger.error(f"Failed to download: {file_path} — rolling back {len(downloaded_paths)} files")
+                for rollback_path in downloaded_paths:
+                    try:
+                        if rollback_path.exists():
+                            rollback_path.unlink()
+                            logger.info(f"Rolled back: {rollback_path}")
+                    except Exception as rb_err:
+                        logger.warning(f"Rollback failed for {rollback_path}: {rb_err}")
+                return "error"
 
-    for file_path in files_to_delete:
-        if not delete_extra_file(file_path):
-            return "error"
-             
+        for file_path in files_to_delete:
+            if not delete_extra_file(file_path):
+                return "error"
+
+    except Exception as e:
+        logger.error(f"Unexpected error during sync, rolling back: {e}")
+        for rollback_path in downloaded_paths:
+            try:
+                if rollback_path.exists():
+                    rollback_path.unlink()
+            except Exception:
+                pass
+        return "error"
+
     return "online"
 
 def send_heartbeat(station_id, status="online"):

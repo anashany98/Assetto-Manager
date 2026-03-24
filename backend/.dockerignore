@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Tests
+tests/
+pytest_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# Dev/editor files
+.env
+*.env
+.env.*
+!.env.example
+.git/
+.gitignore
+*.md
+
+# Storage (mounted as volume in production)
+storage/
+
+# Alembic — only needed for migrations, not for app runtime
+# (include if you run alembic inside container)
+# alembic/
+
+# Logs
+logs/
+*.log
