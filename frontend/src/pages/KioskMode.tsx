@@ -325,6 +325,7 @@ export default function KioskMode() {
                         driver_name: driver?.name || undefined,
                         name: `GRUPO DE ${driver?.name?.toUpperCase() || 'INVITADO'}`,
                         track: selection.track,
+                        track_layout: selection.track_layout,
                         car: selection.car,
                         allowed_cars: selection.allowedCars?.length ? selection.allowedCars : undefined,
                         duration: duration,

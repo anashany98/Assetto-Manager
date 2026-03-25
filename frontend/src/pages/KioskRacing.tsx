@@ -218,6 +218,7 @@ export default function KioskRacing() {
                 driver_name: activeDriver.name,
                 name: `RACE LOBBY ${stationId}`,
                 track: selection?.track,
+                track_layout: selection?.track_layout,
                 car: selection?.car,
                 duration,
                 max_players: 10

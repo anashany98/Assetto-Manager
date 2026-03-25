@@ -84,6 +84,7 @@ def _build_lobby_payload(lobby: models.Lobby, players: Optional[list[schemas.Lob
         status=lobby.status,
         host_station_id=lobby.host_station_id,
         track=lobby.track,
+        track_layout=lobby.track_layout,
         car=lobby.car,
         allowed_cars=lobby.allowed_cars,
         session_type=lobby.session_type,
@@ -292,6 +293,7 @@ def _build_join_lobby_command(
         "server_ip": lobby.server_ip,
         "port": lobby.port,
         "track": lobby.track,
+        "track_layout": lobby.track_layout,
         "car": car or lobby.car,  # Per-player car, fallback to lobby default
         "ac_path": station.ac_path,
         "is_spectator": is_spectator,
@@ -401,6 +403,8 @@ def _cleanup_orphan_lobbies(db: Session) -> int:
             continue
 
         last_seen = host.last_seen
+        if last_seen and last_seen.tzinfo is None:
+            last_seen = last_seen.replace(tzinfo=timezone.utc)
         if host.is_online is False or (last_seen and last_seen < cutoff):
             _release_port_reservation(db, lobby)
             lobby.status = "cancelled"
@@ -448,6 +452,7 @@ async def create_lobby(
         name=lobby_data.name,
         host_station_id=active_host_id,
         track=lobby_data.track,
+        track_layout=lobby_data.track_layout,
         car=lobby_data.car,
         allowed_cars=lobby_data.allowed_cars or [lobby_data.car],
         session_type=lobby_data.session_type or "race",
@@ -757,6 +762,7 @@ async def start_lobby(
         "command": "create_lobby",
         "lobby_id": lobby.id,
         "track": lobby.track,
+        "track_layout": lobby.track_layout,
         "car": lobby.car,
         "allowed_cars": lobby.allowed_cars or [lobby.car],
         "laps": lobby.laps,

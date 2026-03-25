@@ -36,7 +36,7 @@ MODS_DIR.mkdir(parents=True, exist_ok=True)
 
 # --- KIOSK CONTENT ENDPOINT ---
 @router.get("/station/{station_id}/content")
-def get_station_content(
+async def get_station_content(
     station_id: int,
     db: Session = Depends(database.get_db),
     _auth: object = Depends(require_admin_or_public_token)
@@ -44,27 +44,38 @@ def get_station_content(
     """
     Return cached cars/tracks for a specific station.
     This is used by the Kiosk UI to show real installed content.
+    Uses Redis cache for faster response.
     """
+    from ..utils.cache import content_cache
+    
+    cache_key = f"station:{station_id}"
+    cached = await content_cache.get(cache_key)
+    if cached:
+        logger.debug(f"Cache hit for station {station_id}")
+        return cached
+    
     station = db.query(models.Station).filter(models.Station.id == station_id).first()
     if not station:
         raise HTTPException(status_code=404, detail=f"Station {station_id} not found")
     
     if station.content_cache:
-        return {
+        result = {
             "station_id": station_id,
             "cars": station.content_cache.get("cars", []),
             "tracks": station.content_cache.get("tracks", []),
             "updated": station.content_cache_updated.isoformat() if station.content_cache_updated else None
         }
     else:
-        # Return empty but valid structure
-        return {
+        result = {
             "station_id": station_id,
             "cars": [],
             "tracks": [],
             "updated": None,
             "message": "Content not scanned yet. Trigger scan via /control/station/{id}/content"
         }
+    
+    await content_cache.set(cache_key, result, ttl=1800)
+    return result
 
 def _sanitize_name(value: str, fallback: str) -> str:
     cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", value.strip())
@@ -193,6 +204,12 @@ def _safe_extract_zip(zip_ref: zipfile.ZipFile, extract_dir: Path) -> None:
                     status_code=400,
                     detail=f"Potential zip bomb detected: compression ratio {ratio:.1f}:1 exceeds limit of {MAX_COMPRESSION_RATIO}:1"
                 )
+        elif member.file_size > MAX_SINGLE_FILE_BYTES:
+            # Zero compressed size but large uncompressed = potential bomb
+            raise HTTPException(
+                status_code=400,
+                detail=f"Suspicious entry with zero compressed size but large uncompressed size: {member.filename}"
+            )
         
         # Check individual file size
         if member.file_size > MAX_SINGLE_FILE_BYTES:
@@ -259,15 +276,26 @@ def _safe_extract_zip(zip_ref: zipfile.ZipFile, extract_dir: Path) -> None:
         
         member_path = (extract_root / member.filename).resolve()
         
+        # Re-validate path stays within extract root (defense in depth)
+        try:
+            member_path.relative_to(extract_root)
+        except ValueError:
+            logger.warning("Path traversal in second pass: %s", member.filename)
+            continue
+        
         # Create parent directories if needed
         if member.is_dir():
             member_path.mkdir(parents=True, exist_ok=True)
         else:
             member_path.parent.mkdir(parents=True, exist_ok=True)
             
-            # Extract file
+            # Extract file (chunked to avoid memory exhaustion)
             with zip_ref.open(member) as source, open(member_path, 'wb') as target:
-                target.write(source.read())
+                while True:
+                    chunk = source.read(1024 * 1024)  # 1MB chunks
+                    if not chunk:
+                        break
+                    target.write(chunk)
     
     logger.info(
         "Extracted archive: %d files, %.2fMB compressed -> %.2fMB uncompressed",

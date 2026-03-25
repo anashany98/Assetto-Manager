@@ -30,6 +30,7 @@ import IdleVideoBackground from '../components/IdleVideoBackground';
 export interface KioskSelection {
     car: string;
     track: string;
+    track_layout?: string;
     isHost?: boolean;
     type?: 'practice' | 'qualify' | 'race' | 'drift' | 'hotlap' | 'trackday' | 'traffic' | 'overtake';
     aiCount?: number;
@@ -698,6 +699,7 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
                 driver_name: driver?.name || undefined,
                 name: `GRUPO DE ${driver?.name?.toUpperCase() || 'INVITADO'} `,
                 track: selection?.track,
+                track_layout: selection?.track_layout,
                 car: selection?.car,
                 duration: duration,
                 max_players: 10
@@ -1233,6 +1235,23 @@ interface DriverStepProps {
 export const DriverStep: React.FC<DriverStepProps> = ({
     t, driverName, setDriverName, driverEmail, setDriverEmail, onLogin, leaderboardData
 }) => {
+    const { data: filteredDrivers = [] } = useQuery({
+        queryKey: ['drivers-kiosk', driverName],
+        queryFn: async () => {
+            if (!driverName || driverName.length < 1) return [];
+            const res = await axios.get(`${API_URL}/drivers/list-for-kiosk`, {
+                params: { search: driverName, limit: 10 }
+            });
+            return res.data;
+        },
+        enabled: driverName.length > 0,
+    });
+
+    const handleSelectDriver = (driver: { name: string }) => {
+        soundManager.playClick();
+        setDriverName(driver.name);
+    };
+
     const formatTime = (ms: number) => {
         const minutes = Math.floor(ms / 60000);
         const seconds = ((ms % 60000) / 1000).toFixed(3);
@@ -1259,7 +1278,7 @@ export const DriverStep: React.FC<DriverStepProps> = ({
                     <h1 className="text-3xl md:text-5xl font-racing uppercase tracking-[0.16em] md:tracking-[0.2em] text-amber-200 mb-2">{t('kiosk.welcomeDriver')}</h1>
                     <p className="text-sm md:text-lg text-slate-300 mb-4 md:mb-6">{t('kiosk.identifyToSave')}</p>
                     <form onSubmit={handleSubmit} className="w-full max-w-xl space-y-4">
-                        <div className="space-y-1.5">
+                        <div className="space-y-1.5 relative">
                             <label className="text-slate-400 font-bold ml-1">{t('kiosk.driverName')}</label>
                             <input
                                 type="text"
@@ -1268,7 +1287,25 @@ export const DriverStep: React.FC<DriverStepProps> = ({
                                 value={driverName}
                                 onChange={e => setDriverName(e.target.value)}
                                 required
+                                autoComplete="off"
                             />
+                            {driverName.length > 0 && filteredDrivers.length > 0 && (
+                                <div className="absolute z-50 w-full max-w-xl mt-1 bg-slate-900 border border-white/10 rounded-xl shadow-xl max-h-60 overflow-y-auto">
+                                    {filteredDrivers.map((driver: any) => (
+                                        <button
+                                            key={driver.id}
+                                            type="button"
+                                            onClick={() => handleSelectDriver(driver)}
+                                            className="w-full text-left px-4 py-3 hover:bg-slate-800 flex items-center justify-between border-b border-white/5 last:border-0"
+                                        >
+                                            <span className="text-white font-bold">{driver.name}</span>
+                                            <span className="text-amber-400 text-sm font-mono">
+                                                {driver.best_time ? `${Math.floor(driver.best_time / 60000)}:${((driver.best_time % 60000) / 1000).toFixed(3).padStart(6, '0')}` : '-'}
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                         <div className="space-y-1.5">
                             <label className="text-slate-400 font-bold ml-1">{t('kiosk.emailOptional')}</label>
@@ -1300,7 +1337,11 @@ export const DriverStep: React.FC<DriverStepProps> = ({
                             </div>
                         )}
                         {topTimes.map((entry, idx) => (
-                            <div key={entry.pos} className={`flex items-center gap-3 p-2.5 rounded-xl transition-all ${idx === 0 ? 'bg-yellow-500/10 border border-yellow-500/30' : 'bg-gray-800/50'}`}>
+                            <div 
+                                key={entry.pos} 
+                                onClick={() => handleLeaderboardClick(entry.name)}
+                                className={`flex items-center gap-3 p-2.5 rounded-xl transition-all cursor-pointer hover:scale-[1.02] hover:border-amber-400/50 ${idx === 0 ? 'bg-yellow-500/10 border border-yellow-500/30' : 'bg-gray-800/50 border border-transparent hover:border-amber-400/30'}`}
+                            >
                                 <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black ${idx === 0 ? 'bg-yellow-500 text-black' : idx === 1 ? 'bg-gray-400 text-black' : idx === 2 ? 'bg-orange-700 text-white' : 'bg-gray-700 text-gray-300'}`}>
                                     {entry.pos}
                                 </div>

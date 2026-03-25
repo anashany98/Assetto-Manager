@@ -1,15 +1,18 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
-import { Swords, Trophy, Flame, Activity, QrCode, X, Users, Map as MapIcon, Car, Info, Plus, Trash2, ChevronRight } from 'lucide-react';
+import { Swords, Trophy, Flame, Activity, QrCode, X, Users, Map as MapIcon, Car, Info, Plus, Trash2, ChevronRight, Wifi, WifiOff } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
 import { API_URL, PUBLIC_WS_TOKEN, WS_BASE_URL } from '../config';
+import { useWebSocket } from '../utils/useWebSocket';
 
 // --- API ---
-const wsToken = localStorage.getItem('token') || PUBLIC_WS_TOKEN;
-const WS_URL = `${WS_BASE_URL}/ws/telemetry/client${wsToken ? `?token=${encodeURIComponent(wsToken)}` : ''}`;
+function getWsUrl() {
+    const wsToken = localStorage.getItem('token') || PUBLIC_WS_TOKEN;
+    return `${WS_BASE_URL}/ws/telemetry/client${wsToken ? `?token=${encodeURIComponent(wsToken)}` : ''}`;
+}
 
 // --- COMPONENTS ---
 
@@ -271,7 +274,14 @@ function BattleSetup({ onStart }: { onStart: (drivers: string[], track: string, 
 // 2. Battle Visualization
 function BattleArena({ query }: { query: URLSearchParams }) {
     const driversParam = query.get('drivers');
-    const drivers = useMemo(() => driversParam ? JSON.parse(driversParam) as string[] : [], [driversParam]);
+    const drivers = useMemo(() => {
+        if (!driversParam) return [];
+        try {
+            return JSON.parse(driversParam) as string[];
+        } catch {
+            return [];
+        }
+    }, [driversParam]);
     const track = query.get('track')!;
     const car = query.get('car')!;
     const isDemo = query.get('isDemo') === 'true';
@@ -327,25 +337,26 @@ function BattleArena({ query }: { query: URLSearchParams }) {
         return () => clearInterval(interval);
     }, [isDemo, drivers]);
 
-    // WebSocket Connection
-    useEffect(() => {
-        if (isDemo) return;
+    // WebSocket Connection with auto-reconnect
+    const { isConnected } = useWebSocket({
+        url: getWsUrl(),
+        onMessage: useCallback((data: any) => {
+            const liveName = data.driver_name || data.driver;
+            if (drivers.includes(liveName)) {
+                setLiveData(prev => ({
+                    ...prev,
+                    [liveName]: data
+                }));
+            }
+        }, [drivers]),
+        reconnect: true,
+        reconnectInterval: 3000,
+        maxReconnectAttempts: 10,
+    });
 
-        const ws = new WebSocket(WS_URL);
-        ws.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                const liveName = data.driver_name || data.driver;
-                if (drivers.includes(liveName)) {
-                    setLiveData(prev => ({
-                        ...prev,
-                        [liveName]: data
-                    }));
-                }
-            } catch { /* ignore */ }
-        };
-        return () => ws.close();
-    }, [drivers, isDemo]);
+    if (isDemo) {
+        return null;
+    }
 
     if (isLoading) return (
         <div className="min-h-screen bg-black flex flex-col items-center justify-center text-white text-3xl font-black gap-6 uppercase tracking-[1em] italic overflow-hidden">

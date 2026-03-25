@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from typing import List, Optional
-import shutil
 import os
 from pathlib import Path
 
@@ -45,6 +44,33 @@ def read_drivers(skip: int = 0, limit: int = 100, include_deleted: bool = False,
             "elo_rating": d.elo_rating
         } for d in drivers
     ]
+
+
+# --- KIOSK AUTOCOMPLETE (sin license check) ---
+@router.get("/list-for-kiosk")
+def list_drivers_for_kiosk(
+    search: str = "",
+    limit: int = 10,
+    db: Session = Depends(get_db)
+):
+    """Lista pilotos para autocompletado en kiosko - público sin licencia"""
+    query = db.query(Driver).filter(Driver.deleted_at.is_(None))
+    
+    if search:
+        query = query.filter(Driver.name.ilike(f"%{search}%"))
+    
+    drivers = query.order_by(Driver.name).limit(limit).all()
+    
+    return [
+        {
+            "id": d.id,
+            "name": d.name,
+            "best_time": d.best_lap,
+            "car": d.car_model
+        }
+        for d in drivers
+    ]
+
 
 @router.get("/{driver_id}")
 def read_driver(driver_id: int, db: Session = Depends(get_db), _auth: object = Depends(require_admin)):

@@ -36,33 +36,22 @@ def _create_lobby(client, host_station_id: int, max_players: int = 8, driver_nam
     return client.post("/lobby/create", json=payload)
 
 
-def test_lobby_start_requires_two_ready_players(client, monkeypatch):
+def test_lobby_single_player_can_start(client, monkeypatch):
     db = SessionLocal()
     try:
         host = _make_station(db, "host")
-        joiner = _make_station(db, "joiner")
+
+        async def mock_send_command(*args, **kwargs):
+            return True
+
+        monkeypatch.setattr(lobby_router.manager, "send_command", mock_send_command)
 
         create_res = _create_lobby(client, host.id, max_players=4)
         assert create_res.status_code == 200
         lobby_id = create_res.json()["id"]
 
-        join_res = client.post(f"/lobby/{lobby_id}/join", json={"station_id": joiner.id})
-        assert join_res.status_code == 200
-
         host_ready = client.post(f"/lobby/{lobby_id}/ready", params={"station_id": host.id, "is_ready": True})
         assert host_ready.status_code == 200
-
-        start_fail = client.post(f"/lobby/{lobby_id}/start", params={"requesting_station_id": host.id})
-        assert start_fail.status_code == 400
-        assert "2 ready players" in (start_fail.json().get("detail") or "")
-
-        joiner_ready = client.post(f"/lobby/{lobby_id}/ready", params={"station_id": joiner.id, "is_ready": True})
-        assert joiner_ready.status_code == 200
-
-        async def _mock_send_command(*args, **kwargs):
-            return True
-
-        monkeypatch.setattr(lobby_router.manager, "send_command", _mock_send_command)
 
         start_ok = client.post(f"/lobby/{lobby_id}/start", params={"requesting_station_id": host.id})
         assert start_ok.status_code == 200

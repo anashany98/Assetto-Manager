@@ -15,6 +15,7 @@ import IdleVideoBackground from '../components/IdleVideoBackground';
 export interface KioskSelection {
     car: string;
     track: string;
+    track_layout?: string;
     isHost?: boolean;
     type?: 'practice' | 'qualify' | 'race' | 'drift' | 'hotlap' | 'trackday' | 'traffic' | 'overtake';
     aiCount?: number;

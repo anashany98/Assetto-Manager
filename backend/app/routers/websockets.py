@@ -416,15 +416,15 @@ class ConnectionManager:
             await self._publish(WS_CHANNEL_COMMAND_ACK, {"origin": self.instance_id, "payload": payload})
 
     def _command_ack_timeout_seconds(self, command_name: str | None) -> float:
-        default_timeout = float(os.getenv("WS_COMMAND_ACK_TIMEOUT_SECONDS", "5"))
+        default_timeout = float(os.getenv("WS_COMMAND_ACK_TIMEOUT_SECONDS", "10"))
         if not command_name:
             return default_timeout
 
         normalized_command = str(command_name).lower()
         timeout_overrides = {
-            "launch_session": ("WS_COMMAND_LAUNCH_ACK_TIMEOUT_SECONDS", 30.0),
-            "join_lobby": ("WS_COMMAND_JOIN_ACK_TIMEOUT_SECONDS", 30.0),
-            "create_lobby": ("WS_COMMAND_CREATE_LOBBY_ACK_TIMEOUT_SECONDS", 15.0),
+            "launch_session": ("WS_COMMAND_LAUNCH_ACK_TIMEOUT_SECONDS", 60.0),
+            "join_lobby": ("WS_COMMAND_JOIN_ACK_TIMEOUT_SECONDS", 60.0),
+            "create_lobby": ("WS_COMMAND_CREATE_LOBBY_ACK_TIMEOUT_SECONDS", 30.0),
         }
         override = timeout_overrides.get(normalized_command)
         if not override:
@@ -549,6 +549,17 @@ async def websocket_agent_endpoint(websocket: WebSocket):
             await websocket.close(code=1008)
             return
 
+        # Verify station exists in database
+        db_verify = SessionLocal()
+        try:
+            station_exists = db_verify.query(models.Station).filter(models.Station.id == station_id).first()
+            if not station_exists:
+                logger.warning("Agent tried to connect with unknown station_id=%s", station_id)
+                await websocket.close(code=1008)
+                return
+        finally:
+            db_verify.close()
+
         await manager.register_agent(websocket, station_id)
 
         # Post-identify actions
@@ -614,6 +625,10 @@ async def websocket_agent_endpoint(websocket: WebSocket):
                                 station.content_cache_updated = datetime.now(timezone.utc)
                                 db.commit()
                                 logger.info(f"Cached content for Station {station_id}: {len(content_data.get('cars',[]))} cars, {len(content_data.get('tracks',[]))} tracks")
+                                
+                                from ..utils.cache import content_cache
+                                import asyncio
+                                asyncio.create_task(content_cache.delete(f"station:{station_id}"))
 
                                 # --- AUTO-POPULATE GLOBAL LIBRARY ---
                                 def ensure_mod_exists(item, mod_type):

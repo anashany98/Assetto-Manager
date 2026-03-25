@@ -277,6 +277,7 @@ export default function KioskModern() {
                 driver_name: driver?.name || undefined,
                 name: `GRUPO DE ${driver?.name?.toUpperCase() || 'INVITADO'}`,
                 track: selection?.track,
+                track_layout: selection?.track_layout,
                 car: selection?.car,
                 allowed_cars: selection?.allowedCars?.length ? selection.allowedCars : undefined,
                 duration,
@@ -654,18 +655,22 @@ export default function KioskModern() {
             <div className="h-16 md:h-20 flex items-center justify-between px-4 md:px-8 border-b border-white/10 z-50 bg-slate-950/55 backdrop-blur-md">
                 <img src="/logo.png" alt="Logo" className="h-8 md:h-10 opacity-85" />
 
-                <div className="hidden md:flex gap-3 text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
-                    <span className={step === 1 ? 'text-white' : ''}>Modo</span>
-                    <span className="opacity-20">/</span>
-                    <span className={step === 2 ? 'text-white' : ''}>Contenido</span>
-                    <span className="opacity-20">/</span>
-                    <span className={step === 3 ? 'text-white' : ''}>Piloto</span>
-                    <span className="opacity-20">/</span>
-                    <span className={step === 4 ? 'text-white' : ''}>Config</span>
-                    <span className="opacity-20">/</span>
-                    <span className={step === 5 ? 'text-white' : ''}>Pago</span>
-                    <span className="opacity-20">/</span>
-                    <span className={step === 6 ? 'text-amber-300' : ''}>Lobby</span>
+                <div className="hidden md:flex items-center gap-2">
+                    {[1, 2, 3, 4, 5, 6].map((s) => (
+                        <div key={s} className="flex items-center">
+                            <div 
+                                className={`w-8 h-2 rounded-full transition-all ${
+                                    s < step ? 'bg-green-500' : 
+                                    s === step ? 'bg-amber-400' : 
+                                    'bg-slate-700'
+                                }`}
+                            />
+                            {s < 6 && <div className="w-1" />}
+                        </div>
+                    ))}
+                    <span className="ml-3 text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
+                        {step}/6
+                    </span>
                 </div>
 
                 <div className="text-right">

@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey, Table, JSON, Index, text
-from sqlalchemy.orm import relationship, declared_attr
+from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declared_attr
 from .database import Base
 from datetime import datetime, timezone
@@ -193,6 +193,7 @@ class Lobby(Base):
     
     # Race configuration
     track = Column(String)
+    track_layout = Column(String, nullable=True)  # Layout variant (e.g., "without_chiptune")
     car = Column(String)  # Default/host car
     allowed_cars = Column(JSON, nullable=True)  # List of allowed car IDs for this lobby
     session_type = Column(String, default="race")  # practice, qualify, race, drift, hotlap, trackday, traffic, overtake

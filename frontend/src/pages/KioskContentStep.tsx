@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
-import { Car as CarIcon, ChevronRight, ChevronLeft, Gauge, Zap, Weight } from 'lucide-react';
+import { Car as CarIcon, ChevronRight, ChevronLeft, Gauge, Zap, Weight, Flag } from 'lucide-react';
 import { getUniversalCars, getUniversalTracks, type Car, type Track } from '../api/content';
 import { resolveAssetUrl, cn } from '../lib/utils';
 import type { Scenario } from '../api/scenarios';
@@ -11,7 +11,7 @@ import { API_URL, PUBLIC_API_TOKEN } from '../config';
 interface ContentStepProps {
     stationId: number;
     selectedScenario: Scenario | null;
-    currentSelection: { car: string, track: string } | null;
+    currentSelection: { car: string, track: string, track_layout?: string } | null;
     onSelectionChange: (carId: string | null, trackId: string | null) => void;
     onNext: () => void;
     prefetchedCars?: Car[];
@@ -46,12 +46,12 @@ export const ContentStep: React.FC<ContentStepProps> = ({
     const isLoading = (!prefetchedCars && loadingCars) || (!prefetchedTracks && loadingTracks);
 
     // 2. State
-    // 2. State
-    const [phase, setPhase] = useState<'brand' | 'car' | 'country' | 'track'>('brand'); // Brand -> Car -> Country -> Track
+    const [phase, setPhase] = useState<'brand' | 'car' | 'country' | 'track' | 'layout'>('brand'); // Brand -> Car -> Country -> Track -> Layout
     const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
     const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
     const [selCar, setSelCar] = useState<string | null>(currentSelection?.car || null);
     const [selTrack, setSelTrack] = useState<string | null>(currentSelection?.track || null);
+    const [selLayout, setSelLayout] = useState<string | null>(null);
 
     // Carousel State
     const [carIndex, setCarIndex] = useState(0);
@@ -92,6 +92,30 @@ export const ContentStep: React.FC<ContentStepProps> = ({
         selectedCountry ? getTrackCountry(t) === selectedCountry : true
     );
 
+    // Group tracks by base track ID to detect multi-layout tracks
+    const getBaseTrackId = (id: string) => {
+        const parts = id.split('/');
+        return parts[0];
+    };
+    
+    const trackGroups = filteredTracks.reduce((acc: Record<string, any[]>, t: any) => {
+        const baseId = getBaseTrackId(t.id);
+        if (!acc[baseId]) acc[baseId] = [];
+        acc[baseId].push(t);
+        return acc;
+    }, {});
+    
+    // Check if selected track has multiple layouts
+    const selectedTrackGroup = selTrack ? trackGroups[getBaseTrackId(selTrack)] : [];
+    const hasMultipleLayouts = selectedTrackGroup && selectedTrackGroup.length > 1;
+    
+    // Get layouts for selected track
+    const availableLayouts = selectedTrackGroup?.map((t: any) => ({
+        id: t.id,
+        name: t.layout || 'Default',
+        isDefault: !t.layout
+    })) || [];
+
     // Country code badge helper (avoids broken emoji rendering on kiosk tablets)
     const getCountryCode = (country: string) => {
         const map: Record<string, string> = {
@@ -109,10 +133,13 @@ export const ContentStep: React.FC<ContentStepProps> = ({
     };
 
     // 4. Effects
-    // Sync external state
+    // Sync external state - include layout in selection
     useEffect(() => {
-        onSelectionChange(selCar, selTrack);
-    }, [selCar, selTrack]);
+        const trackWithLayout = hasMultipleLayouts && selLayout 
+            ? selTrack 
+            : selTrack;
+        onSelectionChange(selCar, trackWithLayout);
+    }, [selCar, selTrack, selLayout, hasMultipleLayouts]);
 
     // Initialize indices based on previous selection
     useEffect(() => {
@@ -180,6 +207,25 @@ export const ContentStep: React.FC<ContentStepProps> = ({
                 setPhase('country');
             }
         } else if (phase === 'track') {
+            // Check if track has multiple layouts
+            const trackId = filteredTracks[trackIndex]?.id;
+            const baseId = getBaseTrackId(trackId);
+            const group = trackGroups[baseId] || [];
+            if (group.length > 1) {
+                // Has multiple layouts, go to layout selection
+                setSelTrack(trackId);
+                setSelLayout(null);
+                setPhase('layout');
+            } else {
+                // Single layout, proceed
+                setSelTrack(trackId);
+                onNext();
+            }
+        } else if (phase === 'layout') {
+            // Set full track ID with layout
+            if (selLayout) {
+                setSelTrack(selLayout);
+            }
             onNext();
         }
     };
@@ -208,6 +254,9 @@ export const ContentStep: React.FC<ContentStepProps> = ({
             setSelectedCountry(null);
         } else if (phase === 'track') {
             setPhase('country');
+        } else if (phase === 'layout') {
+            setPhase('track');
+            setSelLayout(null);
         }
     };
 
@@ -300,9 +349,17 @@ export const ContentStep: React.FC<ContentStepProps> = ({
                         1. VEHICULO
                     </div>
                     <div className="w-12 h-1 bg-gray-800 rounded-full" />
-                    <div className={cn("px-4 py-2 rounded-lg font-black text-xl border transition-all", phase === 'track' ? "bg-amber-400 border-amber-300 text-black" : "bg-slate-900/60 border-white/10 text-slate-500")}>
+                    <div className={cn("px-4 py-2 rounded-lg font-black text-xl border transition-all", (phase === 'track' || phase === 'layout') ? "bg-amber-400 border-amber-300 text-black" : "bg-slate-900/60 border-white/10 text-slate-500")}>
                         2. CIRCUITO
                     </div>
+                    {phase === 'layout' && (
+                        <>
+                            <div className="w-12 h-1 bg-gray-800 rounded-full" />
+                            <div className={cn("px-4 py-2 rounded-lg font-black text-xl border transition-all", phase === 'layout' ? "bg-amber-400 border-amber-300 text-black" : "bg-slate-900/60 border-white/10 text-slate-500")}>
+                                3. LAYOUT
+                            </div>
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -453,6 +510,46 @@ export const ContentStep: React.FC<ContentStepProps> = ({
                                     </div>
                                 )}
 
+                                {/* --- PHASE: LAYOUT SELECTION --- */}
+                                {phase === 'layout' && (
+                                    <div className="w-full max-w-4xl animate-in fade-in slide-in-from-bottom duration-500">
+                                        <h2 className="text-3xl md:text-5xl font-racing text-white text-center mb-6 uppercase tracking-[0.2em]">
+                                            Selecciona el Layout
+                                        </h2>
+                                        <p className="text-center text-gray-400 mb-10 text-lg">
+                                            {filteredTracks[trackIndex]?.name}
+                                        </p>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4">
+                                            {availableLayouts.map((layout: any) => (
+                                                <button
+                                                    key={layout.id}
+                                                    onMouseEnter={() => soundManager.playHover()}
+                                                    onClick={() => { 
+                                                        soundManager.playClick(); 
+                                                        setSelLayout(layout.id);
+                                                    }}
+                                                    className={cn(
+                                                        "group relative bg-slate-950/60 hover:bg-slate-900/60 border backdrop-blur-md rounded-2xl p-8 transition-all hover:scale-105 flex flex-col items-center justify-center gap-4 aspect-video",
+                                                        selLayout === layout.id 
+                                                            ? "border-amber-400 bg-amber-400/20" 
+                                                            : "border-white/10 hover:border-amber-400/50"
+                                                    )}
+                                                >
+                                                    <Flag size={40} className={selLayout === layout.id ? "text-amber-400" : "text-gray-500"} />
+                                                    <span className="text-2xl md:text-3xl font-black text-white tracking-widest uppercase">
+                                                        {layout.name}
+                                                    </span>
+                                                    {layout.isDefault && (
+                                                        <span className="absolute top-4 right-4 bg-amber-400/20 text-amber-400 text-xs font-bold px-3 py-1 rounded-full">
+                                                            DEFAULT
+                                                        </span>
+                                                    )}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* TAP AREA HINT */}
                                 <div
                                     onClick={() => { soundManager.playClick(); confirmSelection(); }}
@@ -496,7 +593,7 @@ export const ContentStep: React.FC<ContentStepProps> = ({
                             onClick={() => { soundManager.playClick(); goBack(); }}
                             className="bg-slate-900/70 hover:bg-slate-800 text-white font-bold text-lg px-6 py-4 rounded-xl border border-white/10 hidden md:block"
                         >
-                            {phase === 'car' ? 'CAMBIAR MARCA' : (phase === 'country' ? 'VOLVER A COCHES' : 'CAMBIAR PAIS')}
+                            {phase === 'car' ? 'CAMBIAR MARCA' : (phase === 'country' ? 'VOLVER A COCHES' : (phase === 'layout' ? 'VOLVER A CIRCUITO' : 'CAMBIAR PAIS'))}
                         </button>
                     )}
                     {phase !== 'brand' && phase !== 'country' && (
@@ -505,7 +602,7 @@ export const ContentStep: React.FC<ContentStepProps> = ({
                             onClick={() => { soundManager.playConfirm(); confirmSelection(); }}
                             className="w-full md:w-auto bg-gradient-to-r from-red-500 to-amber-400 hover:from-red-400 hover:to-amber-300 text-white font-black text-xl md:text-2xl px-8 py-4 rounded-xl shadow-[0_0_30px_rgba(239,68,68,0.45)] hover:shadow-[0_0_50px_rgba(239,68,68,0.75)] transition-all transform hover:scale-105"
                         >
-                            {phase === 'car' ? 'CONFIRMAR COCHE' : 'CORRER AQUI'}
+                            {phase === 'car' ? 'CONFIRMAR COCHE' : (phase === 'layout' ? 'CONFIRMAR LAYOUT' : 'CORRER AQUI')}
                         </button>
                     )}
                 </div>

@@ -485,6 +485,7 @@ class LobbyStatus(str, Enum):
 class LobbyCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=50)
     track: str
+    track_layout: Optional[str] = None  # Layout variant (e.g., "without_chiptune")
     car: str
     allowed_cars: Optional[List[str]] = None  # Cars players can choose from (from scenario)
     station_id: Optional[int] = None  # For Kiosk direct creation
@@ -507,6 +508,7 @@ class Lobby(BaseModel):
     status: str
     host_station_id: int
     track: str
+    track_layout: Optional[str] = None
     car: str
     allowed_cars: Optional[List[str]] = None
     session_type: Optional[str] = "race"
