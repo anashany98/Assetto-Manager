@@ -21,10 +21,24 @@ def download_file(url, local_path):
         
         with requests.get(full_url, stream=True, timeout=30) as r: # Longer timeout for downloads
             r.raise_for_status()
-            os.makedirs(os.path.dirname(local_path), exist_ok=True)
-            with open(local_path, 'wb') as f:
-                for chunk in r.iter_content(chunk_size=8192): 
-                    f.write(chunk)
+            dir_name = os.path.dirname(local_path)
+            if dir_name:
+                os.makedirs(dir_name, exist_ok=True)
+            # Atomic write: download to temp file first, then rename
+            temp_path = str(local_path) + ".tmp"
+            try:
+                with open(temp_path, 'wb') as f:
+                    for chunk in r.iter_content(chunk_size=8192): 
+                        f.write(chunk)
+                os.replace(temp_path, local_path)
+            except Exception:
+                # Clean up temp file on failure
+                if os.path.exists(temp_path):
+                    try:
+                        os.remove(temp_path)
+                    except OSError:
+                        pass
+                raise
         return True
     except Exception as e:
         logger.error(f"Failed to download {url}: {e}")
@@ -168,11 +182,15 @@ def send_heartbeat(station_id, status="online"):
         # Gather system diagnostics
         cpu_percent = psutil.cpu_percent(interval=0.1)
         memory = psutil.virtual_memory()
-        disk = psutil.disk_usage('/')
+        disk = psutil.disk_usage(str(Path.cwd().anchor))
+        
+        from utils import get_ip_address, get_mac_address
         
         data = {
             "is_active": True,
             "status": status,
+            "ip_address": get_ip_address(),
+            "mac_address": get_mac_address(),
             "diagnostics": {
                 "cpu_percent": cpu_percent,
                 "ram_total_gb": round(memory.total / (1024**3), 2),

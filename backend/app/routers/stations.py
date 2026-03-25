@@ -27,9 +27,12 @@ def _generate_kiosk_code(db: Session) -> str:
             return code
 
 def _next_sim_name(db: Session) -> str:
-    existing = db.query(models.Station.name).all()
+    from sqlalchemy import func
+    all_names = db.query(models.Station.name).filter(
+        models.Station.name.isnot(None)
+    ).all()
     max_num = 0
-    for (name,) in existing:
+    for (name,) in all_names:
         if not name:
             continue
         match = re.match(r"(?i)^sim\s*(\d+)$", name.strip())
@@ -54,6 +57,9 @@ class ArchiveGhostsRequest(BaseModel):
 @router.post("/", response_model=schemas.Station, dependencies=[Depends(require_agent_token_scoped("agent:register"))])
 def register_station(station: schemas.StationCreate, db: Session = Depends(database.get_db)):
     now = datetime.now(timezone.utc)
+    # Normalize MAC Address
+    station.mac_address = (station.mac_address or "").replace(":", "").replace("-", "").strip().upper()
+    
     db_station = db.query(models.Station).filter(models.Station.mac_address == station.mac_address).first()
     if db_station:
         # Update existing registration info if IP/Hostname changed
@@ -93,7 +99,19 @@ def register_station(station: schemas.StationCreate, db: Session = Depends(datab
     station_data["last_seen"] = now
     new_station = models.Station(**station_data)
     db.add(new_station)
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        # Race condition: another agent registered with same MAC concurrently
+        db.rollback()
+        db_station = db.query(models.Station).filter(models.Station.mac_address == station.mac_address).first()
+        if db_station:
+            db_station.is_active = True
+            db_station.last_seen = now
+            db.commit()
+            db.refresh(db_station)
+            return db_station
+        raise
     db.refresh(new_station)
     return new_station
 
@@ -195,7 +213,15 @@ def archive_ghost_stations(payload: ArchiveGhostsRequest, db: Session = Depends(
     older_than_hours = max(payload.older_than_hours, 1)
     cutoff = now - timedelta(hours=older_than_hours)
 
-    stations = db.query(models.Station).filter(models.Station.is_active == True).all()
+    base_filter = models.Station.is_active == True
+    if payload.include_never_seen:
+        stations = db.query(models.Station).filter(base_filter).all()
+    else:
+        stations = db.query(models.Station).filter(
+            base_filter,
+            models.Station.last_seen.isnot(None)
+        ).all()
+    
     archived_ids: List[int] = []
 
     for station in stations:
@@ -212,13 +238,16 @@ def archive_ghost_stations(payload: ArchiveGhostsRequest, db: Session = Depends(
             continue
 
         archived_ids.append(station.id)
-        if not payload.dry_run:
-            station.is_active = False
-            station.is_online = False
-            station.status = "archived"
-            station.archived_at = now
 
     if archived_ids and not payload.dry_run:
+        db.query(models.Station).filter(
+            models.Station.id.in_(archived_ids)
+        ).update({
+            "is_active": False,
+            "is_online": False,
+            "status": "archived",
+            "archived_at": now
+        }, synchronize_session=False)
         db.commit()
 
     return {
@@ -283,8 +312,6 @@ def get_target_manifest(station_id: int, db: Session = Depends(database.get_db))
                 info_with_url['url'] = f"{base_url}/{file_path}"
                 master_manifest[file_path] = info_with_url
         except json.JSONDecodeError:
-            continue
-            
             continue
             
     return master_manifest
@@ -424,16 +451,18 @@ async def mass_launch(
             })
         return {"status": "ok", "message": f"Practice launched on {len(online_stations)} stations"}
     if request.mode == "race":
-        # 0. Prepare Player List with Correct Names
+        station_ids = [s.id for s in online_stations]
+        active_sessions = {
+            s.station_id: s 
+            for s in db.query(models.Session).filter(
+                models.Session.station_id.in_(station_ids),
+                models.Session.status == "active"
+            ).all()
+        }
+        
         players_list = []
         for s in online_stations:
-            # Lookup active session for this station
-            active_session = db.query(models.Session).filter(
-                models.Session.station_id == s.id,
-                models.Session.status == "active"
-            ).first()
-
-            # Use Driver Name if session exists, else Station Name
+            active_session = active_sessions.get(s.id)
             driver_name = active_session.driver_name if active_session and active_session.driver_name else s.name
 
             players_list.append({

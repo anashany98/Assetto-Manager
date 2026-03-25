@@ -270,6 +270,8 @@ def cleanup_orphan_lobbies():
                 updated += 1
                 continue
             last_seen = host.last_seen
+            if last_seen and last_seen.tzinfo is None:
+                last_seen = last_seen.replace(tzinfo=timezone.utc)
             if host.is_online is False or (last_seen and last_seen < cutoff):
                 db.query(models.LobbyPortReservation).filter(
                     (models.LobbyPortReservation.lobby_id == lobby.id) |
@@ -382,6 +384,16 @@ def start_scheduler():
     
     scheduler.start()
     logger.info("Scheduler started - Booking reminders (18:00), Content Sync (Hourly), Ghost Archive (Configured), Global Mod Sync (03:00)")
+
+    # Periodic cleanup of in-memory failed login attempts (prevents memory leak)
+    from ..routers.auth import _cleanup_old_attempts
+    scheduler.add_job(
+        _cleanup_old_attempts,
+        'interval',
+        minutes=30,
+        id="cleanup_failed_login_attempts",
+        replace_existing=True
+    )
 
 
 def stop_scheduler():

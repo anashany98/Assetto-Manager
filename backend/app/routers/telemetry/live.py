@@ -22,7 +22,9 @@ def process_tournament_logic(session_id: int, event_id: int, driver_name: str, s
     # Create a new DB session for the background task
     db = database.SessionLocal()
     try:
-        event = db.query(models.Event).filter(models.Event.id == event_id).first()
+        # Use with_for_update() to handle concurrent finishes in tournaments (PostgreSQL).
+        # Ensures that only one background task processes the bracket for this event at a time.
+        event = db.query(models.Event).filter(models.Event.id == event_id).with_for_update().first()
         if event and event.bracket_data:
             bracket = tournament.load_bracket(event)
             if bracket:

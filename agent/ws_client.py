@@ -4,9 +4,11 @@ import json
 import logging
 import platform
 import os
+import subprocess
 import threading
 import time
 import random
+from urllib.parse import urlparse, urlunparse
 from config import AGENT_TOKEN, logger, OBS_HOST, OBS_PORT, OBS_PASSWORD, STREAM_URL
 from scanner import scan_ac_content
 from commands import (
@@ -40,7 +42,9 @@ class AgentWSClient(threading.Thread):
     def __init__(self, station_id, server_url):
         super().__init__()
         self.station_id = station_id
-        self.server_url = server_url.replace("http", "ws") + "/ws/telemetry/agent"
+        parsed = urlparse(server_url)
+        scheme = "wss" if parsed.scheme == "https" else "ws"
+        self.server_url = urlunparse((scheme, parsed.netloc, "/ws/telemetry/agent", "", "", ""))
         self.running = True
         self.daemon = True
         self.ac = ac_telemetry.ACSharedMemory()
@@ -171,6 +175,10 @@ class AgentWSClient(threading.Thread):
                         "z": data.get('z', 0),
                     })
                     
+                    # Limit buffer size to prevent memory leak if player never completes a lap
+                    if len(self.current_lap_buffer) > 50000:
+                        self.current_lap_buffer = self.current_lap_buffer[-25000:]
+                    
                     if current_laps > self.last_lap_count:
                         telemetry.save_lap_telemetry(self.last_lap_count, self.current_lap_buffer)
                         self.current_lap_buffer = []
@@ -225,8 +233,6 @@ class AgentWSClient(threading.Thread):
                 # All other commands are queued for serialised execution.
                 if command:
                     logger.info("Queuing command: %s (queue depth: %d)", command, self._command_queue.qsize())
-                    # Attach websocket reference so the worker can send acks.
-                    data["_websocket"] = websocket
                     await self._command_queue.put(data)
 
             except websockets.ConnectionClosed:
@@ -242,25 +248,25 @@ class AgentWSClient(threading.Thread):
         if command == "shutdown":
             await self._send_command_ack(websocket, data, status="accepted")
             if platform.system() == "Windows":
-                os.system("shutdown /s /t 5")
+                subprocess.run(["shutdown", "/s", "/t", "5"])
 
         elif command == "restart":
             await self._send_command_ack(websocket, data, status="accepted")
             if platform.system() == "Windows":
-                os.system("shutdown /r /t 5")
+                subprocess.run(["shutdown", "/r", "/t", "5"])
 
         elif command == "panic":
             await self._send_command_ack(websocket, data, status="accepted")
             stop_idle_display()
             watchdog.stop()
-            os.system("taskkill /F /IM acs.exe")
+            subprocess.run(["taskkill", "/F", "/IM", "acs.exe"], capture_output=True)
             start_idle_display()
 
         elif command == "stop_session":
             await self._send_command_ack(websocket, data, status="accepted")
             stop_idle_display()
             watchdog.stop()
-            os.system("taskkill /F /IM acs.exe")
+            subprocess.run(["taskkill", "/F", "/IM", "acs.exe"], capture_output=True)
             start_idle_display()
 
         elif command == "launch_session":

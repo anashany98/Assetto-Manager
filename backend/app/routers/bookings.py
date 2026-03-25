@@ -142,12 +142,20 @@ def create_booking_record(
     booking_date, time_slot, requested_start, requested_end = _resolve_booking_input(data)
 
     # Prevent race conditions for the same slot (PostgreSQL advisory lock)
+    lock_acquired = False
     try:
         if db.bind and db.bind.dialect.name == "postgresql":
             lock_key = _booking_lock_key(booking_date, time_slot, data.station_id)
             db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": lock_key})
+            lock_acquired = True
     except Exception as exc:
         logger.warning("Booking lock unavailable, proceeding without advisory lock: %s", exc)
+    
+    if not lock_acquired:
+        logger.warning(
+            "ADVISORY LOCK FAILED for booking %s %s station %s - Race condition possible",
+            booking_date, time_slot, data.station_id
+        )
 
     booking_datetime = datetime.combine(booking_date, datetime.min.time())
 

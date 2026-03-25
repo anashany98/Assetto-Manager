@@ -182,6 +182,14 @@ def install_mod_logic(data):
         try:
             if file_name.lower().endswith(".zip"):
                 with zipfile.ZipFile(local_zip_path, 'r') as zip_ref:
+                    # Validate all entries before extraction (path traversal prevention)
+                    for member in zip_ref.infolist():
+                        member_path = (Path(target_base) / member.filename).resolve()
+                        try:
+                            member_path.relative_to(Path(target_base).resolve())
+                        except ValueError:
+                            logger.error(f"Path traversal detected in zip: {member.filename}")
+                            raise ValueError(f"Unsafe path in archive: {member.filename}")
                     zip_ref.extractall(target_base)
             elif patoolib:
                 patoolib.extract_archive(local_zip_path, outdir=str(target_base))
@@ -224,17 +232,22 @@ def create_lobby_server(data):
         # Ensure cfg directory exists
         os.makedirs(cfg_dir, exist_ok=True)
         
+        # Build track path with optional layout (e.g., "monza/without_chiptune")
+        track_base = data.get('track', '')
+        track_layout = data.get('track_layout')
+        track_full = f"{track_base}/{track_layout}" if track_layout else track_base
+        
         # 1. Generate server_cfg.ini
         admin_password = LOBBY_ADMIN_PASSWORD or ""
         server_cfg = f"""[SERVER]
 NAME=AC Manager Lobby {data.get('lobby_id')}
 CARS={data.get('car')};
-TRACK={data.get('track')}
+TRACK={track_full}
 SUN_ANGLE=48
 MAX_CLIENTS={data.get('max_players')}
 UDP_PORT={data.get('port')}
 TCP_PORT={data.get('port')}
-HTTP_PORT={data.get('port') + 1}
+HTTP_PORT={_coerce_int(data.get('port'), 8080) + 1}
 REGISTER_TO_LOBBY=0
 LOOP_MODE=1
 PASSWORD=
@@ -402,9 +415,9 @@ def launch_session_logic(data, station_id):
 
     # 1. Kill any running game instance first
     if platform.system() == "Windows":
-        os.system("taskkill /F /IM acs.exe 2>nul")
+        subprocess.run(["taskkill", "/F", "/IM", "acs.exe"], capture_output=True)
     else:
-        os.system("pkill -9 acs 2>/dev/null")
+        subprocess.run(["pkill", "-9", "acs"], capture_output=True)
 
     # Find AC Documents folder
     ac_docs_path = os.path.join(os.path.expanduser("~"), "Documents", "Assetto Corsa", "cfg")

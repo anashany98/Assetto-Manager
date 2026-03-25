@@ -13,7 +13,14 @@ self.addEventListener('install', (event) => {
         caches.open(CACHE_NAME)
             .then((cache) => {
                 console.log('Service Worker: Caching static assets');
-                return cache.addAll(STATIC_ASSETS);
+                // Cache each asset individually so one failure doesn't break the whole install
+                return Promise.all(
+                    STATIC_ASSETS.map((url) =>
+                        cache.add(url).catch((err) => {
+                            console.warn(`Service Worker: Failed to cache ${url}:`, err);
+                        })
+                    )
+                );
             })
             .then(() => self.skipWaiting())
     );

@@ -48,6 +48,7 @@ export const useTelemetry = () => {
     const [streamingStations, setStreamingStations] = useState<Record<string, StationStreamingState>>({});
     const ws = useRef<WebSocket | null>(null);
     const reconnectTimeout = useRef<number | null>(null);
+    const reconnectAttempts = useRef(0);
     const latestDataRef = useRef<Record<string, TelemetryPacket>>({});
 
     // Demo mode is only available in development builds (never in production)
@@ -140,7 +141,8 @@ export const useTelemetry = () => {
                 } catch {
                     // If send fails, onclose/onerror will drive reconnection.
                 }
-                // Connected
+                // Connected — reset reconnection counter
+                reconnectAttempts.current = 0;
                 setIsConnected(true);
             };
 
@@ -148,7 +150,13 @@ export const useTelemetry = () => {
                 setIsConnected(false);
                 if (event.code !== 1000) {
                     console.warn(`Telemetry: Closed (${event.code}). Retrying...`);
-                    reconnectTimeout.current = window.setTimeout(connect, 3000);
+                }
+                // Always try to reconnect on non-normal close, with exponential backoff
+                if (event.code !== 1000) {
+                    const attempt = reconnectAttempts.current;
+                    const delay = Math.min(1000 * Math.pow(2, attempt), 30000);
+                    reconnectAttempts.current = Math.min(attempt + 1, 10);
+                    reconnectTimeout.current = window.setTimeout(connect, delay);
                 }
             };
 
@@ -165,6 +173,10 @@ export const useTelemetry = () => {
                             ? Number.parseInt(data.station_id, 10)
                             : data.station_id;
                         if (!Number.isFinite(stationId)) return;
+                        // Remap "n" → "normalized_pos" (simulator uses shorthand "n")
+                        if (data.n !== undefined && data.normalized_pos === undefined) {
+                            data.normalized_pos = data.n;
+                        }
                         // Update the ref immediately
                         latestDataRef.current = {
                             ...latestDataRef.current,

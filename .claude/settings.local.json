@@ -25,7 +25,10 @@
       "Bash(python -c \":*)",
       "Bash(curl -s http://localhost:8011/lobby/list?status=active)",
       "Bash(python -m json.tool)",
-      "Bash(curl -s \"http://localhost:8011/lobby/list\")"
+      "Bash(curl -s \"http://localhost:8011/lobby/list\")",
+      "Bash(netstat -ano)",
+      "Bash(cmd.exe /c \"taskkill /PID 26136 /F 2>&1\")",
+      "Bash(grep -n '\"\"n\"\"\\\\|\\\\.n\\\\b\\\\|n_pos\\\\|normalized' frontend/src/hooks/useTelemetry.ts)"
     ]
   }
 }

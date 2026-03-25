@@ -4,10 +4,6 @@ from contextlib import asynccontextmanager
 from .database import (
     engine,
     Base,
-    ensure_station_schema,
-    ensure_table_schema,
-    ensure_user_schema,
-    ensure_championship_schema,
 )
 from .routers import stations, mods, websockets, settings, profiles, events, config_manager, championships, integrations, tournament, logs, ads, auth, backup, exports, loyalty, bookings, analytics, push, elimination, elo, hardware, control, drivers, payments, tables, tracks, deploy_sync, maintenance
 from .routers.telemetry import router as telemetry_router  # Modular telemetry package
@@ -106,6 +102,15 @@ def _validate_runtime_config():
         secret_key = (os.getenv("SECRET_KEY") or "").strip()
         if secret_key and len(secret_key) < 32:
             raise RuntimeError("SECRET_KEY must be at least 32 characters in production")
+    # Offline Mode for LAN-only deployments
+    offline_mode = os.getenv("OFFLINE_MODE", "false").lower() in {"1", "true", "yes"}
+    if offline_mode:
+        logger.info("OFFLINE_MODE enabled: Disabling external cloud dependencies (Payments, VMS, AI Coach)")
+        # Force disable external features if in offline mode
+        os.environ["PAYMENTS_ENABLED"] = "false"
+        os.environ["ENABLE_VMS_INTEGRATION"] = "false"
+        os.environ["ENABLE_EMAILS"] = "false"
+        
     if ENVIRONMENT == "production":
         # License verification in production requires a public key to validate tokens.
         public_key_inline = (os.getenv("LICENSE_PUBLIC_KEY") or "").strip()
@@ -116,7 +121,8 @@ def _validate_runtime_config():
             or (public_key_path is not None and public_key_path.exists())
             or (REPO_ROOT / "certs" / "public_key.pem").exists()
         )
-        if not has_public_key:
+        offline_mode = os.getenv("OFFLINE_MODE", "false").lower() in {"1", "true", "yes"}
+        if not has_public_key and not offline_mode:
             missing.append("LICENSE_PUBLIC_KEY/LICENSE_PUBLIC_KEY_PATH/certs/public_key.pem")
         allow_public_query = os.getenv("ALLOW_PUBLIC_TOKEN_QUERY", "false").lower() in {"1", "true", "yes"}
         allow_ws_query = os.getenv("ALLOW_WS_TOKEN_QUERY", "false").lower() in {"1", "true", "yes"}
@@ -156,16 +162,8 @@ async def lifespan(app: FastAPI):
     if AUTO_SCHEMA and ENVIRONMENT != "production":
         logger.info("AUTO_SCHEMA enabled (Dev Only): Checking schema...")
         Base.metadata.create_all(bind=engine)
-        # ensure_station_schema(engine) # DEPRECATED: Use Alembic
-        # ensure_table_schema(engine) # DEPRECATED: Use Alembic
-        # ensure_user_schema(engine) # DEPRECATED: Use Alembic
     else:
         logger.info("AUTO_SCHEMA disabled or Production Mode; skipping runtime schema changes")
-    try:
-        # Backward compatibility for databases created before championship timestamps existed.
-        ensure_championship_schema(engine)
-    except Exception as exc:
-        logger.warning("Failed to ensure championship schema: %s", exc)
     scheduler_enabled = os.getenv("ENABLE_SCHEDULER", "true").lower() in {"1", "true", "yes"}
     worker_count = _get_worker_count()
     if worker_count > 1 and scheduler_enabled:
@@ -262,7 +260,6 @@ from uuid import uuid4
 from .observability import record_request
 
 configure_logging()
-logger = logging.getLogger(__name__)
 
 # Attach Memory Handler for UI Logs
 # Use protected handler to prevent crash

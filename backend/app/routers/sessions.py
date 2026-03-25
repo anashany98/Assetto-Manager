@@ -129,7 +129,7 @@ def get_active_sessions(db: DBSession = Depends(get_db)):
     if len(valid_sessions) != len(active_sessions):
         db.commit()
 
-    return [_map_session_response(s, s.station.name) for s in valid_sessions]
+    return [_map_session_response(s, s.station.name if s.station else "Unknown") for s in valid_sessions]
 
 
 @router.post("/{session_id}/stop", dependencies=[Depends(require_admin)])

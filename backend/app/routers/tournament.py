@@ -5,6 +5,9 @@ from .. import models
 from .auth import require_admin, require_admin_or_public_token
 from ..security.license import require_license_module
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/tournaments",
@@ -145,6 +148,7 @@ def find_active_match(bracket: dict, player_name: str) -> dict:
 def advance_bracket_for_winner(event: models.Event, winner_name: str, db: Session) -> dict:
     bracket = load_bracket(event)
     if not bracket:
+        logger.warning(f"No bracket found for event {event.id}")
         return None
 
     # Find the active match for this player

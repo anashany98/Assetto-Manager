@@ -107,10 +107,31 @@ def get_mac_address():
     return mac
 
 def get_ip_address():
+    """
+    Tries to get the local IP address.
+    First tries connecting to a common DNS (8.8.8.8) to find the primary interface.
+    Falls back to looking for the first non-loopback interface.
+    """
     try:
+        # Method 1: Connect to a public IP (doesn't send a packet)
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        ip = s.getsockname()[0]
+        s.settimeout(0)
+        try:
+            # 8.8.8.8 is used to identify the default interface
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+        except Exception:
+            # Method 2: Fallback for 100% offline LAN
+            # Get hostname and resolve it
+            ip = socket.gethostbyname(socket.gethostname())
+            if ip.startswith("127."):
+                # Resolve by connecting to the server if URL is an IP
+                from config import SERVER_URL
+                from urllib.parse import urlparse
+                parsed = urlparse(SERVER_URL)
+                if parsed.hostname and not any(c.isalpha() for c in parsed.hostname.replace(".", "")):
+                     s.connect((parsed.hostname, 80))
+                     ip = s.getsockname()[0]
         s.close()
         return ip
     except Exception:

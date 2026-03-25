@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc, func, and_, or_
 from typing import List, Optional
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -135,7 +135,7 @@ def submit_manual_results(event_id: int, results: schemas.EventResultManual, db:
     logger.info(f"Event {event_id} completed manually. Winner: {results.winner_name}")
 
     # Create synthetic results for the podium to ensure Championship points are awarded
-    current_time = datetime.now()
+    current_time = datetime.now(timezone.utc)
     
     # 1. Winner (Best Time = 1ms)
     db.add(models.SessionResult(
@@ -179,7 +179,7 @@ def submit_manual_results(event_id: int, results: schemas.EventResultManual, db:
 @router.get("/active", response_model=Optional[schemas.Event])
 def get_active_event(db: Session = Depends(database.get_db), _auth: object = Depends(require_admin_or_public_token)):
     # Find event where current time is between start and end
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     active_filter = or_(
         models.Event.is_active == True,
         and_(
@@ -390,17 +390,21 @@ def process_event_results(event_id: int, db: Session = Depends(database.get_db),
     if not results:
         return {"message": "No results to process"}
 
-    # 1. Prepare Data & Update Stats
+    driver_names = [r.driver_name for r in results]
+    existing_drivers = {
+        d.name: d for d in db.query(models.Driver).filter(models.Driver.name.in_(driver_names)).all()
+    }
+    
     elo_input = []
     drivers_by_id = {}
 
     for idx, result in enumerate(results):
-        driver = db.query(models.Driver).filter(models.Driver.name == result.driver_name).first()
+        driver = existing_drivers.get(result.driver_name)
         if not driver:
             driver = models.Driver(name=result.driver_name, elo_rating=DEFAULT_RATING)
             db.add(driver)
-            db.commit()
-            db.refresh(driver)
+            db.flush()
+            existing_drivers[result.driver_name] = driver
         
         drivers_by_id[driver.id] = driver
         

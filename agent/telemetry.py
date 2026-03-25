@@ -2,6 +2,7 @@ import os
 import json
 import logging
 import requests
+import time
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -18,6 +19,7 @@ def _agent_headers():
 # Almacén de telemetría en memoria: { lap_index (int): [puntos_telemetria] }
 # Se rellena desde main.py usando memoria compartida
 _telemetry_buffer = {}
+_last_mtime = 0.0
 
 def save_lap_telemetry(lap_idx, data):
     """
@@ -136,8 +138,20 @@ def parse_and_send_telemetry(file_path, server_url, station_id):
         logger.error(f"Error procesando telemetría: {e}")
         return False
 
-# Función para verificar actualizaciones
-_last_mtime = 0
+def is_file_ready(file_path, timeout=5):
+    """
+    Verifica que el archivo JSON esté completo y sea válido antes de procesar.
+    Reintenta durante 'timeout' segundos.
+    """
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        try:
+            with open(file_path, 'r', encoding='utf-8-sig') as f:
+                json.load(f)
+            return True
+        except (json.JSONDecodeError, IOError):
+            time.sleep(0.5)
+    return False
 
 def check_for_new_results(server_url, station_id):
     global _last_mtime
@@ -149,15 +163,14 @@ def check_for_new_results(server_url, station_id):
     try:
         mtime = os.path.getmtime(file_path)
         if mtime > _last_mtime:
-            # Archivo modificado o nuevo
-            logger.info("¡Nuevo resultado de carrera detectado!")
+            logger.info("¡Cambio en archivo de resultados detectado! Verificando integridad...")
             
-            # Pequeña espera para asegurar escritura completa
-            import time
-            time.sleep(1) 
-            
-            if parse_and_send_telemetry(file_path, server_url, station_id):
-                _last_mtime = mtime
+            if is_file_ready(file_path):
+                if parse_and_send_telemetry(file_path, server_url, station_id):
+                    _last_mtime = mtime
+                    logger.info("Telemetría procesada correctamente.")
+            else:
+                logger.warning("El archivo de resultados parece incompleto o corrupto tras esperar.")
                 
     except Exception as e:
         logger.error(f"Error verificando archivo de resultados: {e}")

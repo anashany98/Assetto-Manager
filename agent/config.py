@@ -123,7 +123,7 @@ for config_path in config_paths:
         break
     except Exception as e:
         logger.error(f"Failed to load config file {config_path}: {e}")
-        break
+        continue
 
 # Ensure variables are available to child modules that read env vars
 if AGENT_TOKEN:

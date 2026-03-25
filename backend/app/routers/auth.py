@@ -205,6 +205,16 @@ _failed_login_attempts: dict[str, dict] = {}
 import threading
 _failed_attempts_lock = threading.Lock()
 
+# Check for multi-worker deployment at startup
+_worker_count = int(os.getenv("UVICORN_WORKERS", "1") or os.getenv("WEB_CONCURRENCY", "1") or "1")
+if _worker_count > 1:
+    logger.warning(
+        "Multi-worker deployment detected (UVICORN_WORKERS=%d). "
+        "In-memory rate limiting is NOT shared across workers. "
+        "For production with multiple workers, consider using Redis-based rate limiting.",
+        _worker_count
+    )
+
 # Progressive rate limiting configuration
 MAX_FAILED_ATTEMPTS_BEFORE_LOCKOUT = 5
 LOCKOUT_DURATION_MINUTES = 15

@@ -68,18 +68,16 @@ class ProcessWatchdog:
         restarts = 0
         MAX_RESTARTS = 3
         
-        # Track continuous healthy uptime
-        last_check_time = time.time()
+        # Track time since last restart for stability check
+        last_restart_time = time.time()
         
         while self.watching:
             now = time.time()
             if self._is_game_running():
-                 # If running fine for more than 5 minutes, reset restart counter
-                 if now - last_check_time > 300 and restarts > 0:
-                     logger.info("Watchdog: Process stable for 5m. Resetting restart counter.")
+                 # Track stable uptime since last restart (not since last check)
+                 if restarts > 0 and (now - last_restart_time) > 300:
+                     logger.info("Watchdog: Process stable for 5m after restart. Resetting restart counter.")
                      restarts = 0
-                 
-                 last_check_time = now
             else:
                 if restarts >= MAX_RESTARTS:
                     logger.error("Watchdog: Max restarts exceeded (3 crashes in <5 mins). Stopping watchdog.")
@@ -90,8 +88,8 @@ class ProcessWatchdog:
                 self._restart_game()
                 restarts += 1
                 
-                # Reset healthy timer
-                last_check_time = time.time()
+                # Reset healthy timer after restart
+                last_restart_time = time.time()
                 
                 time.sleep(20)  # Wait longer for game to start
                  
