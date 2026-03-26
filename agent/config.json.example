@@ -1,0 +1,8 @@
+{
+    "server_url": "http://localhost:8000",
+    "ac_content_dir": "ac_content_root",
+    "ac_path": "ac_root",
+    "station_name": "AC-SIM-TEST",
+    "mac_address": "00:00:00:00:00:00",
+    "agent_token": "change-me"
+}

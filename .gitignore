@@ -42,6 +42,7 @@ certs/*.key
 # Local Config
 LOCAL
 NETWORK
+agent/config.json
 
 # Playwright
 test-results/
