@@ -32,12 +32,14 @@ import { parseKioskIdleTimeoutMs } from '../utils/kioskSettings';
 // but let's keep it if we want to switch back or use it inside RaceMode?
 // No, the instruction is to REPLACE usage. I will remove the import.
 
+import { launchLocalSession } from '../api/agentLocal';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
     AttractMode, ScenarioStep, DriverStep, DifficultyStep,
     PaymentStep, NoPaymentStep, WaitingRoom, RaceMode, ResultsStep
 } from './KioskSteps';
 import type { KioskSelection } from './KioskSteps';
+import { KioskErrorBoundary } from '../components/kiosk/KioskErrorBoundary';
 
 // Driver creation is handled inline for now. Backend may provide endpoint.
 const baseClientTokenHeaders: Record<string, string> = PUBLIC_API_TOKEN ? { 'X-Client-Token': PUBLIC_API_TOKEN } : {};
@@ -78,16 +80,33 @@ export default function KioskMode() {
     const [isLaunched, setIsLaunched] = useState(false);
     const [remainingSeconds, setRemainingSeconds] = useState<number>(duration * 60);
 
-    // COUNTDOWN TIMER LOGIC
+    // COUNTDOWN TIMER LOGIC - single interval, no dependency on remainingSeconds
+    const intervalRef = useRef<NodeJS.Timeout | null>(null);
     useEffect(() => {
-        let interval: NodeJS.Timeout;
         if (isLaunched && remainingSeconds > 0) {
-            interval = setInterval(() => {
-                setRemainingSeconds(prev => Math.max(0, prev - 1));
+            if (intervalRef.current) clearInterval(intervalRef.current);
+            intervalRef.current = setInterval(() => {
+                setRemainingSeconds(prev => {
+                    if (prev <= 1) {
+                        if (intervalRef.current) clearInterval(intervalRef.current);
+                        intervalRef.current = null;
+                    }
+                    return Math.max(0, prev - 1);
+                });
             }, 1000);
+        } else {
+            if (intervalRef.current) {
+                clearInterval(intervalRef.current);
+                intervalRef.current = null;
+            }
         }
-        return () => clearInterval(interval);
-    }, [isLaunched, remainingSeconds]);
+        return () => {
+            if (intervalRef.current) {
+                clearInterval(intervalRef.current);
+                intervalRef.current = null;
+            }
+        };
+    }, [isLaunched]);
 
     // Update remaining seconds when duration changes (only if not launched)
     useEffect(() => {
@@ -177,6 +196,14 @@ export default function KioskMode() {
         return entry.value !== 'false' && entry.value !== '0';
     }, [settings]);
 
+    const brandName = useMemo(() => {
+        const entry = settings.find((item: any) => item.key === 'brand_name');
+        return entry?.value || 'DRIVE LAB';
+    }, [settings]);
+    const brandSubtitle = useMemo(() => {
+        const entry = settings.find((item: any) => item.key === 'brand_subtitle');
+        return entry?.value || 'SIM STUDIO';
+    }, [settings]);
     const rainEnabled = useMemo(() => {
         const entry = settings.find((item: any) => item.key === 'kiosk_rain_enabled');
         // Default to TRUE for now if not set, or FALSE? User said "assetto doesn't have rain natively", so probably FALSE default is safer, 
@@ -189,7 +216,21 @@ export default function KioskMode() {
         const entry = settings.find((item: any) => item.key === 'kiosk_idle_timeout_seconds');
         return parseKioskIdleTimeoutMs(entry?.value);
     }, [settings]);
-    const idleModeEnabled = false;
+    const idleModeEnabled = true;
+    const { data: topTimes = [] } = useQuery({
+        queryKey: ['leaderboard-top'],
+        queryFn: () => axios.get(`${API_URL}/leaderboard/top`, { params: { limit: 1 } }).then(r => r.data),
+        refetchInterval: 60000
+    });
+    const topRecordTime = useMemo(() => {
+        if (topTimes.length > 0 && topTimes[0].best_time) {
+            const ms = topTimes[0].best_time;
+            const minutes = Math.floor(ms / 60000);
+            const seconds = ((ms % 60000) / 1000).toFixed(3);
+            return `${minutes}:${seconds.padStart(6, '0')}`;
+        }
+        return null;
+    }, [topTimes]);
     const disabledIdleTimeout = 86400000;
 
     const paymentNote = paymentEnabled
@@ -226,9 +267,6 @@ export default function KioskMode() {
 
 
     const handleUnpair = () => {
-        if (!window.confirm('Desvincular esta tablet del simulador actual?')) {
-            return;
-        }
         clearPairedStationId();
         setPairedKioskCode(null);
         setStationId(0);
@@ -239,9 +277,14 @@ export default function KioskMode() {
         setSelectedScenario(null);
         setIsLaunched(false);
         setShowPairing(true);
-        window.location.reload();
     };
 
+
+    const [isServerConnected, setIsServerConnected] = useState(true);
+
+    useEffect(() => {
+        setIsServerConnected(!isHardwareError);
+    }, [isHardwareError]);
 
     // WebSocket event states
     const [agentStatus, setAgentStatus] = useState<'online' | 'offline' | null>(null);
@@ -484,6 +527,7 @@ export default function KioskMode() {
                     }
                 }
                 setStep(6);
+                setIsLaunched(false);
                 return;
             }
 
@@ -501,15 +545,40 @@ export default function KioskMode() {
             setIsLaunched(true);
         } catch (e) {
             console.error("Launch Error:", e);
+            
+            // Try offline launch via local agent if server is unreachable
+            if (axios.isAxiosError(e) && !e.response) {
+                try {
+                    const agentIp = hardwareStatus?.ip_address || '127.0.0.1';
+                    await launchLocalSession(
+                        agentIp,
+                        undefined,
+                        {
+                            car: selection?.car || '',
+                            track: selection?.track || '',
+                            track_layout: selection?.track_layout,
+                            driver_name: driver?.name,
+                            duration_minutes: duration,
+                            station_id: stationId
+                        },
+                        undefined,
+                        pairedKioskCode || undefined
+                    );
+                    setIsLaunched(true);
+                    return;
+                } catch (localErr) {
+                    console.error('Offline launch also failed:', localErr);
+                }
+            }
+            
             if (selection?.isLobby) {
                 const fallback = selection.isHost
                     ? 'No se pudo crear la sala multijugador.'
                     : 'No se pudo acceder a la sala multijugador.';
-                window.alert(resolveApiError(e, fallback));
+                setPaymentError(resolveApiError(e, fallback));
             } else {
                 const message = resolveApiError(e, 'No se pudo lanzar la sesion.');
                 setPaymentError(message);
-                window.alert(message);
             }
         } finally {
             setLaunchingNoPayment(false);
@@ -837,19 +906,23 @@ export default function KioskMode() {
     }
 
     return (
-        <div className="kiosk-shell h-screen w-screen flex flex-col relative overflow-hidden font-racing">
-            <AttractMode
-                isIdle={idleModeEnabled && isIdle()}
-                scenarios={activeScenarios}
-                t={t}
-                onUnpair={handleUnpair}
-            />
-            <div className="absolute inset-0 kiosk-bg" />
-            <div className="absolute inset-0 kiosk-grid opacity-30" />
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.6),rgba(2,6,23,0.85))]" />
+        <KioskErrorBoundary onReset={resetKioskFlow}>
+            <div className="kiosk-shell h-screen w-screen flex flex-col relative overflow-hidden font-racing">
+                <AttractMode
+                    isIdle={idleModeEnabled && isIdle()}
+                    scenarios={activeScenarios}
+                    t={t}
+                    onUnpair={handleUnpair}
+                    brandName={brandName}
+                    brandSubtitle={brandSubtitle}
+                    topRecordTime={topRecordTime}
+                />
+                <div className="absolute inset-0 kiosk-bg" />
+                <div className="absolute inset-0 kiosk-grid opacity-30" />
+                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.6),rgba(2,6,23,0.85))]" />
 
-            {true && (
-                <div className="relative z-20 h-full flex flex-col p-3 md:p-5 overflow-hidden">
+                {true && (
+                    <div className="relative z-20 h-full flex flex-col p-3 md:p-5 overflow-hidden">
                     {/* TOP BAR */}
                     <div className="flex flex-col xl:flex-row justify-between xl:items-center gap-3 md:gap-4 mb-3 md:mb-4">
                         <div className="flex items-center gap-4 md:gap-6 flex-wrap">
@@ -873,6 +946,12 @@ export default function KioskMode() {
 
                         {/* STATUS INDICATORS */}
                         <div className="flex items-center gap-2">
+                            {/* Server connection status */}
+                            <div className={`px-2 py-1 rounded text-xs font-bold ${
+                                isServerConnected ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400 animate-pulse'
+                            }`}>
+                                {isServerConnected ? '🟢 Servidor' : '🔴 Sin servidor'}
+                            </div>
                             {/* Agent connection status */}
                             {agentStatus && (
                                 <div className={`px-2 py-1 rounded text-xs font-bold ${
@@ -968,5 +1047,6 @@ export default function KioskMode() {
                 </div>
             )}
         </div>
+        </KioskErrorBoundary>
     );
 }

@@ -57,7 +57,7 @@ const useDemoMulti = (enabled: boolean) => {
 };
 
 export default function TVSpectatorMulti() {
-    const demoMode = new URLSearchParams(window.location.search).get('demo') === '1';
+    const demoMode = (() => { const d = new URLSearchParams(window.location.search).get('demo'); return d === 'true' || d === '1'; })();
 
     const { liveCars } = useTelemetry();
     const demoDrivers = useDemoMulti(demoMode);

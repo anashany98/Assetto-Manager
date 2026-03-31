@@ -51,6 +51,7 @@ const LapComparison = lazy(() => import('./pages/LapComparison'));
 const TVSpectator = lazy(() => import('./pages/TVSpectator'));
 const TVSpectatorFullscreen = lazy(() => import('./pages/TVSpectatorFullscreen'));
 const TVSpectatorMulti = lazy(() => import('./pages/TVSpectatorMulti'));
+const TVHallOfFame = lazy(() => import('./pages/TVHallOfFame'));
 const UserManagement = lazy(() => import('./pages/UserManagement'));
 const StationDisplay = lazy(() => import('./pages/StationDisplay'));
 const DirectorComponent = lazy(() => import('./pages/DirectorPage').then(module => ({ default: module.DirectorPage })));
@@ -127,6 +128,7 @@ function App() {
                 <Route path="/tv/spectator" element={<TVSpectator />} />
                 <Route path="/tv/spectator-fullscreen" element={<TVSpectatorFullscreen />} />
                 <Route path="/tv/spectator-multi" element={<TVSpectatorMulti />} />
+                <Route path="/tv/hall-of-fame" element={<TVHallOfFame />} />
                 <Route path="/mobile" element={<MobileLeaderboard />} />
                 <Route path="/passport-scanner" element={<MobilePassport />} />
                 <Route path="/tv-mode" element={<TVMode />} />

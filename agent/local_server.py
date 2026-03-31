@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 import platform
@@ -26,6 +27,18 @@ def set_local_kiosk_code(code: str | None) -> None:
     _local_kiosk_code = normalized
     if normalized:
         logger.info("Local kiosk code updated for offline control")
+        # Persist to config.json
+        try:
+            config_path = Path(__file__).parent / "config.json"
+            config = {}
+            if config_path.exists():
+                with open(config_path, "r") as f:
+                    config = json.load(f)
+            config["kiosk_code"] = normalized
+            with open(config_path, "w") as f:
+                json.dump(config, f, indent=4)
+        except Exception as e:
+            logger.warning(f"Failed to persist kiosk code: {e}")
 
 
 def _get_content_cache() -> dict:
@@ -61,7 +74,8 @@ def _stop_ac():
     """Kill any running Assetto Corsa process."""
     watchdog.stop()
     if platform.system() == "Windows":
-        subprocess.run(["taskkill", "/F", "/IM", "acs.exe"], capture_output=True)
+        for proc_name in ["acs.exe", "acs_pro.exe", "AssettoCorsa.exe"]:
+            subprocess.run(["taskkill", "/F", "/IM", proc_name], capture_output=True)
     else:
         subprocess.run(["pkill", "-9", "acs"], capture_output=True)
     start_idle_display()
@@ -92,13 +106,7 @@ async def auth_middleware(request: web.Request, handler):
 # Request handlers
 # ---------------------------------------------------------------------------
 async def handle_health(request: web.Request) -> web.Response:
-    system_info = get_system_info()
-    return web.json_response({
-        "status": "ok",
-        "agent_version": AGENT_VERSION,
-        "hostname": system_info.get("hostname", ""),
-        "ip_address": system_info.get("ip_address", ""),
-    })
+    return web.json_response({"status": "ok"})
 
 
 async def handle_content(request: web.Request) -> web.Response:
@@ -107,6 +115,8 @@ async def handle_content(request: web.Request) -> web.Response:
 
 
 async def handle_launch(request: web.Request) -> web.Response:
+    if _is_ac_running():
+        return web.json_response({"error": "AC is already running"}, status=409)
     try:
         data = await request.json()
     except Exception:
@@ -211,7 +221,7 @@ def start_local_server(port: Optional[int] = None):
         asyncio.set_event_loop(loop)
         runner = web.AppRunner(app)
         loop.run_until_complete(runner.setup())
-        site = web.TCPSite(runner, "0.0.0.0", effective_port)
+        site = web.TCPSite(runner, "127.0.0.1", effective_port)
         loop.run_until_complete(site.start())
         _server_runner = runner
         logger.info(f"Local API server started on port {effective_port}")
@@ -225,11 +235,12 @@ def stop_local_server():
     """Stop the local HTTP server."""
     global _server_runner
     if _server_runner is not None:
-        import asyncio
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.new_event_loop()
             loop.run_until_complete(_server_runner.cleanup())
-        except Exception:
-            pass
-        _server_runner = None
-        logger.info("Local API server stopped")
+            loop.close()
+        except Exception as e:
+            logger.warning(f"Error stopping local server: {e}")
+        finally:
+            _server_runner = None
+            logger.info("Local API server stopped")

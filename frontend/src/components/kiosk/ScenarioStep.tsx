@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { ChevronLeft, ChevronRight, Activity } from 'lucide-react';
+import { toast } from 'sonner';
 import { soundManager } from '../../utils/sound';
 import { API_URL } from '../../config';
 import type { Scenario } from '../../api/scenarios';
@@ -69,13 +70,13 @@ export const ScenarioStep: React.FC<ScenarioStepProps> = ({
 
     const handleJoinLobby = (lobby: Lobby) => {
         if (!lobby?.id || lobby.id <= 0) {
-            window.alert('Sala no valida. Recarga la lista de salas en vivo.');
+            toast.error('Sala no valida. Recarga la lista de salas en vivo.');
             return;
         }
         const playerCount = lobby.player_count ?? lobby.players_count ?? 0;
         const maxPlayers = lobby.max_players ?? 10;
         if (playerCount >= maxPlayers) {
-            window.alert('La sala está llena. Por favor elige otra.');
+            toast.error('La sala está llena. Por favor elige otra.');
             return;
         }
         soundManager.playClick();

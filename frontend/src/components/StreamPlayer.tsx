@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type flvjs from 'flv.js';
 import type Hls from 'hls.js';
 
@@ -12,6 +12,7 @@ export default function StreamPlayer({ url, className }: StreamPlayerProps) {
     const playerRef = useRef<flvjs.Player | null>(null);
     const hlsRef = useRef<Hls | null>(null);
     const rtcRef = useRef<RTCPeerConnection | null>(null);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         const videoElement = videoRef.current;
@@ -61,7 +62,10 @@ export default function StreamPlayer({ url, className }: StreamPlayerProps) {
                 // Handle play promise
                 const playPromise = player.play();
                 if (playPromise !== undefined) {
-                    playPromise.catch(() => {});
+                    playPromise.catch((e) => {
+                        setError('Stream connection failed');
+                        console.error('Stream error:', e);
+                    });
                 }
 
                 playerRef.current = player;
@@ -79,7 +83,10 @@ export default function StreamPlayer({ url, className }: StreamPlayerProps) {
                     videoElement.onloadedmetadata = () => {
                         const playPromise = videoElement.play();
                         if (playPromise !== undefined) {
-                            playPromise.catch(() => {});
+                            playPromise.catch((e) => {
+                        setError('Stream connection failed');
+                        console.error('Stream error:', e);
+                    });
                         }
                     };
                     return;
@@ -104,7 +111,10 @@ export default function StreamPlayer({ url, className }: StreamPlayerProps) {
                 hls.on(Hls.Events.MANIFEST_PARSED, () => {
                     const playPromise = videoElement.play();
                     if (playPromise !== undefined) {
-                        playPromise.catch(() => {});
+                        playPromise.catch((e) => {
+                        setError('Stream connection failed');
+                        console.error('Stream error:', e);
+                    });
                     }
                 });
                 hls.on(Hls.Events.ERROR, (_event, _data) => {
@@ -161,7 +171,10 @@ export default function StreamPlayer({ url, className }: StreamPlayerProps) {
 
                     const playPromise = videoElement.play();
                     if (playPromise !== undefined) {
-                        playPromise.catch(() => {});
+                        playPromise.catch((e) => {
+                        setError('Stream connection failed');
+                        console.error('Stream error:', e);
+                    });
                     }
                 };
 
@@ -173,7 +186,10 @@ export default function StreamPlayer({ url, className }: StreamPlayerProps) {
             videoElement.src = url;
         };
 
-        start().catch(() => {});
+        start().catch((e) => {
+            setError('Stream connection failed');
+            console.error('Stream error:', e);
+        });
 
         return () => {
             cancelled = true;
@@ -196,14 +212,21 @@ export default function StreamPlayer({ url, className }: StreamPlayerProps) {
     }, [url]);
 
     return (
-        <video
-            ref={videoRef}
-            className={`w-full h-full object-cover bg-black ${className || ''}`}
-            autoPlay
-            muted
-            playsInline
-            controls
-        />
+        <div className="relative w-full h-full">
+            <video
+                ref={videoRef}
+                className={`w-full h-full object-cover bg-black ${className || ''}`}
+                autoPlay
+                muted
+                playsInline
+                controls
+            />
+            {error && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+                    <p className="text-red-400 text-sm">{error}</p>
+                </div>
+            )}
+        </div>
     );
 }
 

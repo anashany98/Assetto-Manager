@@ -13,7 +13,7 @@ export default function SessionTimer({ session, onUpdate }: SessionTimerProps) {
     useEffect(() => {
         // Sync with prop
         setTimeLeft(session.remaining_minutes * 60);
-    }, [session.remaining_minutes]);
+    }, [session.remaining_minutes, session.status, session.id]);
 
     useEffect(() => {
         if (session.status !== 'active') return;
@@ -36,20 +36,30 @@ export default function SessionTimer({ session, onUpdate }: SessionTimerProps) {
 
     const minutes = Math.floor(timeLeft / 60);
     const seconds = Math.floor(timeLeft % 60);
-    const progress = Math.min(100, (timeLeft / (session.duration_minutes * 60)) * 100);
+    const progress = session.duration_minutes > 0
+        ? Math.min(100, (timeLeft / (session.duration_minutes * 60)) * 100)
+        : 0;
 
     const isUrgent = timeLeft < 60; // Less than 1 min
     const isWarning = timeLeft < 300; // Less than 5 min
 
     const handleStop = async () => {
         if (!confirm("¿Terminar sesión?")) return;
-        await stopSession(session.id);
-        onUpdate();
+        try {
+            await stopSession(session.id);
+            onUpdate();
+        } catch (err) {
+            console.error("Failed to stop session:", err);
+        }
     };
 
     const handleAdd = async (amount: number) => {
-        await addTime(session.id, amount);
-        onUpdate();
+        try {
+            await addTime(session.id, amount);
+            onUpdate();
+        } catch (err) {
+            console.error("Failed to add time:", err);
+        }
     };
 
     return (

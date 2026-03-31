@@ -18,6 +18,7 @@ export interface LocalAgentContent {
 export interface LocalAgentLaunchPayload {
     car: string;
     track: string;
+    track_layout?: string;
     driver_name?: string;
     duration_minutes?: number;
     difficulty?: string;

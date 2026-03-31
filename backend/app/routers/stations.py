@@ -19,12 +19,16 @@ router = APIRouter(
     tags=["stations"]
 )
 
-def _generate_kiosk_code(db: Session) -> tuple[str, None]:
+KIOSK_CODE_TTL_DAYS = int(os.getenv("KIOSK_CODE_TTL_DAYS", "90"))
+KIOSK_CODE_ROTATION_WARN_DAYS = int(os.getenv("KIOSK_CODE_ROTATION_WARN_DAYS", "7"))
+
+def _generate_kiosk_code(db: Session) -> tuple[str, datetime]:
+    expires_at = datetime.now(timezone.utc) + timedelta(days=KIOSK_CODE_TTL_DAYS)
     while True:
         code = secrets.token_hex(3).upper()
         existing = db.query(models.Station).filter(models.Station.kiosk_code == code).first()
         if not existing:
-            return code, None
+            return code, expires_at
 
 def _next_sim_name(db: Session) -> str:
     from sqlalchemy import func
@@ -199,6 +203,33 @@ async def regenerate_kiosk_code(station_id: int, db: Session = Depends(database.
         "station_id": station.id, 
         "kiosk_code": station.kiosk_code,
         "expires_at": station.kiosk_code_expires_at.isoformat() if station.kiosk_code_expires_at else None
+    }
+
+@router.get("/{station_id}/kiosk-status", dependencies=[Depends(require_admin)])
+def get_kiosk_code_status(station_id: int, db: Session = Depends(database.get_db)):
+    station = db.query(models.Station).filter(models.Station.id == station_id).first()
+    if not station:
+        raise HTTPException(status_code=404, detail="Station not found")
+    
+    now = datetime.now(timezone.utc)
+    expires_at = station.kiosk_code_expires_at
+    expires_in_days = None
+    is_expiring_soon = False
+    
+    if expires_at:
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        delta = expires_at - now
+        expires_in_days = max(0, delta.days)
+        is_expiring_soon = expires_in_days <= KIOSK_CODE_ROTATION_WARN_DAYS
+    
+    return {
+        "station_id": station.id,
+        "kiosk_code": station.kiosk_code,
+        "expires_at": station.kiosk_code_expires_at.isoformat() if station.kiosk_code_expires_at else None,
+        "expires_in_days": expires_in_days,
+        "is_expiring_soon": is_expiring_soon,
+        "is_expired": expires_at is not None and (expires_at.tzinfo is None and expires_at.replace(tzinfo=timezone.utc) < now or expires_at < now)
     }
 
 @router.delete("/{station_id}", dependencies=[Depends(require_admin)])

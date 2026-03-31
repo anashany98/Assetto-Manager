@@ -1,4 +1,4 @@
-import { useState, useMemo, memo } from 'react';
+import { useState, useMemo, memo, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     Activity,
@@ -65,6 +65,15 @@ export default function Dashboard() {
     });
 
     const sessionsCount = activeSessions?.length ?? 0;
+
+    const handleSessionUpdate = useCallback(() => {
+        queryClient.invalidateQueries({ queryKey: ['active-sessions'] });
+    }, [queryClient]);
+
+    const handleStartSessionSuccess = useCallback(() => {
+        setStartModalStation(null);
+        queryClient.invalidateQueries({ queryKey: ['active-sessions'] });
+    }, [queryClient]);
 
     return (
         <div className="min-h-screen">

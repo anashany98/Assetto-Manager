@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, File, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 from typing import List
@@ -8,12 +8,32 @@ from ..paths import PUBLIC_STORAGE_DIR
 from pathlib import Path
 import shutil
 import os
+import time
+import threading
+from collections import defaultdict
 from ..utils.uploads import sanitize_filename, ensure_allowed_extension, save_upload_file
 
 router = APIRouter(
     prefix="/settings",
     tags=["settings"]
 )
+
+SENSITIVE_PREFIXES = ("stripe_", "payment_", "bizum_", "smtp_", "vapid_", "license_")
+NON_SENSITIVE_PAYMENT_KEYS = {"payment_currency", "payment_public_kiosk_url"}
+
+_pair_attempts: dict[str, list[float]] = defaultdict(list)
+_pair_lock = threading.Lock()
+_PAIR_RATE_LIMIT = 10
+_PAIR_RATE_WINDOW = 60
+
+
+def _check_pair_rate_limit(client_ip: str) -> None:
+    now = time.time()
+    with _pair_lock:
+        _pair_attempts[client_ip] = [t for t in _pair_attempts[client_ip] if now - t < _PAIR_RATE_WINDOW]
+        if len(_pair_attempts[client_ip]) >= _PAIR_RATE_LIMIT:
+            raise HTTPException(status_code=429, detail="Too many pairing attempts. Try again later.")
+        _pair_attempts[client_ip].append(now)
 
 SENSITIVE_PREFIXES = ("stripe_", "payment_", "bizum_", "smtp_", "vapid_", "license_")
 NON_SENSITIVE_PAYMENT_KEYS = {"payment_currency", "payment_public_kiosk_url"}
@@ -116,7 +136,7 @@ def _serialize_public_station(station: models.Station) -> dict:
 @router.get("/kiosk/stations")
 def list_public_kiosk_stations(
     db: Session = Depends(database.get_db),
-    _auth: object = Depends(require_public_token),
+    _auth: object = Depends(require_admin),
 ):
     stations = (
         db.query(models.Station)
@@ -128,12 +148,23 @@ def list_public_kiosk_stations(
 
 
 @router.post("/kiosk/pair")
-def pair_kiosk(payload: KioskPairRequest, db: Session = Depends(database.get_db), _auth: object = Depends(require_public_token)):
+def pair_kiosk(
+    request: Request,
+    payload: KioskPairRequest,
+    db: Session = Depends(database.get_db),
+    _auth: object = Depends(require_public_token),
+):
+    _check_pair_rate_limit(request.client.host if request.client else "unknown")
     code = payload.code.strip().upper()
     station = db.query(models.Station).filter(models.Station.kiosk_code == code).first()
     
     if not station:
         raise HTTPException(status_code=404, detail="Invalid kiosk code")
+    
+    if not station.is_active:
+        raise HTTPException(status_code=403, detail="Station is not active")
+    if not station.is_kiosk_mode:
+        raise HTTPException(status_code=403, detail="Station is not in kiosk mode")
     
     return {
         "station_id": station.id,

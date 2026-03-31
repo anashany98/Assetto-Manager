@@ -8,7 +8,7 @@
 
 services:
   db:
-    image: postgres:16-alpine
+    image: postgres:16.8-alpine
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-ac_manager}
       POSTGRES_USER: ${POSTGRES_USER:-ac_manager}
@@ -16,6 +16,11 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ac_manager}"]
       interval: 10s
@@ -35,13 +40,12 @@ services:
     build:
       context: ./backend
       target: runtime
-    ports:
-      - "8000:8000"
+    # Not exposed directly — traffic goes through nginx (frontend)
     environment:
       ENVIRONMENT: production
       DATABASE_URL: postgresql://${POSTGRES_USER:-ac_manager}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-ac_manager}
       AUTO_SCHEMA: "false"
-      REQUIRE_SECRETS: "false"
+      REQUIRE_SECRETS: "true"
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set}
       SETUP_TOKEN: ${SETUP_TOKEN:?SETUP_TOKEN must be set}
       AGENT_TOKEN: ${AGENT_TOKEN:?AGENT_TOKEN must be set}
@@ -55,8 +59,8 @@ services:
       EMAILS_ENABLED: ${EMAILS_ENABLED:-false}
       # Redis for multi-worker WebSocket fan-out (recommended in production with >1 worker)
       ALLOW_MULTI_WORKER_WS: ${ALLOW_MULTI_WORKER_WS:-false}
-      WS_PUBSUB: ${WS_PUBSUB:-}
-      REDIS_URL: ${REDIS_URL:-}
+      WS_PUBSUB: ${WS_PUBSUB:-redis}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       SHARED_DIR: /app/shared
       LOG_DIR: /app/storage/logs
       LICENSE_PUBLIC_KEY_PATH: /app/certs/public_key.pem
@@ -68,6 +72,11 @@ services:
       db:
         condition: service_healthy
     restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health/live"]
       interval: 30s
@@ -94,7 +103,6 @@ services:
         VITE_PUBLIC_WS_TOKEN: ${PUBLIC_WS_TOKEN:-}
     ports:
       - "80:80"
-      - "443:443"   # Mount TLS certs via volume if using HTTPS
     depends_on:
       backend:
         condition: service_healthy
@@ -112,10 +120,15 @@ services:
           memory: 32M
 
   redis:
-    image: redis:7-alpine
+    image: redis:7.4.2-alpine
     restart: always
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     deploy:
       resources:
         limits:

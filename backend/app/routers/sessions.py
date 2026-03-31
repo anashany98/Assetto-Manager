@@ -56,6 +56,16 @@ def start_session(
         db.add(active_session)
         db.commit()
 
+        # Notify the station that its session was auto-closed
+        try:
+            from .websockets import manager as ws_manager
+            asyncio.create_task(ws_manager.send_command(
+                session_data.station_id,
+                {"command": "session_auto_closed", "reason": "new_session_started"}
+            ))
+        except Exception:
+            pass
+
     now = datetime.now(timezone.utc)
     end_time = now + timedelta(minutes=session_data.duration_minutes)
 
@@ -177,7 +187,8 @@ def _map_session_response(session: Session, station_name: str) -> schemas.Sessio
         price=session.price,
         is_paid=session.is_paid,
         notes=session.notes,
-        payment_method=session.payment_method
+        payment_method=session.payment_method,
+        is_vr=session.is_vr,
     )
 
 
@@ -257,43 +268,52 @@ async def detect_orphan_sessions():
     
     while True:
         try:
-            db = SessionLocal()
-            try:
-                now = datetime.now(timezone.utc)
-                active_sessions = db.query(Session).filter(Session.status == "active").all()
+            def _process_orphans():
+                db = SessionLocal()
+                try:
+                    now = datetime.now(timezone.utc)
+                    active_sessions = db.query(Session).filter(Session.status == "active").all()
+                    
+                    orphaned = []
+                    for session in active_sessions:
+                        station = db.query(Station).filter(Station.id == session.station_id).first()
+                        if not station or not station.is_online:
+                            last_seen = station.last_seen if station else None
+                            if last_seen:
+                                offline_duration = (now - last_seen).total_seconds() / 60
+                                if offline_duration >= orphan_minutes:
+                                    session.status = "expired"
+                                    session.end_time = now
+                                    orphaned.append({
+                                        "session_id": session.id,
+                                        "station_id": session.station_id,
+                                        "offline_duration": offline_duration,
+                                    })
+                    
+                    if orphaned:
+                        db.commit()
+                    
+                    return orphaned
+                finally:
+                    db.close()
+            
+            orphaned = await asyncio.to_thread(_process_orphans)
+            
+            for orphan in orphaned:
+                logger.warning(
+                    f"Closed orphan session {orphan['session_id']} for station {orphan['station_id']}. "
+                    f"Agent offline for {orphan['offline_duration']:.1f} minutes"
+                )
                 
-                for session in active_sessions:
-                    # Check if station is offline
-                    station = db.query(Station).filter(Station.id == session.station_id).first()
-                    if not station or not station.is_online:
-                        # Calculate how long the station has been offline
-                        last_seen = station.last_seen if station else None
-                        if last_seen:
-                            offline_duration = (now - last_seen).total_seconds() / 60
-                            
-                            if offline_duration >= orphan_minutes:
-                                # Close the orphan session
-                                session.status = "expired"
-                                session.end_time = now
-                                db.commit()
-                                
-                                logger.warning(
-                                    f"Closed orphan session {session.id} for station {session.station_id}. "
-                                    f"Agent offline for {offline_duration:.1f} minutes"
-                                )
-                                
-                                # Notify clients
-                                from .websockets import manager
-                                await manager.broadcast(json.dumps({
-                                    "type": "session_expired",
-                                    "session_id": session.id,
-                                    "station_id": session.station_id,
-                                    "reason": "orphan",
-                                    "message": "Sesión cerrada: simulador desconectado"
-                                }))
-                                
-            finally:
-                db.close()
+                from .websockets import manager
+                await manager.broadcast(json.dumps({
+                    "type": "session_expired",
+                    "session_id": orphan["session_id"],
+                    "station_id": orphan["station_id"],
+                    "reason": "orphan",
+                    "message": "Sesión cerrada: simulador desconectado"
+                }))
+                
         except Exception as e:
             logger.error(f"Error in orphan session detection: {e}")
         

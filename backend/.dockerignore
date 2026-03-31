@@ -17,22 +17,27 @@ pytest_cache/
 htmlcov/
 .coverage
 coverage.xml
+test-results/
+playwright-report/
 
 # Dev/editor files
 .env
 *.env
 .env.*
 !.env.example
+.dev_secret_key
 .git/
 .gitignore
 *.md
+.vscode/
+.idea/
+.tox/
+.mypy_cache/
+.ruff_cache/
 
 # Storage (mounted as volume in production)
 storage/
-
-# Alembic — only needed for migrations, not for app runtime
-# (include if you run alembic inside container)
-# alembic/
+output/
 
 # Logs
 logs/

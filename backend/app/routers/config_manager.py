@@ -408,6 +408,9 @@ def _read_audit_events(limit: int) -> List[dict[str, Any]]:
 
 
 def _station_share_base(ip_address: str) -> Path:
+    import re
+    if not re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", ip_address):
+        raise ValueError(f"Invalid IP address format: {ip_address}")
     return Path(f"\\\\{ip_address}\\AC_Config")
 
 

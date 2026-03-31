@@ -452,8 +452,8 @@ def find_best_fit(request: Request, payload: SmartAssignRequest, db: Session = D
             for j in range(i+1, len(tables)):
                 t1 = tables[i]
                 t2 = tables[j]
-            if t1.seats + t2.seats >= payload.pax:
-                     return {
+                if t1.seats + t2.seats >= payload.pax:
+                    return {
                         "strategy": "combination",
                         "table_ids": [t1.id, t2.id],
                         "reason": f"Combinacion en {zone}: {t1.label} + {t2.label}"

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { useLicense } from '../context/LicenseContext';
 
 export function LicenseSettings() {
@@ -11,10 +12,10 @@ export function LicenseSettings() {
         setSubmitting(true);
         try {
             await updateLicense(key);
-            alert("Licencia activada correctamente");
+            toast.success("Licencia activada correctamente");
             setKey("");
         } catch (e) {
-            alert("Error al activar licencia. Verifique la clave.");
+            toast.error("Error al activar licencia. Verifique la clave.");
         } finally {
             setSubmitting(false);
         }

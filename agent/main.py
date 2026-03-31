@@ -1,5 +1,6 @@
-﻿import time
+import time
 import sys
+import signal
 import logging
 import threading
 from pathlib import Path
@@ -30,7 +31,22 @@ from local_server import set_local_kiosk_code, start_local_server
 import telemetry 
 telemetry.set_agent_token(AGENT_TOKEN)
 
+# Global flag for graceful shutdown
+_shutdown_event = threading.Event()
+
+def _signal_handler(signum, frame):
+    """Handle shutdown signals gracefully."""
+    sig_name = signal.Signals(signum).name if hasattr(signal, 'Signals') else str(signum)
+    logger.info(f"Received {sig_name}, initiating graceful shutdown...")
+    _shutdown_event.set()
+
 def main():
+    # Register signal handlers for graceful shutdown
+    if hasattr(signal, 'SIGTERM'):
+        signal.signal(signal.SIGTERM, _signal_handler)
+    if hasattr(signal, 'SIGINT'):
+        signal.signal(signal.SIGINT, _signal_handler)
+
     logger.info(f"Iniciando Agente AC Manager v{AGENT_VERSION} (Refactored)...")
     
     # Check for updates first
@@ -47,13 +63,30 @@ def main():
     station_data = None
     
     # Bucle de Registro...
-    while station_id is None:
+    while station_id is None and not _shutdown_event.is_set():
         station_data = register_agent()
         if station_data:
             station_id = station_data["id"]
             set_local_kiosk_code(station_data.get("kiosk_code"))
         else:
+            # Try loading persisted kiosk code from config.json
+            try:
+                import json
+                config_path = Path(__file__).parent / "config.json"
+                if config_path.exists():
+                    with open(config_path, "r") as f:
+                        cfg = json.load(f)
+                    persisted_code = cfg.get("kiosk_code", "")
+                    if persisted_code:
+                        set_local_kiosk_code(persisted_code)
+                        logger.info("Loaded persisted kiosk code from config.json")
+            except Exception as e:
+                logger.debug(f"Could not load persisted kiosk code: {e}")
             time.sleep(5)
+
+    if _shutdown_event.is_set():
+        logger.info("Shutdown requested during registration, exiting.")
+        return
 
     # Configurar rutas y proxy
     station_ac_path = None
@@ -80,6 +113,7 @@ def main():
     ws_client.start()
 
     # Iniciar Monitor de Hardware (CPU/RAM/Temp)
+    monitor_thread = None
     try:
         from monitor import HardwareMonitor
         monitor_thread = HardwareMonitor(station_id, SERVER_URL)
@@ -90,7 +124,7 @@ def main():
         logger.error(f"Error iniciando monitor de hardware: {e}")
 
     # Bucle Principal de Mantenimiento
-    while True:
+    while not _shutdown_event.is_set():
         try:
             # Verificar SincronizaciÃ³n y TelemetrÃ­a (Resultados)
             status = synchronize_content(station_id)
@@ -102,12 +136,36 @@ def main():
 
             send_heartbeat(station_id, status or "online")
             
-            time.sleep(10) 
+            # Use a loop with shorter sleep to respond to shutdown faster
+            for _ in range(10):
+                if _shutdown_event.is_set():
+                    break
+                time.sleep(1)
         except KeyboardInterrupt:
             break
         except Exception as e:
             logger.error(f"Error en bucle principal: {e}")
             time.sleep(5)
+
+    # Graceful shutdown sequence
+    logger.info("Shutting down agent components...")
+    try:
+        ws_client.running = False
+    except Exception as e:
+        logger.error(f"Error stopping WS client: {e}")
+    
+    try:
+        image_proxy.server.shutdown()
+    except Exception as e:
+        logger.error(f"Error stopping image proxy: {e}")
+    
+    if monitor_thread:
+        try:
+            monitor_thread.running = False
+        except Exception as e:
+            logger.error(f"Error stopping monitor: {e}")
+    
+    logger.info("Agent shutdown complete.")
 
 if __name__ == "__main__":
     main()

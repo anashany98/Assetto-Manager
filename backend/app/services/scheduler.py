@@ -327,6 +327,51 @@ def archive_ghost_stations():
     finally:
         db.close()
 
+async def rotate_expiring_kiosk_codes():
+    """Automatically rotate kiosk codes that expire within the warning window."""
+    warn_days = int(os.getenv("KIOSK_CODE_ROTATION_WARN_DAYS", "7"))
+    cutoff = datetime.now(timezone.utc) + timedelta(days=warn_days)
+    
+    db: Session = database.SessionLocal()
+    rotated = 0
+    try:
+        stations = db.query(models.Station).filter(
+            models.Station.is_active == True,
+            models.Station.kiosk_code.isnot(None),
+            models.Station.kiosk_code_expires_at.isnot(None),
+            models.Station.kiosk_code_expires_at <= cutoff
+        ).all()
+        
+        for station in stations:
+            from ..routers import stations as stations_router
+            new_code, new_expires = stations_router._generate_kiosk_code(db)
+            old_code = station.kiosk_code
+            station.kiosk_code = new_code
+            station.kiosk_code_expires_at = new_expires
+            
+            if station.is_online:
+                try:
+                    await ws_manager.send_command(station.id, {
+                        "command": "update_kiosk_code",
+                        "kiosk_code": new_code,
+                        "expires_at": new_expires.isoformat()
+                    })
+                except Exception as ex:
+                    logger.warning(f"Failed to push new kiosk code to station {station.id}: {ex}")
+            
+            rotated += 1
+            logger.info(f"Rotated kiosk code for station {station.id} ({station.name})")
+        
+        if rotated:
+            db.commit()
+        logger.info(f"Kiosk code rotation: {rotated} codes rotated (cutoff {cutoff.isoformat()})")
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error rotating kiosk codes: {e}")
+    finally:
+        db.close()
+
+
 def start_scheduler():
     """Initialize and start the scheduler"""
     # Run reminder check every day at 18:00 (6 PM)
@@ -382,8 +427,17 @@ def start_scheduler():
         replace_existing=True
     )
     
+    # Kiosk Code Rotation - Hourly
+    scheduler.add_job(
+        rotate_expiring_kiosk_codes,
+        'interval',
+        hours=1,
+        id="kiosk_code_rotation",
+        replace_existing=True
+    )
+    
     scheduler.start()
-    logger.info("Scheduler started - Booking reminders (18:00), Content Sync (Hourly), Ghost Archive (Configured), Global Mod Sync (03:00)")
+    logger.info("Scheduler started - Booking reminders (18:00), Content Sync (Hourly), Ghost Archive (Configured), Global Mod Sync (03:00), Kiosk Code Rotation (Hourly)")
 
     # Periodic cleanup of in-memory failed login attempts (prevents memory leak)
     from ..utils.login_rate_limiter import login_rate_limiter

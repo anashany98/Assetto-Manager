@@ -57,19 +57,38 @@ export default function EliminationTV() {
     useEffect(() => {
         if (!id) return;
 
-        const wsUrl = API_URL.replace('http', 'ws');
-        const ws = new WebSocket(`${wsUrl}/elimination/${id}/ws`);
-        wsRef.current = ws;
+        let ws: WebSocket;
 
-        ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            if (data.eliminated) {
-                setLastEliminated(data.eliminated);
-                setShowEliminationAnimation(true);
-                setTimeout(() => setShowEliminationAnimation(false), 4000);
-            }
-            refetch();
+        const connectWS = () => {
+            const wsUrl = API_URL.replace('http', 'ws');
+            ws = new WebSocket(`${wsUrl}/elimination/${id}/ws`);
+            wsRef.current = ws;
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.eliminated) {
+                        setLastEliminated(data.eliminated);
+                        setShowEliminationAnimation(true);
+                        setTimeout(() => setShowEliminationAnimation(false), 4000);
+                    }
+                    refetch();
+                } catch (parseErr) {
+                    console.error('Failed to parse WS message:', parseErr);
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error('EliminationTV WS error:', error);
+            };
+
+            ws.onclose = (event) => {
+                console.log('EliminationTV WS closed, reconnecting...', event.code, event.reason);
+                setTimeout(connectWS, 3000);
+            };
         };
+
+        connectWS();
 
         return () => ws.close();
     }, [id, refetch]);

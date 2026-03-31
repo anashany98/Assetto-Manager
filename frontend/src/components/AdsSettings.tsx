@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
 import { API_URL } from '../config';
 import { getAuthHeaders } from '../api/authHeaders';
 
@@ -22,21 +23,20 @@ const AdsSettings: React.FC = () => {
     const { data: ads, isLoading, error } = useQuery({
         queryKey: ['ads'],
         queryFn: async () => {
-            const res = await fetch(`${API_URL}/ads/`, { headers: getAuthHeaders() });
-            if (!res.ok) throw new Error("Failed to fetch ads");
-            return res.json() as Promise<AdCampaign[]>;
+            const res = await axios.get(`${API_URL}/ads/`, { headers: getAuthHeaders() });
+            return res.data as AdCampaign[];
         }
     });
 
     const uploadMutation = useMutation({
         mutationFn: async (formData: FormData) => {
-            const res = await fetch(`${API_URL}/ads/`, {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: formData,
+            const res = await axios.post(`${API_URL}/ads/`, formData, {
+                headers: {
+                    ...getAuthHeaders(),
+                    'Content-Type': 'multipart/form-data',
+                },
             });
-            if (!res.ok) throw new Error("Failed to upload ad");
-            return res.json();
+            return res.data;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['ads'] });
@@ -48,22 +48,18 @@ const AdsSettings: React.FC = () => {
 
     const toggleMutation = useMutation({
         mutationFn: async (id: number) => {
-            const res = await fetch(`${API_URL}/ads/${id}/toggle`, {
-                method: 'PUT',
+            await axios.put(`${API_URL}/ads/${id}/toggle`, null, {
                 headers: getAuthHeaders()
             });
-            if (!res.ok) throw new Error("Toggle failed");
         },
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['ads'] })
     });
 
     const deleteMutation = useMutation({
         mutationFn: async (id: number) => {
-            const res = await fetch(`${API_URL}/ads/${id}`, {
-                method: 'DELETE',
+            await axios.delete(`${API_URL}/ads/${id}`, {
                 headers: getAuthHeaders()
             });
-            if (!res.ok) throw new Error("Delete failed");
         },
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['ads'] })
     });

@@ -1,3 +1,4 @@
+import { toast } from 'sonner';
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
@@ -818,31 +819,36 @@ export default function SettingsPage() {
         setBizumReceiver(getSecureValue('bizum_receiver', ''));
     }, [secureSettings]);
 
+    const isValidCurrency = (code: string) => /^[A-Z]{3}$/.test(code);
+
     const saveKioskConfig = async () => {
         setSavingKioskConfig(true);
-        const normalizedPaymentCurrency = paymentCurrency.trim().toUpperCase() || 'EUR';
-        const normalizedPublicKioskUrl = paymentPublicKioskUrl.trim() || getDefaultPublicKioskUrl();
+        const savedKeys: string[] = [];
         try {
-            await Promise.all([
-                axios.post(`${API_URL}/settings/`, { key: 'sim_mods_enabled', value: modsEnabled ? 'true' : 'false' }),
-                axios.post(`${API_URL}/settings/`, { key: 'kiosk_rain_enabled', value: modsEnabled && kioskRainEnabled ? 'true' : 'false' }),
-                axios.post(`${API_URL}/settings/`, { key: 'kiosk_payment_enabled', value: paymentEnabled ? 'true' : 'false' }),
-                axios.post(`${API_URL}/settings/`, { key: 'payment_currency', value: normalizedPaymentCurrency }),
-                axios.post(`${API_URL}/settings/`, { key: 'payment_public_kiosk_url', value: normalizedPublicKioskUrl }),
-                axios.post(`${API_URL}/settings/`, { key: 'stripe_secret_key', value: stripeSecretKey.trim() }),
-                axios.post(`${API_URL}/settings/`, { key: 'stripe_webhook_secret', value: stripeWebhookSecret.trim() }),
-                axios.post(`${API_URL}/settings/`, { key: 'stripe_success_url', value: stripeSuccessUrl.trim() }),
-                axios.post(`${API_URL}/settings/`, { key: 'stripe_cancel_url', value: stripeCancelUrl.trim() }),
-                axios.post(`${API_URL}/settings/`, { key: 'bizum_receiver', value: bizumReceiver.trim() }),
-            ]);
-            setPaymentCurrency(normalizedPaymentCurrency);
-            setPaymentPublicKioskUrl(normalizedPublicKioskUrl);
-            queryClient.invalidateQueries({ queryKey: ['settings-secure'] });
-            queryClient.invalidateQueries({ queryKey: ['settings'] });
-            alert("Configuracion de kiosko guardada.");
-        } catch (error) {
-            console.error(error);
-            alert("Error al guardar configuración de pagos");
+            const settingsToSave = [
+                { key: 'kiosk_payment_enabled', value: paymentEnabled ? 'true' : 'false' },
+                { key: 'kiosk_rain_enabled', value: modsEnabled && kioskRainEnabled ? 'true' : 'false' },
+                { key: 'kiosk_idle_timeout_seconds', value: String(300) },
+                { key: 'payment_currency', value: paymentCurrency.trim() },
+                { key: 'payment_public_kiosk_url', value: paymentPublicKioskUrl.trim() },
+                { key: 'stripe_secret_key', value: stripeSecretKey.trim() },
+                { key: 'stripe_webhook_secret', value: stripeWebhookSecret.trim() },
+                { key: 'stripe_success_url', value: stripeSuccessUrl.trim() },
+                { key: 'stripe_cancel_url', value: stripeCancelUrl.trim() },
+                { key: 'bizum_receiver', value: bizumReceiver.trim() },
+            ];
+
+            for (const setting of settingsToSave) {
+                const endpoint = ['stripe_secret_key', 'stripe_webhook_secret'].includes(setting.key)
+                    ? `${API_URL}/settings/secure`
+                    : `${API_URL}/settings/`;
+                await axios.post(endpoint, { key: setting.key, value: setting.value });
+                savedKeys.push(setting.key);
+            }
+            toast.success('Configuracion guardada');
+        } catch (err) {
+            console.error('Failed to save kiosk config:', err);
+            toast.error('Error al guardar la configuracion. Algunos ajustes pueden no haberse guardado.');
         } finally {
             setSavingKioskConfig(false);
         }
@@ -932,37 +938,6 @@ export default function SettingsPage() {
                     <p className="text-[var(--text-tertiary)] text-sm font-medium mt-1">Gestión integral del sistema y simuladores</p>
                 </div>
 
-                {false && (
-                <div className="flex flex-wrap items-center gap-1.5 w-full bg-[var(--bg-elevated)] p-1.5 rounded-2xl border border-[var(--border-default)] shadow-sm">
-                    {[
-                        { id: 'license', label: 'Licencia', icon: Shield },
-                        { id: 'branding', label: 'Marca y TV', icon: Layout },
-                        { id: 'kiosk', label: 'Kiosko', icon: MonitorPlay },
-                        isFeatureEnabled('ads_tab') ? { id: 'ads', label: 'Promociones', icon: Megaphone } : null,
-                        { id: 'pricing', label: 'Precios', icon: BadgeDollarSign },
-                        { id: 'game', label: 'Editor AC', icon: Gamepad2 },
-                        { id: 'sim', label: 'Simulador AC', icon: Zap },
-                        { id: 'stations', label: 'Simuladores', icon: MonitorPlay },
-                        { id: 'logs', label: 'Logs Sistema', icon: Terminal },
-                        { id: 'database', label: 'Base de Datos', icon: Database },
-                        { id: 'streaming', label: 'Transmisión', icon: Radio },
-                        { id: 'maintenance', label: 'Mantenimiento', icon: Wrench }
-                    ].filter(Boolean).map((tab: any) => (
-                        <button
-                            key={tab.id}
-                            onClick={() => handleTabChange(tab.id)}
-                            className={cn(
-                                "shrink-0 whitespace-nowrap flex items-center gap-2 px-3 md:px-4 py-2 rounded-xl text-xs md:text-sm font-black transition-all uppercase tracking-wide",
-                                activeTab === tab.id
-                                    ? "bg-gray-700 shadow-lg text-blue-400 border border-[var(--border-strong)]"
-                                    : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
-                            )}>
-                            <tab.icon size={16} />
-                            <span>{tab.label}</span>
-                        </button>
-                    ))}
-                </div>
-                )}
             </div>
 
             {/* Content Area */}
@@ -1094,60 +1069,6 @@ export default function SettingsPage() {
                             </div>
                         </div>
 
-                        {false && (
-                        <>
-                        <div className="bg-[var(--bg-elevated)] p-8 rounded-3xl border border-[var(--border-default)]">
-                            <h2 className="text-xl font-black text-[var(--text-primary)] uppercase mb-6 flex items-center"><MonitorPlay className="mr-2 text-cyan-400" /> Opciones de Kiosko</h2>
-                            <div className="flex flex-col gap-6">
-                                <div className="flex items-center justify-between bg-[var(--bg-card)]/40 p-4 rounded-xl border border-[var(--border-default)]/50">
-                                    <div>
-                                        <p className="font-bold text-[var(--text-primary)] text-sm">Habilitar Funciones con Mods</p>
-                                        <p className="text-xs text-[var(--text-tertiary)] text-balance">Desbloquea modos especiales como Tráfico, Overtake y lluvia (Requiere mods específicos en la PC)</p>
-                                    </div>
-                                    <button
-                                        onClick={() => updateBranding.mutate({
-                                            key: 'sim_mods_enabled',
-                                            value: safeBranding.find(s => s.key === 'sim_mods_enabled')?.value === 'true' ? 'false' : 'true'
-                                        })}
-                                        className={cn(
-                                            "w-14 h-7 rounded-full transition-all relative",
-                                            safeBranding.find(s => s.key === 'sim_mods_enabled')?.value === 'true' ? "bg-blue-500" : "bg-gray-600"
-                                        )}
-                                    >
-                                        <div className={cn(
-                                            "absolute top-1 left-1 w-5 h-5 rounded-full bg-[var(--bg-card)] transition-transform",
-                                            safeBranding.find(s => s.key === 'sim_mods_enabled')?.value === 'true' && "translate-x-7"
-                                        )} />
-                                    </button>
-                                </div>
-
-                                {safeBranding.find(s => s.key === 'sim_mods_enabled')?.value === 'true' && (
-                                    <div className="flex items-center justify-between bg-[var(--bg-card)]/40 p-4 rounded-xl border border-[var(--border-default)]/50 animate-in fade-in slide-in-from-top-2 duration-300">
-                                        <div>
-                                            <p className="font-bold text-[var(--text-primary)] text-sm">Habilitar Lluvia Visual</p>
-                                            <p className="text-xs text-[var(--text-tertiary)]">Muestra la opción de lluvia en el menú de dificultad (Requiere CSP Preview)</p>
-                                        </div>
-                                        <button
-                                            onClick={() => updateBranding.mutate({
-                                                key: 'kiosk_rain_enabled',
-                                                value: safeBranding.find(s => s.key === 'kiosk_rain_enabled')?.value === 'true' ? 'false' : 'true'
-                                            })}
-                                            className={cn(
-                                                "w-14 h-7 rounded-full transition-all relative",
-                                                safeBranding.find(s => s.key === 'kiosk_rain_enabled')?.value === 'true' ? "bg-cyan-500" : "bg-gray-600"
-                                            )}
-                                        >
-                                            <div className={cn(
-                                                "absolute top-1 left-1 w-5 h-5 rounded-full bg-[var(--bg-card)] transition-transform",
-                                                safeBranding.find(s => s.key === 'kiosk_rain_enabled')?.value === 'true' && "translate-x-7"
-                                            )} />
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                        </>
-                        )}
                         {/* Video Wallpapers */}
                         <WallpaperSettings />
 
@@ -1367,6 +1288,9 @@ export default function SettingsPage() {
                                         onChange={e => setPaymentCurrency(e.target.value)}
                                         placeholder="EUR"
                                     />
+                                    {paymentCurrency && !isValidCurrency(paymentCurrency) && (
+                                        <p className="text-red-400 text-xs mt-1">Codigo de moneda invalido (ej: EUR, USD)</p>
+                                    )}
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">Bizum receptor</label>
@@ -1625,126 +1549,6 @@ export default function SettingsPage() {
                                     </div>
                                 </div>
 
-                                    {/* <div className="bg-[var(--bg-card)]/40 border border-[var(--border-default)] rounded-2xl p-5 space-y-4">
-                                    <h3 className="text-sm font-black uppercase tracking-wider text-[var(--text-secondary)]">Configuración de Pagos</h3>
-                                    <div className="flex items-center justify-between bg-[var(--bg-card)]/50 border border-[var(--border-default)]/60 rounded-2xl p-4">
-                                        <div>
-                                            <p className="text-sm font-bold text-[var(--text-secondary)]">Pagos en kiosko</p>
-                                            <p className="text-xs text-[var(--text-tertiary)]">Activa o desactiva el flujo de pago en el kiosko</p>
-                                        </div>
-                                        <button
-                                            onClick={handlePaymentToggle}
-                                            disabled={savingPaymentToggle}
-                                            className={cn(
-                                                "relative w-14 h-7 rounded-full transition-colors",
-                                                paymentEnabled ? "bg-green-500" : "bg-gray-600",
-                                                savingPaymentToggle && "opacity-60 cursor-not-allowed"
-                                            )}
-                                            aria-busy={savingPaymentToggle}
-                                        >
-                                            <div className={cn(
-                                                "absolute top-1 left-1 w-5 h-5 rounded-full bg-[var(--bg-card)] transition-transform",
-                                                paymentEnabled && "translate-x-7"
-                                            )} />
-                                        </button>
-                                    </div>
-                                    <div className="flex items-center justify-between bg-[var(--bg-card)]/50 border border-[var(--border-default)]/60 rounded-2xl p-4">
-                                        <div>
-                                            <p className="text-sm font-bold text-[var(--text-secondary)]">Timeout inactividad (segundos)</p>
-                                            <p className="text-xs text-[var(--text-tertiary)]">Tiempo antes de reiniciar el kiosko (mínimo 10s)</p>
-                                        </div>
-                                        <input
-                                            type="number"
-                                            min={10000}
-                                            max={600000}
-                                            step={1000}
-                                            className="w-24 p-2 rounded-lg bg-[var(--bg-card)] border border-[var(--border-default)] text-[var(--text-primary)] font-bold text-center outline-none focus:border-blue-500"
-                                            value={idleTimeout}
-                                            onChange={e => setIdleTimeout(Math.max(10000, Math.min(600000, Number(e.target.value))))}
-                                        />
-                                    </div>
-                                    <div className="grid grid-cols-1 gap-4">
-                                        <div>
-                                            <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">Moneda</label>
-                                            <input
-                                                type="text"
-                                                className="w-full p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] text-[var(--text-primary)] font-bold outline-none focus:border-blue-500 transition-all"
-                                                value={paymentCurrency}
-                                                onChange={e => setPaymentCurrency(e.target.value)}
-                                                placeholder="EUR"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">URL Kiosk Público</label>
-                                            <input
-                                                type="text"
-                                                className="w-full p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] text-[var(--text-primary)] font-bold outline-none focus:border-blue-500 transition-all"
-                                                value={paymentPublicKioskUrl}
-                                                onChange={e => setPaymentPublicKioskUrl(e.target.value)}
-                                                placeholder="http://localhost:3010/kiosk"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">Stripe Secret Key</label>
-                                            <input
-                                                type="password"
-                                                className="w-full p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] text-[var(--text-primary)] font-bold outline-none focus:border-blue-500 transition-all"
-                                                value={stripeSecretKey}
-                                                onChange={e => setStripeSecretKey(e.target.value)}
-                                                placeholder="sk_live_..."
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">Stripe Webhook Secret</label>
-                                            <input
-                                                type="password"
-                                                className="w-full p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] text-[var(--text-primary)] font-bold outline-none focus:border-blue-500 transition-all"
-                                                value={stripeWebhookSecret}
-                                                onChange={e => setStripeWebhookSecret(e.target.value)}
-                                                placeholder="whsec_..."
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">Stripe Success URL</label>
-                                            <input
-                                                type="text"
-                                                className="w-full p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] text-[var(--text-primary)] font-bold outline-none focus:border-blue-500 transition-all"
-                                                value={stripeSuccessUrl}
-                                                onChange={e => setStripeSuccessUrl(e.target.value)}
-                                                placeholder="http://localhost:3010/kiosk?payment=success"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">Stripe Cancel URL</label>
-                                            <input
-                                                type="text"
-                                                className="w-full p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] text-[var(--text-primary)] font-bold outline-none focus:border-blue-500 transition-all"
-                                                value={stripeCancelUrl}
-                                                onChange={e => setStripeCancelUrl(e.target.value)}
-                                                placeholder="http://localhost:3010/kiosk?payment=cancel"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">Bizum Receptor</label>
-                                            <input
-                                                type="text"
-                                                className="w-full p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] text-[var(--text-primary)] font-bold outline-none focus:border-blue-500 transition-all"
-                                                value={bizumReceiver}
-                                                onChange={e => setBizumReceiver(e.target.value)}
-                                                placeholder="600000000"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="flex justify-end">
-                                        <button
-                                            onClick={savePaymentConfig}
-                                            disabled={savingPaymentConfig}
-                                            className="text-xs font-bold bg-blue-600/20 text-blue-400 px-4 py-2 rounded-lg border border-blue-500/30 hover:bg-blue-600 hover:text-[var(--text-primary)] transition-colors disabled:opacity-60"
-                                        >
-                                            {savingPaymentConfig ? 'Guardando...' : 'Guardar configuración'}
-                                        </button>
-                                    </div>
-                                </div> */}
                                 <div className="bg-[var(--bg-card)]/40 border border-[var(--border-default)] rounded-2xl p-5 space-y-3">
                                     <h3 className="text-sm font-black uppercase tracking-wider text-[var(--text-secondary)]">Pagos del kiosko</h3>
                                     <p className="text-sm text-[var(--text-tertiary)]">
@@ -2062,7 +1866,7 @@ export default function SettingsPage() {
                                             min={0}
                                             max={23}
                                             value={ghostArchiveHour}
-                                            onChange={(e) => setGhostArchiveHour(Number(e.target.value))}
+                                            onChange={(e) => setGhostArchiveHour(Math.max(0, Math.min(23, Number(e.target.value))))}
                                             className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-lg px-3 py-2 text-[var(--text-primary)] font-bold"
                                         />
                                     </label>
@@ -2073,7 +1877,7 @@ export default function SettingsPage() {
                                             min={0}
                                             max={59}
                                             value={ghostArchiveMinute}
-                                            onChange={(e) => setGhostArchiveMinute(Number(e.target.value))}
+                                            onChange={(e) => setGhostArchiveMinute(Math.max(0, Math.min(59, Number(e.target.value))))}
                                             className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-lg px-3 py-2 text-[var(--text-primary)] font-bold"
                                         />
                                     </label>

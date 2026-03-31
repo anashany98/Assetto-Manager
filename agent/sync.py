@@ -263,8 +263,8 @@ def sync_offline_data(station_id):
                 )
                 if resp.status_code == 200:
                     synced_ids.append(session["offline_session_id"])
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed to sync session %s: %s", session.get("offline_session_id"), e)
         # Only remove after confirming sync was successful
         for sid in synced_ids:
             mark_session_synced(sid)
@@ -286,8 +286,8 @@ def sync_offline_data(station_id):
                 )
                 if resp.status_code == 200:
                     synced_ids.append(result["offline_result_id"])
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed to sync result %s: %s", result.get("offline_result_id"), e)
         # Only remove after confirming sync was successful
         for rid in synced_ids:
             mark_result_synced(rid)

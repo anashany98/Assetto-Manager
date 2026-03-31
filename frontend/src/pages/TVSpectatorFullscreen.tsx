@@ -56,7 +56,7 @@ export default function TVSpectatorFullscreen() {
         const params = new URLSearchParams(window.location.search);
         return params.get('station') || '1';
     });
-    const demoMode = new URLSearchParams(window.location.search).get('demo') === '1';
+    const demoMode = (() => { const d = new URLSearchParams(window.location.search).get('demo'); return d === 'true' || d === '1'; })();
     const [streamUrl, setStreamUrl] = useState<string | null>(null);
 
     const { liveCars, streamingStations } = useTelemetry();

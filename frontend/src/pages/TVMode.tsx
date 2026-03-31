@@ -18,7 +18,7 @@ import { TelemetryGauges } from '../components/TelemetryGauges';
 import { CarBrandLogo } from '../components/CarBrandLogo'; // NEW
 import { DynamicBackground } from '../components/DynamicBackground'; // NEW
 
-const VIEWS = ['LEADERBOARD', 'HALL_OF_FAME', 'LIVE_MAP', 'COUNTDOWN', 'TOURNAMENT', 'BRACKET', 'SPONSORSHIP', 'JOIN_QR', 'SPY_VIEW', 'BATTLE_VIEW'];
+const VIEWS = ['LEADERBOARD', 'HALL_OF_FAME', 'LIVE_MAP', 'COUNTDOWN', 'TOURNAMENT', 'BRACKET', 'SPONSORSHIP', 'JOIN_QR', 'SPY_VIEW', 'BATTLE_VIEW', 'VERSUS'];
 
 export const TVMode = () => {
     const [currentViewIndex, setCurrentViewIndex] = useState(0);
@@ -501,13 +501,17 @@ function BattleView({ drivers }: { drivers: TelemetryPacket[] }) {
         { bg: 'from-yellow-600/20 to-yellow-900/10', border: 'border-yellow-500', text: 'text-yellow-400', label: 'YELLOW' },
     ];
 
-    // Find fastest based on current speed
-    const fastestDriver = drivers.reduce((prev, current) =>
-        (current.speed_kmh || 0) > (prev.speed_kmh || 0) ? current : prev
-    );
+    const leaderId = drivers.reduce((best, d) => {
+        if (!best) return d;
+        const bestPos = best.pos ?? 999;
+        const thisPos = d.pos ?? 999;
+        if (thisPos < bestPos) return d;
+        if (thisPos === bestPos && (d.laps ?? 0) > (best.laps ?? 0)) return d;
+        return best;
+    }, null as TelemetryPacket | null)?.station_id ?? null;
 
-    const gridCols = drivers.length <= 2 ? 'grid-cols-2' : 'grid-cols-2';
-    const gridRows = drivers.length <= 2 ? '' : 'grid-rows-2';
+    const gridCols = drivers.length <= 4 ? 'grid-cols-2' : 'grid-cols-3';
+    const gridRows = drivers.length <= 2 ? '' : drivers.length <= 4 ? 'grid-rows-2' : 'grid-rows-3';
 
     return (
         <div className="h-full w-full bg-gray-950 text-white relative overflow-hidden">
@@ -531,7 +535,7 @@ function BattleView({ drivers }: { drivers: TelemetryPacket[] }) {
             <div className={`h-full pt-16 grid ${gridCols} ${gridRows} gap-1`}>
                 {drivers.map((driver, idx) => {
                     const color = colors[idx % colors.length];
-                    const isFastest = driver.station_id === fastestDriver.station_id;
+                    const isLeader = driver.station_id === leaderId;
 
                     return (
                         <motion.div
@@ -564,7 +568,7 @@ function BattleView({ drivers }: { drivers: TelemetryPacket[] }) {
                             {/* Speed */}
                             <div className="flex-1 flex items-center justify-center relative z-10">
                                 <div className="text-center">
-                                    <div className={`text-8xl font-black tabular-nums font-russo ${isFastest ? 'text-yellow-400 drop-shadow-[0_0_15px_rgba(250,204,21,0.5)]' : 'text-white drop-shadow-lg'}`}>
+                                    <div className={`text-8xl font-black tabular-nums font-russo ${isLeader ? 'text-yellow-400 drop-shadow-[0_0_15px_rgba(250,204,21,0.5)]' : 'text-white drop-shadow-lg'}`}>
                                         {Math.round(driver.speed_kmh || 0)}
                                     </div>
                                     <div className="text-sm font-bold text-gray-500 uppercase tracking-widest">KM/H</div>
@@ -588,7 +592,7 @@ function BattleView({ drivers }: { drivers: TelemetryPacket[] }) {
                             </div>
 
                             {/* Fastest Indicator */}
-                            {isFastest && (
+                            {isLeader && (
                                 <div className="absolute bottom-4 right-4 bg-yellow-500 text-black px-3 py-1 rounded-full text-xs font-black uppercase animate-pulse shadow-lg shadow-yellow-500/50 z-20">
                                     LÍDER
                                 </div>

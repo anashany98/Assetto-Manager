@@ -65,8 +65,8 @@ def list_drivers_for_kiosk(
         {
             "id": d.id,
             "name": d.name,
-            "best_time": d.best_lap,
-            "car": d.car_model
+            "best_time": None,
+            "car": None
         }
         for d in drivers
     ]

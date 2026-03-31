@@ -67,8 +67,8 @@ export default function TVSpectator() {
             await axios.post(`${API_URL}/spectator/${station.id}/start`, null, { headers });
             setSelectedStation(station);
             setStreaming(true);
-        } catch (err: any) {
-            setError(err.response?.data?.detail || 'Error al iniciar stream');
+        } catch (err: unknown) {
+            setError((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || 'Error al iniciar stream');
         } finally {
             setLoading(false);
         }
@@ -87,8 +87,8 @@ export default function TVSpectator() {
             const headers = PUBLIC_API_TOKEN ? { 'X-Client-Token': PUBLIC_API_TOKEN } : {};
             await axios.post(`${API_URL}/spectator/${selectedStation.id}/stop`, null, { headers });
             setStreaming(false);
-        } catch (err: any) {
-            setError(err.response?.data?.detail || 'Error al detener stream');
+        } catch (err: unknown) {
+            setError((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || 'Error al detener stream');
         } finally {
             setLoading(false);
         }

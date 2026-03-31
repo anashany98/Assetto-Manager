@@ -99,7 +99,7 @@ export default function TVRemote() {
 
                 {/* SCREEN SELECTOR */}
                 <div className="flex space-x-2 mb-6 bg-[var(--bg-elevated)] p-1.5 rounded-xl">
-                    {[1, 2, 3].map((num) => (
+                    {[1, 2, 3, 4, 5, 6].map((num) => (
                         <button
                             key={num}
                             onClick={() => setSelectedScreen(num)}
@@ -128,7 +128,7 @@ export default function TVRemote() {
                     >
                         <Zap size={28} className={cn("md:w-8 md:h-8", tvMode === 'auto' ? "text-yellow-300 animate-pulse" : "text-[var(--text-tertiary)]")} />
                         <span className="font-bold text-base md:text-lg">Automático</span>
-                        <span className="text-[10px] md:text-xs opacity-70">Rota cada 30s</span>
+                        <span className="text-[10px] md:text-xs opacity-70">Rota cada 15s</span>
                     </button>
 
                     <button

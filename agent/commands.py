@@ -193,6 +193,15 @@ def install_mod_logic(data):
                     zip_ref.extractall(target_base)
             elif patoolib:
                 patoolib.extract_archive(local_zip_path, outdir=str(target_base))
+                # Validate extracted files for path traversal
+                for root, dirs, files in os.walk(target_base):
+                    for f in files:
+                        full_path = Path(root) / f
+                        try:
+                            full_path.resolve().relative_to(Path(target_base).resolve())
+                        except ValueError:
+                            logger.error(f"Path traversal detected after extraction: {full_path}")
+                            full_path.unlink()
             else:
                  logger.error("Cannot extract non-zip file without patoolib")
                  return

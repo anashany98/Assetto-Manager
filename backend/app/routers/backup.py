@@ -1,5 +1,4 @@
-
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from .. import database, models, schemas
@@ -114,12 +113,19 @@ def _clean_list(items):
 @router.post("/import")
 async def import_database(
     file: UploadFile = File(...),
+    confirm: bool = Query(False, description="Must be true to confirm data deletion"),
     db: Session = Depends(database.get_db),
     _auth: object = Depends(require_admin)
 ):
     """
     Import database from JSON - WARNING: DELETES EXISTING DATA
+    Requires confirm=true query parameter to prevent accidental data loss.
     """
+    if not confirm:
+        raise HTTPException(
+            status_code=400,
+            detail="Import requires confirm=true query parameter. This will DELETE all existing data."
+        )
     temp_path = None
     try:
         backups_dir = PRIVATE_STORAGE_DIR / "backups"

@@ -3,3 +3,4 @@ psutil==6.1.0
 websockets==13.1
 getmac==0.9.4
 aiohttp>=3.9.0
+patool>=1.12

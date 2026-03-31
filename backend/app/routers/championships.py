@@ -53,8 +53,6 @@ def link_session_to_event(championship_id: int, event_id: int, session_id: int, 
     
     session_result.event_id = event_id
     db.commit()
-    session_result.event_id = event_id
-    db.commit()
     return {"message": "Session linked to event", "session_id": session_id, "event_id": event_id}
 
 @router.post("/{championship_id}/events/{event_id}/auto-detect")

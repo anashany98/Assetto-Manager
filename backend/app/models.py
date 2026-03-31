@@ -186,7 +186,7 @@ class Lobby(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)
-    status = Column(String, default="waiting")  # waiting, starting, running, finished, cancelled
+    status = Column(String, default="waiting", index=True)  # waiting, starting, running, finished, cancelled
     
     # Host station that runs acServer.exe
     host_station_id = Column(Integer, ForeignKey("stations.id"))
@@ -272,7 +272,7 @@ class SessionResult(Base):
     __tablename__ = "session_results"
     
     id = Column(Integer, primary_key=True, index=True)
-    station_id = Column(Integer, ForeignKey("stations.id"), nullable=True)
+    station_id = Column(Integer, ForeignKey("stations.id"), nullable=True, index=True)
     driver_name = Column(String, index=True)
     car_model = Column(String, index=True)
     track_name = Column(String, index=True)
@@ -284,7 +284,7 @@ class SessionResult(Base):
     track_config = Column(String, nullable=True)
     total_score = Column(Integer, default=0) # For Drift Mode
     
-    event_id = Column(Integer, ForeignKey("events.id"), nullable=True)
+    event_id = Column(Integer, ForeignKey("events.id"), nullable=True, index=True)
     event = relationship("Event", backref="session_results")
     station = relationship("Station")
 
@@ -457,7 +457,7 @@ class Booking(Base):
     id = Column(Integer, primary_key=True, index=True)
     station_id = Column(Integer, ForeignKey("stations.id"), nullable=True)
     customer_name = Column(String(100), nullable=False)
-    customer_email = Column(String(100), nullable=True)
+    customer_email = Column(String(100), nullable=True, index=True)
     customer_phone = Column(String(20), nullable=True)
     num_players = Column(Integer, default=1)  # Number of players in the group
     date = Column(DateTime(timezone=True), nullable=False, index=True)
@@ -561,7 +561,7 @@ class Payment(Base):
     driver_name = Column(String(100), nullable=True)
     scenario_id = Column(Integer, ForeignKey("scenarios.id"), nullable=True)
 
-    external_id = Column(String(255), nullable=True)
+    external_id = Column(String(255), nullable=True, index=True)
     checkout_url = Column(String, nullable=True)
     metadata_json = Column(JSON, nullable=True)
 

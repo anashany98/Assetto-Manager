@@ -39,10 +39,14 @@ certs/*.pem
 certs/*.key
 !certs/public_key.pem
 
+# Root .env (contains production secrets)
+.env
+
 # Local Config
 LOCAL
 NETWORK
 agent/config.json
+agent/config.local-test.json
 
 # Playwright
 test-results/

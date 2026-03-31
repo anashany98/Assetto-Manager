@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
+import { toast } from 'sonner';
 import axios from 'axios';
 import { soundManager } from '../utils/sound';
 import {
@@ -48,14 +49,21 @@ interface AttractModeProps {
     scenarios: Scenario[];
     t: any;
     onUnpair?: () => void;
+    brandName?: string;
+    brandSubtitle?: string;
+    topRecordTime?: string | null;
 }
 
-export const AttractMode: React.FC<AttractModeProps> = ({ isIdle, scenarios, t, onUnpair }) => {
+export const AttractMode = React.memo(function AttractMode({ isIdle, scenarios, t, onUnpair, brandName, brandSubtitle, topRecordTime }: AttractModeProps) {
     if (!isIdle) return null;
     const tx = (key: string, fallback: string) => {
         const value = t?.(key);
         return !value || value === key ? fallback : value;
     };
+
+    const displayBrandName = brandName || 'DRIVE LAB';
+    const displayBrandSubtitle = brandSubtitle || 'SIM STUDIO';
+    const recordTime = topRecordTime || '--:--.---';
 
     return (
         <div
@@ -92,11 +100,11 @@ export const AttractMode: React.FC<AttractModeProps> = ({ isIdle, scenarios, t, 
                     <div className="space-y-6">
                         <div className="inline-flex items-center gap-3">
                             <div className="w-12 h-12 rounded-2xl bg-amber-400 text-black font-black flex items-center justify-center">AC</div>
-                            <div className="text-xs uppercase tracking-[0.5em] text-amber-200/80">SIM STUDIO</div>
+                            <div className="text-xs uppercase tracking-[0.5em] text-amber-200/80">{displayBrandSubtitle}</div>
                         </div>
                         <div>
                             <h1 className="text-4xl md:text-8xl font-racing uppercase italic tracking-tight text-white drop-shadow-[0_10px_40px_rgba(0,0,0,0.45)]">
-                                DRIVE LAB
+                                {displayBrandName}
                             </h1>
                             <p className="text-lg md:text-xl text-slate-300 max-w-md mt-3">
                                 Ajusta tu setup, elige tu reto y entra a pista en segundos.
@@ -145,7 +153,7 @@ export const AttractMode: React.FC<AttractModeProps> = ({ isIdle, scenarios, t, 
                 <div className="flex flex-col justify-between">
                     <div className="rounded-[32px] border border-amber-400/30 bg-gradient-to-b from-amber-300/10 via-slate-950/60 to-slate-950/90 p-5 md:p-8 shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
                         <div className="text-amber-300 uppercase tracking-[0.35em] text-xs">{tx('attract.sessionRecord', 'RECORD')}</div>
-                        <div className="text-4xl md:text-7xl font-mono font-black text-white tabular-nums mt-4">1:44.210</div>
+                        <div className="text-4xl md:text-7xl font-mono font-black text-white tabular-nums mt-4">{recordTime}</div>
                         <div className="text-xs text-slate-400 uppercase tracking-widest mt-3">{tx('attract.localRecord', 'LOCAL')}</div>
                         <div className="text-xs text-amber-200 uppercase tracking-wide mt-2">{tx('attract.anyCarAnyTrack', 'ANY CAR / ANY TRACK')}</div>
                     </div>
@@ -156,7 +164,7 @@ export const AttractMode: React.FC<AttractModeProps> = ({ isIdle, scenarios, t, 
             </div>
         </div>
     );
-};
+});
 
 // --- SCENARIO STEP ---
 interface ScenarioStepProps {
@@ -168,9 +176,9 @@ interface ScenarioStepProps {
     setDuration: (d: number) => void;
 }
 
-export const ScenarioStep: React.FC<ScenarioStepProps> = ({
+export const ScenarioStep = React.memo(function ScenarioStep({
     scenarios, setSelection, setStep, setSelectedScenario, setDuration
-}) => {
+}: ScenarioStepProps) {
     const { data: lobbies = [] } = useQuery({
         queryKey: ['lobbies'],
         queryFn: () => axios.get(`${API_URL}/lobby/list?status=active`).then(r => r.data),
@@ -233,13 +241,13 @@ export const ScenarioStep: React.FC<ScenarioStepProps> = ({
 
     const handleJoinLobby = (lobby: any) => {
         if (!lobby?.id || lobby.id <= 0) {
-            window.alert('Sala no valida. Recarga la lista de salas en vivo.');
+            toast.error('Sala no valida. Recarga la lista de salas en vivo.');
             return;
         }
         const playerCount = lobby.player_count ?? lobby.players_count ?? 0;
         const maxPlayers = lobby.max_players ?? 10;
         if (playerCount >= maxPlayers) {
-            window.alert('La sala está llena. Por favor elige otra.');
+            toast.error('La sala está llena. Por favor elige otra.');
             return;
         }
         soundManager.playClick();
@@ -495,7 +503,7 @@ export const ScenarioStep: React.FC<ScenarioStepProps> = ({
             )}
         </div>
     );
-};
+});
 
 // --- DIFFICULTY STEP ---
 interface DifficultyStepProps {
@@ -527,7 +535,7 @@ interface DifficultyStepProps {
     rainEnabled?: boolean;
 }
 
-export const DifficultyStep: React.FC<DifficultyStepProps> = ({
+export const DifficultyStep = React.memo(function DifficultyStep({
     t, selection, selectedCarObj, selectedTrackObj,
     timeOfDay, setTimeOfDay, weather, setWeather, transmission, setTransmission,
     difficulty, setDifficulty,
@@ -535,13 +543,12 @@ export const DifficultyStep: React.FC<DifficultyStepProps> = ({
     setPaymentInfo, setPaymentError, launchWithoutPayment,
     launchingNoPayment, paymentNote, paymentHandledRef, noPaymentHandledRef, resolveAssetUrl,
     rainEnabled = false
-}) => {
+}: DifficultyStepProps) {
 
     const specs = selectedCarObj?.specs?.bhp ? selectedCarObj.specs : null;
     const carImageUrl = resolveAssetUrl(selectedCarObj?.image_url);
     const trackImageUrl = resolveAssetUrl(selectedTrackObj?.image_url);
-    const mapUrl = resolveAssetUrl(selectedTrackObj?.map_url)
-        || "https://upload.wikimedia.org/wikipedia/commons/thumb/6/67/Circuit_de_Spa-Francorchamps_trace.svg/1200px-Circuit_de_Spa-Francorchamps_trace.svg.png";
+    const mapUrl = resolveAssetUrl(selectedTrackObj?.map_url) ?? undefined;
 
     return (
         <div className="h-full w-full min-h-0 flex flex-col animate-in zoom-in duration-300 max-w-6xl mx-auto px-3 md:px-5 py-2 md:py-3 overflow-y-auto pb-6 md:pb-8">
@@ -577,7 +584,18 @@ export const DifficultyStep: React.FC<DifficultyStepProps> = ({
                     <div className="text-xl md:text-2xl font-black text-white mb-3 truncate">{selectedTrackObj?.name || selection?.track}</div>
                     {trackImageUrl && <img src={trackImageUrl} className="w-full h-24 md:h-28 object-cover rounded-2xl mb-3 border border-gray-700/60" alt="" />}
                     <div className="flex-1 flex items-center justify-center">
-                        <img src={mapUrl} className="h-16 md:h-24 w-auto object-contain brightness-200 filter invert" alt="" />
+                        {selectedTrackObj?.map_url ? (
+                            <img src={mapUrl} className="h-16 md:h-24 w-auto object-contain brightness-200 filter invert" alt="" />
+                        ) : (
+                            <div className="w-full aspect-video bg-slate-800/50 rounded-xl flex items-center justify-center border border-white/10">
+                                <div className="text-center">
+                                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mx-auto mb-2 text-slate-500">
+                                        <path d="M3 12h4l3-9 4 18 3-9h4"/>
+                                    </svg>
+                                    <p className="text-slate-500 text-sm">{selection?.track || 'Circuito'}</p>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -698,7 +716,7 @@ export const DifficultyStep: React.FC<DifficultyStepProps> = ({
             </div>
         </div>
     );
-};
+});
 
 
 // --- PAYMENT STEP ---
@@ -725,12 +743,12 @@ interface PaymentStepProps {
     onLaunchConfirmed: () => void;
 }
 
-export const PaymentStep: React.FC<PaymentStepProps> = ({
+export const PaymentStep = React.memo(function PaymentStep({
     t, stationId, duration, driver, selection, setSelection, paymentProvider, setPaymentProvider,
     paymentInfo, setPaymentInfo, paymentError, setPaymentError,
     clientTokenHeaders, sessionPrice, paymentHandledRef, setStep,
     launchSessionMutation, buildLaunchPayload, rollbackLaunchedAccess, onLaunchConfirmed
-}) => {
+}: PaymentStepProps) {
     const [isPaidAccessRunning, setIsPaidAccessRunning] = useState(false);
     const paidAccessInFlightRef = useRef(false);
     const resolveApiError = (error: unknown, fallback: string) => {
@@ -965,7 +983,7 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
             </div>
         </div>
     );
-};
+});
 
 // --- NO PAYMENT STEP ---
 interface NoPaymentStepProps {
@@ -975,9 +993,9 @@ interface NoPaymentStepProps {
     stationId: number;
 }
 
-export const NoPaymentStep: React.FC<NoPaymentStepProps> = ({
+export const NoPaymentStep = React.memo(function NoPaymentStep({
     paymentEnabled, launchWithoutPayment, selection, stationId
-}) => {
+}: NoPaymentStepProps) {
     useEffect(() => {
         if (!paymentEnabled) launchWithoutPayment();
     }, [paymentEnabled, selection?.car, selection?.track, stationId]);
@@ -988,7 +1006,7 @@ export const NoPaymentStep: React.FC<NoPaymentStepProps> = ({
             <p className="text-slate-400">El pago esta desactivado. Lanzando la sesion...</p>
         </div>
     );
-};
+});
 
 // --- WAITING ROOM ---
 interface WaitingRoomProps {
@@ -999,7 +1017,7 @@ interface WaitingRoomProps {
     onExitLobby?: () => void;
 }
 
-export const WaitingRoom: React.FC<WaitingRoomProps> = ({ selection, stationId, setIsLaunched, clientTokenHeaders, onExitLobby }) => {
+export const WaitingRoom = React.memo(function WaitingRoom({ selection, stationId, setIsLaunched, clientTokenHeaders, onExitLobby }: WaitingRoomProps) {
     const [lobbyError, setLobbyError] = useState<string | null>(null);
     const [isAbandoning, setIsAbandoning] = useState(false);
     const navigate = useNavigate();
@@ -1298,7 +1316,7 @@ export const WaitingRoom: React.FC<WaitingRoomProps> = ({ selection, stationId, 
             )}
         </div >
     );
-};
+});
 
 // --- DRIVER STEP ---
 interface DriverStepProps {
@@ -1312,9 +1330,9 @@ interface DriverStepProps {
     leaderboardData: any[];
 }
 
-export const DriverStep: React.FC<DriverStepProps> = ({
+export const DriverStep = React.memo(function DriverStep({
     t, driverName, setDriverName, driverEmail, setDriverEmail, onLogin, leaderboardData
-}) => {
+}: DriverStepProps) {
     const { data: filteredDrivers = [] } = useQuery({
         queryKey: ['drivers-kiosk', driverName],
         queryFn: async () => {
@@ -1352,7 +1370,12 @@ export const DriverStep: React.FC<DriverStepProps> = ({
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         soundManager.playConfirm();
-        onLogin({ id: 1, name: (driverName || "Guest Driver").trim() });
+        const selectedDriver = filteredDrivers.find((d: any) => d.name.toLowerCase() === driverName.toLowerCase());
+        if (selectedDriver) {
+            onLogin({ id: selectedDriver.id, name: selectedDriver.name.trim() });
+        } else {
+            onLogin({ id: 0, name: (driverName || "Guest Driver").trim() });
+        }
     };
 
     return (
@@ -1369,9 +1392,14 @@ export const DriverStep: React.FC<DriverStepProps> = ({
                                 className="w-full bg-slate-950/70 border border-white/10 focus:border-amber-400/60 rounded-2xl px-4 py-3 text-lg md:text-2xl text-white font-bold outline-none transition-all focus:scale-[1.01] placeholder:text-slate-600"
                                 placeholder="Ej. Max Verstappen"
                                 value={driverName}
-                                onChange={e => setDriverName(e.target.value)}
+                                onChange={e => {
+                                    if (e.target.value.length <= 50) {
+                                        setDriverName(e.target.value);
+                                    }
+                                }}
                                 required
                                 autoComplete="off"
+                                maxLength={50}
                             />
                             {driverName.length > 0 && filteredDrivers.length > 0 && (
                                 <div className="absolute z-50 w-full max-w-xl mt-1 bg-slate-900 border border-white/10 rounded-xl shadow-xl max-h-60 overflow-y-auto">
@@ -1443,7 +1471,7 @@ export const DriverStep: React.FC<DriverStepProps> = ({
             </div>
         </div>
     );
-};
+});
 
 // --- COACH SECTION COMPONENT ---
 interface CoachSectionProps {
@@ -1547,11 +1575,11 @@ interface RaceModeProps {
     localKioskCode?: string;
 }
 
-export const RaceMode: React.FC<RaceModeProps> = ({
+export const RaceMode = React.memo(function RaceMode({
     remainingSeconds, selection, driver, transmission, setIsLaunched, setStep, setDriver, setDriverName, setDriverEmail,
     noPaymentHandledRef, paymentHandledRef, stationId, clientTokenHeaders, setSelection,
     offlineMode, agentIp, localAuthToken, localKioskCode
-}) => {
+}: RaceModeProps) {
     const minutes = Math.floor(remainingSeconds / 60);
     const seconds = remainingSeconds % 60;
     const isLowTime = remainingSeconds < 60;
@@ -2002,7 +2030,7 @@ export const RaceMode: React.FC<RaceModeProps> = ({
             </div>
         </div>
     );
-};
+});
 
 // --- RESULTS STEP ---
 interface ResultsStepProps {
@@ -2011,7 +2039,7 @@ interface ResultsStepProps {
     t: any;
 }
 
-export const ResultsStep: React.FC<ResultsStepProps> = ({ driver, selection }) => {
+export const ResultsStep = React.memo(function ResultsStep({ driver, selection }: ResultsStepProps) {
     const { data: recentSessions, isLoading } = useQuery({
         queryKey: ['recent-sessions', driver?.name, selection?.track],
         queryFn: async () => {
@@ -2141,4 +2169,4 @@ export const ResultsStep: React.FC<ResultsStepProps> = ({ driver, selection }) =
             </div>
         </div>
     );
-};
+});

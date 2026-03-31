@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import type { KioskSelection } from './types';
 
 interface NoPaymentStepProps {
@@ -9,11 +9,16 @@ interface NoPaymentStepProps {
 }
 
 export const NoPaymentStep: React.FC<NoPaymentStepProps> = ({
-    paymentEnabled, launchWithoutPayment, selection, stationId
+    paymentEnabled, launchWithoutPayment
 }) => {
+    const hasLaunchedRef = useRef(false);
+
     useEffect(() => {
-        if (!paymentEnabled) launchWithoutPayment();
-    }, [paymentEnabled, selection?.car, selection?.track, stationId]);
+        if (!paymentEnabled && !hasLaunchedRef.current) {
+            hasLaunchedRef.current = true;
+            launchWithoutPayment();
+        }
+    }, [paymentEnabled, launchWithoutPayment]);
 
     return (
         <div className="h-full flex flex-col items-center justify-center animate-in zoom-in duration-300 max-w-3xl mx-auto w-full text-center px-4">

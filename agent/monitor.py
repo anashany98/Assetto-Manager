@@ -139,5 +139,5 @@ class HardwareMonitor(threading.Thread):
             agent_token = os.getenv("AGENT_TOKEN", "")
             headers = {"X-Agent-Token": agent_token} if agent_token else {}
             requests.post(self.server_url, json=data, headers=headers, timeout=2)
-        except Exception:
-            pass # Monitorización no debe bloquear ni spammear logs si falla la red
+        except Exception as e:
+            logger.debug("Hardware report failed (non-critical): %s", e)
