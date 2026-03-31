@@ -6,6 +6,9 @@ export interface DashboardStats {
     online_stations: number;
     syncing_stations: number;
     active_profile: string;
+    sessions_today?: number;
+    bookings_pending?: number;
+    revenue_today?: number;
     total_drivers?: number;
 }
 

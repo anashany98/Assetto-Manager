@@ -153,7 +153,26 @@ async def get_analytics_overview(range_days: int = 30, db: Session = Depends(get
         "popular_tracks": popular_tracks,
         "popular_cars": popular_cars,
         "sessions_per_day": sessions_per_day,
-        "peak_hours": peak_hours
+        "peak_hours": peak_hours,
+        "total_revenue": db.query(func.sum(SessionModel.price)).filter(
+            SessionModel.is_paid == True
+        ).scalar() or 0,
+        "avg_session_duration": db.query(func.avg(SessionModel.duration_minutes)).filter(
+            SessionModel.duration_minutes.isnot(None)
+        ).scalar() or 0,
+        "occupancy_rate": round((sessions_today / max(total_sessions, 1)) * 100, 1) if total_sessions > 0 else 0,
+        "most_used_station_name": (db.query(
+            models.Station.name,
+            func.count(SessionModel.id).label("count")
+        ).join(
+            SessionModel, SessionModel.station_id == models.Station.id
+        ).filter(
+            SessionModel.station_id.isnot(None)
+        ).group_by(
+            models.Station.id, models.Station.name
+        ).order_by(
+            desc("count")
+        ).first() or (None, None))[0]
     }
 
 @router.get("/revenue")

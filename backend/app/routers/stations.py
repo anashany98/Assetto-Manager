@@ -19,12 +19,12 @@ router = APIRouter(
     tags=["stations"]
 )
 
-def _generate_kiosk_code(db: Session) -> str:
+def _generate_kiosk_code(db: Session) -> tuple[str, None]:
     while True:
         code = secrets.token_hex(3).upper()
         existing = db.query(models.Station).filter(models.Station.kiosk_code == code).first()
         if not existing:
-            return code
+            return code, None
 
 def _next_sim_name(db: Session) -> str:
     from sqlalchemy import func
@@ -75,7 +75,7 @@ def register_station(station: schemas.StationCreate, db: Session = Depends(datab
         if station.name and (not db_station.name or db_station.name == db_station.hostname):
             db_station.name = station.name
         if not db_station.kiosk_code:
-            db_station.kiosk_code = _generate_kiosk_code(db)
+            db_station.kiosk_code, db_station.kiosk_code_expires_at = _generate_kiosk_code(db)
         # Registration does not imply online presence; only WS identify or health report should.
         db_station.is_active = True
         db_station.is_online = False
@@ -88,7 +88,7 @@ def register_station(station: schemas.StationCreate, db: Session = Depends(datab
         return db_station
     
     station_data = station.model_dump()
-    station_data["kiosk_code"] = _generate_kiosk_code(db)
+    station_data["kiosk_code"], station_data["kiosk_code_expires_at"] = _generate_kiosk_code(db)
     # New stations should be kiosk-ready by default
     station_data["is_kiosk_mode"] = True
     if not station_data.get("name") or station_data.get("name") == station_data.get("hostname"):
@@ -176,21 +176,30 @@ def update_station(
         if db_station.status == "archived":
             db_station.status = "offline"
     if not db_station.kiosk_code:
-        db_station.kiosk_code = _generate_kiosk_code(db)
+        db_station.kiosk_code, db_station.kiosk_code_expires_at = _generate_kiosk_code(db)
     
     db.commit()
     db.refresh(db_station)
     return db_station
 
 @router.post("/{station_id}/kiosk-code", dependencies=[Depends(require_admin)])
-def regenerate_kiosk_code(station_id: int, db: Session = Depends(database.get_db)):
+async def regenerate_kiosk_code(station_id: int, db: Session = Depends(database.get_db)):
     station = db.query(models.Station).filter(models.Station.id == station_id).first()
     if not station:
         raise HTTPException(status_code=404, detail="Station not found")
-    station.kiosk_code = _generate_kiosk_code(db)
+    station.kiosk_code, station.kiosk_code_expires_at = _generate_kiosk_code(db)
     db.commit()
     db.refresh(station)
-    return {"station_id": station.id, "kiosk_code": station.kiosk_code}
+    if station.is_online:
+        try:
+            await ws_manager.send_command(station.id, {"command": "update_kiosk_code", "kiosk_code": station.kiosk_code})
+        except Exception:
+            pass
+    return {
+        "station_id": station.id, 
+        "kiosk_code": station.kiosk_code,
+        "expires_at": station.kiosk_code_expires_at.isoformat() if station.kiosk_code_expires_at else None
+    }
 
 @router.delete("/{station_id}", dependencies=[Depends(require_admin)])
 def remove_station(station_id: int, db: Session = Depends(database.get_db)):
@@ -259,21 +268,47 @@ def archive_ghost_stations(payload: ArchiveGhostsRequest, db: Session = Depends(
 
 @router.get("/stats", dependencies=[Depends(require_admin)])
 def get_station_stats(db: Session = Depends(database.get_db)):
+    from datetime import datetime, timedelta
+    from sqlalchemy import func
+    
     total = db.query(models.Station).count()
     online = db.query(models.Station).filter(models.Station.is_online == True).count()
     syncing = db.query(models.Station).filter(models.Station.status == "syncing").count()
     
-    # Get active profile name if any station has one (assuming unified profile for arcade)
     active_profile = "Ninguno"
     active_station = db.query(models.Station).filter(models.Station.active_profile_id != None).first()
     if active_station and active_station.active_profile:
         active_profile = active_station.active_profile.name
-        
+    
+    today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    sessions_today = db.query(func.count(models.Session.id)).filter(
+        models.Session.start_time >= today_start
+    ).scalar() or 0
+    
+    bookings_pending = db.query(func.count(models.Booking.id)).filter(
+        models.Booking.status == "pending",
+        models.Booking.start_time >= today_start
+    ).scalar() or 0
+    
+    revenue_today = db.query(func.sum(models.Session.price)).filter(
+        models.Session.start_time >= today_start,
+        models.Session.is_paid == True
+    ).scalar() or 0
+    
+    total_drivers = db.query(func.count(func.distinct(models.Session.driver_name))).filter(
+        models.Session.driver_name.isnot(None)
+    ).scalar() or 0
+    
     return {
         "total_stations": total,
         "online_stations": online,
         "syncing_stations": syncing,
-        "active_profile": active_profile
+        "active_profile": active_profile,
+        "sessions_today": sessions_today,
+        "bookings_pending": bookings_pending,
+        "revenue_today": float(revenue_today),
+        "total_drivers": total_drivers
     }
 
 @router.get("/{station_id}/target-manifest", dependencies=[Depends(require_agent_token_scoped("agent:manifest"))])

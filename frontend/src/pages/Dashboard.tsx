@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, memo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     Activity,
@@ -52,16 +52,16 @@ export default function Dashboard() {
         is_vr: boolean;
     } | null>(null);
 
-    const { data: stats } = useQuery<DashboardStats>({
+    const { data: stats, isLoading: statsLoading } = useQuery<DashboardStats>({
         queryKey: ['dashboardStats'],
         queryFn: getDashboardStats,
-        refetchInterval: 5000
+        refetchInterval: 15000
     });
 
     const { data: activeSessions } = useQuery<Session[]>({
         queryKey: ['active-sessions'],
         queryFn: getActiveSessions,
-        refetchInterval: 5000
+        refetchInterval: 15000
     });
 
     const sessionsCount = activeSessions?.length ?? 0;
@@ -126,10 +126,39 @@ export default function Dashboard() {
                     <div className="space-y-6 animate-fade-in" role="tabpanel" id="tabpanel-overview">
                         {/* Stats */}
                         <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                            <StatCard label="Simuladores" value={stats?.total_stations || 0} description="Configurados" icon={Monitor} color="blue" />
-                            <StatCard label="Online" value={stats?.online_stations || 0} description="Disponibles" icon={Activity} color="emerald" highlight={(stats?.online_stations || 0) > 0} />
-                            <StatCard label="Sincronizando" value={stats?.syncing_stations || 0} description="Descargando" icon={HardDrive} color="amber" />
-                            <StatCard label="Perfil Activo" value={stats?.active_profile || "—"} description="Configuración" icon={Gauge} color="violet" />
+                            <StatCard 
+                                label="Simuladores" 
+                                value={statsLoading ? '--' : (stats?.total_stations || 0)} 
+                                description="Configurados" 
+                                icon={Monitor} 
+                                color="blue" 
+                                loading={statsLoading}
+                            />
+                            <StatCard 
+                                label="Online" 
+                                value={statsLoading ? '--' : (stats?.online_stations || 0)} 
+                                description="Disponibles" 
+                                icon={Activity} 
+                                color="emerald" 
+                                highlight={(stats?.online_stations || 0) > 0}
+                                loading={statsLoading}
+                            />
+                            <StatCard 
+                                label="Sincronizando" 
+                                value={statsLoading ? '--' : (stats?.syncing_stations || 0)} 
+                                description="Descargando" 
+                                icon={HardDrive} 
+                                color="amber" 
+                                loading={statsLoading}
+                            />
+                            <StatCard 
+                                label="Perfil Activo" 
+                                value={statsLoading ? '--' : (stats?.active_profile || "—")} 
+                                description="Configuración" 
+                                icon={Gauge} 
+                                color="violet" 
+                                loading={statsLoading}
+                            />
                         </section>
 
                         {/* Quick Actions */}
@@ -175,7 +204,7 @@ export default function Dashboard() {
                                 {activeSessions && activeSessions.length > 0 ? (
                                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                                         {activeSessions.map(session => (
-                                            <SessionCard
+                                            <MemoizedSessionCard
                                                 key={session.id}
                                                 session={session}
                                                 onUpdate={() => queryClient.invalidateQueries({ queryKey: ['active-sessions'] })}
@@ -219,7 +248,57 @@ export default function Dashboard() {
 // ANALYTICS TAB
 // ============================================================================
 
+type DateFilter = 'today' | 'week' | 'month' | 'year';
+
 function AnalyticsTabContent() {
+    const [dateFilter, setDateFilter] = useState<DateFilter>('today');
+    
+    const rangeDaysMap: Record<DateFilter, number> = {
+        today: 1,
+        week: 7,
+        month: 30,
+        year: 365
+    };
+    
+    const { data: analyticsData, isLoading: analyticsLoading, error: analyticsError } = useQuery({
+        queryKey: ['analytics', dateFilter],
+        queryFn: async () => {
+            const { default: axios } = await import('axios');
+            const { API_URL } = await import('../config');
+            const res = await axios.get(`${API_URL}/analytics/overview`, {
+                params: { range_days: rangeDaysMap[dateFilter] }
+            });
+            return res.data;
+        },
+        refetchInterval: 60000,
+        retry: 2
+    });
+
+    const summaryData = useMemo(() => {
+        if (!analyticsData?.summary) return null;
+        const s = analyticsData.summary;
+        
+        const periodMap: Record<DateFilter, number> = {
+            today: s.sessions_today || 0,
+            week: s.sessions_this_week || 0,
+            month: s.sessions_this_month || 0,
+            year: s.total_sessions || 0,
+        };
+        
+        return {
+            sessionsTotal: periodMap[dateFilter] || 0,
+            avgDuration: analyticsData.avg_session_duration 
+                ? Math.round(analyticsData.avg_session_duration / 60) 
+                : '--',
+            revenue: analyticsData.total_revenue || '--',
+            occupancy: analyticsData.occupancy_rate || '--',
+            topStation: analyticsData.most_used_station_name || '--',
+            topCar: analyticsData.popular_cars?.[0]?.name || '--',
+            topTrack: analyticsData.popular_tracks?.[0]?.name || '--',
+            topDriver: analyticsData.top_drivers?.[0]?.name || '--',
+        };
+    }, [analyticsData, dateFilter]);
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -232,7 +311,11 @@ function AnalyticsTabContent() {
                         <p className="text-xs text-[var(--text-tertiary)]">Métricas de rendimiento</p>
                     </div>
                 </div>
-                <select className="ac-input w-auto max-w-[160px]">
+                <select 
+                    className="ac-input w-auto max-w-[160px]"
+                    value={dateFilter}
+                    onChange={(e) => setDateFilter(e.target.value as DateFilter)}
+                >
                     <option value="today">Hoy</option>
                     <option value="week">Esta semana</option>
                     <option value="month">Este mes</option>
@@ -241,23 +324,49 @@ function AnalyticsTabContent() {
             </div>
 
             <div className="ac-card-elevated p-5 lg:p-7">
-                <AnalyticsPanel />
+                <AnalyticsPanel externalData={analyticsData} />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <SummaryCard title="Resumen del Día" items={[
-                    { label: 'Sesiones totales', value: '--' },
-                    { label: 'Tiempo promedio', value: '--' },
-                    { label: 'Ingresos', value: '--', accent: true },
-                    { label: 'Ocupación', value: '--%' },
-                ]} />
-                <SummaryCard title="Rendimiento" items={[
-                    { label: 'Simulador más usado', value: '--' },
-                    { label: 'Coche más popular', value: '--' },
-                    { label: 'Track favorito', value: '--' },
-                    { label: 'Piloto del día', value: '--' },
-                ]} />
-            </div>
+            {analyticsLoading ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {[1, 2].map(i => (
+                        <div key={i} className="ac-card p-5 animate-pulse">
+                            <div className="h-5 w-32 bg-[var(--bg-badge)] rounded mb-4" />
+                            {[1,2,3,4].map(j => (
+                                <div key={j} className="flex justify-between py-2 border-b border-[var(--border-subtle)]">
+                                    <div className="h-4 w-24 bg-[var(--bg-badge)] rounded" />
+                                    <div className="h-4 w-16 bg-[var(--bg-badge)] rounded" />
+                                </div>
+                            ))}
+                        </div>
+                    ))}
+                </div>
+            ) : analyticsError ? (
+                <div className="ac-card p-6 text-center">
+                    <p className="text-[var(--text-tertiary)]">Error al cargar analíticas</p>
+                    <button 
+                        onClick={() => window.location.reload()}
+                        className="mt-2 text-sm text-[var(--accent-primary)] hover:underline"
+                    >
+                        Reintentar
+                    </button>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <SummaryCard title="Resumen del Período" items={[
+                        { label: 'Sesiones totales', value: summaryData?.sessionsTotal !== undefined ? String(summaryData.sessionsTotal) : '--' },
+                        { label: 'Duración promedio', value: summaryData?.avgDuration !== '--' ? `${summaryData?.avgDuration} min` : '--' },
+                        { label: 'Ingresos', value: summaryData?.revenue !== '--' ? `€${summaryData?.revenue}` : '--', accent: true },
+                        { label: 'Ocupación', value: summaryData?.occupancy !== '--' ? `${summaryData?.occupancy}%` : '--' },
+                    ]} />
+                    <SummaryCard title="Rendimiento" items={[
+                        { label: 'Simulador más usado', value: summaryData?.topStation || '--' },
+                        { label: 'Coche más popular', value: summaryData?.topCar || '--' },
+                        { label: 'Track favorito', value: summaryData?.topTrack || '--' },
+                        { label: 'Piloto del período', value: summaryData?.topDriver || '--' },
+                    ]} />
+                </div>
+            )}
         </div>
     );
 }
@@ -273,6 +382,7 @@ interface StatCardProps {
     icon: React.ComponentType<{ className?: string; size?: number }>;
     color: 'blue' | 'emerald' | 'amber' | 'violet';
     highlight?: boolean;
+    loading?: boolean;
 }
 
 const COLORS = {
@@ -282,18 +392,22 @@ const COLORS = {
     violet: { icon: 'from-violet-500 to-purple-600', shadow: 'shadow-violet-500/15', muted: 'bg-violet-500/10' },
 };
 
-function StatCard({ label, value, description, icon: Icon, color, highlight }: StatCardProps) {
+function StatCard({ label, value, description, icon: Icon, color, highlight, loading }: StatCardProps) {
     const c = COLORS[color];
     const isString = typeof value === 'string';
 
     return (
-        <div className={`ac-stat-card group ${highlight ? 'border-emerald-500/20' : ''}`}>
-            <div className={`absolute top-4 right-4 w-9 h-9 rounded-lg bg-gradient-to-br ${c.icon} shadow-md ${c.shadow} flex items-center justify-center transition-transform group-hover:scale-110`}>
+        <div className={`ac-stat-card group ${highlight ? 'border-emerald-500/20' : ''} ${loading ? 'opacity-60' : ''}`}>
+            <div className={`absolute top-4 right-4 w-9 h-9 rounded-lg bg-gradient-to-br ${c.icon} shadow-md ${c.shadow} flex items-center justify-center transition-transform group-hover:scale-110 ${loading ? 'animate-pulse' : ''}`}>
                 <Icon size={16} className="text-white" />
             </div>
             <div className="pr-12">
                 <p className="ac-stat-label">{label}</p>
-                <p className={`ac-stat-value ${isString ? 'text-xl truncate' : ''}`}>{value}</p>
+                {loading ? (
+                    <div className="h-7 w-16 bg-[var(--bg-badge)] rounded animate-pulse" />
+                ) : (
+                    <p className={`ac-stat-value ${isString ? 'text-xl truncate' : ''}`}>{value}</p>
+                )}
                 <p className="text-xs text-[var(--text-tertiary)] mt-1">{description}</p>
             </div>
             {highlight && (
@@ -375,6 +489,8 @@ function SessionCard({ session, onUpdate }: { session: Session; onUpdate: () => 
         </div>
     );
 }
+
+const MemoizedSessionCard = memo(SessionCard);
 
 function EmptyState({ onLaunchClick }: { onLaunchClick: () => void }) {
     return (

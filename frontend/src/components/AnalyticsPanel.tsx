@@ -33,6 +33,14 @@ interface AnalyticsData {
     popular_cars: Array<{ name: string; sessions: number }>;
     sessions_per_day: Array<{ date: string; day: string; sessions: number }>;
     peak_hours: Array<{ hour: string; bookings: number }>;
+    total_revenue?: number;
+    avg_session_duration?: number;
+    occupancy_rate?: number;
+    most_used_station_name?: string;
+}
+
+interface AnalyticsPanelProps {
+    externalData?: AnalyticsData;
 }
 
 const TIER_COLORS: Record<string, string> = {
@@ -42,7 +50,7 @@ const TIER_COLORS: Record<string, string> = {
     platinum: '#e5e4e2'
 };
 
-export default function AnalyticsPanel() {
+export default function AnalyticsPanel({ externalData }: AnalyticsPanelProps) {
     const [chartsReady, setChartsReady] = useState(false);
 
     useEffect(() => {
@@ -51,15 +59,23 @@ export default function AnalyticsPanel() {
     }, []);
 
     const { data, isLoading, error } = useQuery<AnalyticsData>({
-        queryKey: ['analytics'],
+        queryKey: ['analytics', 'panel'],
         queryFn: async () => {
-            const res = await axios.get(`${API_URL}/analytics/overview`);
+            const res = await axios.get(`${API_URL}/analytics/overview`, {
+                params: { range_days: 30 }
+            });
             return res.data;
         },
-        refetchInterval: 30000 // Refresh every 30 seconds
+        refetchInterval: 30000,
+        enabled: !externalData
     });
 
-    if (isLoading) {
+    const finalData = externalData || data;
+
+    const isLoadingState = isLoading && !externalData;
+    const hasError = error || (!data && !externalData);
+
+    if (isLoadingState) {
         return (
             <div className="bg-[var(--bg-elevated)] rounded-2xl p-8 flex items-center justify-center">
                 <div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
@@ -67,7 +83,7 @@ export default function AnalyticsPanel() {
         );
     }
 
-    if (error || !data) {
+    if (hasError) {
         return (
             <div className="bg-[var(--bg-elevated)] rounded-2xl p-6 text-center text-[var(--text-tertiary)]">
                 <p>No se pudieron cargar los analytics</p>
@@ -75,13 +91,13 @@ export default function AnalyticsPanel() {
         );
     }
 
-    const summary = data?.summary || { sessions_today: 0, sessions_this_week: 0, active_drivers_week: 0, sessions_this_month: 0, total_sessions: 0, total_drivers: 0 };
-    const bookings = data?.bookings || { today: 0, total: 0, pending: 0, confirmed: 0 };
-    const loyalty = data?.loyalty || { total_points_issued: 0, total_points_redeemed: 0, tier_distribution: {} };
-    const topDrivers = data?.top_drivers || [];
-    const popularTracks = data?.popular_tracks || [];
-    const popularCars = data?.popular_cars || [];
-    const sessionsPerDay = data?.sessions_per_day || [];
+    const summary = finalData?.summary || { sessions_today: 0, sessions_this_week: 0, active_drivers_week: 0, sessions_this_month: 0, total_sessions: 0, total_drivers: 0 };
+    const bookings = finalData?.bookings || { today: 0, total: 0, pending: 0, confirmed: 0 };
+    const loyalty = finalData?.loyalty || { total_points_issued: 0, total_points_redeemed: 0, tier_distribution: {} };
+    const topDrivers = finalData?.top_drivers || [];
+    const popularTracks = finalData?.popular_tracks || [];
+    const popularCars = finalData?.popular_cars || [];
+    const sessionsPerDay = finalData?.sessions_per_day || [];
 
     const tierData = Object.entries(loyalty.tier_distribution || {}).map(([tier, count]) => ({
         name: tier.charAt(0).toUpperCase() + tier.slice(1),
