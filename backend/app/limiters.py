@@ -1,7 +1,11 @@
 import os
+import logging
 
 from slowapi import Limiter
 from starlette.requests import Request
+
+logger = logging.getLogger(__name__)
+
 
 def _split_forwarded_for(raw: str) -> str | None:
     # "client, proxy1, proxy2"
@@ -31,5 +35,5 @@ def get_client_ip(request: Request) -> str:
     return host or "unknown"
 
 
-# Shared limiter for the whole app
+# Use in-memory rate limiter (Redis backend not available in this slowapi version)
 limiter = Limiter(key_func=get_client_ip)

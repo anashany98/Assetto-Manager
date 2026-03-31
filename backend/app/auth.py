@@ -82,6 +82,8 @@ SECRET_KEY = _load_secret_key()
 ALGORITHM = "HS256"
 DEFAULT_TOKEN_EXPIRE_MINUTES = 60 if ENVIRONMENT == "production" else 60 * 24 * 7
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", str(DEFAULT_TOKEN_EXPIRE_MINUTES)))
+REFRESH_TOKEN_EXPIRE_DAYS = 30
+ACCESS_TOKEN_EXPIRE_MINUTES_SHORT = 15
 
 # Create JWK key for joserfc
 key = OctKey.import_key(SECRET_KEY)
@@ -101,9 +103,10 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
         expire = datetime.now(timezone.utc) + expires_delta
     else:
         expire = datetime.now(timezone.utc) + timedelta(minutes=15)
-    
-    to_encode.update({"exp": int(expire.timestamp())})
-    
+
+    jti = secrets.token_urlsafe(16)
+    to_encode.update({"exp": int(expire.timestamp()), "jti": jti})
+
     header = {"alg": ALGORITHM}
     token = jwt.encode(header, to_encode, key)
     return token
@@ -118,4 +121,46 @@ def decode_access_token(token: str):
     now_ts = int(datetime.now(timezone.utc).timestamp())
     if exp < now_ts:
         raise ValueError("Token expired")
+
+    # Check blacklist
+    jti = claims.get("jti")
+    if jti:
+        try:
+            from .utils.token_blacklist import token_blacklist
+            if token_blacklist.is_blacklisted(jti):
+                raise ValueError("Token has been revoked")
+        except ImportError:
+            pass
+
+    return claims
+
+def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None):
+    """Create a refresh token with longer expiration."""
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    
+    to_encode.update({
+        "exp": int(expire.timestamp()),
+        "type": "refresh"
+    })
+    
+    header = {"alg": ALGORITHM}
+    token = jwt.encode(header, to_encode, key)
+    return token
+
+def decode_refresh_token(token: str):
+    """Decode and validate a refresh token."""
+    decoded = jwt.decode(token, key)
+    claims = decoded.claims
+    if claims.get("type") != "refresh":
+        raise ValueError("Invalid token type")
+    exp = claims.get("exp")
+    if exp is None:
+        raise ValueError("Token missing exp")
+    now_ts = int(datetime.now(timezone.utc).timestamp())
+    if exp < now_ts:
+        raise ValueError("Refresh token expired")
     return claims

@@ -14,8 +14,9 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import { API_URL, PUBLIC_API_TOKEN } from '../config';
-import { getCars, getTracks, triggerContentScan } from '../api/content';
+import { getCars, getTracks } from '../api/content';
 import { getScenarios } from '../api/scenarios';
+import { kioskLogger } from '../utils/kioskLogger';
 import type { Scenario } from '../api/scenarios';
 import { type PaymentProvider, type PaymentStatus } from '../api/payments';
 import { startSession } from '../api/sessions';
@@ -24,6 +25,7 @@ import { calculatePrice, getPricingConfig } from '../utils/pricing';
 import { useLanguage } from '../contexts/useLanguage';
 import { resolveAssetUrl } from '../lib/utils';
 import { soundManager } from '../utils/sound';
+import { parseKioskIdleTimeoutMs } from '../utils/kioskSettings';
 // LiveSessionMonitor import removed
 
 // RaceMode is now used directly from KioskSteps, LiveSessionMonitor import removed if unused,
@@ -94,11 +96,9 @@ export default function KioskMode() {
         }
     }, [duration, isLaunched]);
 
-    // Auto-trigger content scan when station is paired so real AC data appears
+    // Auto-refresh content when station is paired
     useEffect(() => {
         if (!stationId) return;
-        triggerContentScan(stationId).catch(() => {/* agent may be offline, ignore */});
-        // Refetch after giving the agent time to scan and report back
         const timer = setTimeout(() => {
             queryClient.invalidateQueries({ queryKey: ['cars', stationId] });
             queryClient.invalidateQueries({ queryKey: ['tracks', stationId] });
@@ -136,12 +136,22 @@ export default function KioskMode() {
     // Queries
     const { data: cars = [] } = useQuery({
         queryKey: ['cars', stationId],
-        queryFn: () => getCars(stationId),
+        queryFn: async () => {
+            kioskLogger.info('KIOSK', `Fetching cars for station ${stationId}`);
+            const result = await getCars(stationId);
+            kioskLogger.info('KIOSK', `Got ${result.length} cars for station ${stationId}`, result.slice(0, 3));
+            return result;
+        },
         enabled: !!stationId
     });
     const { data: tracks = [] } = useQuery({
         queryKey: ['tracks', stationId],
-        queryFn: () => getTracks(stationId),
+        queryFn: async () => {
+            kioskLogger.info('KIOSK', `Fetching tracks for station ${stationId}`);
+            const result = await getTracks(stationId);
+            kioskLogger.info('KIOSK', `Got ${result.length} tracks for station ${stationId}`, result.slice(0, 3));
+            return result;
+        },
         enabled: !!stationId
     });
     const { data: settings = [] } = useQuery({
@@ -175,6 +185,13 @@ export default function KioskMode() {
         return entry.value === 'true' || entry.value === '1';
     }, [settings]);
 
+    const idleTimeout = useMemo(() => {
+        const entry = settings.find((item: any) => item.key === 'kiosk_idle_timeout_seconds');
+        return parseKioskIdleTimeoutMs(entry?.value);
+    }, [settings]);
+    const idleModeEnabled = false;
+    const disabledIdleTimeout = 86400000;
+
     const paymentNote = paymentEnabled
         ? t('kiosk.paymentNote')
             .replace('{stationId}', stationId ? String(stationId) : '')
@@ -184,6 +201,7 @@ export default function KioskMode() {
     // --- RESTORED LOGIC ---
     const { isIdle } = useIdleTimer({
         onIdle: () => {
+            if (!idleModeEnabled) return;
             if (step > 1 && !isLaunched) {
                 setStep(1);
                 setSelection(null);
@@ -191,7 +209,7 @@ export default function KioskMode() {
                 setPaymentInfo(null);
             }
         },
-        timeout: 90000,
+        timeout: idleModeEnabled ? idleTimeout : disabledIdleTimeout,
         debounce: 500
     });
 
@@ -207,19 +225,96 @@ export default function KioskMode() {
 
 
 
-    // handleUnpair removed (logic is inline)
+    const handleUnpair = () => {
+        if (!window.confirm('Desvincular esta tablet del simulador actual?')) {
+            return;
+        }
+        clearPairedStationId();
+        setPairedKioskCode(null);
+        setStationId(0);
+        setSelection(null);
+        setDriver(null);
+        setDriverName('');
+        setDriverEmail('');
+        setSelectedScenario(null);
+        setIsLaunched(false);
+        setShowPairing(true);
+        window.location.reload();
+    };
 
+
+    // WebSocket event states
+    const [agentStatus, setAgentStatus] = useState<'online' | 'offline' | null>(null);
+    const [commandStatus, setCommandStatus] = useState<{ command: string; status: string; details?: string } | null>(null);
+    const [sessionWarning, setSessionWarning] = useState<{ minutes: number; message: string } | null>(null);
+
+    // Listen to WebSocket events
+    useEffect(() => {
+        const handleAgentStatus = (e: Event) => {
+            const data = (e as CustomEvent).detail;
+            if (data.station_id === stationId) {
+                setAgentStatus(data.status);
+            }
+        };
+
+        const handleCommandStatus = (e: Event) => {
+            const data = (e as CustomEvent).detail;
+            if (data.station_id === stationId) {
+                setCommandStatus({
+                    command: data.command,
+                    status: data.status,
+                    details: data.details
+                });
+                // Auto-clear after 5 seconds
+                setTimeout(() => setCommandStatus(null), 5000);
+            }
+        };
+
+        const handleSessionWarning = (e: Event) => {
+            const data = (e as CustomEvent).detail;
+            if (data.station_id === stationId) {
+                setSessionWarning({
+                    minutes: data.remaining_minutes,
+                    message: data.message
+                });
+                 // Play warning sound
+                 soundManager.playClick();
+            }
+        };
+
+        const handleSessionExpired = (e: Event) => {
+            const data = (e as CustomEvent).detail;
+            if (data.station_id === stationId) {
+                setIsLaunched(false);
+                setSessionWarning({ minutes: 0, message: data.message || 'Sesión finalizada' });
+            }
+        };
+
+        window.addEventListener('agent-status', handleAgentStatus);
+        window.addEventListener('command-status', handleCommandStatus);
+        window.addEventListener('session-warning', handleSessionWarning);
+        window.addEventListener('session-expired', handleSessionExpired);
+
+        return () => {
+            window.removeEventListener('agent-status', handleAgentStatus);
+            window.removeEventListener('command-status', handleCommandStatus);
+            window.removeEventListener('session-warning', handleSessionWarning);
+            window.removeEventListener('session-expired', handleSessionExpired);
+        };
+    }, [stationId]);
 
     const isServerUnavailable = isHardwareError;
     const isStationInactive = hardwareStatus?.is_active === false;
     const isKioskDisabled = hardwareStatus?.is_kiosk_mode === false;
-    const hardwareWarning = Boolean(
+    const hardwareWarning: boolean = Boolean(
         hardwareStatus && (
             hardwareStatus.is_online === false
             || !hardwareStatus.wheel_connected
             || !hardwareStatus.pedals_connected
         )
     );
+    
+
 
     const selectedCarObj = useMemo(
         () =>
@@ -272,7 +367,6 @@ export default function KioskMode() {
         mutationFn: async (payload: any) => {
             await axios.post(`${API_URL}/control/station/${payload.station_id}/launch`, payload, { headers: clientTokenHeaders });
         },
-        onSuccess: () => setIsLaunched(true)
     });
 
     const resolveApiError = (error: unknown, fallback: string) => {
@@ -309,17 +403,41 @@ export default function KioskMode() {
         }, { headers: clientTokenHeaders });
     };
 
+    const rollbackLaunchedAccess = async (options?: {
+        isLobby?: boolean;
+        isHost?: boolean;
+        lobbyId?: number | null;
+    }) => {
+        const isLobbyLaunch = options?.isLobby ?? selection?.isLobby;
+        const isHostLaunch = options?.isHost ?? selection?.isHost;
+        const lobbyId = options?.lobbyId ?? selection?.lobbyId;
+
+        if (isLobbyLaunch && lobbyId) {
+            if (isHostLaunch) {
+                await axios.delete(`${API_URL}/lobby/${lobbyId}`, {
+                    params: { requesting_station_id: stationId },
+                    headers: clientTokenHeaders
+                });
+                return;
+            }
+
+            await axios.post(`${API_URL}/lobby/${lobbyId}/leave`, {
+                station_id: stationId
+            }, { headers: clientTokenHeaders });
+            return;
+        }
+
+        await axios.post(`${API_URL}/control/station/${stationId}/stop`, null, { headers: clientTokenHeaders });
+    };
+
     const launchWithoutPayment = async () => {
         if (launchingNoPayment) return;
-        // Session launch initiated
         setLaunchingNoPayment(true);
+        setPaymentError(null);
 
-        // HANDLE LOBBY FLOW (Torneo or Joined Lobby)
-        if (selection?.isLobby) {
-            try {
-                await ensureSessionRecord();
+        try {
+            if (selection?.isLobby) {
                 if (selection.isHost) {
-                    // Create Lobby
                     const res = await axios.post(`${API_URL}/lobby/create`, {
                         station_id: stationId,
                         driver_name: driver?.name || undefined,
@@ -333,37 +451,66 @@ export default function KioskMode() {
                     }, { headers: clientTokenHeaders });
                     const lobbyId = Number(res.data?.id ?? res.data?.lobby_id);
                     setSelection(prev => prev ? ({ ...prev, lobbyId: Number.isFinite(lobbyId) ? lobbyId : prev.lobbyId }) : null);
-                    setStep(6); // Go to Waiting Room
+                    try {
+                        await ensureSessionRecord();
+                    } catch (sessionError) {
+                        try {
+                            await rollbackLaunchedAccess({ isLobby: true, isHost: true, lobbyId });
+                        } catch (rollbackError) {
+                            console.error('Failed to rollback host lobby launch:', rollbackError);
+                        }
+                        throw sessionError;
+                    }
                 } else {
-                    // Join Lobby
                     if (!selection.lobbyId) throw new Error("Missing Lobby ID");
                     await axios.post(`${API_URL}/lobby/${selection.lobbyId}/join`, {
                         station_id: stationId,
                         car: selection.car || undefined,
                         driver_name: driver?.name || undefined
                     }, { headers: clientTokenHeaders });
-                    setStep(6); // Go to Waiting Room
+                    try {
+                        await ensureSessionRecord();
+                    } catch (sessionError) {
+                        try {
+                            await rollbackLaunchedAccess({
+                                isLobby: true,
+                                isHost: false,
+                                lobbyId: selection.lobbyId
+                            });
+                        } catch (rollbackError) {
+                            console.error('Failed to rollback joined lobby launch:', rollbackError);
+                        }
+                        throw sessionError;
+                    }
                 }
-            } catch (e) {
-                console.error("Lobby Error:", e);
+                setStep(6);
+                return;
+            }
+
+            await launchSessionMutation.mutateAsync(buildLaunchPayload());
+            try {
+                await ensureSessionRecord();
+            } catch (sessionError) {
+                try {
+                    await rollbackLaunchedAccess({ isLobby: false });
+                } catch (rollbackError) {
+                    console.error('Failed to rollback launched session:', rollbackError);
+                }
+                throw sessionError;
+            }
+            setIsLaunched(true);
+        } catch (e) {
+            console.error("Launch Error:", e);
+            if (selection?.isLobby) {
                 const fallback = selection.isHost
                     ? 'No se pudo crear la sala multijugador.'
                     : 'No se pudo acceder a la sala multijugador.';
                 window.alert(resolveApiError(e, fallback));
-            } finally {
-                setLaunchingNoPayment(false);
+            } else {
+                const message = resolveApiError(e, 'No se pudo lanzar la sesion.');
+                setPaymentError(message);
+                window.alert(message);
             }
-            return;
-        }
-
-        // STANDARD LAUNCH
-        try {
-            await ensureSessionRecord();
-            await launchSessionMutation.mutateAsync(buildLaunchPayload());
-        } catch (error) {
-            const message = resolveApiError(error, 'No se pudo lanzar la sesion.');
-            setPaymentError(message);
-            window.alert(message);
         } finally {
             setLaunchingNoPayment(false);
         }
@@ -405,7 +552,7 @@ export default function KioskMode() {
                 if (!Number.isFinite(pairedId) || pairedId <= 0) {
                     throw new Error('Invalid station response');
                 }
-                setPairedStation(pairedId, kioskCodeFromUrl);
+                setPairedStation(pairedId, kioskCodeFromUrl, res.data?.ip_address || undefined);
                 setStationId(pairedId);
                 setPairedKioskCode(kioskCodeFromUrl);
                 setShowPairing(false);
@@ -471,6 +618,7 @@ export default function KioskMode() {
                             prefetchedCars={cars}
                             prefetchedTracks={tracks}
                             allowedCarIds={selection?.allowedCars}
+                            allowedTrackIds={selectedScenario?.allowed_tracks}
                             lockTrack={selection?.isLobby && !selection?.isHost ? (selection.track || undefined) : undefined}
                         />
                     );
@@ -542,6 +690,8 @@ export default function KioskMode() {
                             setStep={setStep}
                             launchSessionMutation={launchSessionMutation}
                             buildLaunchPayload={buildLaunchPayload}
+                            rollbackLaunchedAccess={() => rollbackLaunchedAccess()}
+                            onLaunchConfirmed={() => setIsLaunched(true)}
                         />
                     ) : (
                         <NoPaymentStep
@@ -689,16 +839,10 @@ export default function KioskMode() {
     return (
         <div className="kiosk-shell h-screen w-screen flex flex-col relative overflow-hidden font-racing">
             <AttractMode
-                isIdle={isIdle()}
+                isIdle={idleModeEnabled && isIdle()}
                 scenarios={activeScenarios}
                 t={t}
-                onUnpair={() => {
-                    if (window.confirm('Desvincular esta tablet del simulador?')) {
-                        clearPairedStationId();
-                        setPairedKioskCode(null);
-                        window.location.reload();
-                    }
-                }}
+                onUnpair={handleUnpair}
             />
             <div className="absolute inset-0 kiosk-bg" />
             <div className="absolute inset-0 kiosk-grid opacity-30" />
@@ -727,6 +871,38 @@ export default function KioskMode() {
                             </div>
                         </div>
 
+                        {/* STATUS INDICATORS */}
+                        <div className="flex items-center gap-2">
+                            {/* Agent connection status */}
+                            {agentStatus && (
+                                <div className={`px-2 py-1 rounded text-xs font-bold ${
+                                    agentStatus === 'online' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+                                }`}>
+                                    {agentStatus === 'online' ? '● Conectado' : '○ Desconectado'}
+                                </div>
+                            )}
+                            {/* Command status */}
+                            {commandStatus && (
+                                <div className="px-2 py-1 rounded text-xs font-bold bg-yellow-500/20 text-yellow-400">
+                                    {commandStatus.status === 'queued' ? '⏳ En cola' :
+                                     commandStatus.status === 'sent' ? '📤 Enviado' :
+                                     commandStatus.status === 'acknowledged' ? '✓ Confirmado' :
+                                     commandStatus.status === 'failed' ? '✖ Fallido' :
+                                     commandStatus.status === 'timeout' ? '⏱ Timeout' : commandStatus.status}
+                                </div>
+                            )}
+                            {/* Session warning */}
+                            {sessionWarning && (
+                                <div className={`px-2 py-1 rounded text-xs font-bold animate-pulse ${
+                                    sessionWarning.minutes > 0 
+                                        ? 'bg-orange-500/20 text-orange-400' 
+                                        : 'bg-red-500/20 text-red-400'
+                                }`}>
+                                    ⚠️ {sessionWarning.minutes > 0 ? `${sessionWarning.minutes} min` : 'Tiempo!'}
+                                </div>
+                            )}
+                        </div>
+
                         <div className="flex items-center gap-3 md:gap-4 flex-wrap">
                             {step === 1 && (
                                 <div className="flex gap-2">
@@ -743,6 +919,14 @@ export default function KioskMode() {
                                         EN
                                     </button>
                                 </div>
+                            )}
+                            {!isLaunched && (
+                                <button
+                                    onClick={handleUnpair}
+                                    className="px-3.5 py-2.5 rounded-lg text-sm font-black border bg-red-500/15 border-red-500/40 text-red-200 hover:bg-red-500/25 transition-all"
+                                >
+                                    Cambiar simulador
+                                </button>
                             )}
                             {/* CONNECTED INDICATORS */}
                             <div className="flex gap-2">

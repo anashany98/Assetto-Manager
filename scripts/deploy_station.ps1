@@ -24,6 +24,18 @@ if (!(Test-Path $agentDir)) {
   exit 1
 }
 
+# 0) Open firewall for local API server (offline kiosk mode)
+$localPort = 9090
+$ruleName = "AC Agent Local API"
+$existingRule = netsh advfirewall firewall show rule name="$ruleName" 2>$null
+if ($existingRule -match "No rules match") {
+  Write-Host "Opening firewall port $localPort for local API server..."
+  netsh advfirewall firewall add rule name="$ruleName" dir=in action=allow protocol=tcp localport=$localPort | Out-Null
+  Write-Host "Firewall rule added."
+} else {
+  Write-Host "Firewall rule '$ruleName' already exists."
+}
+
 # 1) Create venv
 if (!(Test-Path $venvDir)) {
   Write-Host "Creating agent venv..."

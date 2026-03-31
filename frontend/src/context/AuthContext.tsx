@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from "react";
-import { login as apiLogin, getMe, type User, setupAdmin as apiSetupAdmin } from "../api/auth";
+import { login as apiLogin, logout as apiLogout, getMe, refreshSession, type User, setupAdmin as apiSetupAdmin } from "../api/auth";
+import { clearAuthToken, getAuthToken, setAuthToken } from "../auth/session";
 
 import { AuthContext } from "./AuthContextDefinition";
 
@@ -15,7 +16,10 @@ const decodeBase64Url = (value: string): string | null => {
 };
 
 const parseUserFromToken = (jwt: string): User | null => {
-    const [, payload] = jwt.split(".");
+    if (!jwt) return null;
+    const parts = jwt.split(".");
+    if (parts.length < 2) return null;
+    const [, payload] = parts;
     if (!payload) return null;
     const decoded = decodeBase64Url(payload);
     if (!decoded) return null;
@@ -36,48 +40,86 @@ const isAuthError = (error: unknown): boolean => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
-    const [token, setToken] = useState<string | null>(localStorage.getItem("token"));
+    const [token, setToken] = useState<string | null>(getAuthToken());
     const [isLoading, setIsLoading] = useState(true);
 
-    const logout = () => {
-        localStorage.removeItem("token");
+    const syncToken = (nextToken: string | null) => {
+        setAuthToken(nextToken);
+        setToken(nextToken);
+    };
+
+    const clearSession = () => {
+        clearAuthToken();
         setToken(null);
         setUser(null);
     };
 
+    const logout = async () => {
+        try { await apiLogout(); } catch { /* ignore */ }
+        clearSession();
+    };
+
     useEffect(() => {
+        const isKioskRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/kiosk');
+        if (isKioskRoute) {
+            setIsLoading(false);
+            return;
+        }
+
         const initAuth = async () => {
-            const storedToken = localStorage.getItem("token");
-            if (storedToken) {
+            const storedToken = getAuthToken();
+            if (!storedToken) {
+                setIsLoading(false);
+                return;
+            }
+            try {
+                const userData = await getMe();
+                setUser(userData);
+
                 try {
-                    const userData = await getMe(storedToken);
-                    setUser(userData);
-                    setToken(storedToken);
-                } catch (error) {
-                    if (isAuthError(error)) {
-                        logout();
-                    } else {
-                        // Preserve local session during transient API outages.
-                        setToken(storedToken);
-                        const fallbackUser = parseUserFromToken(storedToken);
-                        if (fallbackUser) {
-                            setUser(fallbackUser);
+                    const refreshed = await refreshSession();
+                    syncToken(refreshed.access_token || null);
+                } catch (refreshError) {
+                    if (isAuthError(refreshError)) {
+                        syncToken(null);
+                    }
+                }
+            } catch (error) {
+                if (isAuthError(error)) {
+                    try {
+                        const refreshed = await refreshSession();
+                        syncToken(refreshed.access_token || null);
+                        const userData = await getMe(refreshed.access_token);
+                        setUser(userData);
+                    } catch (refreshError) {
+                        if (isAuthError(refreshError)) {
+                            clearSession();
+                        } else {
+                            const fallbackUser = parseUserFromToken(getAuthToken() || "");
+                            if (fallbackUser) {
+                                setUser(fallbackUser);
+                            } else {
+                                clearSession();
+                            }
                         }
+                    }
+                } else {
+                    const fallbackUser = parseUserFromToken(getAuthToken() || "");
+                    if (fallbackUser) {
+                        setUser(fallbackUser);
                     }
                 }
             }
             setIsLoading(false);
         };
 
-        initAuth();
+        void initAuth();
     }, []);
 
     const login = async (username: string, password: string) => {
         const data = await apiLogin(username, password);
-        localStorage.setItem("token", data.access_token);
-        setToken(data.access_token);
+        syncToken(data.access_token);
 
-        // Fetch user immediately
         const userData = await getMe(data.access_token);
         setUser(userData);
     };
@@ -89,11 +131,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     return (
-        <AuthContext.Provider value={{ user, token, login, logout, isLoading, setupAdmin, isAuthenticated: !!token }}>
+        <AuthContext.Provider value={{ user, token, login, logout, isLoading, setupAdmin, isAuthenticated: !!user }}>
             {children}
         </AuthContext.Provider>
     );
 };
-
-// Re-export deprecated
-// export { useAuth } from './useAuth';

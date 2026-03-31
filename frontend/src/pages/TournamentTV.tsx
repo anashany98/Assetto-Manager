@@ -1,7 +1,8 @@
 import { useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
-import { API_URL } from '../config';
+import { API_URL, PUBLIC_WS_TOKEN, WS_BASE_URL } from '../config';
+import { getAuthToken } from '../auth/session';
 import { Trophy, Users, AlertTriangle } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useMemo, useEffect } from 'react';
@@ -42,7 +43,7 @@ export default function TournamentTV() {
     });
 
     // Fetch Bracket Data (Backend)
-    const { data: bracketData, refetch } = useQuery<BracketResponse>({
+    const { data: bracketData } = useQuery<BracketResponse>({
         queryKey: ['bracket', eventId, isDemo],
         queryFn: async () => {
             if (isDemo) return { rounds: DEMO_TOURNAMENT.matches } as BracketData;
@@ -56,15 +57,15 @@ export default function TournamentTV() {
     useEffect(() => {
         if (!event || isDemo) return;
 
-        // Use PUBLIC_WS_TOKEN or similar if auth is required, 
-        // but for TV we assume it might be on a trusted network or use a default token.
-        // We dynamically build the WS URL based on API_URL configuration.
-        const wsProtocol = API_URL.startsWith('https') ? 'wss:' : 'ws:';
-        const wsHost = API_URL.replace(/^http(s)?:\/\//, '');
-        const socket = new WebSocket(`${wsProtocol}//${wsHost}/ws/telemetry/client?token=public_tv_access`);
+        const wsToken = getAuthToken() || PUBLIC_WS_TOKEN;
+        const wsUrl = new URL('/ws/telemetry/client', WS_BASE_URL || window.location.origin);
+        const socket = new WebSocket(wsUrl.toString());
 
         socket.onopen = () => {
-            // TV Connected to Live Updates
+            socket.send(JSON.stringify({
+                type: 'identify',
+                token: wsToken || null,
+            }));
         };
 
         socket.onmessage = (event) => {
@@ -86,7 +87,7 @@ export default function TournamentTV() {
         return () => {
             socket.close();
         };
-    }, [event, eventId, queryClient, refetch, isDemo]);
+    }, [event, eventId, queryClient, isDemo]);
 
     const bracket = useMemo(() => {
         if (bracketData && 'rounds' in bracketData) {

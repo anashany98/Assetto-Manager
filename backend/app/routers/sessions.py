@@ -1,4 +1,7 @@
 ﻿import logging
+import asyncio
+import os
+import json
 from fastapi import APIRouter, Depends, HTTPException, Body, Header
 from sqlalchemy.orm import Session as DBSession
 from typing import List, Optional
@@ -6,44 +9,17 @@ from datetime import datetime, timezone, timedelta
 
 logger = logging.getLogger(__name__)
 
-from ..database import get_db
+from ..database import get_db, SessionLocal
 from ..models import Session, Station
 from .. import schemas, models
 from ..services.pricing import calculate_price
-from ..routers.auth import require_admin, require_admin_or_public_token_or_kiosk
-from ..security.api_keys import is_client_token_allowed
+from ..routers.auth import require_admin, require_admin_or_public_token_or_kiosk, require_agent_token
+from ..dependencies import require_client_scope as _require_client_scope, require_kiosk_access as _require_kiosk_access
 
 router = APIRouter(
     prefix="/sessions",
     tags=["sessions"],
 )
-
-
-def _is_admin(user_or_client: object) -> bool:
-    return hasattr(user_or_client, "role") and getattr(user_or_client, "role") == "admin"
-
-
-def _require_client_scope(user_or_client: object, required_scope: str) -> None:
-    if _is_admin(user_or_client):
-        return
-    if user_or_client == "kiosk":
-        if required_scope == "kiosk:control":
-            return
-        raise HTTPException(status_code=403, detail="Kiosk client missing required scope")
-    token = None if user_or_client in (None, "public") else str(user_or_client)
-    if not is_client_token_allowed(token=token, required_scopes=(required_scope,)):
-        raise HTTPException(status_code=403, detail="Client token missing required scope")
-
-
-def _require_kiosk_access(station: Station, kiosk_code: Optional[str], user_or_client: object) -> None:
-    if _is_admin(user_or_client):
-        return
-    if not station:
-        raise HTTPException(status_code=404, detail="Station not found")
-    if not station.is_kiosk_mode:
-        raise HTTPException(status_code=403, detail="Kiosk mode disabled for station")
-    if (station.kiosk_code or "").strip().upper() != (kiosk_code or "").strip().upper():
-        raise HTTPException(status_code=403, detail="Invalid kiosk code")
 
 
 @router.post("/start", response_model=schemas.SessionResponse)
@@ -203,3 +179,171 @@ def _map_session_response(session: Session, station_name: str) -> schemas.Sessio
         notes=session.notes,
         payment_method=session.payment_method
     )
+
+
+async def start_session_background_tasks():
+    """Start background tasks for session management."""
+    enable_warnings = os.getenv("SESSION_TIME_WARNINGS_ENABLED", "true").lower() in {"1", "true", "yes"}
+    enable_orphan_detection = os.getenv("ORPHAN_SESSION_DETECTION_ENABLED", "true").lower() in {"1", "true", "yes"}
+    
+    tasks = []
+    
+    if enable_warnings:
+        tasks.append(asyncio.create_task(check_session_time_warnings()))
+        logger.info("Session time warnings task started")
+    
+    if enable_orphan_detection:
+        tasks.append(asyncio.create_task(detect_orphan_sessions()))
+        logger.info("Orphan session detection task started")
+    
+    return tasks
+
+
+# Background task: Check session time and send warnings
+async def check_session_time_warnings():
+    """Send warnings to clients when session time is running low."""
+    warning_minutes = [5, 1]
+    check_interval = int(os.getenv("SESSION_WARNING_CHECK_INTERVAL", "30"))  # seconds
+    
+    while True:
+        try:
+            db = SessionLocal()
+            try:
+                now = datetime.now(timezone.utc)
+                active_sessions = db.query(Session).filter(Session.status == "active").all()
+                
+                for session in active_sessions:
+                    if not session.end_time:
+                        continue
+                    
+                    remaining_minutes = (session.end_time - now).total_seconds() / 60
+                    
+                    for warn_min in warning_minutes:
+                        if 0 < remaining_minutes <= warn_min:
+                            # Check if we already sent this warning
+                            warning_key = f"session_{session.id}_warning_{warn_min}"
+                            from ..utils.cache import content_cache
+                            already_sent = await content_cache.get(warning_key)
+                            
+                            if not already_sent:
+                                # Send warning via WebSocket
+                                from .websockets import manager
+                                await manager.broadcast(json.dumps({
+                                    "type": "session_warning",
+                                    "session_id": session.id,
+                                    "station_id": session.station_id,
+                                    "remaining_minutes": int(remaining_minutes),
+                                    "message": f"¡Quedan {int(remaining_minutes)} minuto(s) de sesión!"
+                                }))
+                                
+                                # Mark as sent
+                                await content_cache.set(warning_key, "sent", ttl=300)
+                                
+                                logger.info(f"Session {session.id} warning sent: {warn_min} minutes remaining")
+                                
+            finally:
+                db.close()
+        except Exception as e:
+            logger.error(f"Error in session time warnings: {e}")
+        
+        await asyncio.sleep(check_interval)
+
+
+# Background task: Detect and close orphan sessions
+async def detect_orphan_sessions():
+    """Close sessions where the agent is disconnected for too long."""
+    orphan_minutes = int(os.getenv("ORPHAN_SESSION_MINUTES", "5"))
+    check_interval = int(os.getenv("ORPHAN_SESSION_CHECK_INTERVAL", "60"))  # seconds
+    
+    while True:
+        try:
+            db = SessionLocal()
+            try:
+                now = datetime.now(timezone.utc)
+                active_sessions = db.query(Session).filter(Session.status == "active").all()
+                
+                for session in active_sessions:
+                    # Check if station is offline
+                    station = db.query(Station).filter(Station.id == session.station_id).first()
+                    if not station or not station.is_online:
+                        # Calculate how long the station has been offline
+                        last_seen = station.last_seen if station else None
+                        if last_seen:
+                            offline_duration = (now - last_seen).total_seconds() / 60
+                            
+                            if offline_duration >= orphan_minutes:
+                                # Close the orphan session
+                                session.status = "expired"
+                                session.end_time = now
+                                db.commit()
+                                
+                                logger.warning(
+                                    f"Closed orphan session {session.id} for station {session.station_id}. "
+                                    f"Agent offline for {offline_duration:.1f} minutes"
+                                )
+                                
+                                # Notify clients
+                                from .websockets import manager
+                                await manager.broadcast(json.dumps({
+                                    "type": "session_expired",
+                                    "session_id": session.id,
+                                    "station_id": session.station_id,
+                                    "reason": "orphan",
+                                    "message": "Sesión cerrada: simulador desconectado"
+                                }))
+                                
+            finally:
+                db.close()
+        except Exception as e:
+            logger.error(f"Error in orphan session detection: {e}")
+        
+        await asyncio.sleep(check_interval)
+
+
+@router.post("/sync")
+def sync_offline_sessions(
+    sessions: List[dict] = Body(...),
+    db: DBSession = Depends(get_db),
+    _auth=Depends(require_agent_token),
+):
+    """Receive offline sessions synced from an agent."""
+    created_ids = []
+    for session_data in sessions:
+        try:
+            station_id = session_data.get("station_id")
+            if not station_id:
+                continue
+
+            start_time = session_data.get("start_time")
+            if isinstance(start_time, str):
+                try:
+                    start_time = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
+                except Exception:
+                    start_time = datetime.now(timezone.utc)
+            else:
+                start_time = datetime.now(timezone.utc)
+
+            duration = session_data.get("duration_minutes", 15)
+            end_time = start_time + timedelta(minutes=duration)
+
+            db_session = Session(
+                station_id=station_id,
+                driver_name=session_data.get("driver_name", "Guest"),
+                start_time=start_time,
+                end_time=end_time,
+                duration_minutes=duration,
+                price=session_data.get("price", 0.0),
+                is_paid=True,
+                payment_method=session_data.get("payment_method", "cash"),
+                status="completed",
+                notes=f"offline_synced|{session_data.get('offline_session_id', '')}",
+            )
+            db.add(db_session)
+            db.flush()
+            created_ids.append(session_data.get("offline_session_id"))
+        except Exception as e:
+            logger.error(f"Failed to sync offline session: {e}")
+            continue
+
+    db.commit()
+    return {"synced": len(created_ids), "offline_ids": created_ids}

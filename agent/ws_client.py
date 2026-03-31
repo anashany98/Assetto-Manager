@@ -21,6 +21,7 @@ import ac_telemetry
 import telemetry # The existing telemetry module for saving results
 from obs_controller import handle_obs_command
 from idle_display import start_idle_display, stop_idle_display
+from local_server import set_local_kiosk_code
 
 # ---------------------------------------------------------------------------
 # Reconnection constants
@@ -104,13 +105,26 @@ class AgentWSClient(threading.Thread):
                         "token": AGENT_TOKEN
                     }))
 
-                    await asyncio.gather(
-                        self.send_loop(websocket),
-                        self.receive_loop(websocket),
-                        self.command_worker(websocket),
-                        self._heartbeat_loop(websocket),
-                        return_exceptions=True
-                    )
+                    tasks = [
+                        asyncio.create_task(self.send_loop(websocket), name="send_loop"),
+                        asyncio.create_task(self.receive_loop(websocket), name="receive_loop"),
+                        asyncio.create_task(self.command_worker(websocket), name="command_worker"),
+                        asyncio.create_task(self._heartbeat_loop(websocket), name="heartbeat_loop"),
+                    ]
+                    done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+
+                    for task in pending:
+                        task.cancel()
+                    await asyncio.gather(*pending, return_exceptions=True)
+
+                    for task in done:
+                        if task.cancelled():
+                            continue
+                        exc = task.exception()
+                        if exc and not isinstance(exc, websockets.ConnectionClosed):
+                            logger.error("WS task %s ended with error: %s", task.get_name(), exc)
+
+                    logger.warning("WebSocket session ended; reconnecting...")
             except Exception as e:
                 delay = _backoff_delay(attempt)
                 logger.error("WS Error (attempt %d): %s — reconnecting in %.1fs", attempt, e, delay)
@@ -302,11 +316,19 @@ class AgentWSClient(threading.Thread):
         elif command == "scan_content":
             await self._send_command_ack(websocket, data, status="accepted")
             ac_path = data.get("ac_path") or get_system_info().get("ac_path")
-            content = scan_ac_content(ac_path, station_ip=data.get("station_ip"))
-            await websocket.send(json.dumps({
-                "type": "content_scan_result",
-                "data": content
-            }))
+            try:
+                content = await asyncio.to_thread(
+                    scan_ac_content,
+                    ac_path,
+                    station_ip=data.get("station_ip"),
+                )
+                await websocket.send(json.dumps({
+                    "type": "content_scan_result",
+                    "data": content
+                }))
+            except Exception as e:
+                logger.exception("scan_content failed")
+                await self._send_command_ack(websocket, data, status="error", detail=str(e))
 
         elif command == "restart_agent":
             await self._send_command_ack(websocket, data, status="accepted")
@@ -315,6 +337,10 @@ class AgentWSClient(threading.Thread):
         elif command == "set_weather":
             await self._send_command_ack(websocket, data, status="accepted")
             threading.Thread(target=set_weather_logic, args=(data.get("value"),), daemon=True).start()
+
+        elif command == "update_kiosk_code":
+            await self._send_command_ack(websocket, data, status="accepted")
+            set_local_kiosk_code(data.get("kiosk_code"))
 
         else:
             await self._send_command_ack(websocket, data, status="rejected", detail="Unknown command")

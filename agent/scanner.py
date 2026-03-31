@@ -2,8 +2,21 @@ import os
 import json
 import re
 import logging
+from pathlib import Path
 from config import logger
 from utils import get_ip_address
+
+CONTENT_CACHE_PATH = Path(__file__).resolve().parent / "content_cache.json"
+
+
+def _save_content_cache(data: dict):
+    """Save scanned content to a local JSON cache file for offline kiosk mode."""
+    try:
+        with open(CONTENT_CACHE_PATH, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        logger.info(f"Content cache saved to {CONTENT_CACHE_PATH}")
+    except Exception as e:
+        logger.error(f"Failed to save content cache: {e}")
 
 
 def _load_json_tolerant(filepath: str) -> dict:
@@ -180,6 +193,10 @@ def scan_ac_content(ac_path: str, station_ip: str = None) -> dict:
     logger.info(
         f"Scanned AC content: {len(result['cars'])} cars, {len(result['tracks'])} tracks"
     )
+
+    # Save to local cache for offline kiosk mode
+    _save_content_cache(result)
+
     return result
 
 

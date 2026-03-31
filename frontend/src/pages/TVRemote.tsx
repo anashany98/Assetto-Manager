@@ -18,7 +18,7 @@ import { useAuth } from '../context/useAuth';
 export default function TVRemote() {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
-    const { token } = useAuth();
+    const { isAuthenticated } = useAuth();
     const [selectedScreen, setSelectedScreen] = useState(1);
     const [error, setError] = useState('');
 
@@ -26,17 +26,14 @@ export default function TVRemote() {
     const { data: settings } = useQuery({
         queryKey: ['settings'],
         queryFn: async () => {
-            if (!token) return [];
             try {
-                const res = await axios.get(`${API_URL}/settings/`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
+                const res = await axios.get(`${API_URL}/settings/`);
                 return Array.isArray(res.data) ? res.data : [];
             } catch { return []; }
         },
         refetchInterval: 2000,
         initialData: [],
-        enabled: !!token
+        enabled: isAuthenticated
     });
 
     // Helper to get setting value for current screen
@@ -51,9 +48,7 @@ export default function TVRemote() {
 
     const updateSettingMutation = useMutation({
         mutationFn: async ({ key, value }: { key: string, value: string }) => {
-            const response = await axios.post(`${API_URL}/settings/`, { key, value }, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const response = await axios.post(`${API_URL}/settings/`, { key, value });
             return response.data;
         },
         onSuccess: () => {

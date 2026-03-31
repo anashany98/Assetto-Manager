@@ -44,9 +44,12 @@ export default defineConfig({
             env: {
                 DATABASE_URL: E2E_DB_URL,
                 ENVIRONMENT: 'development',
+                ALLOWED_ORIGINS: FRONTEND_URL,
                 AUTO_SCHEMA: 'true',
+                REQUIRE_SECRETS: 'false',
                 ENABLE_SCHEDULER: 'false',
                 TRUST_PROXY_HEADERS: 'true',
+                WS_DEV_REQUIRE_AUTH: 'false',
                 UVICORN_WORKERS: '1',
                 // Ensure agent/public token checks stay open in dev E2E regardless of host env vars.
                 AGENT_TOKEN: '',

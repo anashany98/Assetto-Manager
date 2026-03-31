@@ -41,9 +41,8 @@ const EliminationAdmin = lazy(() => import('./pages/EliminationAdmin'));
 const HardwareMonitor = lazy(() => import('./pages/HardwareMonitor'));
 const ScenariosManager = lazy(() => import('./pages/ScenariosManager'));
 const KioskMode = lazy(() => import('./pages/KioskMode'));
-const KioskModern = lazy(() => import('./pages/KioskModern'));
-const KioskRacing = lazy(() => import('./pages/KioskRacing'));
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
+const SystemDashboard = lazy(() => import('./pages/SystemDashboard'));
 const PilotPortal = lazy(() => import('./pages/PilotPortal'));
 const ManageBooking = lazy(() => import('./pages/ManageBooking'));
 const LockScreen = lazy(() => import('./pages/LockScreen'));
@@ -108,8 +107,8 @@ function App() {
                 <Route path="/leaderboard" element={<Leaderboard />} />
                 <Route path="/hall-of-fame" element={<HallOfFame />} />
                 <Route path="/kiosk" element={<KioskMode />} />
-                <Route path="/kiosk-modern" element={<KioskModern />} />
-                <Route path="/kiosk-racing" element={<KioskRacing />} />
+                <Route path="/kiosk-modern" element={<Navigate to="/kiosk" replace />} />
+                <Route path="/kiosk-racing" element={<Navigate to="/kiosk" replace />} />
                 <Route path="/battle" element={<BattleMode />} />
                 <Route path="/live-map" element={<LiveMapPage />} />
                 <Route path="/tv" element={<TVMode />} />
@@ -137,6 +136,7 @@ function App() {
                 <Route path="/elimination-tv/:id" element={<EliminationTV />} />
                 <Route path="/hardware" element={<PrivateRoute><HardwareMonitor /></PrivateRoute>} />
                 <Route path="/analytics" element={<PrivateRoute><AnalyticsPage /></PrivateRoute>} />
+                <Route path="/system-dashboard" element={<PrivateRoute><SystemDashboard /></PrivateRoute>} />
                 <Route path="/director" element={<PrivateRoute><DirectorComponent /></PrivateRoute>} />
                 <Route path="/director-tv" element={<DirectorComponent />} />
 

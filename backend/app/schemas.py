@@ -170,6 +170,7 @@ class Mod(ModBase):
     preview_url: Optional[str] = None
     image_url: Optional[str] = None
     is_active: bool
+    is_stock: bool = False # True if content is from stock AC game
     size_bytes: Optional[int] = 0
     created_at: datetime
     dependencies: List['Mod'] = []

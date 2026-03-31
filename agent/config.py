@@ -49,6 +49,8 @@ IDLE_DISPLAY_ENABLED = os.getenv("IDLE_DISPLAY_ENABLED", "true").lower() in {"1"
 IDLE_DISPLAY_URL = os.getenv("IDLE_DISPLAY_URL", "")
 IDLE_DISPLAY_BROWSER_PATH = os.getenv("IDLE_DISPLAY_BROWSER_PATH", "")
 IDLE_DISPLAY_BROWSER_ARGS = os.getenv("IDLE_DISPLAY_BROWSER_ARGS", "")
+LOCAL_SERVER_PORT = int(os.getenv("LOCAL_SERVER_PORT", "9090"))
+LOCAL_AUTH_TOKEN = os.getenv("LOCAL_AUTH_TOKEN", "")
 
 def _is_truthy(value):
     if isinstance(value, bool):
@@ -119,6 +121,13 @@ for config_path in config_paths:
                     IDLE_DISPLAY_BROWSER_ARGS = " ".join(str(a) for a in raw_args if str(a).strip())
                 else:
                     IDLE_DISPLAY_BROWSER_ARGS = str(raw_args or "")
+            if "local_server_port" in config and config.get("local_server_port") is not None:
+                try:
+                    LOCAL_SERVER_PORT = int(config.get("local_server_port"))
+                except (TypeError, ValueError):
+                    pass
+            if "local_auth_token" in config:
+                LOCAL_AUTH_TOKEN = str(config.get("local_auth_token") or "")
             logger.info(f"Loaded config from {config_path}. Server URL: {SERVER_URL}")
         break
     except Exception as e:
@@ -135,3 +144,27 @@ if STATION_NAME:
 
 # Global Timeout for stability
 REQUEST_TIMEOUT = 10
+
+# Generate local auth token if not configured
+if not LOCAL_AUTH_TOKEN:
+    import secrets
+    LOCAL_AUTH_TOKEN = secrets.token_hex(32)
+    # Persist to config.json so it survives restarts
+    for config_path in config_paths:
+        try:
+            config_dir = config_path.parent
+            if not config_dir.exists():
+                continue
+            # Read existing config or create new
+            existing = {}
+            if config_path.exists():
+                with open(config_path, 'r') as f:
+                    existing = json.load(f)
+            if not existing.get("local_auth_token"):
+                existing["local_auth_token"] = LOCAL_AUTH_TOKEN
+                with open(config_path, 'w') as f:
+                    json.dump(existing, f, indent=4)
+                logger.info(f"Generated and saved local auth token to {config_path}")
+                break
+        except Exception:
+            continue

@@ -23,10 +23,23 @@ services:
       ALLOWED_ORIGINS: "http://localhost:3010,http://localhost:80"
       PAYMENTS_ENABLED: "false"
       EMAILS_ENABLED: "false"
-      # Uncomment to enable multi-worker WebSocket fan-out via Redis:
-      # ALLOW_MULTI_WORKER_WS: "true"
-      # WS_PUBSUB: redis
-      # REDIS_URL: redis://redis:6379/0
+      # Redis for rate limiting and cache:
+      REDIS_URL: redis://redis:6379/0
+      # Kiosk settings:
+      KIOSK_CODE_TTL_HOURS: "24"
+      KIOSK_IDLE_TIMEOUT_SECONDS: "90000"
+      # Mod processing:
+      MOD_SCAN_WORKERS: "4"
+      # WebSocket Commands:
+      WS_COMMAND_TIMEOUT: "30"
+      WS_MAX_RETRIES: "3"
+      WS_RETRY_DELAY_SECONDS: "2"
+      # Session management:
+      SESSION_TIME_WARNINGS_ENABLED: "true"
+      ORPHAN_SESSION_DETECTION_ENABLED: "true"
+      ORPHAN_SESSION_MINUTES: "5"
+      # Lobby:
+      LOBBY_HOST_PROMOTE_ENABLED: "true"
     volumes:
       - backend_data:/data
       - ./backend/storage:/app/storage   # AC game files mount
@@ -75,11 +88,11 @@ services:
   #     retries: 5
 
   # ── Optional: Redis (needed for multi-worker WS) ───────────────────────────
-  # redis:
-  #   image: redis:7-alpine
-  #   ports:
-  #     - "6379:6379"
-  #   restart: unless-stopped
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
 
 volumes:
   backend_data:

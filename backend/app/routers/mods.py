@@ -8,26 +8,23 @@ import os
 import json
 from pathlib import Path
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from ..paths import PUBLIC_STORAGE_DIR
 from .. import models, schemas, database
 from ..services import deploy_service
 from ..utils.uploads import sanitize_filename, ensure_allowed_extension, save_upload_file
 from ..security.license import require_license_module
 from ..security.permissions import require_permission
-# Import shared hashing module (needs sys path adjustment or package install, using relative import for now if possible or dynamic)
+from ..utils.ttl_cache import TTLCache
+from ..utils.hashing import hashing
 import logging
-import sys
-
-# Add shared directory to path to import hashing
-sys.path.append(str(Path(__file__).resolve().parents[3] / "shared"))
-import hashing
+from datetime import datetime, timezone
 
 logger = logging.getLogger("api.mods")
 
 router = APIRouter(
     prefix="/mods",
     tags=["mods"],
-    dependencies=[Depends(require_license_module("mods"))],
 )
 
 MODS_DIR = PUBLIC_STORAGE_DIR / "mods"
@@ -545,38 +542,66 @@ def _find_preview_url(mod_path: Path, mod_name: str, mod_type: str) -> str:
         logger.error(f"Error finding preview for {mod_name}: {e}")
         return None
 
-# --- MAINTENANCE: Migrate Previews ---
+MOD_SCAN_WORKERS = int(os.getenv("MOD_SCAN_WORKERS", "4"))
+_UNIVERSAL_CONTENT_CACHE = TTLCache(ttl_seconds=60, maxsize=4)
+
+
+def _migrate_single_preview(mod_data: tuple) -> dict:
+    """Process a single mod for preview migration (runs in thread pool)."""
+    mod_id, source_path, current_name, current_type, current_preview = mod_data
+    try:
+        if not source_path:
+            return {"mod_id": mod_id, "success": False, "error": "no_source_path"}
+        
+        path = Path(source_path)
+        if not path.exists():
+            return {"mod_id": mod_id, "success": False, "error": "path_not_exists"}
+        
+        new_url = _find_preview_url(path, current_name, current_type)
+        
+        if new_url and new_url != current_preview:
+            return {"mod_id": mod_id, "success": True, "new_url": new_url}
+        
+        return {"mod_id": mod_id, "success": True, "new_url": None}
+    except Exception as e:
+        logger.error(f"Failed to migrate mod {mod_id}: {e}")
+        return {"mod_id": mod_id, "success": False, "error": str(e)}
+
+
 @router.post("/maintenance/migrate_previews")
 def migrate_mod_previews(db: Session = Depends(database.get_db), _auth: object = Depends(require_permission("mods"))):
     """
     Scans all mods in DB and populates the 'preview_url' column.
-    Use this once after updating the schema.
+    Uses parallel processing for better performance.
     """
     mods = db.query(models.Mod).all()
+    
+    mod_data = [
+        (mod.id, mod.source_path, mod.name, mod.type, mod.preview_url)
+        for mod in mods
+    ]
+    
     count = 0
     errors = 0
     
+    with ThreadPoolExecutor(max_workers=MOD_SCAN_WORKERS) as executor:
+        futures = {executor.submit(_migrate_single_preview, data): data[0] for data in mod_data}
+        
+        results = {}
+        for future in as_completed(futures):
+            result = future.result()
+            results[result["mod_id"]] = result
+    
     for mod in mods:
-        try:
-            if not mod.source_path:
-                continue
-                
-            path = Path(mod.source_path)
-            if not path.exists():
-                continue
-                
-            # Re-calculate
-            new_url = _find_preview_url(path, mod.name, mod.type)
-            
-            if new_url and new_url != mod.preview_url:
-                mod.preview_url = new_url
-                count += 1
-        except Exception as e:
-            logger.error(f"Failed to migrate mod {mod.id}: {e}")
+        result = results.get(mod.id)
+        if result and result["success"] and result.get("new_url"):
+            mod.preview_url = result["new_url"]
+            count += 1
+        elif result and not result["success"]:
             errors += 1
-            
+    
     db.commit()
-    return {"migrated": count, "errors": errors, "total_scanned": len(mods)}
+    return {"migrated": count, "errors": errors, "total_scanned": len(mods), "workers": MOD_SCAN_WORKERS}
 
 
 @router.post("/upload", response_model=schemas.Mod)
@@ -621,20 +646,8 @@ def delete_mod(mod_id: int, background_tasks: BackgroundTasks, db: Session = Dep
     if not mod:
         raise HTTPException(status_code=404, detail="Mod not found")
     
-    # 1. Delete actual files
-    try:
-        mod_path = Path(mod.source_path).resolve()
-        storage_root = MODS_DIR.resolve()
-        if str(mod_path).startswith(str(storage_root)):
-            shutil.rmtree(mod_path.parent, ignore_errors=True)
-        else:
-            logger.warning(f"Refusing to delete mod outside storage: {mod_path}")
-    except Exception as e:
-        logger.error(f"Error deleting files for mod {mod_id}: {e}")
-        # We continue to delete from DB even if file deletion fails/partial
-        
-    # 2. Delete from DB
-    db.delete(mod)
+    # Soft delete
+    mod.soft_delete()
     db.commit()
     
     # Auto-sync
@@ -657,70 +670,63 @@ def toggle_mod(mod_id: int, background_tasks: BackgroundTasks, db: Session = Dep
     
     return mod
 
-@router.get("/", response_model=List[schemas.Mod])
+@router.get("/", response_model=List[dict])
 def list_mods(
     search: str = None,
     type: str = None,
     tag: str = None, # Tag Name
     only_universal: bool = False,
+    only_stock: bool = False,  # Filter to show only stock content
+    only_mods: bool = False,   # Filter to show only non-stock content (mods)
     skip: int = 0, 
     limit: int = 100, 
+    include_stock: bool = True,
     db: Session = Depends(database.get_db),
     _auth: object = Depends(require_admin_or_public_token)
 ):
-    query = db.query(models.Mod)
+    query = db.query(models.Mod).filter(models.Mod.not_deleted)
+    
+    # Apply stock/mods filter
+    if only_stock:
+        query = query.filter(models.Mod.is_stock == True)
+    elif only_mods:
+        query = query.filter(models.Mod.is_stock == False)
     
     if only_universal:
-        # --- CACHING LOGIC ---
-        # Cache key based on "universal_content_ids"
-        import time
-        current_time = time.time()
-        
-        # Simple global cache variable (in-memory)
-        # We need to access it from global scope. 
-        # Since I can't easily modify global scope here without imports, 
-        # I'll use a function attribute or similar hack, or just re-calc if it's cheap enough?
-        # No, the JSON parsing is the heavy part.
-        
-        # Let's attach cache to the router object or use a global dict
-        if not hasattr(list_mods, "cache"):
-            list_mods.cache = {"data": None, "timestamp": 0}
-            
-        # 60 seconds TTL
-        if list_mods.cache["data"] and (current_time - list_mods.cache["timestamp"] < 60):
-             allowed_items = list_mods.cache["data"]
-        else:
-            # Get all active and online stations
+        allowed_items = _UNIVERSAL_CONTENT_CACHE.get("universal")
+        if allowed_items is None:
             active_stations = db.query(models.Station).filter(
                 models.Station.is_active == True,
                 models.Station.is_online == True,
                 models.Station.status != "archived"
             ).all()
-            
+
             allowed_items = []
             if active_stations:
                 common_cars = None
                 common_tracks = None
-                
+
                 for s in active_stations:
                     if not s.content_cache:
                         continue
-                    
-                    s_cars = {c.get("id") or c.get("name") for c in s.content_cache.get("cars", []) if c.get("id") or c.get("name")}
-                    s_tracks = {t.get("id") or t.get("name") for t in s.content_cache.get("tracks", []) if t.get("id") or t.get("name")}
-                    
+
+                    s_cars = {c.get("id") if isinstance(c, dict) else c for c in s.content_cache.get("cars", []) if c}
+                    s_tracks = {t.get("id") if isinstance(t, dict) else t for t in s.content_cache.get("tracks", []) if t}
+
+                    s_cars = {c for c in s_cars if c}
+                    s_tracks = {t for t in s_tracks if t}
+
                     if common_cars is None:
                         common_cars = s_cars
                         common_tracks = s_tracks
                     else:
                         common_cars &= s_cars
                         common_tracks &= s_tracks
-                
-                if common_cars is not None:
-                     allowed_items = list(common_cars) + list(common_tracks)
 
-            # Update cache
-            list_mods.cache = {"data": allowed_items, "timestamp": current_time}
+                if common_cars is not None:
+                    allowed_items = list(common_cars) + list(common_tracks)
+
+            _UNIVERSAL_CONTENT_CACHE.set("universal", allowed_items)
         
         # Apply filter
         if allowed_items:
@@ -746,7 +752,71 @@ def list_mods(
         # Join with tags table
         query = query.join(models.Mod.tags).filter(models.Tag.name == tag)
         
-    return query.offset(skip).limit(limit).all()
+    mods_query = query.offset(skip).limit(limit)
+    mods_db = mods_query.all()
+    
+    # Convert DB models to dicts
+    mods = []
+    for m in mods_db:
+        mods.append({
+            "id": m.id,
+            "name": m.name,
+            "version": m.version,
+            "type": m.type,
+            "status": m.status,
+            "manifest": m.manifest,
+            "source_path": m.source_path,
+            "preview_url": m.preview_url,
+            "image_url": m.image_url,
+            "is_active": m.is_active,
+            "is_stock": m.is_stock,  # Include is_stock field
+            "size_bytes": m.size_bytes,
+            "created_at": m.created_at,
+            "dependencies": [],
+            "tags": []
+        })
+    
+    if include_stock and type in ("car", "track"):
+        active_stations = db.query(models.Station).filter(
+            models.Station.is_active == True,
+            models.Station.is_online == True,
+            models.Station.status != "archived"
+        ).all()
+        
+        stock_items = set()
+        for station in active_stations:
+            if station.content_cache:
+                items = station.content_cache.get(type + "s", [])
+                for item in items:
+                    name = item.get("name") if isinstance(item, dict) else (item if isinstance(item, str) else None)
+                    if name:
+                        stock_items.add(name)
+        
+        existing_mod_names = {m["name"] for m in mods}
+        stock_only = [n for n in stock_items if n not in existing_mod_names]
+        
+        stock_response = []
+        for name in stock_only:
+            stock_response.append({
+                "id": f"stock_{name}",
+                "name": name,
+                "version": "stock",
+                "type": type,
+                "status": "stock",
+                "manifest": None,
+                "source_path": None,
+                "preview_url": None,
+                "image_url": None,
+                "is_active": True,
+                "size_bytes": 0,
+                "created_at": datetime.now(timezone.utc),
+                "dependencies": [],
+                "tags": []
+            })
+        
+        mods = list(mods) + stock_response
+    
+    return mods
 
 @router.post("/{mod_id}/dependencies", response_model=schemas.Mod)
 def add_mod_dependency(
@@ -972,14 +1042,7 @@ def bulk_delete_mods(mod_ids: List[int], background_tasks: BackgroundTasks, db: 
             failed.append({"id": mod_id, "error": "not_found"})
             continue
         try:
-            mod_path = Path(mod.source_path).resolve()
-            storage_root = MODS_DIR.resolve()
-            if str(mod_path).startswith(str(storage_root)):
-                shutil.rmtree(mod_path.parent, ignore_errors=True)
-            else:
-                logger.warning(f"Refusing to delete mod outside storage: {mod_path}")
-                raise HTTPException(status_code=400, detail="Invalid mod path")
-            db.delete(mod)
+            mod.soft_delete()
             deleted.append(mod_id)
         except Exception as e:
             failed.append({"id": mod_id, "error": str(e)})

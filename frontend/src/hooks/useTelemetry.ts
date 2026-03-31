@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { PUBLIC_WS_TOKEN, USE_WS_QUERY_TOKEN, WS_BASE_URL } from '../config';
+import { getAuthToken } from '../auth/session';
 // import { getEvents, createEvent } from '../api/events';     
 // import type { Event } from '../types';
 
@@ -121,7 +122,7 @@ export const useTelemetry = () => {
         }
 
         // Live WebSocket Logic (Original)
-        const token = localStorage.getItem('token') || PUBLIC_WS_TOKEN;
+        const token = getAuthToken() || PUBLIC_WS_TOKEN;
         const baseWsUrl = `${WS_BASE_URL || `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`}/ws/telemetry/client`;
         const wsUrl = USE_WS_QUERY_TOKEN && token
             ? `${baseWsUrl}?token=${encodeURIComponent(token)}`
@@ -190,6 +191,26 @@ export const useTelemetry = () => {
                                 stream_url: data.stream_url ?? null,
                             },
                         }));
+                    } else if (data.type === 'agent_status') {
+                        // Station agent connected/disconnected
+                        console.log(`Agent status: Station ${data.station_id} is ${data.status}`);
+                        window.dispatchEvent(new CustomEvent('agent-status', { detail: data }));
+                    } else if (data.type === 'command_status') {
+                        // Command status update
+                        console.log(`Command status: ${data.command} - ${data.status}: ${data.details || ''}`);
+                        window.dispatchEvent(new CustomEvent('command-status', { detail: data }));
+                    } else if (data.type === 'session_warning') {
+                        // Session time warning
+                        console.log(`Session warning: ${data.remaining_minutes} minutes remaining`);
+                        window.dispatchEvent(new CustomEvent('session-warning', { detail: data }));
+                    } else if (data.type === 'session_expired') {
+                        // Session expired or orphan
+                        console.log(`Session expired: ${data.reason}`);
+                        window.dispatchEvent(new CustomEvent('session-expired', { detail: data }));
+                    } else if (data.type === 'lobby_host_changed') {
+                        // Lobby host changed
+                        console.log(`Lobby host changed: new host is ${data.new_host_id}`);
+                        window.dispatchEvent(new CustomEvent('lobby-host-changed', { detail: data }));
                     }
                 } catch {
                     // Silently ignore parse errors

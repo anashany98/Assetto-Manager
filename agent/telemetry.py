@@ -57,6 +57,7 @@ def parse_and_send_telemetry(file_path, server_url, station_id):
     Lee race_out.json, lo procesa y envía al servidor.
     Intenta fusionar con datos de telemetría en buffer.
     """
+    payload = None
     try:
         # 1. Leer Archivo
         with open(file_path, 'r', encoding='utf-8-sig') as f:
@@ -136,6 +137,14 @@ def parse_and_send_telemetry(file_path, server_url, station_id):
 
     except Exception as e:
         logger.error(f"Error procesando telemetría: {e}")
+        # Save to offline queue for later synchronization (only if payload was built)
+        if payload is not None:
+            try:
+                from offline_queue import save_offline_result
+                save_offline_result(payload)
+                logger.info("Result saved to offline queue for later sync")
+            except Exception as qe:
+                logger.error(f"Failed to save result to offline queue: {qe}")
         return False
 
 def is_file_ready(file_path, timeout=5):

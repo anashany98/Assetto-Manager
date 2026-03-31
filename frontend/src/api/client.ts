@@ -1,25 +1,12 @@
-import axios, { AxiosHeaders } from 'axios';
-import { API_URL, PUBLIC_API_TOKEN } from '../config';
+import axios from 'axios';
+import { API_URL } from '../config';
+import { installAuthInterceptors } from '../auth/http';
 
 const client = axios.create({
     baseURL: API_URL,
+    withCredentials: true,  // Send httpOnly cookies with every request
 });
 
-client.interceptors.request.use((config) => {
-    const token = localStorage.getItem('token');
-    const headers = AxiosHeaders.from(config.headers);
-
-    // Prefer user JWT for admin/private routes.
-    if (token) {
-        headers.set('Authorization', `Bearer ${token}`);
-    } else if (PUBLIC_API_TOKEN) {
-        // Public/kiosk routes rely on a client token in production.
-        headers.set('X-Client-Token', PUBLIC_API_TOKEN);
-    }
-
-    config.headers = headers;
-
-    return config;
-});
+installAuthInterceptors(client);
 
 export default client;

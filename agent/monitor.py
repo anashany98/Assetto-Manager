@@ -39,7 +39,7 @@ class HardwareMonitor(threading.Thread):
         # Disk (C:)
         try:
             disk = psutil.disk_usage('C:\\').percent
-        except:
+        except (OSError, PermissionError):
             disk = 0
 
         # GPU Metrics (NVIDIA)
@@ -115,10 +115,10 @@ class HardwareMonitor(threading.Thread):
                 import uuid
                 mac_address = ':'.join(['{:02x}'.format((uuid.getnode() >> ele) & 0xff)
                                     for ele in range(0, 8*6, 8)][::-1])
-            except:
-                pass
-        except:
-            pass
+            except (ImportError, OSError):
+                mac_address = None
+        except (ImportError, OSError):
+            mac_address = None
 
         return {
             "station_id": self.station_id,

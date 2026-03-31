@@ -1,51 +1,102 @@
 
 from datetime import timedelta, datetime, timezone
 from typing import Annotated, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Header, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Header, Request, Response
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from pydantic import BaseModel, Field, field_validator
 import os
 import logging
 from ..limiters import limiter
 from ..security.api_keys import is_agent_token_allowed, is_client_token_allowed
+from ..utils.token_blacklist import token_blacklist
 
 from .. import database, models, auth
-from ..auth import create_access_token, get_password_hash, verify_password, decode_access_token
+from ..auth import create_access_token, get_password_hash, verify_password, decode_access_token, create_refresh_token, decode_refresh_token, ACCESS_TOKEN_EXPIRE_MINUTES_SHORT
 
-router = APIRouter(tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["auth"])
 ENVIRONMENT = (os.getenv("ENVIRONMENT", "development") or "development").lower().strip()
 logger = logging.getLogger(__name__)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 oauth2_optional = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 
-def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db: Session = Depends(database.get_db)):
+ACCESS_COOKIE_NAME = "access_token"
+REFRESH_COOKIE_NAME = "refresh_token"
+_COOKIE_MAX_AGE = ACCESS_TOKEN_EXPIRE_MINUTES_SHORT * 60
+_COOKIE_SAMESITE = "lax"
+_COOKIE_SECURE = ENVIRONMENT == "production"
+_COOKIE_PATH = "/"
+
+
+def _get_token_from_request(
+    token: Annotated[Optional[str], Depends(oauth2_optional)],
+    request: Request,
+) -> Optional[str]:
+    """Read JWT from Authorization header, then fall back to httpOnly cookie."""
+    if token:
+        return token
+    return request.cookies.get(ACCESS_COOKIE_NAME)
+
+
+def _set_auth_cookies(response: Response, access_token: str, refresh_token: str) -> None:
+    response.set_cookie(
+        key=ACCESS_COOKIE_NAME,
+        value=access_token,
+        httponly=True,
+        secure=_COOKIE_SECURE,
+        samesite=_COOKIE_SAMESITE,
+        max_age=_COOKIE_MAX_AGE,
+        path=_COOKIE_PATH,
+    )
+    response.set_cookie(
+        key=REFRESH_COOKIE_NAME,
+        value=refresh_token,
+        httponly=True,
+        secure=_COOKIE_SECURE,
+        samesite=_COOKIE_SAMESITE,
+        max_age=30 * 24 * 3600,
+        path=_COOKIE_PATH,
+    )
+
+
+def _clear_auth_cookies(response: Response) -> None:
+    for name in (ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME):
+        response.delete_cookie(key=name, path=_COOKIE_PATH)
+
+
+def get_current_user(
+    request_token: Annotated[Optional[str], Depends(_get_token_from_request)],
+    db: Session = Depends(database.get_db),
+):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    if not request_token:
+        raise credentials_exception
     try:
-        payload = decode_access_token(token)
+        payload = decode_access_token(request_token)
         username: str = payload.get("sub")
         if username is None:
             raise credentials_exception
     except Exception:
         raise credentials_exception
-        
+
     user = db.query(models.User).filter(models.User.username == username).first()
     if user is None:
         raise credentials_exception
     return user
 
 def get_current_user_optional(
-    token: Annotated[Optional[str], Depends(oauth2_optional)],
-    db: Session = Depends(database.get_db)
+    request_token: Annotated[Optional[str], Depends(_get_token_from_request)],
+    db: Session = Depends(database.get_db),
 ):
-    if not token:
+    if not request_token:
         return None
     try:
-        payload = decode_access_token(token)
+        payload = decode_access_token(request_token)
         username: str = payload.get("sub")
         if username is None:
             raise HTTPException(
@@ -197,28 +248,7 @@ def require_admin_or_agent(
         return agent_token or "agent"
     raise HTTPException(status_code=403, detail="Not authenticated")
 
-# ... (Helpers remain sync)
-
-# Track failed login attempts for progressive rate limiting
-# Format: {ip_or_username: {"count": int, "first_attempt": datetime, "blocked_until": datetime}}
-_failed_login_attempts: dict[str, dict] = {}
-import threading
-_failed_attempts_lock = threading.Lock()
-
-# Check for multi-worker deployment at startup
-_worker_count = int(os.getenv("UVICORN_WORKERS", "1") or os.getenv("WEB_CONCURRENCY", "1") or "1")
-if _worker_count > 1:
-    logger.warning(
-        "Multi-worker deployment detected (UVICORN_WORKERS=%d). "
-        "In-memory rate limiting is NOT shared across workers. "
-        "For production with multiple workers, consider using Redis-based rate limiting.",
-        _worker_count
-    )
-
-# Progressive rate limiting configuration
-MAX_FAILED_ATTEMPTS_BEFORE_LOCKOUT = 5
-LOCKOUT_DURATION_MINUTES = 15
-PROGRESSIVE_DELAYS = [0, 1, 2, 5, 10]  # Seconds to wait after each failed attempt
+from ..utils.login_rate_limiter import login_rate_limiter
 
 
 def _get_client_identifier(request: Request, username: str) -> str:
@@ -227,97 +257,22 @@ def _get_client_identifier(request: Request, username: str) -> str:
     return f"{client_ip}:{username}"
 
 
-def _check_progressive_lockout(identifier: str) -> tuple[bool, int]:
-    """
-    Check if an identifier is currently locked out.
-    Returns (is_locked_out, remaining_seconds).
-    """
-    with _failed_attempts_lock:
-        if identifier not in _failed_login_attempts:
-            return False, 0
-        
-        entry = _failed_login_attempts[identifier]
-        blocked_until = entry.get("blocked_until")
-        if blocked_until and datetime.now(timezone.utc) < blocked_until:
-            remaining = int((blocked_until - datetime.now(timezone.utc)).total_seconds())
-            return True, remaining
-        
-        return False, 0
-
-
-def _record_failed_attempt(identifier: str) -> int:
-    """
-    Record a failed login attempt and return the delay in seconds before next attempt is allowed.
-    Implements progressive delays and eventual lockout.
-    """
-    with _failed_attempts_lock:
-        now = datetime.now(timezone.utc)
-        
-        if identifier not in _failed_login_attempts:
-            _failed_login_attempts[identifier] = {"count": 0, "first_attempt": now}
-        
-        entry = _failed_login_attempts[identifier]
-        entry["count"] += 1
-        entry["last_attempt"] = now
-        
-        # Check for lockout
-        if entry["count"] >= MAX_FAILED_ATTEMPTS_BEFORE_LOCKOUT:
-            blocked_until = now + timedelta(minutes=LOCKOUT_DURATION_MINUTES)
-            entry["blocked_until"] = blocked_until
-            logger.warning(
-                "Login lockout triggered for %s after %d failed attempts. Locked until %s",
-                identifier, entry["count"], blocked_until
-            )
-            return -1  # Special value indicating lockout
-        
-        # Return progressive delay
-        delay_index = min(entry["count"] - 1, len(PROGRESSIVE_DELAYS) - 1)
-        return PROGRESSIVE_DELAYS[delay_index]
-
-
-def _clear_failed_attempts(identifier: str) -> None:
-    """Clear failed attempts after successful login."""
-    with _failed_attempts_lock:
-        _failed_login_attempts.pop(identifier, None)
-
-
-def _cleanup_old_attempts() -> None:
-    """Clean up old failed attempt records (called periodically)."""
-    now = datetime.now(timezone.utc)
-    with _failed_attempts_lock:
-        to_remove = []
-        for identifier, entry in _failed_login_attempts.items():
-            # Remove entries older than 1 hour or with expired lockouts
-            last_attempt = entry.get("last_attempt", entry.get("first_attempt", now))
-            blocked_until = entry.get("blocked_until")
-            
-            if blocked_until and now > blocked_until:
-                to_remove.append(identifier)
-            elif (now - last_attempt).total_seconds() > 3600:  # 1 hour
-                to_remove.append(identifier)
-        
-        for identifier in to_remove:
-            del _failed_login_attempts[identifier]
-
-
 @router.post("/token")
-@limiter.limit("10/minute")  # Base rate limit
+@limiter.limit("10/minute")
 def login_for_access_token(
     request: Request,
+    response: Response,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     db: Session = Depends(database.get_db)
 ):
     """
-    Login endpoint with progressive rate limiting:
-    - Base limit: 10 attempts per minute per IP
-    - Progressive delays: 0s, 1s, 2s, 5s, 10s after each failed attempt
-    - Lockout: 15 minutes after 5 consecutive failed attempts
-    - Audit logging of all failed attempts
+    Login endpoint with progressive rate limiting and httpOnly cookie support.
+    Tokens are returned in JSON body (backwards compatible) AND set as httpOnly cookies.
     """
     identifier = _get_client_identifier(request, form_data.username)
-    
+
     # Check for lockout first
-    is_locked, remaining = _check_progressive_lockout(identifier)
+    is_locked, remaining = login_rate_limiter.check_lockout(identifier)
     if is_locked:
         logger.warning(
             "Login attempt blocked for locked out identifier %s. Remaining: %ds",
@@ -328,56 +283,161 @@ def login_for_access_token(
             detail=f"Account temporarily locked. Try again in {remaining} seconds.",
             headers={"Retry-After": str(remaining)}
         )
-    
+
     user = db.query(models.User).filter(models.User.username == form_data.username).first()
-    
+
     if not user or not verify_password(form_data.password, user.hashed_password):
         # Record failed attempt and get delay
-        delay = _record_failed_attempt(identifier)
-        
+        delay = login_rate_limiter.record_failed_attempt(identifier)
+
         # Log the failed attempt
         client_ip = request.client.host if request.client else "unknown"
         logger.warning(
-            "Failed login attempt - username: %s, IP: %s, attempt count: %d",
+            "Failed login attempt - username: %s, IP: %s",
             form_data.username, client_ip,
-            _failed_login_attempts.get(identifier, {}).get("count", 1)
         )
-        
+
         if delay == -1:
             # Account locked out
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=f"Too many failed attempts. Account locked for {LOCKOUT_DURATION_MINUTES} minutes.",
-                headers={"Retry-After": str(LOCKOUT_DURATION_MINUTES * 60)}
+                detail=f"Too many failed attempts. Account locked for {login_rate_limiter.LOCKOUT_MINUTES} minutes.",
+                headers={"Retry-After": str(login_rate_limiter.LOCKOUT_MINUTES * 60)}
             )
-        
+
         if delay > 0:
-            import time
-            time.sleep(delay)  # Progressive delay
-        
+            # Return 429 with Retry-After so the client waits, not the server.
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Too many attempts. Please wait {delay} seconds before retrying.",
+                headers={"Retry-After": str(delay)},
+            )
+
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     if not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
-    
+
     # Clear failed attempts on successful login
-    _clear_failed_attempts(identifier)
-    
-    access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
+    login_rate_limiter.clear(identifier)
+
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES_SHORT)
     access_token = create_access_token(
         data={"sub": user.username, "role": user.role},
         expires_delta=access_token_expires
     )
-    
+
+    refresh_token = create_refresh_token(
+        data={"sub": user.username, "role": user.role}
+    )
+
+    # Set httpOnly cookies
+    _set_auth_cookies(response, access_token, refresh_token)
+
     # Log successful login
     client_ip = request.client.host if request.client else "unknown"
     logger.info("Successful login - username: %s, IP: %s", user.username, client_ip)
-    
-    return {"access_token": access_token, "token_type": "bearer"}
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "refresh_token": refresh_token,
+        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES_SHORT * 60
+    }
+
+
+@router.post("/logout")
+def logout(
+    request: Request,
+    response: Response,
+    token: Annotated[Optional[str], Depends(_get_token_from_request)] = None,
+):
+    """Logout endpoint - blacklists the JWT token and clears cookies."""
+    if token:
+        try:
+            payload = decode_access_token(token)
+            jti = payload.get("jti")
+            exp = payload.get("exp")
+            if jti and exp:
+                token_blacklist.add(jti, float(exp))
+                logger.info("Token blacklisted (jti=%s)", jti[:8])
+        except Exception:
+            pass
+
+    _clear_auth_cookies(response)
+    return {"message": "Logged out successfully"}
+
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: Optional[str] = None
+
+@router.post("/refresh")
+def refresh_access_token(
+    request: Request,
+    response: Response,
+    token_data: Optional[RefreshTokenRequest] = None,
+    db: Session = Depends(database.get_db)
+):
+    """
+    Refresh access token using a valid refresh token.
+    Returns new access and refresh tokens.
+    """
+    try:
+        refresh_token = token_data.refresh_token if token_data else None
+        if not refresh_token:
+            refresh_token = request.cookies.get(REFRESH_COOKIE_NAME)
+        if not refresh_token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Missing refresh token"
+            )
+
+        payload = decode_refresh_token(refresh_token)
+        username = payload.get("sub")
+        role = payload.get("role")
+        
+        if not username:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid refresh token"
+            )
+        
+        user = db.query(models.User).filter(models.User.username == username).first()
+        if not user or not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found or inactive"
+            )
+        
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES_SHORT)
+        access_token = create_access_token(
+            data={"sub": user.username, "role": user.role},
+            expires_delta=access_token_expires
+        )
+        
+        new_refresh_token = create_refresh_token(
+            data={"sub": user.username, "role": user.role}
+        )
+
+        _set_auth_cookies(response, access_token, new_refresh_token)
+        
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "refresh_token": new_refresh_token,
+            "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES_SHORT * 60
+        }
+        
+    except ValueError as e:
+        logger.warning("Refresh token failed: %s", str(e))
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token expired or invalid"
+        )
 
 @router.get("/users/me")
 def read_users_me(current_user: Annotated[models.User, Depends(get_current_active_user)]):
@@ -388,8 +448,6 @@ def read_users_me(current_user: Annotated[models.User, Depends(get_current_activ
     }
 
 # Initial Setup Endpoint (Only works if no users exist)
-from pydantic import BaseModel, Field, field_validator
-
 class UserSetup(BaseModel):
     username: str = Field(..., min_length=3, max_length=50, pattern=r"^[a-zA-Z0-9_\-\.]+$")
     password: str = Field(..., min_length=8, max_length=128)

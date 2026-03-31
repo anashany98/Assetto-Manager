@@ -11,9 +11,21 @@ os.environ["ENVIRONMENT"] = "test"
 # Enable all features so tests exercise the actual feature logic
 os.environ.setdefault("PAYMENTS_ENABLED", "true")
 os.environ.setdefault("EMAILS_ENABLED", "true")
+os.environ.setdefault("REDIS_URL", "")  # Disable Redis for tests
+os.environ.setdefault("KIOSK_CODE_TTL_HOURS", "24")
+os.environ.setdefault("KIOSK_IDLE_TIMEOUT_SECONDS", "90000")
+os.environ.setdefault("SESSION_TIME_WARNINGS_ENABLED", "false")  # Disable background tasks in tests
+os.environ.setdefault("ORPHAN_SESSION_DETECTION_ENABLED", "false")
 TEST_DB_PATH = Path(tempfile.gettempdir()) / f"ac_manager_test_{uuid.uuid4().hex}.db"
 os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DB_PATH}"
 
+# Disable rate limiting by monkeypatching the limiter
+import sys
+from unittest.mock import MagicMock
+mock_limiter = MagicMock()
+mock_limiter.limit = lambda x: lambda f: f  # Return function as-is
+
+# Import and patch before other imports
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine

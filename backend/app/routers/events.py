@@ -28,7 +28,7 @@ def list_events(
     db: Session = Depends(database.get_db),
     _auth: object = Depends(require_admin_or_public_token)
 ):
-    query = db.query(models.Event)
+    query = db.query(models.Event).filter(models.Event.not_deleted)
 
     if status:
         query = query.filter(models.Event.status == status)
@@ -115,9 +115,9 @@ def delete_event(event_id: int, db: Session = Depends(database.get_db), _auth: o
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
         
-    db.delete(event)
+    event.soft_delete()
     db.commit()
-    logger.info(f"Deleted event {event_id}")
+    logger.info(f"Soft-deleted event {event_id}")
     return {"message": "Event deleted successfully"}
 
 @router.post("/{event_id}/results/manual", response_model=schemas.Event)

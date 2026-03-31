@@ -1,0 +1,13 @@
+{
+    "server_url": "http://127.0.0.1:8000",
+    "ac_content_dir": "C:\\SteamLibrary\\steamapps\\common\\assettocorsa\\content",
+    "ac_path": "C:\\SteamLibrary\\steamapps\\common\\assettocorsa",
+    "station_name": "LOCAL TEST AGENT",
+    "mac_address": "02:AC:00:00:00:01",
+    "agent_token": "ebfad4239c283861f9df7a9fc0ae70d7",
+    "launch_via_steam": false,
+    "idle_display_enabled": false,
+    "local_server_port": 9090,
+    "local_auth_token": "local-test-agent-token",
+    "update_signing_key": "b3f507e6cde2e2b01a8ffce0166452583d155bdd85a95fd28cd45d986a3ab453"
+}

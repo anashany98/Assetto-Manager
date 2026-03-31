@@ -46,11 +46,9 @@ export default function LockScreen() {
     const handleUnlock = async () => {
         if (!unlockPin) return;
         try {
-            const token = localStorage.getItem('token');
             const stationId = STATION_ID ?? 1;
             await axios.post(`${API_URL}/stations/${stationId}/unlock`, null, {
                 params: { pin: Number(unlockPin) },
-                headers: token ? { Authorization: `Bearer ${token}` } : {}
             });
             document.exitFullscreen().catch(() => { });
             window.location.href = '/';

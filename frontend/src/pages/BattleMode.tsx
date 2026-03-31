@@ -1,16 +1,17 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
-import { Swords, Trophy, Flame, Activity, QrCode, X, Users, Map as MapIcon, Car, Info, Plus, Trash2, ChevronRight, Wifi, WifiOff } from 'lucide-react';
+import { Trophy, Flame, Activity, QrCode, X, Users, Map as MapIcon, Car, Info, Plus, Trash2, ChevronRight } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
 import { API_URL, PUBLIC_WS_TOKEN, WS_BASE_URL } from '../config';
+import { getAuthToken } from '../auth/session';
 import { useWebSocket } from '../utils/useWebSocket';
 
 // --- API ---
 function getWsUrl() {
-    const wsToken = localStorage.getItem('token') || PUBLIC_WS_TOKEN;
+    const wsToken = getAuthToken() || PUBLIC_WS_TOKEN;
     return `${WS_BASE_URL}/ws/telemetry/client${wsToken ? `?token=${encodeURIComponent(wsToken)}` : ''}`;
 }
 
@@ -75,7 +76,7 @@ function BattleSetup({ onStart }: { onStart: (drivers: string[], track: string, 
             <div className="w-full max-w-5xl mb-8 flex flex-col md:flex-row items-center justify-between gap-6">
                 <div className="flex items-center gap-4">
                     <div className="p-3 bg-red-600 rounded-2xl shadow-[0_0_20px_rgba(220,38,38,0.5)]">
-                        <Swords className="w-8 h-8 text-white" />
+                         <Activity className="w-8 h-8 text-white" />
                     </div>
                     <div>
                         <h1 className="text-4xl font-black text-white italic tracking-tighter uppercase leading-none">
@@ -338,8 +339,9 @@ function BattleArena({ query }: { query: URLSearchParams }) {
     }, [isDemo, drivers]);
 
     // WebSocket Connection with auto-reconnect
-    const { isConnected } = useWebSocket({
+    useWebSocket({
         url: getWsUrl(),
+        token: getAuthToken() || PUBLIC_WS_TOKEN,
         onMessage: useCallback((data: any) => {
             const liveName = data.driver_name || data.driver;
             if (drivers.includes(liveName)) {
@@ -391,7 +393,7 @@ function BattleArena({ query }: { query: URLSearchParams }) {
             <header className="relative z-10 p-6 flex justify-between items-center border-b border-white/5 bg-gray-900/50 backdrop-blur-md">
                 <div className="flex items-center gap-4">
                     <div className="p-2 bg-yellow-500 rounded-lg">
-                        <Swords className="w-6 h-6 text-black" />
+                        <Activity className="w-6 h-6 text-black" />
                     </div>
                     <div>
                         <h1 className="text-xl font-black uppercase italic leading-none">Battle Arena <span className="text-yellow-500 font-mono text-sm ml-2">PRO LIVE</span></h1>

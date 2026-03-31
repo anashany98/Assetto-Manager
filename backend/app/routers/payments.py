@@ -7,7 +7,7 @@ from .. import models, schemas
 from ..services.pricing import calculate_price
 from ..routers.auth import require_admin, require_admin_or_public_token_or_kiosk
 from ..limiters import limiter
-from ..security.api_keys import is_client_token_allowed
+from ..dependencies import require_client_scope as _require_client_scope, require_kiosk_access as _require_kiosk_access
 
 # Payments are disabled until configured. Set PAYMENTS_ENABLED=true in .env to activate.
 _PAYMENTS_ENABLED = os.getenv("PAYMENTS_ENABLED", "false").lower() in {"1", "true", "yes"}
@@ -24,34 +24,6 @@ router = APIRouter(
     dependencies=[Depends(_require_payments_enabled)]
 )
 
-
-def _is_admin(user_or_client: object) -> bool:
-    return hasattr(user_or_client, "role") and getattr(user_or_client, "role") == "admin"
-
-
-def _require_client_scope(user_or_client: object, required_scope: str) -> None:
-    if _is_admin(user_or_client):
-        return
-    if user_or_client == "kiosk":
-        if required_scope in {"payments:write", "payments:read"}:
-            return
-        raise HTTPException(status_code=403, detail="Kiosk client missing required scope")
-    token = None if user_or_client in (None, "public") else str(user_or_client)
-    if not is_client_token_allowed(token=token, required_scopes=(required_scope,)):
-        raise HTTPException(status_code=403, detail="Client token missing required scope")
-
-
-def _require_kiosk_access(station: models.Station | None, kiosk_code: str | None, user_or_client: object) -> None:
-    if _is_admin(user_or_client):
-        return
-    if user_or_client != "kiosk":
-        raise HTTPException(status_code=403, detail="Kiosk access required")
-    if not station:
-        raise HTTPException(status_code=404, detail="Station not found")
-    if not station.is_kiosk_mode:
-        raise HTTPException(status_code=403, detail="Kiosk mode disabled for station")
-    if (station.kiosk_code or "").strip().upper() != (kiosk_code or "").strip().upper():
-        raise HTTPException(status_code=403, detail="Invalid kiosk code")
 
 def _get_config_value(db: Session, env_key: str, setting_key: str, default: str | None = None):
     value = os.getenv(env_key)

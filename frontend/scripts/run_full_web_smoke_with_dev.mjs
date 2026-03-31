@@ -62,7 +62,7 @@ const sanitizeEnv = (base) => {
 const registerE2EUser = async () => {
   const body = JSON.stringify({ username: 'e2e_admin', password: 'e2e_admin123' });
   try {
-    await fetch(`${BACKEND_URL}/register`, {
+    await fetch(`${BACKEND_URL}/auth/register`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body,
@@ -82,10 +82,13 @@ const run = async () => {
       : {
           DATABASE_URL: DB_URL,
           ENVIRONMENT: 'development',
+          ALLOWED_ORIGINS: FRONTEND_URL,
           AUTO_SCHEMA: 'true',
+          REQUIRE_SECRETS: 'false',
         }),
     ENABLE_SCHEDULER: 'false',
     TRUST_PROXY_HEADERS: 'true',
+    WS_DEV_REQUIRE_AUTH: 'false',
     UVICORN_WORKERS: '1',
     AGENT_TOKEN: '',
     AGENT_TOKENS: '',

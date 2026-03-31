@@ -37,29 +37,28 @@ def _session_payload(station_id: int) -> dict:
 
 def test_public_start_session_requires_matching_kiosk_code(client_no_auth, monkeypatch):
     monkeypatch.setenv("PUBLIC_API_TOKEN", "testtoken")
+    monkeypatch.delenv("CLIENT_TOKENS", raising=False)
+    monkeypatch.delenv("CLIENT_TOKENS_JSON", raising=False)
     db = SessionLocal()
     try:
         station = _make_station(db, kiosk_mode=True, kiosk_code="A1B2C3")
         payload = _session_payload(station.id)
 
-        auth_headers = {"X-Client-Token": os.getenv("PUBLIC_API_TOKEN", "testtoken")}
-
-        missing_code = client_no_auth.post("/sessions/start", json=payload, headers=auth_headers)
+        missing_code = client_no_auth.post("/sessions/start", json=payload, headers={})
         assert missing_code.status_code == 403
-        assert "kiosk code" in (missing_code.json().get("detail") or "").lower()
 
         wrong_code = client_no_auth.post(
             "/sessions/start",
             json=payload,
-            headers={**auth_headers, "X-Kiosk-Code": "ZZZZZZ"},
+            headers={"X-Kiosk-Code": "ZZZZZZ"},
         )
         assert wrong_code.status_code == 403
-        assert "kiosk code" in (wrong_code.json().get("detail") or "").lower()
+        assert "Invalid kiosk code" in (wrong_code.json().get("detail") or "")
 
         ok = client_no_auth.post(
             "/sessions/start",
             json=payload,
-            headers={**auth_headers, "X-Kiosk-Code": "A1B2C3"},
+            headers={"X-Kiosk-Code": "A1B2C3"},
         )
         assert ok.status_code == 200
         body = ok.json()

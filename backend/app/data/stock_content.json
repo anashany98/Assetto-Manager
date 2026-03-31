@@ -1,0 +1,1416 @@
+{
+  "cars": [
+    {
+      "folder_name": "ks_abarth500_assetto_corse",
+      "name": "Abarth 500 Assetto Corse",
+      "brand": "Abarth",
+      "class": "Race",
+      "specs": {
+        "bhp": "190 HP",
+        "weight": "950 kg",
+        "top_speed": "210 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_abarth_595ss",
+      "name": "Abarth 595 SS",
+      "brand": "Abarth",
+      "class": "Street",
+      "specs": {
+        "bhp": "160 HP",
+        "weight": "850 kg",
+        "top_speed": "205 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_abarth_595ss_s1",
+      "name": "Abarth 595 SS Step 1",
+      "brand": "Abarth",
+      "class": "Street",
+      "specs": {
+        "bhp": "180 HP",
+        "weight": "850 kg",
+        "top_speed": "215 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_abarth_595ss_s2",
+      "name": "Abarth 595 SS Step 2",
+      "brand": "Abarth",
+      "class": "Street",
+      "specs": {
+        "bhp": "200 HP",
+        "weight": "850 kg",
+        "top_speed": "225 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_alfa_33_stradale",
+      "name": "Alfa Romeo 33 Stradale",
+      "brand": "Alfa Romeo",
+      "class": "Vintage",
+      "specs": {
+        "bhp": "230 HP",
+        "weight": "700 kg",
+        "top_speed": "260 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_alfa_giulia_qv",
+      "name": "Alfa Romeo Giulia QV",
+      "brand": "Alfa Romeo",
+      "class": "Street",
+      "specs": {
+        "bhp": "510 HP",
+        "weight": "1620 kg",
+        "top_speed": "307 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_alfa_mito_qv",
+      "name": "Alfa Romeo MiTo QV",
+      "brand": "Alfa Romeo",
+      "class": "Street",
+      "specs": {
+        "bhp": "170 HP",
+        "weight": "1145 kg",
+        "top_speed": "219 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_alfa_romeo_4c",
+      "name": "Alfa Romeo 4C",
+      "brand": "Alfa Romeo",
+      "class": "Street",
+      "specs": {
+        "bhp": "240 HP",
+        "weight": "895 kg",
+        "top_speed": "258 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_alfa_romeo_gta",
+      "name": "Alfa Romeo GTA",
+      "brand": "Alfa Romeo",
+      "class": "Vintage",
+      "specs": {
+        "bhp": "115 HP",
+        "weight": "745 kg",
+        "top_speed": "185 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_audi_a1s1",
+      "name": "Audi A1 S1",
+      "brand": "Audi",
+      "class": "Street",
+      "specs": {
+        "bhp": "231 HP",
+        "weight": "1320 kg",
+        "top_speed": "245 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_audi_r18_etron_quattro",
+      "name": "Audi R18 e-tron Quattro",
+      "brand": "Audi",
+      "class": "LMP1",
+      "specs": {
+        "bhp": "500 HP",
+        "weight": "875 kg",
+        "top_speed": "330 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_audi_r8_lms",
+      "name": "Audi R8 LMS",
+      "brand": "Audi",
+      "class": "GT3",
+      "specs": {
+        "bhp": "585 HP",
+        "weight": "1225 kg",
+        "top_speed": "295 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_audi_r8_lms_2016",
+      "name": "Audi R8 LMS 2016",
+      "brand": "Audi",
+      "class": "GT3",
+      "specs": {
+        "bhp": "585 HP",
+        "weight": "1225 kg",
+        "top_speed": "295 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_audi_r8_plus",
+      "name": "Audi R8 Plus",
+      "brand": "Audi",
+      "class": "Street",
+      "specs": {
+        "bhp": "610 HP",
+        "weight": "1670 kg",
+        "top_speed": "330 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_audi_sport_quattro_rally",
+      "name": "Audi Sport Quattro Rally",
+      "brand": "Audi",
+      "class": "Rally",
+      "specs": {
+        "bhp": "360 HP",
+        "weight": "1090 kg",
+        "top_speed": "240 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_audi_tt_cup",
+      "name": "Audi TT Cup",
+      "brand": "Audi",
+      "class": "Cup",
+      "specs": {
+        "bhp": "310 HP",
+        "weight": "1125 kg",
+        "top_speed": "250 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_audi_tt_vln",
+      "name": "Audi TT VLN",
+      "brand": "Audi",
+      "class": "SP3T",
+      "specs": {
+        "bhp": "350 HP",
+        "weight": "1150 kg",
+        "top_speed": "260 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_bmw_m235i_racing",
+      "name": "BMW M235i Racing",
+      "brand": "BMW",
+      "class": "Cup",
+      "specs": {
+        "bhp": "333 HP",
+        "weight": "1375 kg",
+        "top_speed": "250 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_bmw_m4",
+      "name": "BMW M4",
+      "brand": "BMW",
+      "class": "Street",
+      "specs": {
+        "bhp": "431 HP",
+        "weight": "1497 kg",
+        "top_speed": "280 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_bmw_m4_akrapovic",
+      "name": "BMW M4 Akrapovic",
+      "brand": "BMW",
+      "class": "Street",
+      "specs": {
+        "bhp": "450 HP",
+        "weight": "1480 kg",
+        "top_speed": "285 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_corvette_c7r",
+      "name": "Corvette C7R",
+      "brand": "Chevrolet",
+      "class": "GTE",
+      "specs": {
+        "bhp": "500 HP",
+        "weight": "1245 kg",
+        "top_speed": "290 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_corvette_c7_stingray",
+      "name": "Corvette C7 Stingray",
+      "brand": "Chevrolet",
+      "class": "Street",
+      "specs": {
+        "bhp": "466 HP",
+        "weight": "1539 kg",
+        "top_speed": "290 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_ferrari_250_gto",
+      "name": "Ferrari 250 GTO",
+      "brand": "Ferrari",
+      "class": "Vintage",
+      "specs": {
+        "bhp": "300 HP",
+        "weight": "1000 kg",
+        "top_speed": "280 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_ferrari_288_gto",
+      "name": "Ferrari 288 GTO",
+      "brand": "Ferrari",
+      "class": "Street",
+      "specs": {
+        "bhp": "400 HP",
+        "weight": "1160 kg",
+        "top_speed": "305 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_ferrari_312_67",
+      "name": "Ferrari 312/67",
+      "brand": "Ferrari",
+      "class": "Formula",
+      "specs": {
+        "bhp": "390 HP",
+        "weight": "550 kg",
+        "top_speed": "300 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_ferrari_330_p4",
+      "name": "Ferrari 330 P4",
+      "brand": "Ferrari",
+      "class": "Prototype",
+      "specs": {
+        "bhp": "450 HP",
+        "weight": "800 kg",
+        "top_speed": "320 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_ferrari_488_challenge_evo",
+      "name": "Ferrari 488 Challenge Evo",
+      "brand": "Ferrari",
+      "class": "Challenge",
+      "specs": {
+        "bhp": "670 HP",
+        "weight": "1260 kg",
+        "top_speed": "310 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_ferrari_488_gt3",
+      "name": "Ferrari 488 GT3",
+      "brand": "Ferrari",
+      "class": "GT3",
+      "specs": {
+        "bhp": "600 HP",
+        "weight": "1260 kg",
+        "top_speed": "290 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_ferrari_488_gt3_2020",
+      "name": "Ferrari 488 GT3 Evo 2020",
+      "brand": "Ferrari",
+      "class": "GT3",
+      "specs": {
+        "bhp": "600 HP",
+        "weight": "1245 kg",
+        "top_speed": "292 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_ferrari_488_gtb",
+      "name": "Ferrari 488 GTB",
+      "brand": "Ferrari",
+      "class": "Street",
+      "specs": {
+        "bhp": "670 HP",
+        "weight": "1475 kg",
+        "top_speed": "330 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_ferrari_812_superfast",
+      "name": "Ferrari 812 Superfast",
+      "brand": "Ferrari",
+      "class": "Street",
+      "specs": {
+        "bhp": "800 HP",
+        "weight": "1630 kg",
+        "top_speed": "340 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_ferrari_f138",
+      "name": "Ferrari F138",
+      "brand": "Ferrari",
+      "class": "Formula",
+      "specs": {
+        "bhp": "750 HP",
+        "weight": "642 kg",
+        "top_speed": "340 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_ferrari_f2004",
+      "name": "Ferrari F2004",
+      "brand": "Ferrari",
+      "class": "Formula",
+      "specs": {
+        "bhp": "900 HP",
+        "weight": "605 kg",
+        "top_speed": "360 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_ferrari_fxx_k",
+      "name": "Ferrari FXX K",
+      "brand": "Ferrari",
+      "class": "Track",
+      "specs": {
+        "bhp": "1050 HP",
+        "weight": "1255 kg",
+        "top_speed": "350 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_ferrari_sf15t",
+      "name": "Ferrari SF15-T",
+      "brand": "Ferrari",
+      "class": "Formula",
+      "specs": {
+        "bhp": "850 HP",
+        "weight": "702 kg",
+        "top_speed": "350 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_ferrari_sf70h",
+      "name": "Ferrari SF70H",
+      "brand": "Ferrari",
+      "class": "Formula",
+      "specs": {
+        "bhp": "900 HP",
+        "weight": "728 kg",
+        "top_speed": "355 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_ford_escort_mk1",
+      "name": "Ford Escort MK1",
+      "brand": "Ford",
+      "class": "Vintage",
+      "specs": {
+        "bhp": "120 HP",
+        "weight": "880 kg",
+        "top_speed": "175 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_ford_gt40",
+      "name": "Ford GT40",
+      "brand": "Ford",
+      "class": "Prototype",
+      "specs": {
+        "bhp": "485 HP",
+        "weight": "980 kg",
+        "top_speed": "320 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_ford_mustang_2015",
+      "name": "Ford Mustang 2015",
+      "brand": "Ford",
+      "class": "Street",
+      "specs": {
+        "bhp": "435 HP",
+        "weight": "1680 kg",
+        "top_speed": "250 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_glickenhaus_scg003",
+      "name": "Glickenhaus SCG003",
+      "brand": "Glickenhaus",
+      "class": "Track",
+      "specs": {
+        "bhp": "750 HP",
+        "weight": "1350 kg",
+        "top_speed": "350 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_lamborghini_aventador_sv",
+      "name": "Lamborghini Aventador SV",
+      "brand": "Lamborghini",
+      "class": "Street",
+      "specs": {
+        "bhp": "750 HP",
+        "weight": "1525 kg",
+        "top_speed": "350 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_lamborghini_countach",
+      "name": "Lamborghini Countach",
+      "brand": "Lamborghini",
+      "class": "Vintage",
+      "specs": {
+        "bhp": "375 HP",
+        "weight": "1490 kg",
+        "top_speed": "280 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_lamborghini_countach_s1",
+      "name": "Lamborghini Countach S1",
+      "brand": "Lamborghini",
+      "class": "Vintage",
+      "specs": {
+        "bhp": "375 HP",
+        "weight": "1490 kg",
+        "top_speed": "280 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_lamborghini_gallardo_sl",
+      "name": "Lamborghini Gallardo Superleggera",
+      "brand": "Lamborghini",
+      "class": "Street",
+      "specs": {
+        "bhp": "570 HP",
+        "weight": "1340 kg",
+        "top_speed": "325 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_lamborghini_gallardo_sl_s3",
+      "name": "Lamborghini Gallardo Superleggera S3",
+      "brand": "Lamborghini",
+      "class": "Street",
+      "specs": {
+        "bhp": "570 HP",
+        "weight": "1340 kg",
+        "top_speed": "325 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_lamborghini_huracan_gt3",
+      "name": "Lamborghini Huracan GT3",
+      "brand": "Lamborghini",
+      "class": "GT3",
+      "specs": {
+        "bhp": "580 HP",
+        "weight": "1250 kg",
+        "top_speed": "292 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_lamborghini_huracan_performante",
+      "name": "Lamborghini Huracan Performante",
+      "brand": "Lamborghini",
+      "class": "Street",
+      "specs": {
+        "bhp": "640 HP",
+        "weight": "1382 kg",
+        "top_speed": "325 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_lamborghini_huracan_st",
+      "name": "Lamborghini Huracan Super Trofeo",
+      "brand": "Lamborghini",
+      "class": "Super Trofeo",
+      "specs": {
+        "bhp": "620 HP",
+        "weight": "1260 kg",
+        "top_speed": "325 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_lamborghini_miura_sv",
+      "name": "Lamborghini Miura SV",
+      "brand": "Lamborghini",
+      "class": "Vintage",
+      "specs": {
+        "bhp": "385 HP",
+        "weight": "1245 kg",
+        "top_speed": "290 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_lamborghini_sesto_elemento",
+      "name": "Lamborghini Sesto Elemento",
+      "brand": "Lamborghini",
+      "class": "Track",
+      "specs": {
+        "bhp": "570 HP",
+        "weight": "999 kg",
+        "top_speed": "350 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_lotus_3_eleven",
+      "name": "Lotus 3-Eleven",
+      "brand": "Lotus",
+      "class": "Track",
+      "specs": {
+        "bhp": "460 HP",
+        "weight": "920 kg",
+        "top_speed": "290 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_lotus_72d",
+      "name": "Lotus 72D",
+      "brand": "Lotus",
+      "class": "Formula",
+      "specs": {
+        "bhp": "450 HP",
+        "weight": "560 kg",
+        "top_speed": "310 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_maserati_250f_12cyl",
+      "name": "Maserati 250F 12 Cylinder",
+      "brand": "Maserati",
+      "class": "Formula",
+      "specs": {
+        "bhp": "310 HP",
+        "weight": "640 kg",
+        "top_speed": "290 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_maserati_250f_6cyl",
+      "name": "Maserati 250F 6 Cylinder",
+      "brand": "Maserati",
+      "class": "Formula",
+      "specs": {
+        "bhp": "270 HP",
+        "weight": "640 kg",
+        "top_speed": "270 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_maserati_alfieri",
+      "name": "Maserati Alfieri",
+      "brand": "Maserati",
+      "class": "Concept",
+      "specs": {
+        "bhp": "460 HP",
+        "weight": "1400 kg",
+        "top_speed": "300 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_maserati_gt_mc_gt4",
+      "name": "Maserati GranTurismo MC GT4",
+      "brand": "Maserati",
+      "class": "GT4",
+      "specs": {
+        "bhp": "470 HP",
+        "weight": "1390 kg",
+        "top_speed": "285 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_maserati_levante",
+      "name": "Maserati Levante",
+      "brand": "Maserati",
+      "class": "SUV",
+      "specs": {
+        "bhp": "430 HP",
+        "weight": "2109 kg",
+        "top_speed": "264 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_maserati_mc12_gt1",
+      "name": "Maserati MC12 GT1",
+      "brand": "Maserati",
+      "class": "GT1",
+      "specs": {
+        "bhp": "630 HP",
+        "weight": "1150 kg",
+        "top_speed": "330 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_mazda_787b",
+      "name": "Mazda 787B",
+      "brand": "Mazda",
+      "class": "LMP",
+      "specs": {
+        "bhp": "700 HP",
+        "weight": "830 kg",
+        "top_speed": "350 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_mazda_miata",
+      "name": "Mazda MX-5 Miata NA",
+      "brand": "Mazda",
+      "class": "Street",
+      "specs": {
+        "bhp": "130 HP",
+        "weight": "940 kg",
+        "top_speed": "195 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_mazda_mx5_cup",
+      "name": "Mazda MX-5 Cup",
+      "brand": "Mazda",
+      "class": "Cup",
+      "specs": {
+        "bhp": "180 HP",
+        "weight": "1050 kg",
+        "top_speed": "210 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_mazda_mx5_nd",
+      "name": "Mazda MX-5 ND",
+      "brand": "Mazda",
+      "class": "Street",
+      "specs": {
+        "bhp": "160 HP",
+        "weight": "1050 kg",
+        "top_speed": "205 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_mazda_rx7_spirit_r",
+      "name": "Mazda RX-7 Spirit R",
+      "brand": "Mazda",
+      "class": "Street",
+      "specs": {
+        "bhp": "280 HP",
+        "weight": "1280 kg",
+        "top_speed": "250 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_mazda_rx7_tuned",
+      "name": "Mazda RX-7 Tuned",
+      "brand": "Mazda",
+      "class": "Street",
+      "specs": {
+        "bhp": "350 HP",
+        "weight": "1250 kg",
+        "top_speed": "280 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_mclaren_570s",
+      "name": "McLaren 570S",
+      "brand": "McLaren",
+      "class": "Street",
+      "specs": {
+        "bhp": "570 HP",
+        "weight": "1440 kg",
+        "top_speed": "328 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_mclaren_650_gt3",
+      "name": "McLaren 650S GT3",
+      "brand": "McLaren",
+      "class": "GT3",
+      "specs": {
+        "bhp": "500 HP",
+        "weight": "1240 kg",
+        "top_speed": "280 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_mclaren_f1_gtr",
+      "name": "McLaren F1 GTR",
+      "brand": "McLaren",
+      "class": "GT1",
+      "specs": {
+        "bhp": "600 HP",
+        "weight": "1050 kg",
+        "top_speed": "330 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_mclaren_p1",
+      "name": "McLaren P1",
+      "brand": "McLaren",
+      "class": "Hypercar",
+      "specs": {
+        "bhp": "903 HP",
+        "weight": "1490 kg",
+        "top_speed": "350 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_mclaren_p1_gtr",
+      "name": "McLaren P1 GTR",
+      "brand": "McLaren",
+      "class": "Track",
+      "specs": {
+        "bhp": "1000 HP",
+        "weight": "1400 kg",
+        "top_speed": "362 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_mercedes_190_evo2",
+      "name": "Mercedes-Benz 190E EVO II",
+      "brand": "Mercedes",
+      "class": "DTM",
+      "specs": {
+        "bhp": "235 HP",
+        "weight": "1200 kg",
+        "top_speed": "250 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_mercedes_amg_gt3",
+      "name": "Mercedes-AMG GT3",
+      "brand": "Mercedes",
+      "class": "GT3",
+      "specs": {
+        "bhp": "550 HP",
+        "weight": "1285 kg",
+        "top_speed": "285 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_mercedes_c9",
+      "name": "Mercedes-Benz C9",
+      "brand": "Mercedes",
+      "class": "Group C",
+      "specs": {
+        "bhp": "720 HP",
+        "weight": "850 kg",
+        "top_speed": "370 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_nissan_370z",
+      "name": "Nissan 370Z",
+      "brand": "Nissan",
+      "class": "Street",
+      "specs": {
+        "bhp": "328 HP",
+        "weight": "1500 kg",
+        "top_speed": "250 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_nissan_gtr",
+      "name": "Nissan GT-R",
+      "brand": "Nissan",
+      "class": "Street",
+      "specs": {
+        "bhp": "570 HP",
+        "weight": "1740 kg",
+        "top_speed": "315 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_nissan_gtr_gt3",
+      "name": "Nissan GT-R GT3",
+      "brand": "Nissan",
+      "class": "GT3",
+      "specs": {
+        "bhp": "550 HP",
+        "weight": "1290 kg",
+        "top_speed": "280 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_nissan_skyline_r34",
+      "name": "Nissan Skyline R34",
+      "brand": "Nissan",
+      "class": "Street",
+      "specs": {
+        "bhp": "280 HP",
+        "weight": "1540 kg",
+        "top_speed": "260 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_pagani_huayra_bc",
+      "name": "Pagani Huayra BC",
+      "brand": "Pagani",
+      "class": "Hypercar",
+      "specs": {
+        "bhp": "789 HP",
+        "weight": "1218 kg",
+        "top_speed": "380 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_praga_r1",
+      "name": "Praga R1",
+      "brand": "Praga",
+      "class": "LMP",
+      "specs": {
+        "bhp": "365 HP",
+        "weight": "643 kg",
+        "top_speed": "290 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_porsche_718_boxster_s",
+      "name": "Porsche 718 Boxster S",
+      "brand": "Porsche",
+      "class": "Street",
+      "specs": {
+        "bhp": "350 HP",
+        "weight": "1355 kg",
+        "top_speed": "285 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_porsche_718_boxster_s_pdk",
+      "name": "Porsche 718 Boxster S PDK",
+      "brand": "Porsche",
+      "class": "Street",
+      "specs": {
+        "bhp": "350 HP",
+        "weight": "1385 kg",
+        "top_speed": "285 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_porsche_718_cayman_s",
+      "name": "Porsche 718 Cayman S",
+      "brand": "Porsche",
+      "class": "Street",
+      "specs": {
+        "bhp": "350 HP",
+        "weight": "1355 kg",
+        "top_speed": "285 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_porsche_718_spyder_rs",
+      "name": "Porsche 718 Spyder RS",
+      "brand": "Porsche",
+      "class": "Street",
+      "specs": {
+        "bhp": "500 HP",
+        "weight": "1410 kg",
+        "top_speed": "308 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_porsche_908_lh",
+      "name": "Porsche 908 LH",
+      "brand": "Porsche",
+      "class": "Prototype",
+      "specs": {
+        "bhp": "350 HP",
+        "weight": "650 kg",
+        "top_speed": "310 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_porsche_911_carrera_rsr",
+      "name": "Porsche 911 Carrera RSR",
+      "brand": "Porsche",
+      "class": "Vintage",
+      "specs": {
+        "bhp": "310 HP",
+        "weight": "970 kg",
+        "top_speed": "280 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_porsche_911_gt1",
+      "name": "Porsche 911 GT1",
+      "brand": "Porsche",
+      "class": "GT1",
+      "specs": {
+        "bhp": "600 HP",
+        "weight": "1150 kg",
+        "top_speed": "330 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_porsche_911_gt3_cup_2017",
+      "name": "Porsche 911 GT3 Cup 2017",
+      "brand": "Porsche",
+      "class": "Cup",
+      "specs": {
+        "bhp": "485 HP",
+        "weight": "1200 kg",
+        "top_speed": "280 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_porsche_911_gt3_rs",
+      "name": "Porsche 911 GT3 RS",
+      "brand": "Porsche",
+      "class": "Street",
+      "specs": {
+        "bhp": "520 HP",
+        "weight": "1430 kg",
+        "top_speed": "312 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_porsche_911_gt3_r_2016",
+      "name": "Porsche 911 GT3 R 2016",
+      "brand": "Porsche",
+      "class": "GT3",
+      "specs": {
+        "bhp": "500 HP",
+        "weight": "1220 kg",
+        "top_speed": "285 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_porsche_911_r",
+      "name": "Porsche 911 R",
+      "brand": "Porsche",
+      "class": "Street",
+      "specs": {
+        "bhp": "500 HP",
+        "weight": "1370 kg",
+        "top_speed": "323 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_porsche_911_rsr_2017",
+      "name": "Porsche 911 RSR 2017",
+      "brand": "Porsche",
+      "class": "GTE",
+      "specs": {
+        "bhp": "510 HP",
+        "weight": "1243 kg",
+        "top_speed": "280 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_porsche_917_30",
+      "name": "Porsche 917/30",
+      "brand": "Porsche",
+      "class": "Can-Am",
+      "specs": {
+        "bhp": "1100 HP",
+        "weight": "800 kg",
+        "top_speed": "400 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_porsche_917_k",
+      "name": "Porsche 917 K",
+      "brand": "Porsche",
+      "class": "Prototype",
+      "specs": {
+        "bhp": "630 HP",
+        "weight": "810 kg",
+        "top_speed": "360 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_porsche_918_spyder",
+      "name": "Porsche 918 Spyder",
+      "brand": "Porsche",
+      "class": "Hypercar",
+      "specs": {
+        "bhp": "887 HP",
+        "weight": "1675 kg",
+        "top_speed": "345 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_porsche_919_hybrid_2015",
+      "name": "Porsche 919 Hybrid 2015",
+      "brand": "Porsche",
+      "class": "LMP1",
+      "specs": {
+        "bhp": "900 HP",
+        "weight": "875 kg",
+        "top_speed": "340 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_porsche_919_hybrid_2016",
+      "name": "Porsche 919 Hybrid 2016",
+      "brand": "Porsche",
+      "class": "LMP1",
+      "specs": {
+        "bhp": "900 HP",
+        "weight": "875 kg",
+        "top_speed": "340 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_porsche_935_78_moby_dick",
+      "name": "Porsche 935/78 Moby Dick",
+      "brand": "Porsche",
+      "class": "Group 5",
+      "specs": {
+        "bhp": "750 HP",
+        "weight": "1025 kg",
+        "top_speed": "366 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_porsche_962c_longtail",
+      "name": "Porsche 962C Longtail",
+      "brand": "Porsche",
+      "class": "Group C",
+      "specs": {
+        "bhp": "680 HP",
+        "weight": "820 kg",
+        "top_speed": "370 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_porsche_962c_shorttail",
+      "name": "Porsche 962C Shorttail",
+      "brand": "Porsche",
+      "class": "Group C",
+      "specs": {
+        "bhp": "680 HP",
+        "weight": "820 kg",
+        "top_speed": "360 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_porsche_991_carrera_s",
+      "name": "Porsche 991 Carrera S",
+      "brand": "Porsche",
+      "class": "Street",
+      "specs": {
+        "bhp": "400 HP",
+        "weight": "1445 kg",
+        "top_speed": "306 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_porsche_991_turbo_s",
+      "name": "Porsche 991 Turbo S",
+      "brand": "Porsche",
+      "class": "Street",
+      "specs": {
+        "bhp": "580 HP",
+        "weight": "1600 kg",
+        "top_speed": "330 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_porsche_cayenne",
+      "name": "Porsche Cayenne",
+      "brand": "Porsche",
+      "class": "SUV",
+      "specs": {
+        "bhp": "340 HP",
+        "weight": "2040 kg",
+        "top_speed": "245 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_porsche_cayman_gt4_clubsport",
+      "name": "Porsche Cayman GT4 Clubsport",
+      "brand": "Porsche",
+      "class": "GT4",
+      "specs": {
+        "bhp": "425 HP",
+        "weight": "1300 kg",
+        "top_speed": "290 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_porsche_cayman_gt4_std",
+      "name": "Porsche Cayman GT4",
+      "brand": "Porsche",
+      "class": "Street",
+      "specs": {
+        "bhp": "420 HP",
+        "weight": "1420 kg",
+        "top_speed": "304 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_porsche_macan",
+      "name": "Porsche Macan",
+      "brand": "Porsche",
+      "class": "SUV",
+      "specs": {
+        "bhp": "360 HP",
+        "weight": "1925 kg",
+        "top_speed": "256 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_porsche_panamera",
+      "name": "Porsche Panamera",
+      "brand": "Porsche",
+      "class": "Luxury",
+      "specs": {
+        "bhp": "550 HP",
+        "weight": "2070 kg",
+        "top_speed": "306 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_ruf_rt12r",
+      "name": "Ruf Rt12 R",
+      "brand": "Ruf",
+      "class": "Street",
+      "specs": {
+        "bhp": "650 HP",
+        "weight": "1500 kg",
+        "top_speed": "360 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_ruf_rt12r_awd",
+      "name": "Ruf Rt12 R AWD",
+      "brand": "Ruf",
+      "class": "Street",
+      "specs": {
+        "bhp": "730 HP",
+        "weight": "1520 kg",
+        "top_speed": "368 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_toyota_ae86",
+      "name": "Toyota AE86",
+      "brand": "Toyota",
+      "class": "Street",
+      "specs": {
+        "bhp": "130 HP",
+        "weight": "940 kg",
+        "top_speed": "185 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_toyota_ae86_drift",
+      "name": "Toyota AE86 Drift",
+      "brand": "Toyota",
+      "class": "Drift",
+      "specs": {
+        "bhp": "180 HP",
+        "weight": "900 kg",
+        "top_speed": "200 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_toyota_ae86_tuned",
+      "name": "Toyota AE86 Tuned",
+      "brand": "Toyota",
+      "class": "Street",
+      "specs": {
+        "bhp": "160 HP",
+        "weight": "920 kg",
+        "top_speed": "195 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_toyota_celica_st185",
+      "name": "Toyota Celica ST185",
+      "brand": "Toyota",
+      "class": "Rally",
+      "specs": {
+        "bhp": "200 HP",
+        "weight": "1300 kg",
+        "top_speed": "230 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_toyota_gt86",
+      "name": "Toyota GT86",
+      "brand": "Toyota",
+      "class": "Street",
+      "specs": {
+        "bhp": "200 HP",
+        "weight": "1230 kg",
+        "top_speed": "226 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_toyota_supra_mkiv",
+      "name": "Toyota Supra MKIV",
+      "brand": "Toyota",
+      "class": "Street",
+      "specs": {
+        "bhp": "330 HP",
+        "weight": "1410 kg",
+        "top_speed": "250 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_toyota_supra_mkiv_tuned",
+      "name": "Toyota Supra MKIV Tuned",
+      "brand": "Toyota",
+      "class": "Street",
+      "specs": {
+        "bhp": "400 HP",
+        "weight": "1380 kg",
+        "top_speed": "280 km/h"
+      }
+    },
+    {
+      "folder_name": "ks_toyota_ts040",
+      "name": "Toyota TS040",
+      "brand": "Toyota",
+      "class": "LMP1",
+      "specs": {
+        "bhp": "1000 HP",
+        "weight": "875 kg",
+        "top_speed": "340 km/h"
+      }
+    }
+  ],
+  "tracks": [
+    {
+      "folder_name": "ks_nurburgring",
+      "name": "Nürburgring",
+      "layouts": [
+        {"layout_id": "gp", "name": "Grand Prix", "country": "Germany"},
+        {"layout_id": "sprint", "name": "Sprint", "country": "Germany"},
+        {"layout_id": "sprint_s", "name": "Sprint S", "country": "Germany"}
+      ]
+    },
+    {
+      "folder_name": "ks_barcelona",
+      "name": "Barcelona",
+      "layouts": [
+        {"layout_id": "gp", "name": "Grand Prix", "country": "Spain"},
+        {"layout_id": "national", "name": "National", "country": "Spain"},
+        {"layout_id": "motogp", "name": "MotoGP", "country": "Spain"}
+      ]
+    },
+    {
+      "folder_name": "ks_silverstone",
+      "name": "Silverstone",
+      "layouts": [
+        {"layout_id": "gp", "name": "Grand Prix", "country": "UK"},
+        {"layout_id": "national", "name": "National", "country": "UK"},
+        {"layout_id": "international", "name": "International", "country": "UK"}
+      ]
+    },
+    {
+      "folder_name": "ks_brands_hatch",
+      "name": "Brands Hatch",
+      "layouts": [
+        {"layout_id": "gp", "name": "Grand Prix", "country": "UK"},
+        {"layout_id": "ind", "name": "Indy", "country": "UK"}
+      ]
+    },
+    {
+      "folder_name": "ks_red_bull_ring",
+      "name": "Red Bull Ring",
+      "layouts": [
+        {"layout_id": "gp", "name": "Grand Prix", "country": "Austria"},
+        {"layout_id": "national", "name": "National", "country": "Austria"}
+      ]
+    },
+    {
+      "folder_name": "ks_vallelunga",
+      "name": "Vallelunga",
+      "layouts": [
+        {"layout_id": "gp", "name": "Grand Prix", "country": "Italy"},
+        {"layout_id": "club", "name": "Club", "country": "Italy"},
+        {"layout_id": "international", "name": "International", "country": "Italy"}
+      ]
+    },
+    {
+      "folder_name": "ks_black_cat_county",
+      "name": "Black Cat County",
+      "layouts": [
+        {"layout_id": "default", "name": "Default", "country": "USA"}
+      ]
+    },
+    {
+      "folder_name": "ks_highlands",
+      "name": "Highlands",
+      "layouts": [
+        {"layout_id": "default", "name": "Default", "country": "Scotland"}
+      ]
+    },
+    {
+      "folder_name": "ks_drag",
+      "name": "Drag Strip",
+      "layouts": [
+        {"layout_id": "default", "name": "Default", "country": "USA"}
+      ]
+    },
+    {
+      "folder_name": "ks_drift",
+      "name": "Drift Playground",
+      "layouts": [
+        {"layout_id": "default", "name": "Default", "country": "USA"}
+      ]
+    },
+    {
+      "folder_name": "spa",
+      "name": "Spa-Francorchamps",
+      "layouts": [
+        {"layout_id": "gp", "name": "Grand Prix", "country": "Belgium"}
+      ]
+    },
+    {
+      "folder_name": "monza",
+      "name": "Monza",
+      "layouts": [
+        {"layout_id": "gp", "name": "Grand Prix", "country": "Italy"},
+        {"layout_id": "short", "name": "Short", "country": "Italy"}
+      ]
+    },
+    {
+      "folder_name": "imola",
+      "name": "Imola",
+      "layouts": [
+        {"layout_id": "gp", "name": "Grand Prix", "country": "Italy"}
+      ]
+    },
+    {
+      "folder_name": "mugello",
+      "name": "Mugello",
+      "layouts": [
+        {"layout_id": "gp", "name": "Grand Prix", "country": "Italy"}
+      ]
+    },
+    {
+      "folder_name": "magione",
+      "name": "Magione",
+      "layouts": [
+        {"layout_id": "default", "name": "Default", "country": "Italy"}
+      ]
+    },
+    {
+      "folder_name": "zandvoort",
+      "name": "Zandvoort",
+      "layouts": [
+        {"layout_id": "gp", "name": "Grand Prix", "country": "Netherlands"}
+      ]
+    },
+    {
+      "folder_name": "laguna_seca",
+      "name": "Laguna Seca",
+      "layouts": [
+        {"layout_id": "default", "name": "Default", "country": "USA"}
+      ]
+    },
+    {
+      "folder_name": "trento-bondone",
+      "name": "Trento-Bondone",
+      "layouts": [
+        {"layout_id": "default", "name": "Hillclimb", "country": "Italy"}
+      ]
+    },
+    {
+      "folder_name": "ks_nordschleife",
+      "name": "Nürburgring Nordschleife",
+      "layouts": [
+        {"layout_id": "full", "name": "Full", "country": "Germany"},
+        {"layout_id": "touristenfahrten", "name": "Touristenfahrten", "country": "Germany"}
+      ]
+    }
+  ]
+}

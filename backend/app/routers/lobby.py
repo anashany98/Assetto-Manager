@@ -12,7 +12,7 @@ import random
 from .. import models, schemas, database
 from .auth import require_admin_or_public_token, require_admin_or_public_token_or_kiosk
 from .websockets import manager
-from ..security.api_keys import is_client_token_allowed
+from ..dependencies import is_admin as _is_admin, require_client_scope as _require_client_scope, require_kiosk_access as _require_kiosk_access
 
 logger = logging.getLogger("api.lobby")
 
@@ -30,41 +30,6 @@ LOBBY_CLEANUP_MIN_INTERVAL_SECONDS = int(os.getenv("LOBBY_CLEANUP_MIN_INTERVAL_S
 PORT_RESERVATION_STALE_SECONDS = int(os.getenv("LOBBY_PORT_RESERVATION_STALE_SECONDS", "120"))
 ACTIVE_LOBBY_STATUSES = ("waiting", "starting", "running")
 _last_orphan_cleanup_at: datetime | None = None
-
-
-def _is_admin(user_or_client: object) -> bool:
-    return hasattr(user_or_client, "role") and getattr(user_or_client, "role") == "admin"
-
-
-def _is_kiosk_client(user_or_client: object) -> bool:
-    return user_or_client == "kiosk"
-
-
-def _normalize_kiosk_code(value: Optional[str]) -> str:
-    return (value or "").strip().upper()
-
-
-def _require_client_scope(user_or_client: object, required_scope: str) -> None:
-    if _is_admin(user_or_client):
-        return
-    if _is_kiosk_client(user_or_client):
-        if required_scope == "kiosk:control":
-            return
-        raise HTTPException(status_code=403, detail="Kiosk client missing required scope")
-    token = None if user_or_client in (None, "public") else str(user_or_client)
-    if not is_client_token_allowed(token=token, required_scopes=(required_scope,)):
-        raise HTTPException(status_code=403, detail="Client token missing required scope")
-
-
-def _require_kiosk_access(station: Optional[models.Station], kiosk_code: Optional[str], user_or_client: object) -> None:
-    if _is_admin(user_or_client):
-        return
-    if not station:
-        raise HTTPException(status_code=404, detail="Station not found")
-    if not station.is_kiosk_mode:
-        raise HTTPException(status_code=403, detail="Kiosk mode disabled for station")
-    if _normalize_kiosk_code(station.kiosk_code) != _normalize_kiosk_code(kiosk_code):
-        raise HTTPException(status_code=403, detail="Invalid kiosk code")
 
 
 def _get_timeout_remaining_seconds(lobby: models.Lobby) -> Optional[int]:
@@ -675,6 +640,32 @@ async def leave_lobby(
     _require_client_scope(user_or_client, "kiosk:control")
 
     if station.id == lobby.host_station_id:
+        # Auto-promote next player as host instead of cancelling
+        import os
+        enable_host_promote = os.getenv("LOBBY_HOST_PROMOTE_ENABLED", "true").lower() in {"1", "true", "yes"}
+        
+        if enable_host_promote and lobby.players:
+            # Find next player (first in list)
+            next_host = list(lobby.players)[0] if lobby.players else None
+            
+            if next_host and next_host.id != station.id:
+                # Promote next player to host
+                lobby.host_station_id = next_host.id
+                lobby.players.remove(station)
+                db.commit()
+                
+                logger.info(f"Host {station.id} left lobby {lobby_id}, promoted player {next_host.id} as new host")
+                
+                # Notify all clients
+                await manager.broadcast(json.dumps({
+                    "type": "lobby_host_changed",
+                    "lobby_id": lobby_id,
+                    "new_host_id": next_host.id,
+                    "message": f"El host abandonó. {next_host.name if hasattr(next_host, 'name') else 'Jugador 1'} es el nuevo host"
+                }))
+                
+                return {"status": "host_promoted", "lobby_id": lobby_id, "new_host_id": next_host.id}
+        
         await _cancel_lobby_with_cleanup(db, lobby, reason="host_left")
         return {"status": "cancelled", "lobby_id": lobby_id}
 
@@ -716,7 +707,11 @@ async def start_lobby(
     _require_client_scope(user_or_client, "kiosk:control")
     
     if lobby.host_station_id != requesting_station_id:
-        raise HTTPException(status_code=403, detail="Only host can start the race")
+        host = db.query(models.Station).filter(models.Station.id == lobby.host_station_id).first()
+        if not host or not host.is_online:
+            pass
+        else:
+            raise HTTPException(status_code=403, detail="Only host can start the race. Wait for host to start.")
     
     if lobby.status != "waiting":
         raise HTTPException(status_code=400, detail="Lobby already started or finished")

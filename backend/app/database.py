@@ -3,10 +3,13 @@ import os
 from pathlib import Path
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
-import warnings
 
-load_dotenv()
-load_dotenv(dotenv_path=Path(__file__).resolve().parents[1] / ".env")
+_ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
+if _ENV_PATH.exists():
+    load_dotenv(dotenv_path=str(_ENV_PATH))
+else:
+    load_dotenv()
+
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy import event, inspect, text
 

@@ -153,6 +153,7 @@ class Station(Base, SoftDeleteMixin):
     is_online = Column(Boolean, default=False)
     is_kiosk_mode = Column(Boolean, default=False)
     kiosk_code = Column(String, index=True, nullable=True)  # Removed unique for soft delete
+    kiosk_code_expires_at = Column(DateTime(timezone=True), nullable=True)  # TTL for kiosk codes
     is_locked = Column(Boolean, default=False) # Cyber-Lock status
     is_tv_mode = Column(Boolean, default=False)
     is_streaming = Column(Boolean, default=False)
@@ -222,7 +223,7 @@ class LobbyPortReservation(Base):
     reserved_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
 
-class Mod(Base):
+class Mod(Base, SoftDeleteMixin):
     __tablename__ = "mods"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)
@@ -232,6 +233,7 @@ class Mod(Base):
     manifest = Column(JSON, nullable=True) 
     source_path = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
+    is_stock = Column(Boolean, default=False) # True if content is from stock AC game
     preview_url = Column(String, nullable=True) # Optimized image path
     size_bytes = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
@@ -290,7 +292,7 @@ class SessionResult(Base):
         Index('idx_track_car_date', 'track_name', 'car_model', 'date'),
     )
 
-class Event(Base):
+class Event(Base, SoftDeleteMixin):
     __tablename__ = "events"
     
     id = Column(Integer, primary_key=True, index=True)

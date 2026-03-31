@@ -54,6 +54,57 @@ export function DirectorPage() {
     const telemetryEntries = useMemo(() => Object.values(liveCars), [liveCars]);
     const focusedTelemetry = selectedStation ? liveCars[selectedStation.id.toString()] : null;
 
+    // -- Functions --
+    async function fetchStations() {
+        if (demoMode) {
+            setStations(DEMO_STATIONS as Station[]);
+            return;
+        }
+        try {
+            const headers = PUBLIC_API_TOKEN ? { 'X-Client-Token': PUBLIC_API_TOKEN } : {};
+            const res = await axios.get(`${API_URL}/spectator/stations`, { headers });
+            setStations(res.data);
+        } catch (err) {
+            console.error('Error fetching stations:', err);
+        }
+    }
+
+    function addEvent(type: ProductionEvent['type'], message: string, station_id?: number) {
+        const newEvent = { id: Math.random().toString(36), timestamp: new Date(), type, message, station_id };
+        setEvents(prev => [newEvent, ...prev].slice(0, 50));
+    }
+
+    async function startStream(station: Station) {
+        if (selectedStation?.id === station.id && streaming) return;
+
+        setSelectedStation(station);
+        setStreaming(true);
+        lastSwitchTime.current = Date.now();
+
+        if (demoMode) return;
+
+        try {
+            const headers = PUBLIC_API_TOKEN ? { 'X-Client-Token': PUBLIC_API_TOKEN } : {};
+            await axios.post(`${API_URL}/spectator/${station.id}/start`, null, { headers });
+        } catch (err) {
+            console.error('Error starting stream:', err);
+        }
+    }
+
+    async function stopStream() {
+        if (!selectedStation || demoMode) {
+            setStreaming(false);
+            return;
+        }
+        try {
+            const headers = PUBLIC_API_TOKEN ? { 'X-Client-Token': PUBLIC_API_TOKEN } : {};
+            await axios.post(`${API_URL}/spectator/${selectedStation.id}/stop`, null, { headers });
+            setStreaming(false);
+        } catch (err) {
+            console.error('Error stopping stream:', err);
+        }
+    }
+
     // -- Lifecycle --
     useEffect(() => {
         fetchStations();
@@ -135,57 +186,6 @@ export function DirectorPage() {
         autoDirectorTimer.current = directorInterval;
         return () => clearInterval(directorInterval);
     }, [isAutoDirector, telemetryEntries, selectedStation]);
-
-    // -- Functions --
-    const fetchStations = async () => {
-        if (demoMode) {
-            setStations(DEMO_STATIONS as Station[]);
-            return;
-        }
-        try {
-            const headers = PUBLIC_API_TOKEN ? { 'X-Client-Token': PUBLIC_API_TOKEN } : {};
-            const res = await axios.get(`${API_URL}/spectator/stations`, { headers });
-            setStations(res.data);
-        } catch (err) {
-            console.error('Error fetching stations:', err);
-        }
-    };
-
-    const addEvent = (type: ProductionEvent['type'], message: string, station_id?: number) => {
-        const newEvent = { id: Math.random().toString(36), timestamp: new Date(), type, message, station_id };
-        setEvents(prev => [newEvent, ...prev].slice(0, 50));
-    };
-
-    const startStream = async (station: Station) => {
-        if (selectedStation?.id === station.id && streaming) return;
-        
-        setSelectedStation(station);
-        setStreaming(true);
-        lastSwitchTime.current = Date.now();
-
-        if (demoMode) return;
-
-        try {
-            const headers = PUBLIC_API_TOKEN ? { 'X-Client-Token': PUBLIC_API_TOKEN } : {};
-            await axios.post(`${API_URL}/spectator/${station.id}/start`, null, { headers });
-        } catch (err) {
-            console.error('Error starting stream:', err);
-        }
-    };
-
-    const stopStream = async () => {
-        if (!selectedStation || demoMode) {
-            setStreaming(false);
-            return;
-        }
-        try {
-            const headers = PUBLIC_API_TOKEN ? { 'X-Client-Token': PUBLIC_API_TOKEN } : {};
-            await axios.post(`${API_URL}/spectator/${selectedStation.id}/stop`, null, { headers });
-            setStreaming(false);
-        } catch (err) {
-            console.error('Error stopping stream:', err);
-        }
-    };
 
     const formatTime = (date: Date) => date.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
 

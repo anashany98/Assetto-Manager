@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 import os
 
 from .. import database, models
-from .auth import get_current_active_user, require_admin_or_public_token
+from .auth import require_admin_or_public_token, require_admin_or_public_token_scoped
 from .websockets import manager
 from ..security.license import require_license_module
 
@@ -17,6 +17,8 @@ router = APIRouter(
     tags=["Spectator"],
     dependencies=[Depends(require_license_module("tv_spectator"))],
 )
+
+require_spectator_control = require_admin_or_public_token_scoped("tv:control")
 
 
 class OBSCommandRequest(BaseModel):
@@ -86,7 +88,7 @@ async def control_obs(
     station_id: int,
     request: OBSCommandRequest,
     db: Session = Depends(database.get_db),
-    user_or_client: models.User | str = Depends(require_admin_or_public_token)
+    user_or_client: models.User | str = Depends(require_spectator_control)
 ):
     """
     Send OBS control command to a specific station.
@@ -133,7 +135,7 @@ async def control_obs(
 async def start_spectating(
     station_id: int,
     db: Session = Depends(database.get_db),
-    user_or_client: models.User | str = Depends(require_admin_or_public_token)
+    user_or_client: models.User | str = Depends(require_spectator_control)
 ):
     """Start streaming from a specific station (convenience endpoint)."""
     return await control_obs(
@@ -148,7 +150,7 @@ async def start_spectating(
 async def stop_spectating(
     station_id: int,
     db: Session = Depends(database.get_db),
-    user_or_client: models.User | str = Depends(require_admin_or_public_token)
+    user_or_client: models.User | str = Depends(require_spectator_control)
 ):
     """Stop streaming from a specific station (convenience endpoint)."""
     return await control_obs(
@@ -163,7 +165,7 @@ async def stop_spectating(
 async def get_stream_status(
     station_id: int,
     db: Session = Depends(database.get_db),
-    user_or_client: models.User | str = Depends(require_admin_or_public_token)
+    user_or_client: models.User | str = Depends(require_spectator_control)
 ):
     """Get streaming status from a specific station."""
     return await control_obs(
@@ -178,7 +180,7 @@ async def get_stream_status(
 async def get_obs_scenes(
     station_id: int,
     db: Session = Depends(database.get_db),
-    user_or_client: models.User | str = Depends(require_admin_or_public_token)
+    user_or_client: models.User | str = Depends(require_spectator_control)
 ):
     """Get the list of available OBS scenes from a specific station."""
     return await control_obs(

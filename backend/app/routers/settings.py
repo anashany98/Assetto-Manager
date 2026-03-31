@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, File, UploadFile
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import and_, or_
 from typing import List
 from .. import models, schemas, database
 from .auth import require_admin, require_admin_or_public_token, require_public_token
@@ -16,9 +16,10 @@ router = APIRouter(
 )
 
 SENSITIVE_PREFIXES = ("stripe_", "payment_", "bizum_", "smtp_", "vapid_", "license_")
+NON_SENSITIVE_PAYMENT_KEYS = {"payment_currency", "payment_public_kiosk_url"}
 
 def _is_sensitive(key: str) -> bool:
-    return key.startswith(SENSITIVE_PREFIXES)
+    return key.startswith(SENSITIVE_PREFIXES) and key not in NON_SENSITIVE_PAYMENT_KEYS
 
 @router.get("/", response_model=List[schemas.GlobalSettings])
 def get_settings(db: Session = Depends(database.get_db), _auth: object = Depends(require_admin_or_public_token)):
@@ -30,8 +31,11 @@ def get_secure_settings(db: Session = Depends(database.get_db), current_user: mo
     settings = db.query(models.GlobalSettings).filter(
         or_(
             models.GlobalSettings.key.like("stripe_%"),
-            models.GlobalSettings.key.like("payment_%"),
             models.GlobalSettings.key.like("bizum_%"),
+            and_(
+                models.GlobalSettings.key.like("payment_%"),
+                ~models.GlobalSettings.key.in_(NON_SENSITIVE_PAYMENT_KEYS),
+            ),
         )
     ).all()
     return settings
@@ -92,6 +96,37 @@ def upload_logo(file: UploadFile = File(...), db: Session = Depends(database.get
 class KioskPairRequest(schemas.BaseModel):
     code: str
 
+
+class KioskPairByStationRequest(schemas.BaseModel):
+    station_id: int
+
+
+def _serialize_public_station(station: models.Station) -> dict:
+    return {
+        "id": station.id,
+        "name": station.name,
+        "ip_address": station.ip_address,
+        "is_active": station.is_active,
+        "is_online": station.is_online,
+        "is_kiosk_mode": station.is_kiosk_mode,
+        "status": station.status,
+    }
+
+
+@router.get("/kiosk/stations")
+def list_public_kiosk_stations(
+    db: Session = Depends(database.get_db),
+    _auth: object = Depends(require_public_token),
+):
+    stations = (
+        db.query(models.Station)
+        .filter(models.Station.deleted_at.is_(None))
+        .order_by(models.Station.id.asc())
+        .all()
+    )
+    return [_serialize_public_station(station) for station in stations]
+
+
 @router.post("/kiosk/pair")
 def pair_kiosk(payload: KioskPairRequest, db: Session = Depends(database.get_db), _auth: object = Depends(require_public_token)):
     code = payload.code.strip().upper()
@@ -100,4 +135,39 @@ def pair_kiosk(payload: KioskPairRequest, db: Session = Depends(database.get_db)
     if not station:
         raise HTTPException(status_code=404, detail="Invalid kiosk code")
     
-    return {"station_id": station.id, "name": station.name, "kiosk_code": station.kiosk_code}
+    return {
+        "station_id": station.id,
+        "name": station.name,
+        "kiosk_code": station.kiosk_code,
+        "ip_address": station.ip_address,
+        "status": station.status,
+        "is_active": station.is_active,
+    }
+
+
+@router.post("/kiosk/pair-station")
+def pair_kiosk_station(
+    payload: KioskPairByStationRequest,
+    db: Session = Depends(database.get_db),
+    _auth: object = Depends(require_public_token),
+):
+    station = (
+        db.query(models.Station)
+        .filter(models.Station.id == payload.station_id, models.Station.deleted_at.is_(None))
+        .first()
+    )
+    if not station:
+        raise HTTPException(status_code=404, detail="Station not found")
+    if not station.is_active:
+        raise HTTPException(status_code=409, detail="Station is inactive")
+    if not station.kiosk_code:
+        raise HTTPException(status_code=409, detail="Station has no kiosk code")
+
+    return {
+        "station_id": station.id,
+        "name": station.name,
+        "kiosk_code": station.kiosk_code,
+        "ip_address": station.ip_address,
+        "status": station.status,
+        "is_active": station.is_active,
+    }

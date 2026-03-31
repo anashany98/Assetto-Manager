@@ -46,7 +46,7 @@ def _is_newer(remote, local):
         return [int(x) for x in v.split('.')]
     try:
         return parse(remote) > parse(local)
-    except:
+    except (ValueError, AttributeError):
         return False
 
 def _perform_update(relative_url, expected_hash=None, signature=None):

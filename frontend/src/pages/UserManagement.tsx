@@ -50,14 +50,11 @@ export default function UserManagement() {
     const { user: currentUser } = useAuth();
     const queryClient = useQueryClient();
     const [editingId, setEditingId] = useState<number | null>(null);
-    const authHeader = { Authorization: `Bearer ${localStorage.getItem('token')}` };
 
     const { data: users, isLoading } = useQuery({
         queryKey: ['users'],
         queryFn: async () => {
-            const res = await axios.get(`${API_URL}/users/`, {
-                headers: authHeader,
-            });
+            const res = await axios.get(`${API_URL}/users/`);
             return res.data as User[];
         },
     });
@@ -65,9 +62,7 @@ export default function UserManagement() {
     const { data: modules = FALLBACK_MODULES } = useQuery({
         queryKey: ['user_permission_modules'],
         queryFn: async () => {
-            const res = await axios.get(`${API_URL}/users/modules`, {
-                headers: authHeader,
-            });
+            const res = await axios.get(`${API_URL}/users/modules`);
             return res.data as PermissionModule[];
         },
         initialData: FALLBACK_MODULES,
@@ -81,9 +76,7 @@ export default function UserManagement() {
 
     const updatePermissionsMutation = useMutation({
         mutationFn: async ({ id, permissions }: { id: number; permissions: string[] }) => {
-            await axios.put(`${API_URL}/users/${id}/permissions`, { permissions }, {
-                headers: authHeader,
-            });
+            await axios.put(`${API_URL}/users/${id}/permissions`, { permissions });
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['users'] });

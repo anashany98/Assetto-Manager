@@ -164,6 +164,26 @@ async def lifespan(app: FastAPI):
         Base.metadata.create_all(bind=engine)
     else:
         logger.info("AUTO_SCHEMA disabled or Production Mode; skipping runtime schema changes")
+    # Seed stock content (Assetto Corsa base game cars and tracks)
+    seed_stock_enabled = os.getenv("SEED_STOCK_CONTENT", "true").lower() in {"1", "true", "yes"}
+    if seed_stock_enabled:
+        try:
+            from .database import SessionLocal
+            from .seed_stock import seed_stock_content
+            db = SessionLocal()
+            try:
+                result = seed_stock_content(db)
+                if not result.get("skipped"):
+                    logger.info("Stock content seeded: %s cars, %s tracks", result.get("cars_added", 0), result.get("tracks_added", 0))
+                else:
+                    logger.debug("Stock content seed skipped: %s", result.get("message", ""))
+            finally:
+                db.close()
+        except Exception as e:
+            logger.warning("Failed to seed stock content (non-fatal): %s", e)
+    else:
+        logger.info("Stock content seeding disabled by SEED_STOCK_CONTENT")
+    
     scheduler_enabled = os.getenv("ENABLE_SCHEDULER", "true").lower() in {"1", "true", "yes"}
     worker_count = _get_worker_count()
     if worker_count > 1 and scheduler_enabled:
@@ -182,10 +202,23 @@ async def lifespan(app: FastAPI):
     # Optional cross-worker WS pubsub (Redis)
     from .routers.websockets import manager as ws_manager
     await ws_manager.start_pubsub()
+    
+    # Start session background tasks
+    session_tasks = []
+    try:
+        from .routers.sessions import start_session_background_tasks
+        session_tasks = await start_session_background_tasks()
+    except Exception as e:
+        logger.error(f"Failed to start session background tasks: {e}")
+    
     yield
     # Shutdown
     await ws_manager.stop_pubsub()
     stop_scheduler()
+    
+    # Cancel session background tasks
+    for task in session_tasks:
+        task.cancel()
 
 
 app = FastAPI(
@@ -210,8 +243,9 @@ from starlette.middleware.base import BaseHTTPMiddleware
 class CSPMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         response = await call_next(request)
-        # Permissive CSP for dev tools; tighter defaults in production.
         if ENVIRONMENT == "production":
+            # Restrict connect-src to same-origin only.
+            # External services (Stripe, VMS) must be fetched server-side, not from the browser.
             csp_policy = (
                 "default-src 'self'; "
                 "script-src 'self'; "
@@ -219,7 +253,7 @@ class CSPMiddleware(BaseHTTPMiddleware):
                 "style-src 'self' 'unsafe-inline'; "
                 "img-src 'self' data: blob:; "
                 "font-src 'self' data:; "
-                "connect-src 'self' https: http: wss: ws:;"
+                "connect-src 'self';"
             )
         else:
             csp_policy = (
@@ -465,6 +499,84 @@ def readiness_check():
     checks = _run_readiness_checks()
     status = "ok" if all(v == "ok" for v in checks.values()) else "degraded"
     return {"status": status, "checks": checks}
+
+
+@app.get("/health/system")
+def system_health_check():
+    """Detailed health check with agent and session status."""
+    from .routers.websockets import manager as ws_manager
+    from .database import SessionLocal
+    from . import models
+    from datetime import datetime, timezone
+    
+    db = SessionLocal()
+    try:
+        # Get all stations with only needed columns
+        station_rows = db.query(
+            models.Station.id,
+            models.Station.name,
+            models.Station.is_online,
+            models.Station.is_active
+        ).filter(models.Station.deleted_at.is_(None)).all()
+        
+        # Get agent connections (keys are station IDs)
+        connected_station_ids = set(ws_manager.active_agents.keys())
+        
+        # Build station status
+        station_status = []
+        offline_count = 0
+        online_count = 0
+        
+        for row in station_rows:
+            station_id = row.id
+            is_connected = station_id in connected_station_ids
+            if row.is_online and is_connected:
+                status = "online"
+                online_count += 1
+            elif row.is_online and not is_connected:
+                status = "online_disconnected"
+                offline_count += 1
+            else:
+                status = "offline"
+                offline_count += 1
+            
+            station_status.append({
+                "id": station_id,
+                "name": row.name,
+                "status": status,
+                "is_online": row.is_online,
+                "is_connected": is_connected,
+            })
+        
+        # Get active sessions count
+        active_session_count = db.query(models.Session).filter(
+            models.Session.status.in_(["active", "paused"])
+        ).count()
+        
+        # Determine overall health
+        total_stations = len(station_rows)
+        health = "healthy"
+        if offline_count > 0:
+            health = "degraded"
+        if total_stations > 0 and offline_count > total_stations / 2:
+            health = "unhealthy"
+        
+        return {
+            "status": health,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "agents": {
+                "total": total_stations,
+                "online": online_count,
+                "offline": offline_count,
+            },
+            "sessions": {
+                "active": active_session_count,
+            },
+            "stations": station_status,
+            "ws_stats": ws_manager.stats(),
+        }
+    finally:
+        db.close()
 
 # --- Serve Frontend (Production) ---
 from fastapi.responses import FileResponse

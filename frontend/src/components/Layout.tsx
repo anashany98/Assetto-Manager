@@ -28,9 +28,9 @@ import {
     Search,
     LogOut,
     Cpu,
-    Swords,
     Monitor,
-    UserCog
+    UserCog,
+    Activity
 } from 'lucide-react';
 import { useTheme } from '../contexts/useTheme';
 import { useAuth } from '../context/useAuth';
@@ -96,6 +96,7 @@ const NAV_SECTIONS: NavSection[] = [
             { to: '/profiles', icon: Users, label: 'Perfiles', featureKey: 'profiles', permissionKey: 'profiles' },
             { to: '/users', icon: UserCog, label: 'Usuarios', permissionKey: 'users' },
             { to: '/hardware', icon: Cpu, label: 'Hardware', permissionKey: 'hardware' },
+            { to: '/system-dashboard', icon: Activity, label: 'Monitor Sistema', permissionKey: 'dashboard' },
         ],
     },
     {
@@ -111,33 +112,7 @@ const NAV_SECTIONS: NavSection[] = [
     },
 ];
 
-// Permission map for routes
-const ROUTE_PERMISSION_MAP: Record<string, string> = {
-    '/admin/scenarios': 'kiosk',
-    '/admin': 'dashboard',
-    '/drivers': 'drivers',
-    '/events': 'events',
-    '/championships': 'championships',
-    '/history': 'history',
-    '/bookings': 'bookings',
-    '/reservations': 'tables',
-    '/analytics': 'analytics',
-    '/mods': 'mods',
-    '/online-reservations': 'online_reservations',
-    '/compare': 'lap_comparison',
-    '/settings?tab=game': 'editor',
-    '/settings': 'settings',
-    '/profiles': 'profiles',
-    '/users': 'users',
-    '/remote': 'tv_remote',
-    '/director': 'tv_spectator',
-    '/tv/spectator': 'tv_spectator',
-    '/leaderboard': 'leaderboard',
-    '/hall-of-fame': 'hall_of_fame',
-    '/kiosk': 'kiosk',
-    '/hardware': 'hardware',
-    '/': 'dashboard',
-};
+
 
 // ============================================================================
 // SUB-COMPONENTS
@@ -366,36 +341,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     const barName = safeBranding.find((s: { key: string; value: string }) => s.key === 'bar_name')?.value || 'VRacing Bar';
 
     const isAdminView = location.pathname.startsWith('/admin');
+    const isKioskRoute = ['/kiosk', '/lock-screen'].includes(location.pathname);
     const publicHeaders = PUBLIC_API_TOKEN ? { 'X-Client-Token': PUBLIC_API_TOKEN } : {};
     const pairedStationId = getPairedStationId();
-    const canResolveStation = isAuthenticated || Boolean(PUBLIC_API_TOKEN);
-
-    // Station lock check
-    const { data: stationIds = [] } = useQuery<number[]>({
-        queryKey: ['lock-check-station-ids'],
-        queryFn: async () => {
-            try {
-                const res = await axios.get(`${API_URL}/stations/`, { headers: publicHeaders });
-                const rows = Array.isArray(res.data) ? res.data : [];
-                return rows
-                    .map((station: { id?: unknown; is_active?: boolean }) => {
-                        const id = Number(station?.id);
-                        const isActive = station?.is_active !== false;
-                        return Number.isFinite(id) && id > 0 && isActive ? Math.floor(id) : null;
-                    })
-                    .filter((id: number | null): id is number => id !== null)
-                    .sort((a, b) => a - b);
-            } catch { return []; }
-        },
-        enabled: canResolveStation,
-        retry: 1,
-        staleTime: 60_000,
-    });
-
-    const stationId = (() => {
-        if (pairedStationId && stationIds.includes(pairedStationId)) return pairedStationId;
-        return stationIds[0] ?? null;
-    })();
+    const stationId = isKioskRoute ? pairedStationId : null;
+    const canResolveStation = isKioskRoute && stationId !== null && (isAuthenticated || Boolean(PUBLIC_API_TOKEN));
 
     const { data: lockStatus } = useQuery({
         queryKey: ['lock-check', stationId],

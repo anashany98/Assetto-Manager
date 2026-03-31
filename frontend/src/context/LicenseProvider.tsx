@@ -35,9 +35,7 @@ export function LicenseProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const updateLicense = async (key: string) => {
-        await axios.post(`${API_URL}/license/`, { key }, {
-            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
+        await axios.post(`${API_URL}/license/`, { key });
         await fetchLicense();
     };
 
@@ -55,4 +53,3 @@ export function LicenseProvider({ children }: { children: ReactNode }) {
         </LicenseContext.Provider>
     );
 }
-

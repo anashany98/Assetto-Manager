@@ -17,6 +17,7 @@ interface ContentStepProps {
     prefetchedCars?: Car[];
     prefetchedTracks?: Track[];
     allowedCarIds?: string[];  // When set, only show these cars (joiner lobby flow)
+    allowedTrackIds?: string[];
     lockTrack?: string;        // When set, skip track phase and use this track
 }
 
@@ -27,6 +28,7 @@ export const ContentStep: React.FC<ContentStepProps> = ({
     prefetchedCars,
     prefetchedTracks,
     allowedCarIds,
+    allowedTrackIds,
     lockTrack,
 }) => {
     // 1. Data Fetching
@@ -57,11 +59,46 @@ export const ContentStep: React.FC<ContentStepProps> = ({
     const [carIndex, setCarIndex] = useState(0);
     const [trackIndex, setTrackIndex] = useState(0);
 
+    const normalizeAlias = (value: unknown): string => {
+        if (value === null || value === undefined) return '';
+        return String(value)
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .trim()
+            .toLowerCase();
+    };
+
+    const matchesAllowedIds = (
+        item: { id?: string; name?: string; aliases?: string[] },
+        allowedIds?: string[]
+    ) => {
+        if (!allowedIds || allowedIds.length === 0) return true;
+
+        const allowed = new Set(
+            allowedIds
+                .map((value) => normalizeAlias(value))
+                .filter(Boolean)
+        );
+
+        if (allowed.size === 0) return true;
+
+        const candidates = new Set<string>();
+        [item.id, item.name, ...(item.aliases || [])].forEach((value) => {
+            const normalized = normalizeAlias(value);
+            if (!normalized) return;
+            candidates.add(normalized);
+            candidates.add(normalized.replace(/^stock_/, ''));
+            if (!normalized.startsWith('stock_')) {
+                candidates.add(`stock_${normalized}`);
+            }
+        });
+
+        return Array.from(candidates).some((candidate) => allowed.has(candidate));
+    };
+
     // 3. Filtering
     // If allowedCarIds is provided (joiner lobby mode), restrict to those cars only
-    const allCars = (allowedCarIds && allowedCarIds.length > 0)
-        ? carsToUse.filter((c: any) => allowedCarIds.includes(c.id))
-        : carsToUse;
+    const allCars = carsToUse.filter((c: any) => matchesAllowedIds(c, allowedCarIds));
     // Get Unique Brands
     const uniqueBrands = Array.from(new Set(allCars.map((c: any) => c.brand || 'Unknown'))).sort();
     // Filter cars by brand
@@ -69,7 +106,7 @@ export const ContentStep: React.FC<ContentStepProps> = ({
         selectedBrand ? (c.brand || 'Unknown') === selectedBrand : true
     );
 
-    const allTracks = tracksToUse;
+    const allTracks = tracksToUse.filter((t: any) => matchesAllowedIds(t, allowedTrackIds));
 
     // Helper to deduce country — uses real country field from AC data first
     const getTrackCountry = (t: any) => {
@@ -93,13 +130,16 @@ export const ContentStep: React.FC<ContentStepProps> = ({
     );
 
     // Group tracks by base track ID to detect multi-layout tracks
-    const getBaseTrackId = (id: string) => {
+    const getBaseTrackId = (id?: string) => {
+        if (!id) return 'unknown';
         const parts = id.split('/');
-        return parts[0];
+        return parts[0] || 'unknown';
     };
     
     const trackGroups = filteredTracks.reduce((acc: Record<string, any[]>, t: any) => {
-        const baseId = getBaseTrackId(t.id);
+        const trackId = t?.id;
+        if (!trackId) return acc;
+        const baseId = getBaseTrackId(trackId);
         if (!acc[baseId]) acc[baseId] = [];
         acc[baseId].push(t);
         return acc;
@@ -285,7 +325,15 @@ export const ContentStep: React.FC<ContentStepProps> = ({
     }
 
     // Determine current item context — must be declared before activeTrackName
-    const currentItem = (phase === 'car' ? filteredCars[carIndex] : (phase === 'track' ? filteredTracks[trackIndex] : null)) as any;
+    const currentTrackItem = filteredTracks[trackIndex] || selectedTrackGroup?.[0] || null;
+    const currentItem = (
+        phase === 'car'
+            ? filteredCars[carIndex]
+            : ((phase === 'track' || phase === 'layout') ? currentTrackItem : null)
+    ) as Car | Track | null;
+    
+    // Guard: ensure currentItem and name exist
+    const currentItemName = currentItem?.name || currentItem?.id || 'Unknown';
 
     // Active track name for the leaderboard query
     const activeTrackName = phase === 'track' && currentItem ? (currentItem as Track).name : null;
@@ -306,17 +354,19 @@ export const ContentStep: React.FC<ContentStepProps> = ({
     });
 
     // Background Logic
-    let bgImage = '/default-car.jpg';
-    let bgImageFallback = "https://racesimstudio.com/wp-content/uploads/2021/05/RSS_GTM_V6_cr_1.jpg";
+    const localFallbackBackground = '/bg-kiosk.jpg';
+    let bgImage = '';
 
     if (phase === 'brand') {
-        bgImage = '/default-showroom.jpg'; // General background
+        bgImage = localFallbackBackground;
     } else if (phase === 'country') {
-        bgImage = 'https://www.gran-turismo.com/gtsport/images/c/map_spa_francorchamps.jpg';
+        bgImage = localFallbackBackground;
     } else if (currentItem) {
         bgImage = resolveAssetUrl(currentItem.image_url || '') || '';
-        if (phase === 'track') bgImageFallback = "https://www.gran-turismo.com/gtsport/images/c/map_spa_francorchamps.jpg";
     }
+
+    const showItemFallbackVisual = Boolean((phase === 'car' || phase === 'track') && currentItem && !bgImage);
+    const trackMapUrl = phase === 'track' ? (resolveAssetUrl((currentItem as Track | null)?.map_url || '') || '') : '';
 
     return (
         <div className="h-full w-full flex flex-col relative overflow-hidden bg-slate-950/90">
@@ -326,16 +376,27 @@ export const ContentStep: React.FC<ContentStepProps> = ({
                 {(phase === 'car' || phase === 'track') && currentItem && (
                     <img
                         key={currentItem.id} // Force re-render for transition
-                        src={bgImage || bgImageFallback}
+                        src={bgImage || localFallbackBackground}
                         onError={(e) => {
                             const target = e.target as HTMLImageElement;
-                            if (target.src !== bgImageFallback) {
-                                target.src = bgImageFallback;
+                            if (!target.src.endsWith(localFallbackBackground)) {
+                                target.src = localFallbackBackground;
                             }
                         }}
                         className="w-full h-full object-cover animate-in fade-in zoom-in duration-700 opacity-45 filter saturate-110"
                         alt="Background"
                     />
+                )}
+                {showItemFallbackVisual && (
+                    <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
+                        <div className="flex h-40 w-40 md:h-56 md:w-56 items-center justify-center rounded-full border border-white/15 bg-slate-950/45 shadow-[0_0_80px_rgba(15,23,42,0.75)] backdrop-blur-md">
+                            {phase === 'car' ? (
+                                <CarIcon className="h-20 w-20 md:h-28 md:w-28 text-white/80" />
+                            ) : (
+                                <Flag className="h-20 w-20 md:h-28 md:w-28 text-amber-300/80" />
+                            )}
+                        </div>
+                    </div>
                 )}
                 {(phase === 'brand' || phase === 'country') && (
                     <div className="w-full h-full bg-[url('/bg-kiosk.jpg')] bg-cover bg-center opacity-25" />
@@ -364,7 +425,7 @@ export const ContentStep: React.FC<ContentStepProps> = ({
             </div>
 
             {/* MAIN CONTENT AREA */}
-            <div className="relative z-20 flex-1 min-h-0 flex flex-col items-center justify-center px-2 md:px-4 w-full">
+            <div className="relative z-20 flex-1 min-h-0 flex flex-col items-center justify-start md:justify-center px-2 md:px-4 w-full overflow-y-auto overflow-x-hidden pb-4">
 
                 {/* --- PHASE 1: BRAND SELECTION --- */}
                 {phase === 'brand' && (
@@ -439,10 +500,10 @@ export const ContentStep: React.FC<ContentStepProps> = ({
                                 {/* Title & Brand */}
                                 <div className="mb-0 text-center drop-shadow-2xl px-4 w-full max-w-4xl mx-auto overflow-hidden pt-12 md:pt-16 lg:pt-0">
                                     <h2 className="text-3xl md:text-4xl lg:text-5xl font-black text-white italic tracking-tighter uppercase leading-none text-outline-red line-clamp-2" style={{ wordBreak: 'break-word' }}>
-                                        {currentItem.name.replace(/_/g, ' ')}
+                                        {currentItemName.replace(/_/g, ' ')}
                                     </h2>
                                     <p className="text-lg md:text-xl text-amber-300 font-bold uppercase tracking-[0.2em] mt-3">
-                                        {phase === 'car' ? (currentItem.brand || 'RACING') : (currentItem.layout || 'OFFICIAL CIRCUIT')}
+                                        {phase === 'car' ? ((currentItem as Car).brand || 'RACING') : ((currentItem as Track).layout || 'OFFICIAL CIRCUIT')}
                                     </p>
                                 </div>
 
@@ -482,11 +543,25 @@ export const ContentStep: React.FC<ContentStepProps> = ({
                                 {phase === 'track' && (
                                     <div className="mt-8 md:mt-12 flex flex-col md:flex-row items-center gap-8 justify-center">
                                         <div className="bg-slate-950/40 backdrop-blur-xl border border-white/20 rounded-[2rem] md:rounded-[4rem] p-8 md:p-12 flex-1 max-w-xl">
-                                            <img
-                                                src={resolveAssetUrl(currentItem.map_url) || "https://upload.wikimedia.org/wikipedia/commons/thumb/6/67/Circuit_de_Spa-Francorchamps_trace.svg/1200px-Circuit_de_Spa-Francorchamps_trace.svg.png"}
-                                                className="h-40 md:h-64 mx-auto object-contain filter invert drop-shadow-[0_0_25px_rgba(255,255,255,0.5)]"
-                                                alt="Track Map"
-                                            />
+                                            {trackMapUrl ? (
+                                                <img
+                                                    src={trackMapUrl}
+                                                    className="h-40 md:h-64 mx-auto object-contain filter invert drop-shadow-[0_0_25px_rgba(255,255,255,0.5)]"
+                                                    alt="Track Map"
+                                                    onError={(e) => {
+                                                        (e.target as HTMLImageElement).style.display = 'none';
+                                                    }}
+                                                />
+                                            ) : (
+                                                <div className="mx-auto flex h-40 md:h-64 items-center justify-center rounded-[2rem] border border-dashed border-white/15 bg-slate-950/35 px-8 text-center">
+                                                    <div className="flex flex-col items-center gap-4">
+                                                        <Flag className="h-12 w-12 text-amber-300/80" />
+                                                        <span className="text-sm md:text-base font-bold uppercase tracking-[0.2em] text-white/75">
+                                                            Mapa no disponible
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="bg-slate-950/60 backdrop-blur-md border border-white/10 rounded-2xl p-6 w-full md:w-80">
                                             <div className="flex items-center gap-2 mb-4 text-yellow-400">
@@ -550,6 +625,24 @@ export const ContentStep: React.FC<ContentStepProps> = ({
                                     </div>
                                 )}
 
+                                {phase !== 'country' && (
+                                    <div className="mt-8 md:mt-10 flex justify-center px-4">
+                                        <button
+                                            type="button"
+                                            onMouseEnter={() => soundManager.playHover()}
+                                            onClick={() => {
+                                                soundManager.playConfirm();
+                                                confirmSelection();
+                                            }}
+                                            className="w-full max-w-md md:hidden bg-gradient-to-r from-red-500 to-amber-400 hover:from-red-400 hover:to-amber-300 text-white font-black text-lg md:text-2xl px-6 py-4 md:py-5 rounded-2xl shadow-[0_0_30px_rgba(239,68,68,0.45)] hover:shadow-[0_0_50px_rgba(239,68,68,0.75)] transition-all transform hover:scale-[1.02]"
+                                        >
+                                            {phase === 'car'
+                                                ? 'CONTINUAR A CIRCUITOS'
+                                                : (phase === 'layout' ? 'CONFIRMAR LAYOUT' : 'CONTINUAR A CONFIGURACION')}
+                                        </button>
+                                    </div>
+                                )}
+
                                 {/* TAP AREA HINT */}
                                 <div
                                     onClick={() => { soundManager.playClick(); confirmSelection(); }}
@@ -571,7 +664,7 @@ export const ContentStep: React.FC<ContentStepProps> = ({
             </div>
 
             {/* FOOTER ACTIONS */}
-            <div className="relative z-30 pb-6 md:pb-8 px-4 md:px-12 flex flex-col md:flex-row justify-between items-end gap-4 w-full bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent pt-8 md:pt-12 mt-auto">
+            <div className="relative z-30 shrink-0 pb-6 md:pb-8 px-4 md:px-12 flex flex-col md:flex-row justify-between items-end gap-4 w-full bg-gradient-to-t from-slate-950 via-slate-950/70 to-transparent pt-6 md:pt-8 mt-auto">
                 <div className="flex gap-2 order-2 md:order-1">
                     {/* Index Indicators (Hide in Brand/Country Phase) */}
                     {(phase === 'car' || phase === 'track') && (
@@ -600,9 +693,11 @@ export const ContentStep: React.FC<ContentStepProps> = ({
                         <button
                             onMouseEnter={() => soundManager.playHover()}
                             onClick={() => { soundManager.playConfirm(); confirmSelection(); }}
-                            className="w-full md:w-auto bg-gradient-to-r from-red-500 to-amber-400 hover:from-red-400 hover:to-amber-300 text-white font-black text-xl md:text-2xl px-8 py-4 rounded-xl shadow-[0_0_30px_rgba(239,68,68,0.45)] hover:shadow-[0_0_50px_rgba(239,68,68,0.75)] transition-all transform hover:scale-105"
+                            className="hidden md:block w-full md:w-auto bg-gradient-to-r from-red-500 to-amber-400 hover:from-red-400 hover:to-amber-300 text-white font-black text-xl md:text-2xl px-8 py-4 rounded-xl shadow-[0_0_30px_rgba(239,68,68,0.45)] hover:shadow-[0_0_50px_rgba(239,68,68,0.75)] transition-all transform hover:scale-105"
                         >
-                            {phase === 'car' ? 'CONFIRMAR COCHE' : (phase === 'layout' ? 'CONFIRMAR LAYOUT' : 'CORRER AQUI')}
+                            {phase === 'car'
+                                ? 'CONTINUAR A CIRCUITOS'
+                                : (phase === 'layout' ? 'CONFIRMAR LAYOUT' : 'CONTINUAR A CONFIGURACION')}
                         </button>
                     )}
                 </div>

@@ -7,9 +7,9 @@ from ..database import get_db
 from ..models import Station as StationModel
 from ..routers.auth import require_admin, require_admin_or_public_token_or_kiosk
 from .. import models
+from ..dependencies import is_admin as _is_admin, require_client_scope as _require_client_scope, require_kiosk_access as _require_kiosk_access
 import logging
 import json
-from ..security.api_keys import is_client_token_allowed
 
 router = APIRouter(
     prefix="/control",
@@ -18,32 +18,6 @@ router = APIRouter(
 )
 
 logger = logging.getLogger(__name__)
-
-def _is_admin(user_or_client: object) -> bool:
-    return hasattr(user_or_client, "role") and getattr(user_or_client, "role") == "admin"
-
-def _require_kiosk_access(station: StationModel, kiosk_code: Optional[str], user_or_client: object):
-    if _is_admin(user_or_client):
-        return
-    if not station:
-        raise HTTPException(status_code=404, detail="Station not found")
-    if not station.is_kiosk_mode:
-        raise HTTPException(status_code=403, detail="Kiosk mode disabled for station")
-    if (station.kiosk_code or "").strip().upper() != (kiosk_code or "").strip().upper():
-        raise HTTPException(status_code=403, detail="Invalid kiosk code")
-
-
-def _require_client_scope(user_or_client: object, required_scope: str) -> None:
-    # Admin bypass.
-    if _is_admin(user_or_client):
-        return
-    if user_or_client == "kiosk":
-        if required_scope == "kiosk:control":
-            return
-        raise HTTPException(status_code=403, detail="Kiosk client missing required scope")
-    token = None if user_or_client in (None, "public") else str(user_or_client)
-    if not is_client_token_allowed(token=token, required_scopes=(required_scope,)):
-        raise HTTPException(status_code=403, detail="Client token missing required scope")
 
 class WeatherCommand(BaseModel):
     weather_type: str # solar, windy, rainy, storm, fog, clear

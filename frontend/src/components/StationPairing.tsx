@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { Monitor, Link2, CheckCircle, RefreshCw } from 'lucide-react';
 import { API_URL, PUBLIC_API_TOKEN } from '../config';
-import type { Station } from '../api/stations';
 import { setPairedStation } from '../utils/stationPairing';
 
 interface StationPairingProps {
@@ -12,13 +11,23 @@ interface StationPairingProps {
     errorMessage?: string;
 }
 
+interface PublicPairingStation {
+    id: number;
+    name: string;
+    ip_address?: string;
+    is_active: boolean;
+    is_online?: boolean;
+    is_kiosk_mode?: boolean;
+    status?: string;
+}
+
 const clientTokenHeaders: Record<string, string> = PUBLIC_API_TOKEN ? { 'X-Client-Token': PUBLIC_API_TOKEN } : {};
 
 export default function StationPairing({ onPaired, initialCode, errorMessage }: StationPairingProps) {
-    const { data: stations = [], isLoading, refetch } = useQuery<Station[]>({
+    const { data: stations = [], isLoading, refetch } = useQuery<PublicPairingStation[]>({
         queryKey: ['stations'],
         queryFn: async () => {
-            const res = await axios.get(`${API_URL}/stations/`, { headers: clientTokenHeaders });
+            const res = await axios.get(`${API_URL}/settings/kiosk/stations`, { headers: clientTokenHeaders });
             return Array.isArray(res.data) ? res.data : [];
         }
     });
@@ -34,15 +43,26 @@ export default function StationPairing({ onPaired, initialCode, errorMessage }: 
         if (!selectedId) {
             return;
         }
-        const selectedStation = activeStations.find((station) => station.id === selectedId);
-        const kioskCode = selectedStation?.kiosk_code?.trim().toUpperCase();
-        if (!kioskCode) {
-            setPairingByCodeError('Esta estacion no tiene codigo de kiosko. Regeneralo desde Configuracion.');
-            return;
-        }
+        setPairingByCode(true);
         setPairingByCodeError(null);
-        setPairedStation(selectedId, kioskCode);
-        onPaired(selectedId, kioskCode);
+        axios.post(
+            `${API_URL}/settings/kiosk/pair-station`,
+            { station_id: selectedId },
+            { headers: clientTokenHeaders }
+        ).then((res) => {
+            const stationId = Number(res.data?.station_id);
+            const kioskCode = String(res.data?.kiosk_code || '').trim().toUpperCase();
+            if (!Number.isFinite(stationId) || stationId <= 0 || !kioskCode) {
+                throw new Error('Invalid pairing response');
+            }
+            const agentIp = res.data?.ip_address || activeStations.find((station) => station.id === stationId)?.ip_address || undefined;
+            setPairedStation(stationId, kioskCode, agentIp);
+            onPaired(stationId, kioskCode);
+        }).catch(() => {
+            setPairingByCodeError('No se pudo enlazar esa estacion.');
+        }).finally(() => {
+            setPairingByCode(false);
+        });
     };
 
     const handlePairByCode = async () => {
@@ -63,7 +83,8 @@ export default function StationPairing({ onPaired, initialCode, errorMessage }: 
             if (!Number.isFinite(stationId) || stationId <= 0) {
                 throw new Error('Invalid station response');
             }
-            setPairedStation(stationId, code);
+            const agentIp = res.data?.ip_address || activeStations.find((s) => s.id === stationId)?.ip_address || undefined;
+            setPairedStation(stationId, code, agentIp);
             onPaired(stationId, code);
         } catch {
             setPairingByCodeError('Codigo invalido o no accesible.');

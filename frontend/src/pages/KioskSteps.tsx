@@ -39,10 +39,9 @@ export interface KioskSelection {
     isLobby?: boolean;
     scenarioId?: number;
     time?: number;
-    allowedCars?: string[];  // Cars allowed in this lobby/scenario
+    allowedCars?: string[];
 }
 
-// --- ATTRACT MODE ---
 // --- ATTRACT MODE ---
 interface AttractModeProps {
     isIdle: boolean;
@@ -183,6 +182,7 @@ export const ScenarioStep: React.FC<ScenarioStepProps> = ({
 
     const [scenarioPage, setScenarioPage] = useState(0);
     const [lobbyPage, setLobbyPage] = useState(0);
+    const [pendingScenario, setPendingScenario] = useState<Scenario | null>(null);
 
     const scenarioPages = Math.max(1, Math.ceil(scenarios.length / SCENARIOS_PER_PAGE));
     const lobbyPages = Math.max(1, Math.ceil(displayLobbies.length / LOBBIES_PER_PAGE));
@@ -209,15 +209,26 @@ export const ScenarioStep: React.FC<ScenarioStepProps> = ({
         setSelection({
             type: sessionType,
             scenarioId: scenario.id!,
-            track: scenario.allowed_tracks?.[0] || '',
+            track: '',
             car: '',
             time: time,
-            isLobby: true,
-            isHost: true,
+            isLobby: false,
+            isHost: false,
             allowedCars: scenario.allowed_cars || [],
         });
         setDuration(time);
         setStep(2);
+        setPendingScenario(null);
+    };
+
+    const openScenarioSelection = (scenario: Scenario) => {
+        const durations = scenario.allowed_durations?.filter((value) => Number.isFinite(value) && value > 0) || [];
+        if (durations.length <= 1) {
+            handleSelect(scenario, durations[0] || 10);
+            return;
+        }
+        soundManager.playConfirm();
+        setPendingScenario(scenario);
     };
 
     const handleJoinLobby = (lobby: any) => {
@@ -302,15 +313,17 @@ export const ScenarioStep: React.FC<ScenarioStepProps> = ({
                     </div>
 
                     {quickScenarios.map((scenario) => {
-                        const preferredDuration = scenario.allowed_durations?.[0] || 10;
                         return (
-                            <button
+                            <div
                                 key={scenario.id}
-                                onMouseEnter={() => soundManager.playHover()}
-                                onClick={() => handleSelect(scenario, preferredDuration)}
                                 className="text-left rounded-3xl border border-white/10 bg-slate-950/65 hover:bg-slate-900/70 hover:border-amber-300/50 p-3 md:p-4 transition-all flex flex-col justify-between min-h-[170px] md:min-h-[190px]"
                             >
-                                <div>
+                                <button
+                                    type="button"
+                                    onMouseEnter={() => soundManager.playHover()}
+                                    onClick={() => openScenarioSelection(scenario)}
+                                    className="text-left"
+                                >
                                     <div className="flex items-center justify-between gap-2 mb-2">
                                         <span className="text-[10px] uppercase tracking-widest text-amber-200 font-black">
                                             {getDurationLabel(scenario)}
@@ -323,15 +336,23 @@ export const ScenarioStep: React.FC<ScenarioStepProps> = ({
                                     <p className="text-xs md:text-sm text-slate-400 mt-2 line-clamp-3">
                                         {scenario.description || 'Competicion estandar de alto ritmo.'}
                                     </p>
-                                </div>
+                                </button>
                                 <div className="mt-3 flex gap-2">
                                     {(scenario.allowed_durations?.length ? scenario.allowed_durations : [10, 15]).slice(0, 2).map((mins: number) => (
-                                        <span key={mins} className="inline-flex items-center rounded-lg border border-white/10 bg-black/25 px-2.5 py-1 text-[11px] text-slate-300 font-bold">
+                                        <button
+                                            key={mins}
+                                            type="button"
+                                            onClick={(event) => {
+                                                event.stopPropagation();
+                                                handleSelect(scenario, mins);
+                                            }}
+                                            className="inline-flex items-center rounded-lg border border-white/10 bg-black/25 hover:bg-amber-400/20 hover:border-amber-300/40 px-2.5 py-1 text-[11px] text-slate-300 font-bold transition-colors"
+                                        >
                                             {mins} min
-                                        </span>
+                                        </button>
                                     ))}
                                 </div>
-                            </button>
+                            </div>
                         );
                     })}
 
@@ -428,6 +449,50 @@ export const ScenarioStep: React.FC<ScenarioStepProps> = ({
                     </div>
                 </div>
             </div>
+
+            {pendingScenario && (
+                <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center px-4">
+                    <div className="w-full max-w-2xl rounded-3xl border border-amber-300/30 bg-slate-950/95 shadow-[0_20px_80px_rgba(0,0,0,0.6)] p-5 md:p-8">
+                        <div className="text-center mb-6">
+                            <div className="text-[11px] md:text-xs uppercase tracking-[0.35em] text-amber-200 font-black mb-2">
+                                Duracion de sesion
+                            </div>
+                            <h3 className="text-2xl md:text-4xl font-black text-white uppercase tracking-tight">
+                                {pendingScenario.name}
+                            </h3>
+                            <p className="text-slate-400 mt-3">
+                                Elige cuantos minutos quieres correr antes de continuar.
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            {(pendingScenario.allowed_durations?.length ? pendingScenario.allowed_durations : [10, 15]).map((mins: number) => (
+                                <button
+                                    key={mins}
+                                    type="button"
+                                    onClick={() => handleSelect(pendingScenario, mins)}
+                                    className="min-h-[92px] rounded-2xl border border-amber-300/25 bg-amber-400/10 hover:bg-amber-400 hover:text-black text-white font-black text-2xl tracking-tight transition-all active:scale-[0.98]"
+                                >
+                                    {mins} min
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="mt-5 flex justify-center">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    soundManager.playClick();
+                                    setPendingScenario(null);
+                                }}
+                                className="px-6 py-3 rounded-xl border border-white/10 bg-slate-900/80 hover:bg-slate-800 text-slate-200 font-black uppercase tracking-wider"
+                            >
+                                Cancelar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -656,13 +721,15 @@ interface PaymentStepProps {
     setStep: (s: number) => void;
     launchSessionMutation: any;
     buildLaunchPayload: () => any;
+    rollbackLaunchedAccess: () => Promise<void>;
+    onLaunchConfirmed: () => void;
 }
 
 export const PaymentStep: React.FC<PaymentStepProps> = ({
     t, stationId, duration, driver, selection, setSelection, paymentProvider, setPaymentProvider,
     paymentInfo, setPaymentInfo, paymentError, setPaymentError,
     clientTokenHeaders, sessionPrice, paymentHandledRef, setStep,
-    launchSessionMutation, buildLaunchPayload
+    launchSessionMutation, buildLaunchPayload, rollbackLaunchedAccess, onLaunchConfirmed
 }) => {
     const [isPaidAccessRunning, setIsPaidAccessRunning] = useState(false);
     const paidAccessInFlightRef = useRef(false);
@@ -701,6 +768,7 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
                 track: selection?.track,
                 track_layout: selection?.track_layout,
                 car: selection?.car,
+                allowed_cars: selection?.allowedCars?.length ? selection.allowedCars : undefined,
                 duration: duration,
                 max_players: 10
             }, { headers: clientTokenHeaders });
@@ -708,12 +776,6 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
         },
         retry: 2,
         retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 4000),
-        onSuccess: (data) => {
-            const lobbyId = Number(data?.id ?? data?.lobby_id);
-            setSelection((prev: any) => ({ ...prev, lobbyId: Number.isFinite(lobbyId) ? lobbyId : prev?.lobbyId }));
-            setPaymentError(null);
-            setStep(6);
-        },
         onError: (err) => {
             console.error("Failed to create lobby:", err);
             setPaymentError(resolveApiError(err, 'No se pudo crear la sala multijugador.'));
@@ -750,6 +812,18 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
         refetchInterval: (query) => query.state.data?.status === 'paid' ? false : 2000
     });
 
+    const recordPaidSession = async (paidPayment: PaymentStatus) => {
+        await startSession({
+            station_id: stationId,
+            driver_name: driver?.name || undefined,
+            duration_minutes: duration,
+            price: paidPayment.amount,
+            payment_method: paidPayment.provider,
+            is_vr: false,
+            notes: 'kiosk_paid',
+        }, { headers: clientTokenHeaders });
+    };
+
     const handlePaidAccess = async (paidPayment: PaymentStatus | null | undefined) => {
         if (!paidPayment || paidAccessInFlightRef.current) return;
 
@@ -758,26 +832,32 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
         setPaymentError(null);
 
         try {
-            await startSession({
-                station_id: stationId,
-                driver_name: driver?.name || undefined,
-                duration_minutes: duration,
-                price: paidPayment.amount,
-                payment_method: paidPayment.provider,
-                is_vr: false,
-                notes: 'kiosk_paid',
-            }, { headers: clientTokenHeaders });
-
             if (selection?.isLobby) {
                 if (selection.isHost) {
-                    await createLobbyMutation.mutateAsync();
+                    const data = await createLobbyMutation.mutateAsync();
+                    const lobbyId = Number(data?.id ?? data?.lobby_id);
+                    setSelection((prev: any) => ({ ...prev, lobbyId: Number.isFinite(lobbyId) ? lobbyId : prev?.lobbyId }));
                 } else {
                     await joinLobbyMutation.mutateAsync();
                 }
+                try {
+                    await recordPaidSession(paidPayment);
+                } catch (sessionError) {
+                    await rollbackLaunchedAccess();
+                    throw sessionError;
+                }
+                setStep(6);
                 return;
             }
 
             await launchSessionMutation.mutateAsync(buildLaunchPayload());
+            try {
+                await recordPaidSession(paidPayment);
+            } catch (sessionError) {
+                await rollbackLaunchedAccess();
+                throw sessionError;
+            }
+            onLaunchConfirmed();
         } catch (err) {
             console.error('Error handling paid access:', err);
             paymentHandledRef.current = false;
@@ -1252,6 +1332,10 @@ export const DriverStep: React.FC<DriverStepProps> = ({
         setDriverName(driver.name);
     };
 
+    const handleLeaderboardClick = (name: string) => {
+        setDriverName(name);
+    };
+
     const formatTime = (ms: number) => {
         const minutes = Math.floor(ms / 60000);
         const seconds = ((ms % 60000) / 1000).toFixed(3);
@@ -1457,11 +1541,16 @@ interface RaceModeProps {
     stationId: number;
     clientTokenHeaders: Record<string, string>;
     setSelection: (s: any) => void;
+    offlineMode?: boolean;
+    agentIp?: string | null;
+    localAuthToken?: string;
+    localKioskCode?: string;
 }
 
 export const RaceMode: React.FC<RaceModeProps> = ({
     remainingSeconds, selection, driver, transmission, setIsLaunched, setStep, setDriver, setDriverName, setDriverEmail,
-    noPaymentHandledRef, paymentHandledRef, stationId, clientTokenHeaders, setSelection
+    noPaymentHandledRef, paymentHandledRef, stationId, clientTokenHeaders, setSelection,
+    offlineMode, agentIp, localAuthToken, localKioskCode
 }) => {
     const minutes = Math.floor(remainingSeconds / 60);
     const seconds = remainingSeconds % 60;
@@ -1649,6 +1738,15 @@ export const RaceMode: React.FC<RaceModeProps> = ({
         }
     };
 
+    const stopOfflineSessionSafely = async () => {
+        if (!agentIp) return;
+
+        const { stopLocalSession } = await import('../api/agentLocal');
+        const { getPairedAgentPort } = await import('../utils/stationPairing');
+        const port = getPairedAgentPort() || undefined;
+        await stopLocalSession(agentIp, localAuthToken || '', port, localKioskCode);
+    };
+
     const performCancelSession = async () => {
         if (isCancelling || isEndingSession) return;
         setIsCancelling(true);
@@ -1668,7 +1766,11 @@ export const RaceMode: React.FC<RaceModeProps> = ({
                     );
                 }
             } else {
-                await axios.post(`${API_URL}/control/station/${stationId}/panic`, null, { headers: clientTokenHeaders });
+                if (offlineMode && agentIp) {
+                    await stopOfflineSessionSafely();
+                } else {
+                    await axios.post(`${API_URL}/control/station/${stationId}/panic`, null, { headers: clientTokenHeaders });
+                }
             }
         } catch (e) {
             console.error('Error stopping session:', e);
@@ -1692,6 +1794,7 @@ export const RaceMode: React.FC<RaceModeProps> = ({
         setIsEndingSession(true);
 
         const finalizeSession = async () => {
+            let wasCancelled = false;
             try {
                 if (selection?.isLobby && selection.lobbyId) {
                     if (selection.isHost) {
@@ -1707,12 +1810,22 @@ export const RaceMode: React.FC<RaceModeProps> = ({
                         );
                     }
                 } else {
-                    await axios.post(`${API_URL}/control/station/${stationId}/stop`, null, { headers: clientTokenHeaders });
+                    if (offlineMode && agentIp) {
+                        try {
+                            await stopOfflineSessionSafely();
+                        } catch {
+                            console.error('Failed to stop local session');
+                        }
+                    } else {
+                        await axios.post(`${API_URL}/control/station/${stationId}/stop`, null, { headers: clientTokenHeaders });
+                    }
                 }
             } catch (error) {
                 console.error('Error ending session automatically:', error);
-            } finally {
-                if (cancelled) return;
+            }
+
+            wasCancelled = cancelled;
+            if (!wasCancelled) {
                 setIsLaunched(false);
                 setStep(7);
                 setIsEndingSession(false);
@@ -1724,7 +1837,7 @@ export const RaceMode: React.FC<RaceModeProps> = ({
         return () => {
             cancelled = true;
         };
-    }, [clientTokenHeaders, isEndingSession, remainingSeconds, selection, setIsLaunched, setStep, stationId]);
+    }, [agentIp, clientTokenHeaders, isEndingSession, localAuthToken, localKioskCode, offlineMode, remainingSeconds, selection, setIsLaunched, setStep, stationId]);
 
     const startCancelHold = () => {
         if (isCancelling || holdIntervalRef.current) return;

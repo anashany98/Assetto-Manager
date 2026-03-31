@@ -25,12 +25,12 @@ async function waitForHealthy(api: Awaited<ReturnType<typeof request.newContext>
 async function ensureUserAndToken(api: Awaited<ReturnType<typeof request.newContext>>) {
     // Register is dev-only. If user exists, it will fail; that's fine.
     try {
-        await api.post('/register', { data: { username: USERNAME, password: PASSWORD } });
+        await api.post('/auth/register', { data: { username: USERNAME, password: PASSWORD } });
     } catch {
         // ignore
     }
 
-    const tokenRes = await api.post('/token', { form: { username: USERNAME, password: PASSWORD } });
+    const tokenRes = await api.post('/auth/token', { form: { username: USERNAME, password: PASSWORD } });
     if (!tokenRes.ok()) {
         const body = await tokenRes.text();
         throw new Error(`Failed to login for E2E token (status ${tokenRes.status()}): ${body}`);

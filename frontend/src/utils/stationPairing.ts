@@ -4,6 +4,9 @@ const STORAGE_KEY = 'kiosk_paired_station';
 type PairedStation = {
     stationId: number;
     kioskCode?: string;
+    agentIp?: string;
+    agentPort?: number;
+    localAuthToken?: string;
 };
 
 const normalizeStationId = (value: unknown): number | null => {
@@ -31,7 +34,10 @@ export const getPairedStation = (): PairedStation | null => {
             if (stationId) {
                 return {
                     stationId,
-                    kioskCode: normalizeKioskCode(parsed.kioskCode)
+                    kioskCode: normalizeKioskCode(parsed.kioskCode),
+                    agentIp: parsed.agentIp || undefined,
+                    agentPort: parsed.agentPort || undefined,
+                    localAuthToken: parsed.localAuthToken || undefined,
                 };
             }
         } catch {
@@ -55,14 +61,35 @@ export const getPairedKioskCode = (): string | null => {
     return getPairedStation()?.kioskCode ?? null;
 };
 
-export const setPairedStation = (stationId: number, kioskCode?: string) => {
+export const getPairedAgentIp = (): string | null => {
+    return getPairedStation()?.agentIp ?? null;
+};
+
+export const getPairedAgentPort = (): number | null => {
+    return getPairedStation()?.agentPort ?? null;
+};
+
+export const getPairedLocalAuthToken = (): string | null => {
+    return getPairedStation()?.localAuthToken ?? null;
+};
+
+export const setPairedStation = (
+    stationId: number,
+    kioskCode?: string,
+    agentIp?: string,
+    agentPort?: number,
+    localAuthToken?: string,
+) => {
     const normalizedId = normalizeStationId(stationId);
     if (!normalizedId) {
         return;
     }
     const payload: PairedStation = {
         stationId: normalizedId,
-        kioskCode: normalizeKioskCode(kioskCode)
+        kioskCode: normalizeKioskCode(kioskCode),
+        agentIp: agentIp || undefined,
+        agentPort: agentPort || undefined,
+        localAuthToken: localAuthToken || undefined,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
     localStorage.setItem(LEGACY_STORAGE_KEY, String(normalizedId));

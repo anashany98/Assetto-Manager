@@ -32,6 +32,9 @@ COPY --from=builder /install /usr/local
 # Copy application source
 COPY . .
 
+# Create storage directories before switching to non-root user
+RUN mkdir -p /app/storage/mods /app/storage/tracks /app/storage/skins /app/storage/private /app/storage/public /app/storage/logs /app/logs
+
 # Non-root user for security
 RUN useradd -m -u 1001 appuser && \
     chown -R appuser:appuser /app

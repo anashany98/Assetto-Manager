@@ -20,7 +20,7 @@ const formatTime = (ms: number) => {
     return `${min}:${sec.toString().padStart(2, '0')}.${mil.toString().padStart(3, '0')}`;
 };
 
-const formatGap = (ms: number, isLeader: boolean) => {
+export const formatGap = (ms: number, isLeader: boolean) => {
     if (isLeader) return 'LÍDER';
     if (!ms || ms <= 0) return '-';
     return `+${(ms / 1000).toFixed(3)}s`;

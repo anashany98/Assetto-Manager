@@ -13,16 +13,18 @@ except ImportError:
 
 from config import (
     SERVER_URL, AC_CONTENT_DIR, STATION_NAME, AGENT_TOKEN,
+    LOCAL_SERVER_PORT, LOCAL_AUTH_TOKEN,
     logger, AGENT_VERSION
 )
 from utils import get_system_info, ensure_directories
 from networking import NetworkLogHandler
 from watchdog import watchdog
 from proxy import image_proxy
-from sync import synchronize_content, send_heartbeat, register_agent
+from sync import synchronize_content, send_heartbeat, register_agent, sync_offline_data
 from ws_client import AgentWSClient
 from updater import check_for_updates
 from idle_display import start_idle_display
+from local_server import set_local_kiosk_code, start_local_server
 
 # Enable telemetry results handling
 import telemetry 
@@ -49,6 +51,7 @@ def main():
         station_data = register_agent()
         if station_data:
             station_id = station_data["id"]
+            set_local_kiosk_code(station_data.get("kiosk_code"))
         else:
             time.sleep(5)
 
@@ -64,8 +67,15 @@ def main():
 
     # Show station idle video while simulator is not running.
     start_idle_display()
-    
-    # Iniciar Cliente WebSocket (TelemetrÃ­a + Comandos)
+
+    # Start local HTTP API server for offline kiosk mode
+    try:
+        start_local_server(LOCAL_SERVER_PORT)
+        logger.info(f"Local API server starting on port {LOCAL_SERVER_PORT}")
+    except Exception as e:
+        logger.error(f"Failed to start local API server: {e}")
+
+    # Iniciar Cliente WebSocket (Telemetría + Comandos)
     ws_client = AgentWSClient(station_id, SERVER_URL)
     ws_client.start()
 
@@ -86,7 +96,10 @@ def main():
             status = synchronize_content(station_id)
             
             telemetry.check_for_new_results(SERVER_URL, station_id)
-            
+
+            # Sync offline sessions and results if server is available
+            sync_offline_data(station_id)
+
             send_heartbeat(station_id, status or "online")
             
             time.sleep(10) 

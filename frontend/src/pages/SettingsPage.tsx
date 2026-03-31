@@ -20,13 +20,17 @@ import { LogViewer } from '../components/LogViewer';
 import AdsSettings from '../components/AdsSettings';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import ACSettingsEditor from '../components/ACSettingsEditor';
-import { Camera, Cloud, Bot, Shield } from 'lucide-react';
+import { Camera, Cloud, Bot, Shield, type LucideIcon } from 'lucide-react';
 import { LicenseSettings } from '../components/LicenseSettings';
 import WallpaperSettings from '../components/WallpaperSettings';
 import SystemUpdatePanel from '../components/SystemUpdatePanel';
+import {
+    buildPublicKioskLink,
+    getDefaultPublicKioskUrl,
+} from '../utils/kioskSettings';
 
 import { calculatePrice, getPricingConfig, type PricingDiscount, type PricingRate } from '../utils/pricing';
-import { isFeatureEnabled } from '../config/features';
+import { isFeatureEnabled, type FeatureFlags } from '../config/features';
 
 type StationPresetDraft = {
     video?: string;
@@ -70,6 +74,23 @@ type HardwarePresets = {
     flat: Record<string, string>;
 };
 
+type SettingsTabId = 'branding' | 'kiosk' | 'stations' | 'game' | 'sim' | 'logs' | 'ads' | 'database' | 'pricing' | 'license' | 'streaming' | 'maintenance';
+
+type SettingsNavItem = {
+    id: SettingsTabId;
+    label: string;
+    icon: LucideIcon;
+    description: string;
+    featureFlag?: keyof FeatureFlags;
+};
+
+type SettingsNavGroup = {
+    id: string;
+    label: string;
+    description: string;
+    items: SettingsNavItem[];
+};
+
 const AC_CATEGORIES = [
     { id: 'controls', name: 'Controles', icon: Gamepad2, color: 'text-blue-500' },
     { id: 'gameplay', name: 'Ayudas / Gameplay', icon: Truck, color: 'text-orange-500' },
@@ -80,9 +101,67 @@ const AC_CATEGORIES = [
     { id: 'weather', name: 'Clima', icon: Cloud, color: 'text-yellow-500' },
 ];
 
+const SETTINGS_TAB_IDS: SettingsTabId[] = [
+    'license',
+    'branding',
+    'kiosk',
+    'ads',
+    'pricing',
+    'game',
+    'sim',
+    'stations',
+    'logs',
+    'database',
+    'streaming',
+    'maintenance',
+];
+
+const SETTINGS_NAV_GROUPS: SettingsNavGroup[] = [
+    {
+        id: 'business',
+        label: 'Negocio y Marca',
+        description: 'Lo que ve el cliente y como se cobra.',
+        items: [
+            { id: 'branding', label: 'Local y TV', icon: Layout, description: 'Identidad, QR publico, fondos y avisos.' },
+            { id: 'ads', label: 'Promociones', icon: Megaphone, description: 'Campanas y publicidad en pantallas.', featureFlag: 'ads_tab' },
+            { id: 'pricing', label: 'Precios', icon: BadgeDollarSign, description: 'Tarifas, descuentos y calculo de importe.' },
+        ],
+    },
+    {
+        id: 'kiosk-ops',
+        label: 'Operacion Kiosko',
+        description: 'Tablets, cabinas y flujo operativo.',
+        items: [
+            { id: 'kiosk', label: 'Kiosko', icon: MonitorPlay, description: 'Ajustes globales de tablet, pagos y URL base.' },
+            { id: 'stations', label: 'Cabinas', icon: Monitor, description: 'Codigos, QR, estado y acciones por simulador.' },
+        ],
+    },
+    {
+        id: 'assetto',
+        label: 'Assetto Corsa',
+        description: 'Reglas de carrera, perfiles y despliegue.',
+        items: [
+            { id: 'sim', label: 'Carrera Global', icon: Zap, description: 'Reglas base, IA, danos y neumáticos.' },
+            { id: 'game', label: 'Perfiles AC', icon: Gamepad2, description: 'Editor de perfiles, grupos y despliegues.' },
+            { id: 'streaming', label: 'Streaming', icon: Radio, description: 'Optimizacion para retransmision y TV.' },
+        ],
+    },
+    {
+        id: 'system',
+        label: 'Sistema',
+        description: 'Licencia, soporte tecnico y mantenimiento.',
+        items: [
+            { id: 'license', label: 'Licencia', icon: Shield, description: 'Activacion y estado de licencia.' },
+            { id: 'maintenance', label: 'Mantenimiento', icon: Wrench, description: 'Uso hardware e historial tecnico.' },
+            { id: 'logs', label: 'Logs', icon: Terminal, description: 'Logs del sistema y del backend.' },
+            { id: 'database', label: 'Base de Datos', icon: Database, description: 'Exportacion y restauracion.' },
+        ],
+    },
+];
+
 export default function SettingsPage() {
     const queryClient = useQueryClient();
-    const [activeTab, setActiveTab] = useState<'branding' | 'stations' | 'game' | 'sim' | 'logs' | 'ads' | 'database' | 'pricing' | 'license' | 'streaming' | 'maintenance'>('branding');
+    const [activeTab, setActiveTab] = useState<SettingsTabId>('branding');
     const [searchParams, setSearchParams] = useSearchParams();
     const pushNotifications = usePushNotifications();
     const [showInactiveStations, setShowInactiveStations] = useState(false);
@@ -100,19 +179,18 @@ export default function SettingsPage() {
     // Sync tab with URL
     useEffect(() => {
         const tab = searchParams.get('tab');
-        if (tab && ['branding', 'stations', 'game', 'sim', 'logs', 'ads', 'database', 'pricing', 'license', 'streaming', 'maintenance'].includes(tab)) {
-            setActiveTab(tab as any);
+        if (tab && SETTINGS_TAB_IDS.includes(tab as SettingsTabId)) {
+            setActiveTab(tab as SettingsTabId);
         }
     }, [searchParams]);
 
-    const handleTabChange = (tab: string) => {
-        setActiveTab(tab as any);
+    const handleTabChange = (tab: SettingsTabId) => {
+        setActiveTab(tab);
         setSearchParams({ tab });
     };
 
     const buildKioskLink = (code?: string) => {
-        if (!code) return '';
-        return `${paymentPublicKioskUrl}?kiosk=${code}`;
+        return buildPublicKioskLink(paymentPublicKioskUrl, code);
     };
     const resolveContentUrl = (url?: string | null) => {
         if (!url) return '';
@@ -261,9 +339,7 @@ export default function SettingsPage() {
 
     const handleExport = async () => {
         try {
-            const token = localStorage.getItem('token');
             const response = await axios.get(`${API_URL}/backup/export`, {
-                headers: { Authorization: `Bearer ${token}` },
                 responseType: 'blob'
             });
             const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -287,12 +363,10 @@ export default function SettingsPage() {
 
         const formData = new FormData();
         formData.append('file', file);
-        const token = localStorage.getItem('token');
         try {
             await axios.post(`${API_URL}/backup/import`, formData, {
                 headers: {
-                    'Content-Type': 'multipart/form-data',
-                    Authorization: `Bearer ${token}`
+                    'Content-Type': 'multipart/form-data'
                 }
             });
             alert("Base de datos restaurada correctamente. Se recomienda recargar la página.");
@@ -386,10 +460,7 @@ export default function SettingsPage() {
     const { data: maintenanceLogs = [] } = useQuery({
         queryKey: ['maintenance-logs'],
         queryFn: async () => {
-            const token = localStorage.getItem('token');
-            const res = await axios.get(`${API_URL}/maintenance/logs`, {
-                headers: token ? { Authorization: `Bearer ${token}` } : {}
-            });
+            const res = await axios.get(`${API_URL}/maintenance/logs`);
             return Array.isArray(res.data) ? res.data : [];
         },
         enabled: activeTab === 'maintenance',
@@ -399,10 +470,7 @@ export default function SettingsPage() {
     const { data: usageSummary } = useQuery({
         queryKey: ['maintenance-usage-summary'],
         queryFn: async () => {
-            const token = localStorage.getItem('token');
-            const res = await axios.get(`${API_URL}/maintenance/usage/summary`, {
-                headers: token ? { Authorization: `Bearer ${token}` } : {}
-            });
+            const res = await axios.get(`${API_URL}/maintenance/usage/summary`);
             return res.data;
         },
         enabled: activeTab === 'maintenance',
@@ -692,16 +760,17 @@ export default function SettingsPage() {
     const [basePerMin, setBasePerMin] = useState<number>(pricingConfig.basePerMin);
     const [vrPerMin, setVrPerMin] = useState<number>(pricingConfig.vrSurchargePerMin);
     const [allowManualOverride, setAllowManualOverride] = useState<boolean>(pricingConfig.allowManualOverride);
+    const [modsEnabled, setModsEnabled] = useState(false);
+    const [kioskRainEnabled, setKioskRainEnabled] = useState(false);
     const [paymentEnabled, setPaymentEnabled] = useState(true);
     const [paymentCurrency, setPaymentCurrency] = useState('EUR');
-    const [paymentPublicKioskUrl, setPaymentPublicKioskUrl] = useState('http://localhost:3010/kiosk');
+    const [paymentPublicKioskUrl, setPaymentPublicKioskUrl] = useState(getDefaultPublicKioskUrl);
     const [stripeSecretKey, setStripeSecretKey] = useState('');
     const [stripeWebhookSecret, setStripeWebhookSecret] = useState('');
     const [stripeSuccessUrl, setStripeSuccessUrl] = useState('');
     const [stripeCancelUrl, setStripeCancelUrl] = useState('');
     const [bizumReceiver, setBizumReceiver] = useState('');
-    const [savingPaymentToggle, setSavingPaymentToggle] = useState(false);
-    const [savingPaymentConfig, setSavingPaymentConfig] = useState(false);
+    const [savingKioskConfig, setSavingKioskConfig] = useState(false);
 
     useEffect(() => {
         setDurationRates(pricingConfig.rates);
@@ -723,8 +792,17 @@ export default function SettingsPage() {
     }, [safeBranding]);
 
     useEffect(() => {
+        const kioskMods = getSettingValue('sim_mods_enabled', 'false');
+        setModsEnabled(kioskMods === 'true' || kioskMods === '1');
+
+        const rain = getSettingValue('kiosk_rain_enabled', 'false');
+        setKioskRainEnabled(rain === 'true' || rain === '1');
+
         const enabled = getSettingValue('kiosk_payment_enabled', 'true');
         setPaymentEnabled(enabled === 'true' || enabled === '1');
+
+        setPaymentCurrency(getSettingValue('payment_currency', 'EUR'));
+        setPaymentPublicKioskUrl(getSettingValue('payment_public_kiosk_url', getDefaultPublicKioskUrl()));
     }, [safeBranding]);
 
     const getSecureValue = (key: string, fallback: string) => {
@@ -733,8 +811,6 @@ export default function SettingsPage() {
     };
 
     useEffect(() => {
-        setPaymentCurrency(getSecureValue('payment_currency', 'EUR'));
-        setPaymentPublicKioskUrl(getSecureValue('payment_public_kiosk_url', 'http://localhost:3010/kiosk'));
         setStripeSecretKey(getSecureValue('stripe_secret_key', ''));
         setStripeWebhookSecret(getSecureValue('stripe_webhook_secret', ''));
         setStripeSuccessUrl(getSecureValue('stripe_success_url', ''));
@@ -742,46 +818,33 @@ export default function SettingsPage() {
         setBizumReceiver(getSecureValue('bizum_receiver', ''));
     }, [secureSettings]);
 
-    const savePaymentConfig = async () => {
-        setSavingPaymentConfig(true);
+    const saveKioskConfig = async () => {
+        setSavingKioskConfig(true);
+        const normalizedPaymentCurrency = paymentCurrency.trim().toUpperCase() || 'EUR';
+        const normalizedPublicKioskUrl = paymentPublicKioskUrl.trim() || getDefaultPublicKioskUrl();
         try {
             await Promise.all([
+                axios.post(`${API_URL}/settings/`, { key: 'sim_mods_enabled', value: modsEnabled ? 'true' : 'false' }),
+                axios.post(`${API_URL}/settings/`, { key: 'kiosk_rain_enabled', value: modsEnabled && kioskRainEnabled ? 'true' : 'false' }),
                 axios.post(`${API_URL}/settings/`, { key: 'kiosk_payment_enabled', value: paymentEnabled ? 'true' : 'false' }),
-                axios.post(`${API_URL}/settings/`, { key: 'payment_currency', value: paymentCurrency }),
-                axios.post(`${API_URL}/settings/`, { key: 'payment_public_kiosk_url', value: paymentPublicKioskUrl }),
-                axios.post(`${API_URL}/settings/`, { key: 'stripe_secret_key', value: stripeSecretKey }),
-                axios.post(`${API_URL}/settings/`, { key: 'stripe_webhook_secret', value: stripeWebhookSecret }),
-                axios.post(`${API_URL}/settings/`, { key: 'stripe_success_url', value: stripeSuccessUrl }),
-                axios.post(`${API_URL}/settings/`, { key: 'stripe_cancel_url', value: stripeCancelUrl }),
-                axios.post(`${API_URL}/settings/`, { key: 'bizum_receiver', value: bizumReceiver })
+                axios.post(`${API_URL}/settings/`, { key: 'payment_currency', value: normalizedPaymentCurrency }),
+                axios.post(`${API_URL}/settings/`, { key: 'payment_public_kiosk_url', value: normalizedPublicKioskUrl }),
+                axios.post(`${API_URL}/settings/`, { key: 'stripe_secret_key', value: stripeSecretKey.trim() }),
+                axios.post(`${API_URL}/settings/`, { key: 'stripe_webhook_secret', value: stripeWebhookSecret.trim() }),
+                axios.post(`${API_URL}/settings/`, { key: 'stripe_success_url', value: stripeSuccessUrl.trim() }),
+                axios.post(`${API_URL}/settings/`, { key: 'stripe_cancel_url', value: stripeCancelUrl.trim() }),
+                axios.post(`${API_URL}/settings/`, { key: 'bizum_receiver', value: bizumReceiver.trim() }),
             ]);
+            setPaymentCurrency(normalizedPaymentCurrency);
+            setPaymentPublicKioskUrl(normalizedPublicKioskUrl);
             queryClient.invalidateQueries({ queryKey: ['settings-secure'] });
             queryClient.invalidateQueries({ queryKey: ['settings'] });
+            alert("Configuracion de kiosko guardada.");
         } catch (error) {
             console.error(error);
             alert("Error al guardar configuración de pagos");
         } finally {
-            setSavingPaymentConfig(false);
-        }
-    };
-
-    const handlePaymentToggle = async () => {
-        if (savingPaymentToggle) return;
-        const next = !paymentEnabled;
-        setPaymentEnabled(next);
-        setSavingPaymentToggle(true);
-        try {
-            await updateBranding.mutateAsync({
-                key: 'kiosk_payment_enabled',
-                value: next ? 'true' : 'false'
-            });
-        } catch (err) {
-            console.error(err);
-            setPaymentEnabled(!next);
-            const status = axios.isAxiosError(err) ? err.response?.status : undefined;
-            alert(status === 401 ? "Sesion expirada. Vuelve a iniciar sesion." : "No se pudo guardar el estado de pagos.");
-        } finally {
-            setSavingPaymentToggle(false);
+            setSavingKioskConfig(false);
         }
     };
 
@@ -831,6 +894,32 @@ export default function SettingsPage() {
         updateBranding.mutate({ key: 'pricing_discounts', value: JSON.stringify(cleaned) });
     };
 
+    const settingsNavGroups = useMemo(
+        () =>
+            SETTINGS_NAV_GROUPS
+                .map((group) => ({
+                    ...group,
+                    items: group.items.filter((item) => !item.featureFlag || isFeatureEnabled(item.featureFlag)),
+                }))
+                .filter((group) => group.items.length > 0),
+        [],
+    );
+
+    const settingsNavItems = useMemo(
+        () => settingsNavGroups.flatMap((group) => group.items),
+        [settingsNavGroups],
+    );
+
+    const activeTabMeta = useMemo(
+        () => settingsNavItems.find((item) => item.id === activeTab) || settingsNavItems[0],
+        [activeTab, settingsNavItems],
+    );
+
+    const activeGroupMeta = useMemo(
+        () => settingsNavGroups.find((group) => group.items.some((item) => item.id === activeTab)) || settingsNavGroups[0],
+        [activeTab, settingsNavGroups],
+    );
+
     return (
         <div className="h-full flex flex-col bg-[var(--bg-app)] text-[var(--text-primary)] font-sans overflow-hidden">
             {/* Header */}
@@ -843,11 +932,12 @@ export default function SettingsPage() {
                     <p className="text-[var(--text-tertiary)] text-sm font-medium mt-1">Gestión integral del sistema y simuladores</p>
                 </div>
 
-                {/* Tabs */}
+                {false && (
                 <div className="flex flex-wrap items-center gap-1.5 w-full bg-[var(--bg-elevated)] p-1.5 rounded-2xl border border-[var(--border-default)] shadow-sm">
                     {[
                         { id: 'license', label: 'Licencia', icon: Shield },
                         { id: 'branding', label: 'Marca y TV', icon: Layout },
+                        { id: 'kiosk', label: 'Kiosko', icon: MonitorPlay },
                         isFeatureEnabled('ads_tab') ? { id: 'ads', label: 'Promociones', icon: Megaphone } : null,
                         { id: 'pricing', label: 'Precios', icon: BadgeDollarSign },
                         { id: 'game', label: 'Editor AC', icon: Gamepad2 },
@@ -872,10 +962,57 @@ export default function SettingsPage() {
                         </button>
                     ))}
                 </div>
+                )}
             </div>
 
             {/* Content Area */}
             <div className="flex-1 overflow-y-auto px-4 pt-6 pb-8 md:px-8">
+                <div className="grid grid-cols-1 gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+                    <aside className="space-y-4 xl:sticky xl:top-6 self-start">
+                        <div className="rounded-3xl border border-[var(--border-default)] bg-[var(--bg-elevated)] p-5">
+                            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-blue-400">{activeGroupMeta?.label}</p>
+                            <h2 className="mt-2 text-xl font-black uppercase text-[var(--text-primary)] flex items-center gap-3">
+                                {activeTabMeta && <activeTabMeta.icon size={20} className="text-[var(--text-secondary)]" />}
+                                <span>{activeTabMeta?.label}</span>
+                            </h2>
+                            <p className="mt-3 text-sm text-[var(--text-tertiary)]">{activeTabMeta?.description}</p>
+                        </div>
+
+                        {settingsNavGroups.map((group) => (
+                            <div key={group.id} className="rounded-3xl border border-[var(--border-default)] bg-[var(--bg-elevated)] p-4">
+                                <div className="mb-3 px-1">
+                                    <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[var(--text-secondary)]">{group.label}</p>
+                                    <p className="mt-1 text-xs text-[var(--text-tertiary)]">{group.description}</p>
+                                </div>
+                                <div className="space-y-2">
+                                    {group.items.map((item) => (
+                                        <button
+                                            key={item.id}
+                                            onClick={() => handleTabChange(item.id)}
+                                            className={cn(
+                                                "w-full rounded-2xl border px-4 py-3 text-left transition-all",
+                                                activeTab === item.id
+                                                    ? "border-blue-500/50 bg-blue-500/10 shadow-sm"
+                                                    : "border-[var(--border-default)] bg-[var(--bg-card)]/40 hover:border-[var(--border-strong)] hover:bg-[var(--bg-card)]/70"
+                                            )}
+                                        >
+                                            <div className="flex items-start gap-3">
+                                                <item.icon size={18} className={cn("mt-0.5 shrink-0", activeTab === item.id ? "text-blue-400" : "text-[var(--text-tertiary)]")} />
+                                                <div>
+                                                    <div className={cn("text-sm font-black uppercase tracking-wide", activeTab === item.id ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)]")}>
+                                                        {item.label}
+                                                    </div>
+                                                    <p className="mt-1 text-xs text-[var(--text-tertiary)]">{item.description}</p>
+                                                </div>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </aside>
+
+                    <div className="min-w-0">
 
                 {/* --- TAB: LICENSE --- */}
                 {activeTab === 'license' && (
@@ -957,8 +1094,8 @@ export default function SettingsPage() {
                             </div>
                         </div>
 
-                        {/* Kiosk Options */}
-                        {/* Kiosk Options */}
+                        {false && (
+                        <>
                         <div className="bg-[var(--bg-elevated)] p-8 rounded-3xl border border-[var(--border-default)]">
                             <h2 className="text-xl font-black text-[var(--text-primary)] uppercase mb-6 flex items-center"><MonitorPlay className="mr-2 text-cyan-400" /> Opciones de Kiosko</h2>
                             <div className="flex flex-col gap-6">
@@ -1009,6 +1146,8 @@ export default function SettingsPage() {
                                 )}
                             </div>
                         </div>
+                        </>
+                        )}
                         {/* Video Wallpapers */}
                         <WallpaperSettings />
 
@@ -1049,6 +1188,237 @@ export default function SettingsPage() {
                         <div className="bg-[var(--bg-card)]/50 p-8 rounded-3xl border border-[var(--border-default)]">
                             <p className="text-[var(--text-tertiary)] mb-6 text-sm font-medium">Gestiona la publicidad y promociones que aparecen en las pantallas del local (TV Mode).</p>
                             <AdsSettings />
+                        </div>
+                    </div>
+                )}
+
+                {/* --- TAB: KIOSK --- */}
+                {activeTab === 'kiosk' && (
+                    <div className="max-w-5xl space-y-8 animate-in fade-in duration-300">
+                        <div className="bg-[var(--bg-elevated)] p-6 rounded-3xl border border-[var(--border-default)] flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                            <div>
+                                <h2 className="text-xl font-black text-[var(--text-primary)] uppercase flex items-center">
+                                    <MonitorPlay className="mr-2 text-cyan-400" /> Configuracion Global de Kiosko
+                                </h2>
+                                <p className="text-sm text-[var(--text-tertiary)] mt-2">
+                                    Aqui van solo los ajustes comunes del kiosko. Los codigos, QR y acciones por cabina siguen en la pestaña Simuladores.
+                                </p>
+                            </div>
+                            <button
+                                onClick={saveKioskConfig}
+                                disabled={savingKioskConfig}
+                                className="px-4 py-3 rounded-xl bg-cyan-600 text-[var(--text-primary)] text-sm font-black uppercase tracking-wide hover:bg-cyan-500 transition-colors disabled:opacity-60"
+                            >
+                                {savingKioskConfig ? 'Guardando...' : 'Guardar kiosko'}
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-8">
+                            <div className="bg-[var(--bg-elevated)] p-8 rounded-3xl border border-[var(--border-default)]">
+                                <h3 className="text-xl font-black text-[var(--text-primary)] uppercase mb-6">Comportamiento</h3>
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between bg-[var(--bg-card)]/40 p-4 rounded-2xl border border-[var(--border-default)]/50">
+                                        <div>
+                                            <p className="font-bold text-[var(--text-primary)] text-sm">Habilitar funciones con mods</p>
+                                            <p className="text-xs text-[var(--text-tertiary)]">Desbloquea opciones especiales como trafico, overtake y lluvia si la estacion tiene los mods necesarios.</p>
+                                        </div>
+                                        <button
+                                            onClick={() => {
+                                                const next = !modsEnabled;
+                                                setModsEnabled(next);
+                                                if (!next) {
+                                                    setKioskRainEnabled(false);
+                                                }
+                                            }}
+                                            className={cn(
+                                                "relative w-14 h-7 rounded-full transition-colors",
+                                                modsEnabled ? "bg-blue-500" : "bg-gray-600"
+                                            )}
+                                        >
+                                            <div className={cn(
+                                                "absolute top-1 left-1 w-5 h-5 rounded-full bg-[var(--bg-card)] transition-transform",
+                                                modsEnabled && "translate-x-7"
+                                            )} />
+                                        </button>
+                                    </div>
+
+                                    <div className={cn(
+                                        "flex items-center justify-between p-4 rounded-2xl border transition-all",
+                                        modsEnabled
+                                            ? "bg-[var(--bg-card)]/40 border-[var(--border-default)]/50"
+                                            : "bg-[var(--bg-card)]/20 border-[var(--border-default)]/30 opacity-60"
+                                    )}>
+                                        <div>
+                                            <p className="font-bold text-[var(--text-primary)] text-sm">Habilitar lluvia visual</p>
+                                            <p className="text-xs text-[var(--text-tertiary)]">Muestra la opcion de lluvia en el kiosko. Requiere que los mods esten activos.</p>
+                                        </div>
+                                        <button
+                                            onClick={() => {
+                                                if (!modsEnabled) return;
+                                                setKioskRainEnabled((prev) => !prev);
+                                            }}
+                                            disabled={!modsEnabled}
+                                            className={cn(
+                                                "relative w-14 h-7 rounded-full transition-colors disabled:cursor-not-allowed",
+                                                kioskRainEnabled ? "bg-cyan-500" : "bg-gray-600"
+                                            )}
+                                        >
+                                            <div className={cn(
+                                                "absolute top-1 left-1 w-5 h-5 rounded-full bg-[var(--bg-card)] transition-transform",
+                                                kioskRainEnabled && "translate-x-7"
+                                            )} />
+                                        </button>
+                                    </div>
+
+                                    <div className="flex items-center justify-between bg-[var(--bg-card)]/40 p-4 rounded-2xl border border-[var(--border-default)]/50">
+                                        <div>
+                                            <p className="font-bold text-[var(--text-primary)] text-sm">Pagos en kiosko</p>
+                                            <p className="text-xs text-[var(--text-tertiary)]">Activa el flujo de pago desde tablet. Si lo desactivas, el kiosko sigue funcionando sin cobro integrado.</p>
+                                        </div>
+                                        <button
+                                            onClick={() => setPaymentEnabled((prev) => !prev)}
+                                            className={cn(
+                                                "relative w-14 h-7 rounded-full transition-colors",
+                                                paymentEnabled ? "bg-green-500" : "bg-gray-600"
+                                            )}
+                                        >
+                                            <div className={cn(
+                                                "absolute top-1 left-1 w-5 h-5 rounded-full bg-[var(--bg-card)] transition-transform",
+                                                paymentEnabled && "translate-x-7"
+                                            )} />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="mt-6 bg-[var(--bg-card)]/30 border border-[var(--border-default)]/40 rounded-2xl p-4 flex gap-3">
+                                    <Info size={18} className="text-[var(--text-tertiary)] shrink-0 mt-0.5" />
+                                    <div className="text-sm text-[var(--text-tertiary)] space-y-1">
+                                        <p className="font-bold text-[var(--text-secondary)]">Modo reposo</p>
+                                        <p>El attract mode esta desactivado ahora mismo en el runtime del kiosko, asi que no se configura desde aqui.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-[var(--bg-elevated)] p-8 rounded-3xl border border-[var(--border-default)]">
+                                <h3 className="text-xl font-black text-[var(--text-primary)] uppercase mb-6 flex items-center">
+                                    <Globe className="mr-2 text-green-400" /> Enlace Publico
+                                </h3>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">URL base del kiosko</label>
+                                        <input
+                                            type="text"
+                                            className="w-full p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] text-[var(--text-primary)] font-bold outline-none focus:border-cyan-500 transition-all"
+                                            value={paymentPublicKioskUrl}
+                                            onChange={e => setPaymentPublicKioskUrl(e.target.value)}
+                                            placeholder="http://localhost/kiosk"
+                                        />
+                                        <p className="text-xs text-[var(--text-tertiary)] mt-2">
+                                            Esta URL se usa para generar los links y QR de cada simulador en la pestaña Simuladores.
+                                        </p>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        <button
+                                            onClick={() => setPaymentPublicKioskUrl(getDefaultPublicKioskUrl())}
+                                            className="px-3 py-2 rounded-lg bg-blue-600/20 text-blue-400 text-xs font-bold uppercase tracking-widest border border-blue-500/30 hover:bg-blue-600 hover:text-[var(--text-primary)] transition-colors"
+                                        >
+                                            Usar URL actual
+                                        </button>
+                                        <button
+                                            onClick={() => copyToClipboard((paymentPublicKioskUrl || getDefaultPublicKioskUrl()).trim())}
+                                            className="px-3 py-2 rounded-lg bg-[var(--bg-card)] text-[var(--text-secondary)] text-xs font-bold uppercase tracking-widest border border-[var(--border-default)] hover:text-[var(--text-primary)] transition-colors"
+                                        >
+                                            Copiar URL
+                                        </button>
+                                    </div>
+
+                                    <div className="bg-[var(--bg-card)]/40 border border-[var(--border-default)]/50 rounded-2xl p-4 text-sm text-[var(--text-tertiary)] space-y-2">
+                                        <p className="font-bold text-[var(--text-secondary)] uppercase tracking-widest text-xs">Separacion de ajustes</p>
+                                        <p><span className="text-[var(--text-primary)] font-bold">Kiosko:</span> comportamiento comun, pagos y URL base.</p>
+                                        <p><span className="text-[var(--text-primary)] font-bold">Simuladores:</span> codigo kiosko, QR, activacion y estado de cada cabina.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-[var(--bg-elevated)] p-8 rounded-3xl border border-[var(--border-default)]">
+                            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+                                <div>
+                                    <h3 className="text-xl font-black text-[var(--text-primary)] uppercase flex items-center">
+                                        <BadgeDollarSign className="mr-2 text-green-400" /> Pago e Integraciones
+                                    </h3>
+                                    <p className="text-sm text-[var(--text-tertiary)] mt-2">Configuracion comun de cobro para todas las tablets kiosko.</p>
+                                </div>
+                                <span className={cn(
+                                    "px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest",
+                                    paymentEnabled ? "bg-green-500/20 text-green-400" : "bg-gray-700 text-[var(--text-tertiary)]"
+                                )}>
+                                    {paymentEnabled ? 'Pago activo' : 'Pago desactivado'}
+                                </span>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">Moneda</label>
+                                    <input
+                                        type="text"
+                                        className="w-full p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] text-[var(--text-primary)] font-bold outline-none focus:border-green-500 transition-all"
+                                        value={paymentCurrency}
+                                        onChange={e => setPaymentCurrency(e.target.value)}
+                                        placeholder="EUR"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">Bizum receptor</label>
+                                    <input
+                                        type="text"
+                                        className="w-full p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] text-[var(--text-primary)] font-bold outline-none focus:border-green-500 transition-all"
+                                        value={bizumReceiver}
+                                        onChange={e => setBizumReceiver(e.target.value)}
+                                        placeholder="600000000"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">Stripe Secret Key</label>
+                                    <input
+                                        type="password"
+                                        className="w-full p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] text-[var(--text-primary)] font-bold outline-none focus:border-green-500 transition-all"
+                                        value={stripeSecretKey}
+                                        onChange={e => setStripeSecretKey(e.target.value)}
+                                        placeholder="sk_live_..."
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">Stripe Webhook Secret</label>
+                                    <input
+                                        type="password"
+                                        className="w-full p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] text-[var(--text-primary)] font-bold outline-none focus:border-green-500 transition-all"
+                                        value={stripeWebhookSecret}
+                                        onChange={e => setStripeWebhookSecret(e.target.value)}
+                                        placeholder="whsec_..."
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">Stripe Success URL</label>
+                                    <input
+                                        type="text"
+                                        className="w-full p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] text-[var(--text-primary)] font-bold outline-none focus:border-green-500 transition-all"
+                                        value={stripeSuccessUrl}
+                                        onChange={e => setStripeSuccessUrl(e.target.value)}
+                                        placeholder="http://localhost/kiosk?payment=success"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase mb-2">Stripe Cancel URL</label>
+                                    <input
+                                        type="text"
+                                        className="w-full p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] text-[var(--text-primary)] font-bold outline-none focus:border-green-500 transition-all"
+                                        value={stripeCancelUrl}
+                                        onChange={e => setStripeCancelUrl(e.target.value)}
+                                        placeholder="http://localhost/kiosk?payment=cancel"
+                                    />
+                                </div>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -1255,7 +1625,7 @@ export default function SettingsPage() {
                                     </div>
                                 </div>
 
-                                <div className="bg-[var(--bg-card)]/40 border border-[var(--border-default)] rounded-2xl p-5 space-y-4">
+                                    {/* <div className="bg-[var(--bg-card)]/40 border border-[var(--border-default)] rounded-2xl p-5 space-y-4">
                                     <h3 className="text-sm font-black uppercase tracking-wider text-[var(--text-secondary)]">Configuración de Pagos</h3>
                                     <div className="flex items-center justify-between bg-[var(--bg-card)]/50 border border-[var(--border-default)]/60 rounded-2xl p-4">
                                         <div>
@@ -1277,6 +1647,21 @@ export default function SettingsPage() {
                                                 paymentEnabled && "translate-x-7"
                                             )} />
                                         </button>
+                                    </div>
+                                    <div className="flex items-center justify-between bg-[var(--bg-card)]/50 border border-[var(--border-default)]/60 rounded-2xl p-4">
+                                        <div>
+                                            <p className="text-sm font-bold text-[var(--text-secondary)]">Timeout inactividad (segundos)</p>
+                                            <p className="text-xs text-[var(--text-tertiary)]">Tiempo antes de reiniciar el kiosko (mínimo 10s)</p>
+                                        </div>
+                                        <input
+                                            type="number"
+                                            min={10000}
+                                            max={600000}
+                                            step={1000}
+                                            className="w-24 p-2 rounded-lg bg-[var(--bg-card)] border border-[var(--border-default)] text-[var(--text-primary)] font-bold text-center outline-none focus:border-blue-500"
+                                            value={idleTimeout}
+                                            onChange={e => setIdleTimeout(Math.max(10000, Math.min(600000, Number(e.target.value))))}
+                                        />
                                     </div>
                                     <div className="grid grid-cols-1 gap-4">
                                         <div>
@@ -1359,6 +1744,12 @@ export default function SettingsPage() {
                                             {savingPaymentConfig ? 'Guardando...' : 'Guardar configuración'}
                                         </button>
                                     </div>
+                                </div> */}
+                                <div className="bg-[var(--bg-card)]/40 border border-[var(--border-default)] rounded-2xl p-5 space-y-3">
+                                    <h3 className="text-sm font-black uppercase tracking-wider text-[var(--text-secondary)]">Pagos del kiosko</h3>
+                                    <p className="text-sm text-[var(--text-tertiary)]">
+                                        La configuracion de pagos y la URL del kiosko se gestionan ahora en la pestaña Kiosko para no mezclar precios con operativa de tablet.
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -1575,6 +1966,9 @@ export default function SettingsPage() {
                 {/* --- TAB: STATIONS --- */}
                 {activeTab === 'stations' && (
                     <div className="space-y-4 max-w-5xl animate-in fade-in duration-300">
+                        <div className="bg-[var(--bg-card)]/60 border border-[var(--border-default)] rounded-2xl p-4 text-sm text-[var(--text-tertiary)]">
+                            <span className="text-[var(--text-primary)] font-bold">Aqui solo se gestiona cada simulador:</span> codigo kiosko, QR, estado del agente y acciones sobre la cabina. Los ajustes globales del kiosko estan en la pestaña <span className="font-bold text-cyan-400">Kiosko</span>.
+                        </div>
                         <div className="flex flex-col gap-3">
                             <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
                                 <h2 className="text-lg font-black text-[var(--text-primary)] uppercase tracking-wide">Simuladores</h2>
@@ -2619,6 +3013,8 @@ export default function SettingsPage() {
                         </div>
                     </div>
                 )}
+                    </div>
+                </div>
             </div >
 
             {/* Config Editor Modal */}

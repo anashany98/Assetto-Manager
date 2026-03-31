@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from ..database import SessionLocal
 from .. import models
 from datetime import datetime, timezone
+from ..utils.cache import command_queue
 
 from ..security.api_keys import is_agent_token_allowed, is_client_token_allowed
 
@@ -343,9 +344,66 @@ class ConnectionManager:
         self.active_agents[station_id] = websocket
         self.ws_to_station[websocket] = station_id
         logger.info(f"Agent Registered: Station {station_id}. Total registered agents: {len(self.active_agents)}")
+        
+        # Notify clients that agent is now online
+        await self.broadcast(json.dumps({
+            "type": "agent_status",
+            "station_id": station_id,
+            "status": "online",
+        }))
+        
+        # Process pending commands in queue
+        asyncio.create_task(self._process_pending_commands(station_id))
+        
         if self._pubsub_enabled:
             # Ensure only one worker keeps a station connection in multi-worker mode.
             await self._publish(WS_CHANNEL_AGENT_OWNERSHIP, {"origin": self.instance_id, "station_id": station_id})
+
+    async def _process_pending_commands(self, station_id: int):
+        """Process queued commands when agent reconnects."""
+        max_retries = int(os.getenv("WS_MAX_RETRIES", "3"))
+        retry_delay = float(os.getenv("WS_RETRY_DELAY_SECONDS", "2"))
+        
+        pending = await command_queue.get_pending(station_id)
+        if not pending:
+            logger.info(f"No pending commands for station {station_id}")
+            return
+        
+        logger.info(f"Processing {len(pending)} pending commands for station {station_id}")
+        
+        for cmd in pending:
+            command_id = cmd.get("command_id")
+            retry_count = cmd.get("retry_count", 0)
+            
+            if retry_count >= max_retries:
+                logger.warning(f"Command {command_id} exceeded max retries, removing from queue")
+                await command_queue.remove(station_id, command_id)
+                await self.broadcast(json.dumps({
+                    "type": "command_status",
+                    "station_id": station_id,
+                    "command_id": command_id,
+                    "command": cmd.get("command"),
+                    "status": "failed",
+                    "details": "Max retries exceeded",
+                }))
+                continue
+            
+            logger.info(f"Retrying command {command_id} for station {station_id} (attempt {retry_count + 1})")
+            
+            ok = await self._send_local_command(station_id, cmd)
+            if ok:
+                await command_queue.remove(station_id, command_id)
+                await self.broadcast(json.dumps({
+                    "type": "command_status",
+                    "station_id": station_id,
+                    "command_id": command_id,
+                    "command": cmd.get("command"),
+                    "status": "sent",
+                    "details": "Command sent on reconnect",
+                }))
+            else:
+                await command_queue.increment_retry(station_id, command_id)
+                await asyncio.sleep(retry_delay)
 
     def disconnect_client(self, websocket: WebSocket):
         if websocket in self.active_clients:
@@ -361,6 +419,14 @@ class ConnectionManager:
             if websocket in self.agent_states:
                 del self.agent_states[websocket]
             logger.info(f"Agent Disconnected: Station {station_id}")
+            
+            # Notify clients that agent is now offline
+            asyncio.create_task(self.broadcast(json.dumps({
+                "type": "agent_status",
+                "station_id": station_id,
+                "status": "offline",
+            })))
+            
             db = SessionLocal()
             try:
                 station = db.query(models.Station).filter(models.Station.id == station_id).first()
@@ -441,7 +507,7 @@ class ConnectionManager:
 
 
 
-    async def send_command(self, station_id: int, message: dict):
+    async def send_command(self, station_id: int, message: dict, notify_client: bool = True):
         payload = dict(message)
         command_id = str(payload.get("command_id") or uuid4().hex)
         payload["command_id"] = command_id
@@ -451,19 +517,60 @@ class ConnectionManager:
         self.pending_command_acks[command_id] = ack_future
         ack_timeout = self._command_ack_timeout_seconds(payload.get("command"))
 
+        max_retries = int(os.getenv("WS_MAX_RETRIES", "3"))
+        retry_delay = float(os.getenv("WS_RETRY_DELAY_SECONDS", "2"))
+
+        async def notify_status(status: str, details: str = ""):
+            """Notify client via WebSocket about command status."""
+            if not notify_client:
+                return
+            try:
+                await self.broadcast(json.dumps({
+                    "type": "command_status",
+                    "station_id": station_id,
+                    "command_id": command_id,
+                    "command": payload.get("command"),
+                    "status": status,
+                    "details": details,
+                }))
+            except Exception as e:
+                logger.warning(f"Failed to notify client: {e}")
+
         try:
+            # Try to send the command
             ok = await self._send_local_command(station_id, payload)
+            
             if not ok:
+                # Agent not connected locally, try pubsub
                 if self._pubsub_enabled:
                     await self._publish(
                         WS_CHANNEL_COMMAND,
                         {"origin": self.instance_id, "station_id": station_id, "payload": payload},
                     )
+                    # Command sent via pubsub, wait for ACK
                 else:
-                    return False
+                    # No pubsub, queue for later
+                    logger.warning(f"Agent {station_id} not connected, queuing command {command_id}")
+                    await command_queue.add(station_id, payload)
+                    await notify_status("queued", "Agent not connected, command queued")
+                    
+                    # Try to retry a few times
+                    for attempt in range(max_retries):
+                        await asyncio.sleep(retry_delay * (attempt + 1))
+                        ok = await self._send_local_command(station_id, payload)
+                        if ok:
+                            break
+                    
+                    if not ok:
+                        await notify_status("failed", f"Agent not connected after {max_retries} retries")
+                        return False
+                    
+                    await notify_status("sent", "Command sent after retry")
 
+            # Wait for acknowledgment
             try:
                 ack_payload = await asyncio.wait_for(ack_future, timeout=ack_timeout)
+                await notify_status("acknowledged", f"Status: {ack_payload.get('status')}")
             except asyncio.TimeoutError:
                 logger.warning(
                     "Command ack timeout station=%s command=%s command_id=%s",
@@ -471,7 +578,24 @@ class ConnectionManager:
                     payload.get("command"),
                     command_id,
                 )
-                return False
+                await notify_status("timeout", "Agent did not acknowledge command")
+                
+                # Try retry on timeout
+                for attempt in range(max_retries):
+                    await asyncio.sleep(retry_delay * (attempt + 1))
+                    ok = await self._send_local_command(station_id, payload)
+                    if ok:
+                        try:
+                            ack_payload = await asyncio.wait_for(
+                                self.pending_command_acks.get(command_id, asyncio.get_event_loop().create_future()),
+                                timeout=ack_timeout
+                            )
+                            await notify_status("acknowledged", "Command acknowledged after retry")
+                            break
+                        except asyncio.TimeoutError:
+                            continue
+                else:
+                    return False
 
             status = str(ack_payload.get("status") or "").lower()
             return status not in {"rejected", "error"}
@@ -627,7 +751,6 @@ async def websocket_agent_endpoint(websocket: WebSocket):
                                 logger.info(f"Cached content for Station {station_id}: {len(content_data.get('cars',[]))} cars, {len(content_data.get('tracks',[]))} tracks")
                                 
                                 from ..utils.cache import content_cache
-                                import asyncio
                                 asyncio.create_task(content_cache.delete(f"station:{station_id}"))
 
                                 # --- AUTO-POPULATE GLOBAL LIBRARY ---

@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 
 interface UseWebSocketOptions {
     url: string;
+    token?: string | null;
     onMessage?: (data: any) => void;
     onOpen?: () => void;
     onClose?: () => void;
@@ -20,17 +21,19 @@ interface UseWebSocketReturn {
 
 export function useWebSocket({
     url,
+    token,
     onMessage,
     onOpen,
     onClose,
     onError,
-    reconnect = true,
+    reconnect: shouldReconnect = true,
     reconnectInterval = 3000,
     maxReconnectAttempts = 10,
 }: UseWebSocketOptions): UseWebSocketReturn {
     const wsRef = useRef<WebSocket | null>(null);
+    const connectRef = useRef<() => void>(() => {});
     const reconnectAttemptsRef = useRef(0);
-    const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [isConnected, setIsConnected] = useState(false);
 
     const connect = useCallback(() => {
@@ -44,6 +47,11 @@ export function useWebSocket({
         ws.onopen = () => {
             setIsConnected(true);
             reconnectAttemptsRef.current = 0;
+            if (token) {
+                try {
+                    ws.send(JSON.stringify({ type: 'identify', token }));
+                } catch { /* onclose will drive reconnection */ }
+            }
             onOpen?.();
         };
 
@@ -60,7 +68,7 @@ export function useWebSocket({
             setIsConnected(false);
             onClose?.();
 
-            if (reconnect && reconnectAttemptsRef.current < maxReconnectAttempts) {
+            if (shouldReconnect && reconnectAttemptsRef.current < maxReconnectAttempts) {
                 const delay = Math.min(
                     reconnectInterval * Math.pow(2, reconnectAttemptsRef.current),
                     30000
@@ -68,7 +76,7 @@ export function useWebSocket({
                 reconnectAttemptsRef.current += 1;
                 
                 reconnectTimeoutRef.current = setTimeout(() => {
-                    connect();
+                    connectRef.current();
                 }, delay);
             }
         };
@@ -76,7 +84,11 @@ export function useWebSocket({
         ws.onerror = (error) => {
             onError?.(error);
         };
-    }, [url, onMessage, onOpen, onClose, onError, reconnect, reconnectInterval, maxReconnectAttempts]);
+    }, [url, onMessage, onOpen, onClose, onError, shouldReconnect, reconnectInterval, maxReconnectAttempts]);
+
+    useEffect(() => {
+        connectRef.current = connect;
+    }, [connect]);
 
     const send = useCallback((data: any) => {
         if (wsRef.current?.readyState === WebSocket.OPEN) {

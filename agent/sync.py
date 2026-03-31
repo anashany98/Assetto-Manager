@@ -238,3 +238,59 @@ def register_agent():
     except Exception as e:
         logger.error(f"Registration failed: {e}")
         return None
+
+
+def sync_offline_data(station_id):
+    """Sync pending offline sessions and results to the server."""
+    from offline_queue import (
+        get_pending_sessions, get_pending_results,
+        mark_session_synced, mark_result_synced,
+        remove_synced_sessions, remove_synced_results,
+    )
+
+    # Sync sessions
+    pending_sessions = get_pending_sessions()
+    if pending_sessions:
+        synced_ids = []
+        for session in pending_sessions:
+            session["station_id"] = station_id
+            try:
+                resp = requests.post(
+                    f"{SERVER_URL}/sessions/sync",
+                    json=session,
+                    headers=get_agent_headers(),
+                    timeout=REQUEST_TIMEOUT,
+                )
+                if resp.status_code == 200:
+                    synced_ids.append(session["offline_session_id"])
+            except Exception:
+                pass
+        # Only remove after confirming sync was successful
+        for sid in synced_ids:
+            mark_session_synced(sid)
+        if synced_ids:
+            remove_synced_sessions()
+            logger.info(f"Synced {len(synced_ids)} offline sessions")
+
+    # Sync results
+    pending_results = get_pending_results()
+    if pending_results:
+        synced_ids = []
+        for result in pending_results:
+            try:
+                resp = requests.post(
+                    f"{SERVER_URL}/telemetry/session",
+                    json=result,
+                    headers=get_agent_headers(),
+                    timeout=REQUEST_TIMEOUT,
+                )
+                if resp.status_code == 200:
+                    synced_ids.append(result["offline_result_id"])
+            except Exception:
+                pass
+        # Only remove after confirming sync was successful
+        for rid in synced_ids:
+            mark_result_synced(rid)
+        if synced_ids:
+            remove_synced_results()
+            logger.info(f"Synced {len(synced_ids)} offline results")

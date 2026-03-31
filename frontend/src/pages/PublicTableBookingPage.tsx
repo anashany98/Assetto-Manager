@@ -48,7 +48,7 @@ export default function PublicTableBookingPage() {
     const barName = settings?.find((s: { key: string; value: string }) => s.key === 'bar_name')?.value || 'VRacing Lounge';
     const barLogo = settings?.find((s: { key: string; value: string }) => s.key === 'bar_logo')?.value || '/logo.png';
     const rawTimeSlots = settings?.find((s: { key: string; value: string }) => s.key === 'table_booking_time_slots')?.value;
-    const TIME_OPTIONS = rawTimeSlots
+    const TIME_OPTIONS: string[] = rawTimeSlots
         ? rawTimeSlots.split(',').map((s: string) => s.trim()).filter(Boolean)
         : DEFAULT_TIME_OPTIONS;
 

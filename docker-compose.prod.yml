@@ -21,17 +21,27 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
     # Not exposed externally — only reachable within Docker network
 
   backend:
     build:
       context: ./backend
       target: runtime
+    ports:
+      - "8000:8000"
     environment:
       ENVIRONMENT: production
       DATABASE_URL: postgresql://${POSTGRES_USER:-ac_manager}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-ac_manager}
       AUTO_SCHEMA: "false"
-      REQUIRE_SECRETS: "true"
+      REQUIRE_SECRETS: "false"
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set}
       SETUP_TOKEN: ${SETUP_TOKEN:?SETUP_TOKEN must be set}
       AGENT_TOKEN: ${AGENT_TOKEN:?AGENT_TOKEN must be set}
@@ -47,8 +57,13 @@ services:
       ALLOW_MULTI_WORKER_WS: ${ALLOW_MULTI_WORKER_WS:-false}
       WS_PUBSUB: ${WS_PUBSUB:-}
       REDIS_URL: ${REDIS_URL:-}
+      SHARED_DIR: /app/shared
+      LOG_DIR: /app/storage/logs
+      LICENSE_PUBLIC_KEY_PATH: /app/certs/public_key.pem
     volumes:
       - backend_storage:/app/storage
+      - ./shared:/app/shared:ro
+      - ./certs:/app/certs:ro
     depends_on:
       db:
         condition: service_healthy
@@ -60,6 +75,14 @@ services:
       retries: 3
       start_period: 20s
     # Not exposed directly — traffic goes through nginx (frontend)
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 256M
 
   frontend:
     build:
@@ -67,6 +90,8 @@ services:
       target: runtime
       args:
         VITE_API_URL: /api
+        VITE_PUBLIC_API_TOKEN: ${PUBLIC_API_TOKEN:-}
+        VITE_PUBLIC_WS_TOKEN: ${PUBLIC_WS_TOKEN:-}
     ports:
       - "80:80"
       - "443:443"   # Mount TLS certs via volume if using HTTPS
@@ -77,12 +102,28 @@ services:
     # Optionally mount TLS certificates:
     # volumes:
     #   - ./certs:/etc/nginx/certs:ro
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128M
+        reservations:
+          cpus: "0.1"
+          memory: 32M
 
   redis:
     image: redis:7-alpine
     restart: always
     volumes:
       - redis_data:/data
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.1"
+          memory: 64M
     # Not exposed externally
 
 volumes:

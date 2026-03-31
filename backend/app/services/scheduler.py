@@ -386,9 +386,9 @@ def start_scheduler():
     logger.info("Scheduler started - Booking reminders (18:00), Content Sync (Hourly), Ghost Archive (Configured), Global Mod Sync (03:00)")
 
     # Periodic cleanup of in-memory failed login attempts (prevents memory leak)
-    from ..routers.auth import _cleanup_old_attempts
+    from ..utils.login_rate_limiter import login_rate_limiter
     scheduler.add_job(
-        _cleanup_old_attempts,
+        login_rate_limiter.cleanup_stale,
         'interval',
         minutes=30,
         id="cleanup_failed_login_attempts",
