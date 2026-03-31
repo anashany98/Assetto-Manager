@@ -68,23 +68,30 @@ def send_email(to_email: str, subject: str, html_content: str, text_content: Opt
         msg["Subject"] = subject
         msg["From"] = f"{SMTP_FROM_NAME} <{SMTP_FROM_EMAIL}>"
         msg["To"] = to_email
-        
+
         # Plain text version (fallback)
         if text_content:
             msg.attach(MIMEText(text_content, "plain"))
-        
+
         # HTML version
         msg.attach(MIMEText(html_content, "html"))
-        
-        # Send
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+
+        # Send with timeout to prevent blocking indefinitely
+        timeout = int(os.getenv("SMTP_TIMEOUT", "30"))
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=timeout) as server:
             server.starttls()
             server.login(SMTP_USER, SMTP_PASSWORD)
             server.sendmail(SMTP_FROM_EMAIL, to_email, msg.as_string())
-        
+
         logger.info(f"Email sent successfully to {to_email}")
         return True
-        
+
+    except smtplib.SMTPTimeoutError:
+        logger.error(f"SMTP timeout sending email to {to_email}")
+        return False
+    except smtplib.SMTPException as e:
+        logger.error(f"SMTP error sending email to {to_email}: {e}")
+        return False
     except Exception as e:
         logger.error(f"Failed to send email to {to_email}: {e}")
         return False

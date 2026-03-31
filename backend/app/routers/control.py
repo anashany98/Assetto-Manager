@@ -79,16 +79,25 @@ async def set_station_kiosk(station_id: int, cmd: KioskCommand, db: Session = De
     return {"status": "offline_updated", "message": "Station updated in DB but is offline."}
 
 
+class UpdateStationConfigRequest(BaseModel):
+    """Validated station configuration update."""
+    is_vr: Optional[bool] = None
+
+
 @router.post("/station/{station_id}/config", dependencies=[Depends(require_admin)])
-async def update_station_config(station_id: int, data: dict, db: Session = Depends(get_db)):
-    """Update station configuration (e.g. is_vr)"""
+async def update_station_config(
+    station_id: int,
+    data: UpdateStationConfigRequest,
+    db: Session = Depends(get_db)
+):
+    """Update station configuration with validated input."""
     station = db.query(StationModel).filter(StationModel.id == station_id).first()
     if not station:
         raise HTTPException(status_code=404, detail="Station not found")
-        
-    if 'is_vr' in data:
-        station.is_vr = data['is_vr']
-        
+
+    if data.is_vr is not None:
+        station.is_vr = data.is_vr
+
     db.commit()
     return {"status": "updated", "is_vr": station.is_vr}
 

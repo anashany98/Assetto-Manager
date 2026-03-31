@@ -1,4 +1,3 @@
-
 from datetime import timedelta, datetime, timezone
 from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Header, Request, Response
@@ -6,6 +5,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field, field_validator
 import os
+import hmac
 import logging
 from ..limiters import limiter
 from ..security.api_keys import is_agent_token_allowed, is_client_token_allowed
@@ -210,6 +210,7 @@ def require_admin_or_public_token_or_kiosk(
     current_user: Annotated[Optional[models.User], Depends(get_current_user_optional)],
     client_token: Annotated[Optional[str], Header(alias="X-Client-Token")] = None,
     kiosk_code: Annotated[Optional[str], Header(alias="X-Kiosk-Code")] = None,
+    db: Session = Depends(database.get_db),
 ):
     if current_user:
         if not current_user.is_active:
@@ -219,9 +220,15 @@ def require_admin_or_public_token_or_kiosk(
 
     # Kiosk-specific routes should prefer the paired kiosk code over any generic
     # public token that may also be present in the request.
-    normalized_kiosk = (kiosk_code or "").strip()
+    normalized_kiosk = (kiosk_code or "").strip().upper()
     if normalized_kiosk:
-        return "kiosk"
+        station = db.query(models.Station).filter(
+            models.Station.kiosk_code == normalized_kiosk,
+            models.Station.is_active == True,
+            models.Station.is_kiosk_mode == True
+        ).first()
+        if station:
+            return "kiosk"
 
     resolved = _resolve_public_token(client_token, request)
     if _is_public_token_allowed(resolved):
@@ -351,6 +358,7 @@ def login_for_access_token(
 
 
 @router.post("/logout")
+@limiter.limit("30/minute")
 def logout(
     request: Request,
     response: Response,
@@ -376,6 +384,7 @@ class RefreshTokenRequest(BaseModel):
     refresh_token: Optional[str] = None
 
 @router.post("/refresh")
+@limiter.limit("30/minute")
 def refresh_access_token(
     request: Request,
     response: Response,
@@ -399,6 +408,8 @@ def refresh_access_token(
         payload = decode_refresh_token(refresh_token)
         username = payload.get("sub")
         role = payload.get("role")
+        old_jti = payload.get("jti")
+        old_exp = payload.get("exp")
         
         if not username:
             raise HTTPException(
@@ -412,6 +423,10 @@ def refresh_access_token(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="User not found or inactive"
             )
+        
+        # Blacklist old refresh token (rotation)
+        if old_jti and old_exp:
+            token_blacklist.add(old_jti, float(old_exp))
         
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES_SHORT)
         access_token = create_access_token(
@@ -459,6 +474,20 @@ class UserSetup(BaseModel):
             raise ValueError("Password is too common")
         return v
 
+    @field_validator("password")
+    @classmethod
+    def password_complexity(cls, v: str) -> str:
+        """Enforce password complexity: at least 8 chars, one uppercase, one lowercase, one digit."""
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters long")
+        if not any(c.isupper() for c in v):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not any(c.islower() for c in v):
+            raise ValueError("Password must contain at least one lowercase letter")
+        if not any(c.isdigit() for c in v):
+            raise ValueError("Password must contain at least one digit")
+        return v
+
 @router.post("/users/setup")
 @limiter.limit("3/hour")
 def setup_admin(
@@ -473,7 +502,7 @@ def setup_admin(
     expected_setup_token = os.getenv("SETUP_TOKEN")
     if ENVIRONMENT == "production" and not expected_setup_token:
         raise HTTPException(status_code=500, detail="SETUP_TOKEN not configured")
-    if expected_setup_token and setup_token != expected_setup_token:
+    if expected_setup_token and not hmac.compare_digest(setup_token or "", expected_setup_token):
         raise HTTPException(status_code=403, detail="Invalid setup token")
     
     hashed = get_password_hash(data.password)

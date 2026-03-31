@@ -140,6 +140,13 @@ def _validate_runtime_config():
     allowed = [o.strip() for o in allowed_raw.split(",") if o.strip()]
     if ENVIRONMENT == "production" and "*" in allowed:
         raise RuntimeError("ALLOWED_ORIGINS cannot include '*' in production")
+    # Production hardening: require HTTPS origins
+    if ENVIRONMENT == "production":
+        for origin in allowed:
+            if origin != "http://localhost" and not origin.startswith("https://"):
+                raise RuntimeError(
+                    f"ALLOWED_ORIGINS must use HTTPS in production. Invalid origin: {origin}"
+                )
     worker_count = _get_worker_count()
     allow_multi_ws = os.getenv("ALLOW_MULTI_WORKER_WS", "false").lower() in {"1", "true", "yes"}
     if worker_count > 1 and not allow_multi_ws:
@@ -215,7 +222,14 @@ async def lifespan(app: FastAPI):
     # Shutdown
     await ws_manager.stop_pubsub()
     stop_scheduler()
-    
+
+    # Close shared HTTP client
+    try:
+        from .utils.http_client import close_shared_client
+        await close_shared_client()
+    except Exception as e:
+        logger.warning("Failed to close shared HTTP client: %s", e)
+
     # Cancel session background tasks
     for task in session_tasks:
         task.cancel()
@@ -304,13 +318,23 @@ root_logger.addHandler(memory_handler)
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    logger.error(f"Global Exception: {exc}", exc_info=True)
+    request_id = request.headers.get("X-Request-ID", "unknown")
+    logger.error(
+        "Unhandled exception: %s request_id=%s path=%s",
+        exc, request_id, request.url.path,
+        exc_info=True,
+        extra={"request_id": request_id, "error_type": type(exc).__name__},
+    )
     detail = str(exc)
     if ENVIRONMENT == "production":
         detail = "Internal Server Error"
     return JSONResponse(
         status_code=500,
-        content={"message": "Internal Server Error. The system recovered automatically.", "detail": detail},
+        content={
+            "message": "Internal Server Error. The system recovered automatically.",
+            "detail": detail,
+            "request_id": request_id,
+        },
     )
 
 
@@ -585,6 +609,8 @@ from sqlalchemy import text
 
 def _run_readiness_checks() -> dict[str, str]:
     checks: dict[str, str] = {}
+
+    # Database check
     try:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
@@ -592,6 +618,7 @@ def _run_readiness_checks() -> dict[str, str]:
     except Exception:
         checks["db"] = "error"
 
+    # Storage check
     try:
         test_path = PUBLIC_STORAGE_DIR / ".healthcheck"
         with open(test_path, "w", encoding="utf-8") as f:
@@ -600,6 +627,29 @@ def _run_readiness_checks() -> dict[str, str]:
         checks["storage"] = "ok"
     except Exception:
         checks["storage"] = "error"
+
+    # Redis check (if configured)
+    redis_url = (os.getenv("REDIS_URL") or "").strip()
+    if redis_url:
+        try:
+            import redis
+            r = redis.from_url(redis_url, socket_connect_timeout=5)
+            r.ping()
+            checks["redis"] = "ok"
+        except Exception:
+            checks["redis"] = "error"
+    else:
+        checks["redis"] = "not_configured"
+
+    # Scheduler check
+    try:
+        from .services.scheduler import scheduler
+        if scheduler and scheduler.running:
+            checks["scheduler"] = "ok"
+        else:
+            checks["scheduler"] = "not_running"
+    except Exception:
+        checks["scheduler"] = "error"
 
     return checks
 
