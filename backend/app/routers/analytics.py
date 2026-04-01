@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
 from typing import List, Optional
@@ -20,7 +20,7 @@ router = APIRouter(
 )
 
 @router.get("/overview")
-async def get_analytics_overview(range_days: int = 30, db: Session = Depends(get_db)):
+async def get_analytics_overview(range_days: int = Query(30, ge=1, le=365), db: Session = Depends(get_db)):
     """
     High-level analytics summary used by dashboards.
     """
@@ -179,7 +179,7 @@ async def get_analytics_overview(range_days: int = 30, db: Session = Depends(get
     }
 
 @router.get("/revenue")
-async def get_revenue_analytics(range_days: int = 30, db: Session = Depends(get_db)):
+async def get_revenue_analytics(range_days: int = Query(30, ge=1, le=365), db: Session = Depends(get_db)):
     """
     Get daily revenue for the specified range.
     """
@@ -214,7 +214,7 @@ async def get_revenue_analytics(range_days: int = 30, db: Session = Depends(get_
     return result
 
 @router.get("/utilization")
-async def get_utilization_analytics(range_days: int = 30, db: Session = Depends(get_db)):
+async def get_utilization_analytics(range_days: int = Query(30, ge=1, le=365), db: Session = Depends(get_db)):
     """
     Get sessions per hour of day to identify peak times.
     """
@@ -238,7 +238,7 @@ async def get_utilization_analytics(range_days: int = 30, db: Session = Depends(
     return [{"hour": h, "count": c} for h, c in result.items()]
 
 @router.get("/kpi")
-async def get_kpi_stats(range_days: int = 30, db: Session = Depends(get_db)):
+async def get_kpi_stats(range_days: int = Query(30, ge=1, le=365), db: Session = Depends(get_db)):
     """
     Get top-level KPIs
     """

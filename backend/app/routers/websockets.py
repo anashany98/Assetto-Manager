@@ -44,16 +44,23 @@ def _get_environment() -> str:
 
 def _require_ws_auth_in_dev() -> bool:
     """
-    Determine if WebSocket authentication is required in development.
-    Default: True (secure by default).
-    Set WS_DEV_REQUIRE_AUTH=false to allow unauthenticated connections in dev.
+    Determine if WebSocket authentication is required.
+    Default: True (secure by default) in ALL environments.
+    Set WS_DEV_REQUIRE_AUTH=false to allow unauthenticated connections (NOT RECOMMENDED).
     """
     env = _get_environment()
     if env == "production":
         return True  # Always required in production
     
-    # In development, require auth by default unless explicitly disabled
-    return _is_truthy(os.getenv("WS_DEV_REQUIRE_AUTH", "true"))
+    raw = os.getenv("WS_DEV_REQUIRE_AUTH", "true")
+    if not _is_truthy(raw):
+        logger.warning(
+            "SECURITY: WebSocket authentication is DISABLED (WS_DEV_REQUIRE_AUTH=false). "
+            "This allows unauthenticated WebSocket connections. "
+            "Set WS_DEV_REQUIRE_AUTH=true to require authentication."
+        )
+        return False
+    return True
 
 
 async def _authenticate_public_client(websocket: WebSocket) -> bool:

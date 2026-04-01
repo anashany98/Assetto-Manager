@@ -1,8 +1,8 @@
 """
 Loyalty Points Router - Manage driver points and rewards
 """
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, Depends, Query
+from pydantic import BaseModel, Field
 from typing import Optional, List
 
 from .. import models
@@ -15,17 +15,17 @@ router = APIRouter(prefix="/loyalty", tags=["loyalty"], dependencies=[Depends(re
 
 # Schemas
 class PointsAward(BaseModel):
-    driver_name: str
-    points: int
-    reason: str
-    description: Optional[str] = None
+    driver_name: str = Field(..., min_length=1, max_length=100)
+    points: int = Field(..., ge=1, description="Points must be positive")
+    reason: str = Field(..., min_length=1, max_length=50)
+    description: Optional[str] = Field(None, max_length=500)
 
 
 class RewardCreate(BaseModel):
-    name: str
-    description: Optional[str] = None
-    points_cost: int
-    stock: int = -1
+    name: str = Field(..., min_length=1, max_length=100)
+    description: Optional[str] = Field(None, max_length=500)
+    points_cost: int = Field(..., ge=1, description="Points cost must be positive")
+    stock: int = Field(-1, ge=-1, description="-1 for unlimited, or positive number")
     is_active: bool = True
 
 

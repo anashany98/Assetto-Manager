@@ -132,7 +132,7 @@ def stop_session(session_id: int, db: DBSession = Depends(get_db)):
 
 
 @router.post("/{session_id}/add-time", dependencies=[Depends(require_admin)])
-def add_time(session_id: int, minutes: int = Body(..., embed=True), db: DBSession = Depends(get_db)):
+def add_time(session_id: int, minutes: int = Body(..., embed=True, ge=1, le=480), db: DBSession = Depends(get_db)):
     session = db.query(Session).filter(Session.id == session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")

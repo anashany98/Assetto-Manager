@@ -31,6 +31,7 @@ import MassLaunchModal from '../components/MassLaunchModal';
 import { FEATURES } from '../config/features';
 import { API_URL } from '../config';
 import { useKeyboardShortcuts, getShortcutLabel } from '../hooks/useKeyboardShortcuts';
+import { SessionCardSkeleton } from '../components/Skeleton';
 
 type DashboardTab = 'overview' | 'analytics';
 
@@ -57,7 +58,7 @@ export default function Dashboard() {
         refetchInterval: 15000
     });
 
-    const { data: activeSessions } = useQuery<Session[]>({
+    const { data: activeSessions, isLoading: sessionsLoading } = useQuery<Session[]>({
         queryKey: ['active-sessions'],
         queryFn: getActiveSessions,
         refetchInterval: 15000
@@ -241,7 +242,13 @@ export default function Dashboard() {
                             </div>
 
                             <div className="p-5">
-                                {activeSessions && activeSessions.length > 0 ? (
+                                {sessionsLoading ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                                        {Array.from({ length: 3 }).map((_, i) => (
+                                            <SessionCardSkeleton key={i} />
+                                        ))}
+                                    </div>
+                                ) : activeSessions && activeSessions.length > 0 ? (
                                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                                         {activeSessions.map(session => (
                                             <MemoizedSessionCard
