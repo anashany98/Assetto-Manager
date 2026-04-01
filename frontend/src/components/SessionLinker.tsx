@@ -6,6 +6,7 @@ import { useMemo, useState } from 'react';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { format } from 'date-fns';
+import { toastApiError, toastSuccess } from '../lib/apiError';
 
 interface SessionLinkerProps {
     trackName?: string;
@@ -19,7 +20,7 @@ export default function SessionLinker({ trackName, onSelect, onCancel, champions
     const queryClient = useQueryClient();
     const debouncedSearchTerm = useDebouncedValue(searchTerm, 300);
 
-    const { data: sessions, isLoading } = useQuery({
+    const { data: sessions, isLoading, error } = useQuery({
         queryKey: ['recent_sessions', trackName, debouncedSearchTerm],
         queryFn: () => getRecentSessions({
             track_name: trackName,
@@ -44,20 +45,23 @@ export default function SessionLinker({ trackName, onSelect, onCancel, champions
 
     const autoLinkMutation = useMutation({
         mutationFn: async () => {
-            if (championshipId && eventId) {
-                return autoDetectSession(championshipId, eventId);
+            if (!championshipId || !eventId) {
+                throw new Error('Faltan el campeonato o el evento para auto-detectar sesiones.');
             }
+            return autoDetectSession(championshipId, eventId);
         },
         onSuccess: (data) => {
             if (data?.count > 0) {
                 queryClient.invalidateQueries({ queryKey: ['championship', championshipId] });
-                // Maybe close or show toast?
-                alert(`¡Se han vinculado ${data.count} sesiones automáticamente!`);
+                toastSuccess(`Se han vinculado ${data.count} sesiones automáticamente.`);
                 onCancel();
             } else {
-                alert("No se encontraron sesiones coincidentes en el rango de fechas del evento.");
+                toastApiError('No se encontraron sesiones coincidentes en el rango de fechas del evento.');
             }
-        }
+        },
+        onError: (err) => {
+            toastApiError(err, 'No se pudo auto-detectar ninguna sesión.');
+        },
     });
 
     return (
@@ -114,6 +118,8 @@ export default function SessionLinker({ trackName, onSelect, onCancel, champions
             <div data-testid="session-linker-results" className="max-h-[500px] overflow-y-auto space-y-3 pr-2 custom-scrollbar">
                 {isLoading ? (
                     <div className="py-20 text-center text-[var(--text-tertiary)] font-bold uppercase animate-pulse">Buscando sesiones...</div>
+                ) : error ? (
+                    <div className="py-20 text-center text-red-400 italic">No se pudieron cargar las sesiones recientes.</div>
                 ) : filteredSessions?.length === 0 ? (
                     <div className="py-20 text-center text-gray-600 italic">No se encontraron sesiones recientes.</div>
                 ) : (

@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { API_URL } from '../config';
 import { getAuthHeaders } from '../api/authHeaders';
+import { toast } from 'sonner';
+import { parseApiError } from '../lib/apiError';
 
 interface AdCampaign {
     id: number;
@@ -43,7 +45,12 @@ const AdsSettings: React.FC = () => {
             setNewAdTitle("");
             setSelectedFile(null);
             setUploading(false);
-        }
+            toast.success('Promoción subida correctamente.');
+        },
+        onError: (error) => {
+            setUploading(false);
+            toast.error(parseApiError(error, 'No se pudo subir la promoción.'));
+        },
     });
 
     const toggleMutation = useMutation({
@@ -52,7 +59,11 @@ const AdsSettings: React.FC = () => {
                 headers: getAuthHeaders()
             });
         },
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['ads'] })
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['ads'] });
+            toast.success('Estado de la promoción actualizado.');
+        },
+        onError: (error) => toast.error(parseApiError(error, 'No se pudo cambiar el estado de la promoción.')),
     });
 
     const deleteMutation = useMutation({
@@ -61,7 +72,11 @@ const AdsSettings: React.FC = () => {
                 headers: getAuthHeaders()
             });
         },
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['ads'] })
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['ads'] });
+            toast.success('Promoción eliminada.');
+        },
+        onError: (error) => toast.error(parseApiError(error, 'No se pudo eliminar la promoción.')),
     });
 
     const handleUpload = (e: React.FormEvent) => {

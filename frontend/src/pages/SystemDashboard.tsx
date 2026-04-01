@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { API_URL } from '../config';
@@ -60,7 +60,7 @@ export default function SystemDashboard() {
             case 'online': return 'text-green-400';
             case 'offline': return 'text-red-400';
             case 'online_disconnected': return 'text-yellow-400';
-            default: return 'text-gray-400';
+            default: return 'text-[var(--text-tertiary)]';
         }
     };
 
@@ -75,10 +75,10 @@ export default function SystemDashboard() {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+            <div className="min-h-screen bg-[var(--bg-app)] text-[var(--text-primary)] flex items-center justify-center">
                 <div className="text-center">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400 mx-auto mb-4"></div>
-                    <p className="text-gray-400">Cargando estado del sistema...</p>
+                    <p className="text-[var(--text-tertiary)]">Cargando estado del sistema...</p>
                 </div>
             </div>
         );
@@ -86,7 +86,7 @@ export default function SystemDashboard() {
 
     if (error) {
         return (
-            <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+            <div className="min-h-screen bg-[var(--bg-app)] text-[var(--text-primary)] flex items-center justify-center">
                 <div className="text-center">
                     <AlertTriangle className="h-12 w-12 text-red-400 mx-auto mb-4" />
                     <p className="text-red-400">Error al cargar el estado del sistema</p>
@@ -102,7 +102,7 @@ export default function SystemDashboard() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-900 text-white p-6">
+        <div className="min-h-screen bg-[var(--bg-app)] text-[var(--text-primary)] p-6">
             {/* Header */}
             <div className="flex justify-between items-center mb-8">
                 <div>
@@ -110,7 +110,7 @@ export default function SystemDashboard() {
                         <Server className="h-8 w-8 text-cyan-400" />
                         Monitor del Sistema
                     </h1>
-                    <p className="text-gray-400 mt-1">
+                    <p className="text-[var(--text-tertiary)] mt-1">
                         Estado de los simuladores y sesiones en tiempo real
                     </p>
                 </div>
@@ -118,7 +118,7 @@ export default function SystemDashboard() {
                     <div className="text-2xl font-mono">
                         {currentTime.toLocaleTimeString()}
                     </div>
-                    <div className="text-gray-400 text-sm">
+                    <div className="text-[var(--text-tertiary)] text-sm">
                         {currentTime.toLocaleDateString()}
                     </div>
                 </div>
@@ -127,7 +127,7 @@ export default function SystemDashboard() {
             {/* Status Overview */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
                 {/* Health Status */}
-                <div className={`bg-gray-800 rounded-xl p-6 border ${
+                <div className={`bg-[var(--bg-card)] rounded-xl p-6 border ${
                     health?.status === 'healthy' ? 'border-green-500/30' :
                     health?.status === 'degraded' ? 'border-yellow-500/30' :
                     'border-red-500/30'
@@ -140,7 +140,7 @@ export default function SystemDashboard() {
                         ) : (
                             <XCircle className="h-6 w-6 text-red-400" />
                         )}
-                        <span className="text-gray-400">Estado General</span>
+                        <span className="text-[var(--text-tertiary)]">Estado General</span>
                     </div>
                     <div className={`text-3xl font-black uppercase ${
                         health?.status === 'healthy' ? 'text-green-400' :
@@ -152,10 +152,10 @@ export default function SystemDashboard() {
                 </div>
 
                 {/* Active Sessions */}
-                <div className="bg-gray-800 rounded-xl p-6 border border-cyan-500/30">
+                <div className="bg-[var(--bg-card)] rounded-xl p-6 border border-cyan-500/30">
                     <div className="flex items-center gap-3 mb-2">
                         <Activity className="h-6 w-6 text-cyan-400" />
-                        <span className="text-gray-400">Sesiones Activas</span>
+                        <span className="text-[var(--text-tertiary)]">Sesiones Activas</span>
                     </div>
                     <div className="text-3xl font-black text-cyan-400">
                         {health?.sessions?.active || 0}
@@ -163,10 +163,10 @@ export default function SystemDashboard() {
                 </div>
 
                 {/* Online Agents */}
-                <div className="bg-gray-800 rounded-xl p-6 border border-green-500/30">
+                <div className="bg-[var(--bg-card)] rounded-xl p-6 border border-green-500/30">
                     <div className="flex items-center gap-3 mb-2">
                         <Wifi className="h-6 w-6 text-green-400" />
-                        <span className="text-gray-400">Agentes Conectados</span>
+                        <span className="text-[var(--text-tertiary)]">Agentes Conectados</span>
                     </div>
                     <div className="text-3xl font-black text-green-400">
                         {health?.agents?.online || 0} / {health?.agents?.total || 0}
@@ -174,10 +174,10 @@ export default function SystemDashboard() {
                 </div>
 
                 {/* Offline Agents */}
-                <div className="bg-gray-800 rounded-xl p-6 border border-red-500/30">
+                <div className="bg-[var(--bg-card)] rounded-xl p-6 border border-red-500/30">
                     <div className="flex items-center gap-3 mb-2">
                         <WifiOff className="h-6 w-6 text-red-400" />
-                        <span className="text-gray-400">Agentes Desconectados</span>
+                        <span className="text-[var(--text-tertiary)]">Agentes Desconectados</span>
                     </div>
                     <div className="text-3xl font-black text-red-400">
                         {health?.agents?.offline || 0}
@@ -214,7 +214,7 @@ export default function SystemDashboard() {
                              station.status === 'offline' ? '○ Desconectado' :
                              '⚠ Reconectando'}
                         </div>
-                        <div className="text-xs text-gray-500 mt-2">
+                        <div className="text-xs text-[var(--text-tertiary)] mt-2">
                             ID: {station.id}
                         </div>
                     </div>
@@ -222,33 +222,33 @@ export default function SystemDashboard() {
             </div>
 
             {/* WebSocket Stats */}
-            <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+            <div className="bg-[var(--bg-card)] rounded-xl p-6 border border-[var(--border-default)]">
                 <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
                     <Activity className="h-5 w-5 text-cyan-400" />
                     Estadísticas WebSocket
                 </h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div>
-                        <div className="text-gray-400 text-sm">Clientes Conectados</div>
-                        <div className="text-2xl font-bold text-white">
+                        <div className="text-[var(--text-tertiary)] text-sm">Clientes Conectados</div>
+                        <div className="text-2xl font-bold text-[var(--text-primary)]">
                             {health?.ws_stats?.clients || 0}
                         </div>
                     </div>
                     <div>
-                        <div className="text-gray-400 text-sm">Agentes Registrados</div>
-                        <div className="text-2xl font-bold text-white">
+                        <div className="text-[var(--text-tertiary)] text-sm">Agentes Registrados</div>
+                        <div className="text-2xl font-bold text-[var(--text-primary)]">
                             {health?.ws_stats?.agents || 0}
                         </div>
                     </div>
                     <div>
-                        <div className="text-gray-400 text-sm">Instancia ID</div>
-                        <div className="text-xs font-mono text-gray-500 truncate">
+                        <div className="text-[var(--text-tertiary)] text-sm">Instancia ID</div>
+                        <div className="text-xs font-mono text-[var(--text-tertiary)] truncate">
                             {health?.ws_stats?.instance_id?.slice(0, 8) || 'N/A'}
                         </div>
                     </div>
                     <div>
-                        <div className="text-gray-400 text-sm">Última Actualización</div>
-                        <div className="text-xs font-mono text-gray-500">
+                        <div className="text-[var(--text-tertiary)] text-sm">Última Actualización</div>
+                        <div className="text-xs font-mono text-[var(--text-tertiary)]">
                             {health?.timestamp ? new Date(health.timestamp).toLocaleTimeString() : 'N/A'}
                         </div>
                     </div>
@@ -256,7 +256,7 @@ export default function SystemDashboard() {
             </div>
 
             {/* Auto-refresh indicator */}
-            <div className="mt-6 text-center text-gray-500 text-sm flex items-center justify-center gap-2">
+            <div className="mt-6 text-center text-[var(--text-tertiary)] text-sm flex items-center justify-center gap-2">
                 <Clock className="h-4 w-4" />
                 Actualizando cada 5 segundos
             </div>

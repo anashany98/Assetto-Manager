@@ -1,58 +1,126 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
+import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Dashboard from '../pages/Dashboard';
-import { ThemeProvider } from '../contexts/ThemeContext';
-import { LanguageProvider } from '../contexts/LanguageContext';
+import { MemoryRouter } from 'react-router-dom';
 
-// Mock the API calls
-vi.mock('../api/stats', () => ({
-    getStats: vi.fn(() => Promise.resolve({
-        total_sessions: 150,
-        total_drivers: 25,
-        total_laps: 3000,
-        avg_lap_time: 95000
-    })),
-    getRecentActivity: vi.fn(() => Promise.resolve([]))
+vi.mock('../api/dashboard', () => ({
+    getDashboardStats: vi.fn().mockResolvedValue({
+        total_stations: 4,
+        online_stations: 3,
+        syncing_stations: 1,
+        active_profile: 'Default',
+        sessions_today: 12,
+        bookings_pending: 2,
+        revenue_today: 240.0,
+        total_drivers: 45
+    })
 }));
 
-vi.mock('../api/telemetry', () => ({
-    getLeaderboard: vi.fn(() => Promise.resolve([]))
+vi.mock('../api/sessions', () => ({
+    getActiveSessions: vi.fn().mockResolvedValue([
+        {
+            id: 1,
+            station_id: 1,
+            station_name: 'Station 1',
+            driver_name: 'Test Driver',
+            start_time: new Date().toISOString(),
+            duration_minutes: 30,
+            status: 'active',
+            is_paid: true,
+            payment_method: 'cash',
+            is_vr: false
+        }
+    ])
 }));
 
-const queryClient = new QueryClient({
-    defaultOptions: {
-        queries: { retry: false }
+vi.mock('../components/AnalyticsPanel', () => ({
+    default: () => <div data-testid="analytics-panel">Analytics Panel</div>
+}));
+
+vi.mock('../components/SessionTimer', () => ({
+    default: () => <div data-testid="session-timer">Timer</div>
+}));
+
+vi.mock('../components/StartSessionModal', () => ({
+    default: () => <div data-testid="start-modal">Start Modal</div>
+}));
+
+vi.mock('../components/MassLaunchModal', () => ({
+    default: () => <div data-testid="mass-launch-modal">Mass Launch</div>
+}));
+
+vi.mock('../config/features', () => ({
+    FEATURES: {
+        profiles: true,
+        tournaments: true,
+        settings: true
     }
-});
+}));
 
-const AllProviders = ({ children }: { children: React.ReactNode }) => (
-    <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-            <ThemeProvider>
-                <LanguageProvider>
-                    {children}
-                </LanguageProvider>
-            </ThemeProvider>
-        </BrowserRouter>
-    </QueryClientProvider>
-);
+function renderWithProviders(ui: React.ReactElement) {
+    const queryClient = new QueryClient({
+        defaultOptions: {
+            queries: { retry: false }
+        }
+    });
+    return render(
+        <QueryClientProvider client={queryClient}>
+            <MemoryRouter>{ui}</MemoryRouter>
+        </QueryClientProvider>
+    );
+}
 
 describe('Dashboard', () => {
     beforeEach(() => {
-        queryClient.clear();
+        vi.clearAllMocks();
     });
 
-    it('renders without crashing', () => {
-        render(<Dashboard />, { wrapper: AllProviders });
-        // Dashboard should render some content
-        expect(document.body).toBeDefined();
+    it('renders the dashboard header', () => {
+        renderWithProviders(<Dashboard />);
+        expect(screen.getByText('Panel de Control')).toBeTruthy();
     });
 
-    it('displays loading state initially', () => {
-        render(<Dashboard />, { wrapper: AllProviders });
-        // Should show loading or skeleton
-        expect(document.querySelector('.animate-pulse') || document.body).toBeTruthy();
+    it('displays stat cards with correct values', async () => {
+        renderWithProviders(<Dashboard />);
+        await waitFor(() => {
+            expect(screen.getByText('Simuladores')).toBeTruthy();
+            expect(screen.getByText('Online')).toBeTruthy();
+            expect(screen.getByText('Sincronizando')).toBeTruthy();
+            expect(screen.getByText('Perfil Activo')).toBeTruthy();
+        });
+    });
+
+    it('shows active sessions section', async () => {
+        renderWithProviders(<Dashboard />);
+        await waitFor(() => {
+            expect(screen.getByText('Sesiones en Curso')).toBeTruthy();
+        });
+    });
+
+    it('displays quick action buttons', async () => {
+        renderWithProviders(<Dashboard />);
+        await waitFor(() => {
+            expect(screen.getByText('Lanzamiento Masivo')).toBeTruthy();
+            expect(screen.getByText('Perfiles Volante')).toBeTruthy();
+            expect(screen.getByText('Organizar Torneo')).toBeTruthy();
+            expect(screen.getByText('Configuración')).toBeTruthy();
+        });
+    });
+
+    it('switches to analytics tab when clicked', async () => {
+        renderWithProviders(<Dashboard />);
+        const analyticsTab = screen.getByRole('tab', { name: /analíticas/i });
+        analyticsTab.click();
+        await waitFor(() => {
+            expect(screen.getByTestId('analytics-panel')).toBeTruthy();
+        });
+    });
+
+    it('shows session count badge', async () => {
+        renderWithProviders(<Dashboard />);
+        await waitFor(() => {
+            expect(screen.getByText('1 activa')).toBeTruthy();
+        });
     });
 });

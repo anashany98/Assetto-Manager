@@ -31,7 +31,7 @@ export default function TVRemote() {
                 return Array.isArray(res.data) ? res.data : [];
             } catch { return []; }
         },
-        refetchInterval: 2000,
+        refetchInterval: 10000,
         initialData: [],
         enabled: isAuthenticated
     });

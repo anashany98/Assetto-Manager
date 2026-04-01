@@ -29,6 +29,7 @@ import {
     buildPublicKioskLink,
     getDefaultPublicKioskUrl,
 } from '../utils/kioskSettings';
+import { parseApiError } from '../lib/apiError';
 
 import { calculatePrice, getPricingConfig, type PricingDiscount, type PricingRate } from '../utils/pricing';
 import { isFeatureEnabled, type FeatureFlags } from '../config/features';
@@ -204,10 +205,24 @@ export default function SettingsPage() {
         if (!text) return;
         try {
             await navigator.clipboard.writeText(text);
-            alert("Copiado al portapapeles.");
-        } catch {
-            alert("No se pudo copiar.");
+            toast.success('Copiado al portapapeles.');
+        } catch (error) {
+            toast.error(parseApiError(error, 'No se pudo copiar.'));
         }
+    };
+
+    const isValidIpAddress = (value: string) => /^((25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(25[0-5]|2[0-4]\d|1?\d?\d)$/.test(value.trim());
+
+    const validateStationForm = () => {
+        if (!editForm.name.trim()) {
+            toast.error('El nombre de la estación es obligatorio.');
+            return false;
+        }
+        if (!isValidIpAddress(editForm.ip)) {
+            toast.error('La IP de la estación no es válida.');
+            return false;
+        }
+        return true;
     };
 
     const formatLastSeen = (value?: string | null) => {
@@ -227,8 +242,18 @@ export default function SettingsPage() {
     const powerMutation = useMutation({
         mutationFn: async ({ id, action }: { id: number; action: 'shutdown' | 'power-on' | 'panic' | 'restart' }) => {
             await axios.post(`${API_URL}/stations/${id}/${action}`);
+            return action;
         },
-        onSuccess: () => alert("Comando enviado")
+        onSuccess: (action) => {
+            const labels: Record<string, string> = {
+                shutdown: 'Apagado solicitado.',
+                'power-on': 'Encendido solicitado.',
+                panic: 'Cierre de emergencia solicitado.',
+                restart: 'Reinicio solicitado.',
+            };
+            toast.success(labels[action] || 'Comando enviado.');
+        },
+        onError: (error) => toast.error(parseApiError(error, 'No se pudo enviar el comando.')),
     });
 
     const scanContentMutation = useMutation({
@@ -236,61 +261,74 @@ export default function SettingsPage() {
             await axios.get(`${API_URL}/control/station/${stationId}/content`);
         },
         onSuccess: (_data, stationId) => {
-            alert("Escaneo de contenido iniciado. Los coches y pistas aparecerán en unos segundos.");
+            toast.success('Escaneo de contenido iniciado. Los coches y pistas aparecerán en unos segundos.');
             queryClient.invalidateQueries({ queryKey: ['stations'] });
             setTimeout(() => {
                 if (contentStationId === stationId) refetchStationContent();
             }, 2000);
         },
-        onError: () => alert("Error al escanear contenido. ¿Está el agente conectado?")
+        onError: (error) => toast.error(parseApiError(error, 'Error al escanear contenido. ¿Está el agente conectado?'))
     });
 
     const syncContentMutation = useMutation({
         mutationFn: async (stationId: number) => {
             await axios.post(`${API_URL}/control/station/${stationId}/sync`);
         },
-        onSuccess: () => alert("Sincronizacion solicitada al agente."),
-        onError: () => alert("Error al sincronizar contenido. ¿Agente conectado?")
+        onSuccess: () => toast.success('Sincronización solicitada al agente.'),
+        onError: (error) => toast.error(parseApiError(error, 'Error al sincronizar contenido. ¿Agente conectado?'))
     });
 
     const restartAgentMutation = useMutation({
         mutationFn: async (stationId: number) => {
             await axios.post(`${API_URL}/control/station/${stationId}/restart-agent`);
         },
-        onSuccess: () => alert("Reinicio del agente solicitado."),
-        onError: () => alert("Error al reiniciar el agente. ¿Agente conectado?")
+        onSuccess: () => toast.success('Reinicio del agente solicitado.'),
+        onError: (error) => toast.error(parseApiError(error, 'Error al reiniciar el agente. ¿Agente conectado?'))
     });
 
     const kioskToggleMutation = useMutation({
         mutationFn: async ({ id, enabled }: { id: number; enabled: boolean }) => {
             await axios.post(`${API_URL}/control/station/${id}/kiosk`, { enabled });
+            return enabled;
         },
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['stations'] }),
-        onError: () => alert("Error al cambiar modo kiosko.")
+        onSuccess: (enabled) => {
+            queryClient.invalidateQueries({ queryKey: ['stations'] });
+            toast.success(enabled ? 'Modo kiosko activado.' : 'Modo kiosko desactivado.');
+        },
+        onError: (error) => toast.error(parseApiError(error, 'Error al cambiar modo kiosko.'))
     });
 
     const kioskCodeMutation = useMutation({
         mutationFn: async (stationId: number) => {
             await axios.post(`${API_URL}/stations/${stationId}/kiosk-code`);
         },
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['stations'] }),
-        onError: () => alert("Error al regenerar codigo de kiosko.")
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['stations'] });
+            toast.success('Código de kiosko regenerado.');
+        },
+        onError: (error) => toast.error(parseApiError(error, 'Error al regenerar código de kiosko.'))
     });
 
     const lockMutation = useMutation({
         mutationFn: async (stationId: number) => {
             await axios.post(`${API_URL}/stations/${stationId}/lock`);
         },
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['stations'] }),
-        onError: () => alert("Error al bloquear la estacion.")
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['stations'] });
+            toast.success('Estación bloqueada.');
+        },
+        onError: (error) => toast.error(parseApiError(error, 'Error al bloquear la estación.'))
     });
 
     const unlockMutation = useMutation({
         mutationFn: async (stationId: number) => {
             await axios.post(`${API_URL}/stations/${stationId}/unlock`);
         },
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['stations'] }),
-        onError: () => alert("Error al desbloquear la estacion.")
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['stations'] });
+            toast.success('Estación desbloqueada.');
+        },
+        onError: (error) => toast.error(parseApiError(error, 'Error al desbloquear la estación.'))
     });
 
     const testConnectionMutation = useMutation({
@@ -300,25 +338,31 @@ export default function SettingsPage() {
         },
         onSuccess: (data: any) => {
             const online = data?.is_online ? "online" : "offline";
-            alert(`Estado: ${online}`);
+            toast.success(`Estado: ${online}`);
         },
-        onError: () => alert("Error al comprobar conexion.")
+        onError: (error) => toast.error(parseApiError(error, 'Error al comprobar conexión.'))
     });
 
     const deleteStationMutation = useMutation({
         mutationFn: async (stationId: number) => {
             await axios.delete(`${API_URL}/stations/${stationId}`);
         },
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['stations'] }),
-        onError: () => alert("Error al eliminar estacion.")
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['stations'] });
+            toast.success('Estación eliminada.');
+        },
+        onError: (error) => toast.error(parseApiError(error, 'Error al eliminar estación.'))
     });
 
     const reactivateStationMutation = useMutation({
         mutationFn: async (stationId: number) => {
             await updateStation(stationId, { is_active: true, status: 'offline' });
         },
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['stations'] }),
-        onError: () => alert("Error al reactivar estacion.")
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['stations'] });
+            toast.success('Estación reactivada.');
+        },
+        onError: (error) => toast.error(parseApiError(error, 'Error al reactivar estación.'))
     });
 
     const archiveGhostsMutation = useMutation({
@@ -332,10 +376,10 @@ export default function SettingsPage() {
         },
         onSuccess: (data: any) => {
             const count = typeof data?.archived_count === 'number' ? data.archived_count : 0;
-            alert(count > 0 ? `Archivadas ${count} estaciones fantasma.` : "No hay estaciones fantasma para archivar.");
+            toast.success(count > 0 ? `Archivadas ${count} estaciones fantasma.` : 'No hay estaciones fantasma para archivar.');
             queryClient.invalidateQueries({ queryKey: ['stations'] });
         },
-        onError: () => alert("Error al archivar estaciones fantasma.")
+        onError: (error) => toast.error(parseApiError(error, 'Error al archivar estaciones fantasma.'))
     });
 
     const handleExport = async () => {
@@ -352,7 +396,7 @@ export default function SettingsPage() {
             link.remove();
         } catch (error) {
             console.error(error);
-            alert("Error al exportar backup");
+            toast.error(parseApiError(error, 'Error al exportar backup'));
         }
     };
 
@@ -365,16 +409,16 @@ export default function SettingsPage() {
         const formData = new FormData();
         formData.append('file', file);
         try {
-            await axios.post(`${API_URL}/backup/import`, formData, {
+            await axios.post(`${API_URL}/backup/import?confirm=true`, formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data'
                 }
             });
-            alert("Base de datos restaurada correctamente. Se recomienda recargar la página.");
+            toast.success('Base de datos restaurada correctamente. Se recomienda recargar la página.');
             window.location.reload();
         } catch (err) {
             console.error(err);
-            alert("Error al restaurar backup");
+            toast.error(parseApiError(err, 'Error al restaurar backup'));
         }
     };
 
@@ -414,7 +458,10 @@ export default function SettingsPage() {
         try {
             await axios.post(`${API_URL}/settings/upload-logo`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
             queryClient.invalidateQueries({ queryKey: ['settings'] });
-        } catch { alert("Error al subir logo"); }
+            toast.success('Logo actualizado.');
+        } catch (error) {
+            toast.error(parseApiError(error, 'Error al subir logo'));
+        }
     };
 
     // --- STATIONS STATE ---
@@ -512,14 +559,18 @@ export default function SettingsPage() {
     const [stationWheelDrafts, setStationWheelDrafts] = useState<Record<number, string>>({});
     const stationMutation = useMutation({
         mutationFn: ({ id, data }: { id: number; data: Partial<Station> }) => updateStation(id, data),
-        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['stations'] }); setEditingId(null); },
-        onError: () => alert("Error al guardar la estación. Inténtalo de nuevo.")
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['stations'] });
+            setEditingId(null);
+            toast.success('Estación guardada.');
+        },
+        onError: (error) => toast.error(parseApiError(error, 'Error al guardar la estación. Inténtalo de nuevo.'))
     });
     const applyWheelProfileMutation = useMutation({
         mutationFn: async ({ stationId, profileId }: { stationId: number; profileId: string }) => {
             await axios.post(`${API_URL}/control/station/${stationId}/profile/${profileId}`);
         },
-        onSuccess: () => alert("Perfil de volante aplicado.")
+        onSuccess: () => toast.success('Perfil de volante aplicado.')
     });
     const applyStationPresetsMutation = useMutation({
         mutationFn: async ({ stationId, deployMap }: { stationId: number; deployMap: Record<string, string> }) => {
@@ -528,7 +579,7 @@ export default function SettingsPage() {
                 station_ids: [stationId]
             });
         },
-        onSuccess: () => alert("Presets enviados a la estación.")
+        onSuccess: () => toast.success('Presets enviados a la estación.')
     });
 
     // --- GAME CONFIG STATE ---
@@ -622,9 +673,9 @@ export default function SettingsPage() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['config-station-groups'] });
-            alert("Grupo guardado.");
+            toast.success('Grupo guardado.');
         },
-        onError: () => alert("No se pudo guardar el grupo.")
+        onError: (error) => toast.error(parseApiError(error, 'No se pudo guardar el grupo.'))
     });
 
     const deleteGroupMutation = useMutation({
@@ -634,9 +685,9 @@ export default function SettingsPage() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['config-station-groups'] });
             setSelectedGroupName('');
-            alert("Grupo eliminado.");
+            toast.success('Grupo eliminado.');
         },
-        onError: () => alert("No se pudo eliminar el grupo.")
+        onError: (error) => toast.error(parseApiError(error, 'No se pudo eliminar el grupo.'))
     });
 
     const saveHardwarePresetsMutation = useMutation({
@@ -645,15 +696,15 @@ export default function SettingsPage() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['config-hardware-presets'] });
-            alert("Presets de hardware guardados.");
+            toast.success('Presets de hardware guardados.');
         },
         onError: (error: any) => {
             const detail = error?.response?.data?.detail;
             if (detail?.errors && Array.isArray(detail.errors)) {
-                alert(`No se pudo guardar presets:\n- ${detail.errors.join('\n- ')}`);
+                toast.error(`No se pudo guardar presets: ${detail.errors.join(' | ')}`);
                 return;
             }
-            alert("No se pudieron guardar los presets de hardware.");
+            toast.error(parseApiError(error, 'No se pudieron guardar los presets de hardware.'));
         }
     });
 
@@ -663,8 +714,9 @@ export default function SettingsPage() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['config-safe-mode'] });
+            toast.success('Modo seguro actualizado.');
         },
-        onError: () => alert("No se pudo cambiar el modo seguro.")
+        onError: (error) => toast.error(parseApiError(error, 'No se pudo cambiar el modo seguro.'))
     });
 
     const deployMutation = useMutation({
@@ -689,7 +741,7 @@ export default function SettingsPage() {
             const msg = selectedStationIds.length > 0
                 ? `Despliegue en cola para ${selectedStationIds.length} estación(es).`
                 : "Despliegue en cola para todas las estaciones activas.";
-            alert(failed > 0 ? `${msg}\nPreflight falló en ${failed} estación(es).` : msg);
+            toast.success(failed > 0 ? `${msg} Preflight falló en ${failed} estación(es).` : msg);
         },
         onError: (error: any) => {
             const detail = error?.response?.data?.detail;
@@ -697,10 +749,10 @@ export default function SettingsPage() {
                 setActiveDeployJobId(detail.job_id);
             }
             if (detail?.message) {
-                alert(`${detail.message}${detail.job_id ? ` (job: ${detail.job_id})` : ''}`);
+                toast.error(`${detail.message}${detail.job_id ? ` (job: ${detail.job_id})` : ''}`);
                 return;
             }
-            alert(error instanceof Error ? error.message : "Error en despliegue");
+            toast.error(parseApiError(error, 'Error en despliegue'));
         }
     });
 
@@ -714,9 +766,9 @@ export default function SettingsPage() {
                 setActiveDeployJobId(data.job_id);
             }
             queryClient.invalidateQueries({ queryKey: ['deploy-jobs'] });
-            alert("Reintento de despliegue en cola.");
+            toast.success('Reintento de despliegue en cola.');
         },
-        onError: () => alert("No se pudo reintentar el despliegue.")
+        onError: (error) => toast.error(parseApiError(error, 'No se pudo reintentar el despliegue.'))
     });
 
     const stationGroups = Array.isArray(stationGroupsData?.groups) ? stationGroupsData.groups : [];
@@ -731,7 +783,7 @@ export default function SettingsPage() {
     const applyHardwarePreset = (target: 'vr' | 'flat') => {
         const presetMap = target === 'vr' ? hardwarePresetDrafts.vr : hardwarePresetDrafts.flat;
         if (!presetMap || Object.keys(presetMap).length === 0) {
-            alert(`No hay preset guardado para ${target.toUpperCase()}.`);
+            toast.error(`No hay preset guardado para ${target.toUpperCase()}.`);
             return;
         }
         const targetIds = (stations || [])
@@ -864,9 +916,10 @@ export default function SettingsPage() {
                 axios.post(`${API_URL}/settings/`, { key: 'ghost_archive_minute', value: String(ghostArchiveMinute) })
             ]);
             queryClient.invalidateQueries({ queryKey: ['settings'] });
+            toast.success('Configuración de auto-archivado guardada.');
         } catch (error) {
             console.error(error);
-            alert("Error al guardar configuracion de auto-archivado");
+            toast.error(parseApiError(error, 'Error al guardar configuración de auto-archivado'));
         } finally {
             setSavingGhostArchive(false);
         }
@@ -1854,8 +1907,9 @@ export default function SettingsPage() {
                                         <input
                                             type="number"
                                             min={1}
+                                            max={8760}
                                             value={ghostArchiveHours}
-                                            onChange={(e) => setGhostArchiveHours(Number(e.target.value))}
+                                            onChange={(e) => setGhostArchiveHours(Math.max(1, Math.min(8760, Number(e.target.value))))}
                                             className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-lg px-3 py-2 text-[var(--text-primary)] font-bold"
                                         />
                                     </label>
@@ -1917,6 +1971,7 @@ export default function SettingsPage() {
                                 const alertPreview = Array.isArray(health?.alerts) ? health.alerts.slice(0, 2) : [];
                                 const isHealthOnline = typeof health?.is_online === 'boolean' ? health.is_online : station.is_online;
                                 const isGhost = isGhostStation(station);
+                                const kioskLink = buildKioskLink(station.kiosk_code);
                                 const statusLabel = isHealthOnline
                                     ? 'online'
                                     : (isGhost ? 'fantasma' : (station.status || 'offline'));
@@ -1981,7 +2036,7 @@ export default function SettingsPage() {
                                                                     onClick={() => {
                                                                         const profileId = stationWheelDrafts[station.id];
                                                                         if (!profileId) {
-                                                                            alert("Selecciona un perfil de volante.");
+                                                                            toast.error('Selecciona un perfil de volante.');
                                                                             return;
                                                                         }
                                                                         applyWheelProfileMutation.mutate({ stationId: station.id, profileId });
@@ -2027,7 +2082,7 @@ export default function SettingsPage() {
                                                                         if (draft?.video) deployMap.video = draft.video;
                                                                         if (draft?.race) deployMap.race = draft.race;
                                                                         if (Object.keys(deployMap).length === 0) {
-                                                                            alert("Selecciona al menos un preset.");
+                                                                            toast.error('Selecciona al menos un preset.');
                                                                             return;
                                                                         }
                                                                         applyStationPresetsMutation.mutate({ stationId: station.id, deployMap });
@@ -2074,15 +2129,23 @@ export default function SettingsPage() {
                                                             <span className="text-[var(--text-primary)] font-black tracking-widest text-xs select-all cursor-text break-all">{station.kiosk_code || '---'}</span>
                                                             <div className="h-3 w-[1px] bg-gray-700 mx-1"></div>
                                                             <button
-                                                                onClick={() => copyToClipboard(buildKioskLink(station.kiosk_code))}
-                                                                className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+                                                                onClick={() => copyToClipboard(kioskLink)}
+                                                                disabled={!kioskLink}
+                                                                className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] disabled:opacity-40"
                                                                 title="Copiar link"
                                                             >
                                                                 <Copy size={12} />
                                                             </button>
                                                             <button
-                                                                onClick={() => window.open(buildKioskLink(station.kiosk_code), '_blank')}
-                                                                className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+                                                                onClick={() => {
+                                                                    if (!kioskLink) {
+                                                                        toast.error('Configura una URL pública de kiosko antes de abrir el enlace.');
+                                                                        return;
+                                                                    }
+                                                                    window.open(kioskLink, '_blank');
+                                                                }}
+                                                                disabled={!kioskLink}
+                                                                className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] disabled:opacity-40"
                                                                 title="Abrir kiosko"
                                                             >
                                                                 <Link2 size={12} />
@@ -2107,9 +2170,9 @@ export default function SettingsPage() {
                                                             </button>
                                                         </div>
 
-                                                        {station.kiosk_code && qrStationId === station.id && (
+                                                        {station.kiosk_code && kioskLink && qrStationId === station.id && (
                                                             <div className="mt-3 inline-flex items-center gap-3 bg-[var(--bg-card)]/60 border border-[var(--border-default)] rounded-xl px-3 py-2">
-                                                                <QRCodeCanvas value={buildKioskLink(station.kiosk_code)} size={72} bgColor="#0f172a" fgColor="#e5e7eb" />
+                                                                <QRCodeCanvas value={kioskLink} size={72} bgColor="#0f172a" fgColor="#e5e7eb" />
                                                                 <div className="text-[9px] text-[var(--text-tertiary)]">
                                                                     <div className="font-bold uppercase tracking-widest">QR Kiosko</div>
                                                                     <div className="mt-1">Escanea para abrir</div>
@@ -2255,15 +2318,18 @@ export default function SettingsPage() {
                                             </div>
                                             {editingId === station.id && (
                                                 <button
-                                                    onClick={() => stationMutation.mutate({
-                                                        id: station.id,
-                                                        data: {
-                                                            name: editForm.name,
-                                                            ip_address: editForm.ip,
-                                                            ac_path: editForm.ac_path,
-                                                            is_vr: editForm.is_vr
-                                                        }
-                                                    })}
+                                                    onClick={() => {
+                                                        if (!validateStationForm()) return;
+                                                        stationMutation.mutate({
+                                                            id: station.id,
+                                                            data: {
+                                                                name: editForm.name.trim(),
+                                                                ip_address: editForm.ip.trim(),
+                                                                ac_path: editForm.ac_path.trim(),
+                                                                is_vr: editForm.is_vr
+                                                            }
+                                                        });
+                                                    }}
                                                     className="bg-blue-600 p-2 rounded-lg text-[var(--text-primary)] hover:bg-blue-500"
                                                 >
                                                     <CheckCircle size={20} />
@@ -2447,7 +2513,7 @@ export default function SettingsPage() {
                                                             const name = newGroupName.trim();
                                                             if (!name) return;
                                                             if (selectedStationIds.length === 0) {
-                                                                alert("Selecciona estaciones para guardar el grupo.");
+                                                                toast.error('Selecciona estaciones para guardar el grupo.');
                                                                 return;
                                                             }
                                                             saveGroupMutation.mutate({ name, station_ids: selectedStationIds });

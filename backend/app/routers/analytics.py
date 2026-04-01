@@ -119,15 +119,18 @@ async def get_analytics_overview(range_days: int = 30, db: Session = Depends(get
             "sessions": session_map.get(day_key, 0)
         })
 
-    hourly_counts = {h: 0 for h in range(24)}
-    recent_sessions = db.query(SessionModel.start_time).filter(
+    peak_hours = db.query(
+        func.extract('hour', SessionModel.start_time).label('hour'),
+        func.count(SessionModel.id).label('bookings')
+    ).filter(
         SessionModel.start_time >= start_date,
         SessionModel.start_time.isnot(None)
+    ).group_by(
+        func.extract('hour', SessionModel.start_time)
     ).all()
-    for (start_time,) in recent_sessions:
-        if start_time:
-            hourly_counts[start_time.hour] += 1
-    peak_hours = [{"hour": f"{h:02d}:00", "bookings": hourly_counts[h]} for h in range(24)]
+    
+    hourly_map = {int(row[0]) if row[0] is not None else 0: row[1] for row in peak_hours}
+    peak_hours_list = [{"hour": f"{h:02d}:00", "bookings": hourly_map.get(h, 0)} for h in range(24)]
 
     return {
         "summary": {
@@ -213,39 +216,26 @@ async def get_revenue_analytics(range_days: int = 30, db: Session = Depends(get_
 @router.get("/utilization")
 async def get_utilization_analytics(range_days: int = 30, db: Session = Depends(get_db)):
     """
-    Get average sessions per hour of day to identify peak times.
+    Get sessions per hour of day to identify peak times.
     """
     start_date = datetime.now(timezone.utc) - timedelta(days=range_days)
     
-    # Extract hour from start_time (SQLite specific: strftime('%H', ...))
-    # Postgre: extract('hour', ...)
-    # Let's try to be generic if possible, or use SQLite syntax as we are likely on SQLite dev
-    
-    # Assuming SQLite for this project based on standard setups, but let's check.
-    # The user mentioned "Migrating... to Supabase (PostgreSQL)" in history, but current state might be mixed.
-    # Inspecting models.py might give a hint or we can do python-side aggregation for safety if volume is low.
-    # Given "Revenue Dashboard" implies low volume (hundreds of sessions), Python aggregation is safe and db-agnostic.
-    
-    sessions = db.query(SessionModel).filter(
-        SessionModel.start_time >= start_date
+    hourly_counts = db.query(
+        func.extract('hour', SessionModel.start_time).label('hour'),
+        func.count(SessionModel.id).label('count')
+    ).filter(
+        SessionModel.start_time >= start_date,
+        SessionModel.start_time.isnot(None)
+    ).group_by(
+        func.extract('hour', SessionModel.start_time)
     ).all()
     
-    # Initialize 0-23 hours
-    hourly_counts = {h: 0 for h in range(24)}
-    
-    for s in sessions:
-        if s.start_time:
-            # excessive logic isn't needed, just simplest peak hour estimation
-            h = s.start_time.hour # UTC... we might want local time?
-            # Ideally frontend handles timezone or we store localized.
-            # Let's send UTC hour and frontend shifts it, or assume server local time.
-            # Actually models say `start_time = Column(DateTime(timezone=True)`
-            # So .hour will be correct if timezone aware.
+    result = {h: 0 for h in range(24)}
+    for row in hourly_counts:
+        hour = int(row[0]) if row[0] is not None else 0
+        result[hour] = row[1]
             
-            # If we want simple local time of the "shop", we might simply just take the hour.
-            hourly_counts[h] += 1
-            
-    return [{"hour": h, "count": c} for h, c in hourly_counts.items()]
+    return [{"hour": h, "count": c} for h, c in result.items()]
 
 @router.get("/kpi")
 async def get_kpi_stats(range_days: int = 30, db: Session = Depends(get_db)):
@@ -263,11 +253,15 @@ async def get_kpi_stats(range_days: int = 30, db: Session = Depends(get_db)):
         SessionModel.is_paid == True
     ).first()
     
+    total_revenue = float(stats[0] or 0) if stats else 0
+    avg_ticket = float(stats[1] or 0) if stats else 0
+    total_sessions = int(stats[2] or 0) if stats else 0
+    
     return {
-        "total_revenue": stats.total_revenue or 0,
-        "avg_ticket": round(stats.avg_ticket or 0, 2),
-        "total_sessions": stats.total_sessions or 0,
-        "revenue_per_session": round((stats.total_revenue or 0) / (stats.total_sessions or 1), 2)
+        "total_revenue": total_revenue,
+        "avg_ticket": round(avg_ticket, 2),
+        "total_sessions": total_sessions,
+        "revenue_per_session": round(total_revenue / total_sessions, 2) if total_sessions > 0 else 0
     }
 
 @router.get("/payment-methods")

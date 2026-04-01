@@ -9,13 +9,18 @@ export interface Session {
     start_time: string;
     end_time?: string;
     duration_minutes: number;
-    remaining_minutes: number;
+    remaining_minutes: number | null;
     status: 'active' | 'paused' | 'completed' | 'expired';
     price: number;
     is_vr?: boolean;
     payment_method?: string;
     is_paid?: boolean;
     notes?: string;
+}
+
+export interface SessionStopResponse {
+    status: string;
+    message: string;
 }
 
 export type SessionCreate = {
@@ -38,12 +43,12 @@ export const startSession = async (data: SessionCreate, config?: AxiosRequestCon
     return response.data;
 };
 
-export const stopSession = async (sessionId: number) => {
+export const stopSession = async (sessionId: number): Promise<SessionStopResponse> => {
     const response = await axios.post(`${API_URL}/sessions/${sessionId}/stop`);
     return response.data;
 };
 
-export const addTime = async (sessionId: number, minutes: number) => {
+export const addTime = async (sessionId: number, minutes: number): Promise<Session> => {
     const response = await axios.post(`${API_URL}/sessions/${sessionId}/add-time`, { minutes });
     return response.data;
 };

@@ -170,7 +170,7 @@ export default function SessionAnalysis({ lapId }: SessionAnalysisProps) {
     );
 }
 
-function MetricBadge({ label, val, goodLimit, inverse }: { label: string; val: number; goodLimit: number; unit?: string; inverse?: boolean }) {
+function MetricBadge({ label, val, goodLimit, unit, inverse }: { label: string; val: number; goodLimit: number; unit?: string; inverse?: boolean }) {
     const isGood = inverse ? val <= goodLimit : val >= goodLimit;
     const color = isGood ? "text-green-400" : "text-orange-400";
 
@@ -185,6 +185,9 @@ function MetricBadge({ label, val, goodLimit, inverse }: { label: string; val: n
         <div className="bg-[var(--bg-elevated)] p-3 rounded-lg text-center">
             <p className="text-xs text-[var(--text-tertiary)] uppercase font-bold">{label}</p>
             <p className={`text-lg font-bold ${color}`}>{qual}</p>
+            <p className="text-[10px] text-[var(--text-tertiary)] mt-1">
+                {Number.isFinite(val) ? `${val.toFixed(2)}${unit ? ` ${unit}` : ''}` : '--'}
+            </p>
         </div>
     )
 }

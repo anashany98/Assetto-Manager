@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import { API_URL } from '../config';
 import { SettingSlider, SettingToggle, SettingSelect, SettingSection } from './ac-editor/SettingControls';
+import { toast } from 'sonner';
+import { parseApiError } from '../lib/apiError';
 
 interface ACSettingsEditorProps {
     category: 'controls' | 'gameplay' | 'video' | 'audio' | 'camera' | 'race' | 'weather';
@@ -44,8 +46,10 @@ export default function ACSettingsEditor({ category, profileName, onDirtyChange 
             setHasChanges(false);
             setLocalData(null);
             if (Array.isArray(res?.warnings) && res.warnings.length > 0) {
-                alert(`Guardado con advertencias:\n- ${res.warnings.slice(0, 5).join('\n- ')}`);
+                toast.error(`Guardado con advertencias: ${res.warnings.slice(0, 5).join(' | ')}`);
+                return;
             }
+            toast.success('Configuración guardada.');
         },
         onError: (error) => {
             if (axios.isAxiosError(error)) {
@@ -56,11 +60,11 @@ export default function ACSettingsEditor({ category, profileName, onDirtyChange 
                         ...detail.errors.slice(0, 6).map((item: string) => `- ${item}`),
                         ...(warnings.length ? ['\nAdvertencias:', ...warnings.slice(0, 4).map((item: string) => `- ${item}`)] : []),
                     ];
-                    alert(`No se pudo guardar:\n${lines.join('\n')}`);
+                    toast.error(`No se pudo guardar: ${lines.join(' | ')}`);
                     return;
                 }
             }
-            alert("No se pudo guardar la configuración.");
+            toast.error(parseApiError(error, 'No se pudo guardar la configuración.'));
         }
     });
 

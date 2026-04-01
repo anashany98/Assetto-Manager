@@ -5,6 +5,7 @@ import { API_URL, PUBLIC_API_TOKEN } from '../config';
 import { useTelemetry } from '../hooks/useTelemetry';
 import StreamPlayer from '../components/StreamPlayer';
 import { DEMO_STATIONS } from '../data/demoData';
+import { parseApiError } from '../lib/apiError';
 
 interface Station {
     id: number;
@@ -40,6 +41,7 @@ export default function TVSpectator() {
     }, [demoMode]); // Re-fetch if demo mode toggles
 
     const fetchStations = async () => {
+        setError('');
         if (demoMode) {
             setStations(DEMO_STATIONS as Station[]);
             return;
@@ -50,6 +52,7 @@ export default function TVSpectator() {
             setStations(res.data);
         } catch (err) {
             console.error('Error fetching stations:', err);
+            setError(parseApiError(err, 'Error al cargar simuladores.'));
         }
     };
 
@@ -68,7 +71,7 @@ export default function TVSpectator() {
             setSelectedStation(station);
             setStreaming(true);
         } catch (err: unknown) {
-            setError((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || 'Error al iniciar stream');
+            setError(parseApiError(err, 'Error al iniciar stream'));
         } finally {
             setLoading(false);
         }
@@ -88,7 +91,7 @@ export default function TVSpectator() {
             await axios.post(`${API_URL}/spectator/${selectedStation.id}/stop`, null, { headers });
             setStreaming(false);
         } catch (err: unknown) {
-            setError((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || 'Error al detener stream');
+            setError(parseApiError(err, 'Error al detener stream'));
         } finally {
             setLoading(false);
         }
@@ -286,7 +289,7 @@ export default function TVSpectator() {
                         {stations.length === 0 ? (
                             <div className="text-center py-8 text-gray-500">
                                 <WifiOff size={32} className="mx-auto mb-2 opacity-50" />
-                                <p>No hay simuladores online</p>
+                                <p>{error ? 'No se pudieron cargar simuladores' : 'No hay simuladores online'}</p>
                             </div>
                         ) : (
                             <div className="space-y-2">

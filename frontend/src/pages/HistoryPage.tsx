@@ -12,7 +12,7 @@ type HistorySessionRow = {
     driver_name: string;
     track_name: string;
     car_model: string;
-    best_lap: number;
+    best_lap: number | string | null;
     best_lap_id?: number | null;
 };
 
@@ -232,11 +232,16 @@ export default function HistoryPage() {
                             <div ref={sessionsTableRef} className="relative">
                                 <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: 'relative' }}>
                                     {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                                        const session = sessions[virtualRow.index];
-                                        if (!session) return null;
+                                         const session = sessions[virtualRow.index];
+                                         if (!session) return null;
 
-                                        const y = virtualRow.start - rowVirtualizer.options.scrollMargin;
-                                        const canAnalyze = typeof session.best_lap_id === 'number' && session.best_lap_id > 0;
+                                         const y = virtualRow.start - rowVirtualizer.options.scrollMargin;
+                                         const canAnalyze = typeof session.best_lap_id === 'number' && session.best_lap_id > 0;
+                                         const bestLapMs = typeof session.best_lap === 'number'
+                                             ? session.best_lap
+                                             : typeof session.best_lap === 'string' && session.best_lap.trim() !== ''
+                                                 ? Number.parseFloat(session.best_lap)
+                                                 : NaN;
 
                                         return (
                                             <div
@@ -280,7 +285,7 @@ export default function HistoryPage() {
                                                     </div>
                                                     <div className="p-6 text-center">
                                                         <div className="text-blue-600 dark:text-yellow-500 font-mono text-lg font-black italic">
-                                                            {(typeof session.best_lap === 'number' ? session.best_lap / 1000 : parseFloat(session.best_lap) / 1000 || 0).toFixed(3)}s
+                                                            {Number.isFinite(bestLapMs) && bestLapMs > 0 ? `${(bestLapMs / 1000).toFixed(3)}s` : '--'}
                                                         </div>
                                                     </div>
                                                     <div className="p-6 text-right">

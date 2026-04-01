@@ -20,13 +20,14 @@ import {
     BarChart3
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import axios from 'axios';
 import { getDashboardStats, type DashboardStats } from '../api/dashboard';
 import { getActiveSessions, type Session } from '../api/sessions';
 import AnalyticsPanel from '../components/AnalyticsPanel';
 import SessionTimer from '../components/SessionTimer';
-import StartSessionModal from '../components/StartSessionModal';
 import MassLaunchModal from '../components/MassLaunchModal';
 import { FEATURES } from '../config/features';
+import { API_URL } from '../config';
 
 type DashboardTab = 'overview' | 'analytics';
 
@@ -46,11 +47,6 @@ export default function Dashboard() {
     const queryClient = useQueryClient();
     const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
     const [showLaunchModal, setShowLaunchModal] = useState(false);
-    const [startModalStation, setStartModalStation] = useState<{
-        id: number;
-        name: string;
-        is_vr: boolean;
-    } | null>(null);
 
     const { data: stats, isLoading: statsLoading } = useQuery<DashboardStats>({
         queryKey: ['dashboardStats'],
@@ -64,14 +60,22 @@ export default function Dashboard() {
         refetchInterval: 15000
     });
 
+    const { data: settings = [] } = useQuery<{ key: string; value: string }[]>({
+        queryKey: ['dashboard-settings'],
+        queryFn: async () => {
+            const response = await axios.get(`${API_URL}/settings/`);
+            return Array.isArray(response.data) ? response.data : [];
+        },
+        staleTime: 60_000,
+    });
+
     const sessionsCount = activeSessions?.length ?? 0;
+    const paymentCurrency = useMemo(() => {
+        const currency = settings.find((item) => item.key === 'payment_currency')?.value?.trim().toUpperCase();
+        return currency && /^[A-Z]{3}$/.test(currency) ? currency : 'EUR';
+    }, [settings]);
 
     const handleSessionUpdate = useCallback(() => {
-        queryClient.invalidateQueries({ queryKey: ['active-sessions'] });
-    }, [queryClient]);
-
-    const handleStartSessionSuccess = useCallback(() => {
-        setStartModalStation(null);
         queryClient.invalidateQueries({ queryKey: ['active-sessions'] });
     }, [queryClient]);
 
@@ -181,7 +185,6 @@ export default function Dashboard() {
                                     title="Lanzamiento Masivo"
                                     description="Múltiples simuladores"
                                     icon={Rocket}
-                                    featured
                                 />
                                 {FEATURES.profiles && (
                                     <QuickActionLink to="/profiles" title="Perfiles Volante" description="Config FFB" icon={Zap} />
@@ -216,7 +219,7 @@ export default function Dashboard() {
                                             <MemoizedSessionCard
                                                 key={session.id}
                                                 session={session}
-                                                onUpdate={() => queryClient.invalidateQueries({ queryKey: ['active-sessions'] })}
+                                                onUpdate={handleSessionUpdate}
                                             />
                                         ))}
                                     </div>
@@ -230,25 +233,13 @@ export default function Dashboard() {
 
                 {activeTab === 'analytics' && (
                     <div className="animate-fade-in" role="tabpanel" id="tabpanel-analytics">
-                        <AnalyticsTabContent />
+                        <AnalyticsTabContent paymentCurrency={paymentCurrency} />
                     </div>
                 )}
             </main>
 
             {/* Modals */}
             {showLaunchModal && <MassLaunchModal onClose={() => setShowLaunchModal(false)} />}
-            {startModalStation && (
-                <StartSessionModal
-                    stationId={startModalStation.id}
-                    stationName={startModalStation.name}
-                    initialIsVR={startModalStation.is_vr}
-                    onClose={() => setStartModalStation(null)}
-                    onSuccess={() => {
-                        setStartModalStation(null);
-                        queryClient.invalidateQueries({ queryKey: ['active-sessions'] });
-                    }}
-                />
-            )}
         </div>
     );
 }
@@ -259,7 +250,7 @@ export default function Dashboard() {
 
 type DateFilter = 'today' | 'week' | 'month' | 'year';
 
-function AnalyticsTabContent() {
+function AnalyticsTabContent({ paymentCurrency }: { paymentCurrency: string }) {
     const [dateFilter, setDateFilter] = useState<DateFilter>('today');
     
     const rangeDaysMap: Record<DateFilter, number> = {
@@ -269,7 +260,7 @@ function AnalyticsTabContent() {
         year: 365
     };
     
-    const { data: analyticsData, isLoading: analyticsLoading, error: analyticsError } = useQuery({
+    const { data: analyticsData, isLoading: analyticsLoading, error: analyticsError, refetch: refetchAnalytics } = useQuery({
         queryKey: ['analytics', dateFilter],
         queryFn: async () => {
             const { default: axios } = await import('axios');
@@ -307,6 +298,18 @@ function AnalyticsTabContent() {
             topDriver: analyticsData.top_drivers?.[0]?.name || '--',
         };
     }, [analyticsData, dateFilter]);
+
+    const revenueLabel = useMemo(() => {
+        const numericValue = typeof summaryData?.revenue === 'number'
+            ? summaryData.revenue
+            : Number(summaryData?.revenue);
+        if (!Number.isFinite(numericValue)) return '--';
+        return new Intl.NumberFormat(undefined, {
+            style: 'currency',
+            currency: paymentCurrency,
+            maximumFractionDigits: 2,
+        }).format(numericValue);
+    }, [paymentCurrency, summaryData?.revenue]);
 
     return (
         <div className="space-y-6">
@@ -354,7 +357,7 @@ function AnalyticsTabContent() {
                 <div className="ac-card p-6 text-center">
                     <p className="text-[var(--text-tertiary)]">Error al cargar analíticas</p>
                     <button 
-                        onClick={() => window.location.reload()}
+                        onClick={() => refetchAnalytics()}
                         className="mt-2 text-sm text-[var(--accent-primary)] hover:underline"
                     >
                         Reintentar
@@ -365,7 +368,7 @@ function AnalyticsTabContent() {
                     <SummaryCard title="Resumen del Período" items={[
                         { label: 'Sesiones totales', value: summaryData?.sessionsTotal !== undefined ? String(summaryData.sessionsTotal) : '--' },
                         { label: 'Duración promedio', value: summaryData?.avgDuration !== '--' ? `${summaryData?.avgDuration} min` : '--' },
-                        { label: 'Ingresos', value: summaryData?.revenue !== '--' ? `€${summaryData?.revenue}` : '--', accent: true },
+                        { label: 'Ingresos', value: revenueLabel, accent: true },
                         { label: 'Ocupación', value: summaryData?.occupancy !== '--' ? `${summaryData?.occupancy}%` : '--' },
                     ]} />
                     <SummaryCard title="Rendimiento" items={[
@@ -401,7 +404,7 @@ const COLORS = {
     violet: { icon: 'from-violet-500 to-purple-600', shadow: 'shadow-violet-500/15', muted: 'bg-violet-500/10' },
 };
 
-function StatCard({ label, value, description, icon: Icon, color, highlight, loading }: StatCardProps) {
+const StatCard = memo(function StatCard({ label, value, description, icon: Icon, color, highlight, loading }: StatCardProps) {
     const c = COLORS[color];
     const isString = typeof value === 'string';
 
@@ -424,7 +427,7 @@ function StatCard({ label, value, description, icon: Icon, color, highlight, loa
             )}
         </div>
     );
-}
+});
 
 interface QuickActionProps {
     title: string;
@@ -448,7 +451,7 @@ function QuickActionLink({ to, title, description, icon: Icon }: QuickActionProp
     );
 }
 
-function QuickActionButton({ onClick, title, description, icon: Icon, featured: _featured }: QuickActionProps & { onClick: () => void; featured: boolean }) {
+function QuickActionButton({ onClick, title, description, icon: Icon }: QuickActionProps & { onClick: () => void }) {
     return (
         <button
             onClick={onClick}
@@ -492,7 +495,7 @@ function SessionCard({ session, onUpdate }: { session: Session; onUpdate: () => 
                     </span>
                 )}
                 <span className="font-medium">
-                    {session.payment_method} · {session.is_paid ? 'Pagado' : 'Pendiente'}
+                    {session.payment_method ?? 'Sin método'} · {session.is_paid ? 'Pagado' : 'Pendiente'}
                 </span>
             </div>
         </div>
@@ -501,7 +504,7 @@ function SessionCard({ session, onUpdate }: { session: Session; onUpdate: () => 
 
 const MemoizedSessionCard = memo(SessionCard);
 
-function EmptyState({ onLaunchClick }: { onLaunchClick: () => void }) {
+const EmptyState = memo(function EmptyState({ onLaunchClick }: { onLaunchClick: () => void }) {
     return (
         <div className="py-12 text-center">
             <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[var(--bg-badge)] mb-4">
@@ -526,9 +529,9 @@ function EmptyState({ onLaunchClick }: { onLaunchClick: () => void }) {
             </div>
         </div>
     );
-}
+});
 
-function SummaryCard({ title, items }: { title: string; items: { label: string; value: string; accent?: boolean }[] }) {
+const SummaryCard = memo(function SummaryCard({ title, items }: { title: string; items: { label: string; value: string; accent?: boolean }[] }) {
     return (
         <div className="ac-card p-5">
             <h3 className="font-semibold text-[var(--text-primary)] mb-4">{title}</h3>
@@ -544,4 +547,4 @@ function SummaryCard({ title, items }: { title: string; items: { label: string; 
             </div>
         </div>
     );
-}
+});

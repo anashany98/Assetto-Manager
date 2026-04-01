@@ -72,7 +72,9 @@ export default function TVSpectatorFullscreen() {
             try {
                 const headers = PUBLIC_API_TOKEN ? { 'X-Client-Token': PUBLIC_API_TOKEN } : {};
                 const res = await axios.get(`${API_URL}/spectator/stations`, { headers });
-                const station = res.data.find((s: any) => String(s.id) === stationId);
+                const station = Array.isArray(res.data)
+                    ? res.data.find((s: { id: number; is_streaming?: boolean; stream_url?: string | null }) => String(s.id) === stationId)
+                    : null;
                 if (station?.is_streaming) {
                     setStreamUrl(station.stream_url ?? null);
                 }
@@ -220,7 +222,7 @@ export default function TVSpectatorFullscreen() {
                     <div className="text-center text-gray-500">
                         <p className="text-4xl font-bold mb-2">Esperando telemetría...</p>
                         <p className="text-xl">Estación {stationId}</p>
-                        <p className="text-lg mt-4 opacity-50">Añade ?demo=1 a la URL para modo demo</p>
+                        <p className="text-lg mt-4 opacity-50">Añade ?demo=true a la URL para modo demo</p>
                     </div>
                 </div>
             )}

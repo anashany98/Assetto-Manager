@@ -15,8 +15,10 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { API_URL } from '../config';
-import { getStations, massLaunch } from '../api/stations';
+import { getStations, massLaunch, type Station } from '../api/stations';
+import type { Car as ContentCar, Track } from '../api/content';
 import { cn } from '../lib/utils';
+import { toastApiError, toastSuccess } from '../lib/apiError';
 
 interface MassLaunchModalProps {
     onClose: () => void;
@@ -52,7 +54,7 @@ export default function MassLaunchModal({ onClose, initialCar, initialTrack, ini
         queryFn: getStations
     });
 
-    const onlineStations = Array.isArray(stations) ? stations.filter((s: any) => s.is_online) : [];
+    const onlineStations = Array.isArray(stations) ? stations.filter((s: Station) => s.is_online) : [];
 
     const handleLaunch = async () => {
         setIsLaunching(true);
@@ -68,11 +70,11 @@ export default function MassLaunchModal({ onClose, initialCar, initialTrack, ini
                     ? `Evento ${forcedEventId} - Lanzamiento Masivo ${new Date().toLocaleTimeString()}`
                     : `Lanzamiento Masivo ${new Date().toLocaleTimeString()}`,
             });
-            alert("¡Lanzamiento completado con éxito!");
+            toastSuccess('Lanzamiento completado con éxito.');
             onClose();
         } catch (error) {
             console.error(error);
-            alert("Error al realizar el lanzamiento masivo");
+            toastApiError(error, 'Error al realizar el lanzamiento masivo');
         } finally {
             setIsLaunching(false);
         }
@@ -169,7 +171,7 @@ export default function MassLaunchModal({ onClose, initialCar, initialTrack, ini
                                             <Car size={14} /> Seleccionar Vehículo
                                         </label>
                                         <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                                            {cars?.map((car: any) => (
+                                            {cars?.map((car: ContentCar) => (
                                                 <button
                                                     key={car.id}
                                                     onClick={() => setSelectedCar(car.name)}
@@ -198,7 +200,7 @@ export default function MassLaunchModal({ onClose, initialCar, initialTrack, ini
                                             <MapIcon size={14} /> Seleccionar Circuito
                                         </label>
                                         <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                                            {tracks?.map((track: any) => (
+                                            {tracks?.map((track: Track) => (
                                                 <button
                                                     key={track.id}
                                                     onClick={() => setSelectedTrack(track.name)}
@@ -214,7 +216,7 @@ export default function MassLaunchModal({ onClose, initialCar, initialTrack, ini
                                                     </div>
                                                     <div>
                                                         <div className="font-bold text-sm leading-tight">{track.name}</div>
-                                                        <div className="text-[10px] opacity-60">Layout Original</div>
+                                                        <div className="text-[10px] opacity-60">{track.layout || 'Layout principal'}</div>
                                                     </div>
                                                 </button>
                                             ))}
@@ -295,7 +297,7 @@ export default function MassLaunchModal({ onClose, initialCar, initialTrack, ini
                                     <div className="text-xs font-black text-blue-400 uppercase tracking-[0.3em] mb-2">Simuladores Seleccionados</div>
                                     <div className="flex flex-wrap justify-center gap-2">
                                         {selectedStationIds.map(id => {
-                                            const name = Array.isArray(stations) ? stations.find((s: any) => s.id === id)?.name : 'Unknown';
+                                            const name = Array.isArray(stations) ? stations.find((s: Station) => s.id === id)?.name : 'Unknown';
                                             return <span key={id} className="bg-blue-600 text-[var(--text-primary)] px-3 py-1 rounded-lg text-[10px] font-black">{name}</span>;
                                         })}
                                     </div>

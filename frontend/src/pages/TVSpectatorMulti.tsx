@@ -251,7 +251,7 @@ export default function TVSpectatorMulti() {
                         <Users size={64} className="mx-auto mb-4 opacity-50" />
                         <p className="text-3xl font-bold mb-2">Esperando pilotos...</p>
                         <p className="text-lg">Los simuladores aparecerán cuando se conecten</p>
-                        <p className="text-lg mt-4 opacity-50">Añade ?demo=1 a la URL para modo demo</p>
+                        <p className="text-lg mt-4 opacity-50">Añade ?demo=true a la URL para modo demo</p>
                     </div>
                 </div>
             )}

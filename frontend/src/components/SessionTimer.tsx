@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Timer, Square } from 'lucide-react';
 import { type Session, stopSession, addTime } from '../api/sessions';
+import { toastApiError, toastSuccess } from '../lib/apiError';
 
 interface SessionTimerProps {
     session: Session;
@@ -8,11 +9,12 @@ interface SessionTimerProps {
 }
 
 export default function SessionTimer({ session, onUpdate }: SessionTimerProps) {
-    const [timeLeft, setTimeLeft] = useState<number>(session.remaining_minutes * 60); // in seconds
+    const [timeLeft, setTimeLeft] = useState<number>(Math.max(0, Number(session.remaining_minutes ?? 0) * 60));
+    const [pendingAction, setPendingAction] = useState<'stop' | 'add-5' | 'add-15' | null>(null);
 
     useEffect(() => {
         // Sync with prop
-        setTimeLeft(session.remaining_minutes * 60);
+        setTimeLeft(Math.max(0, Number(session.remaining_minutes ?? 0) * 60));
     }, [session.remaining_minutes, session.status, session.id]);
 
     useEffect(() => {
@@ -32,7 +34,7 @@ export default function SessionTimer({ session, onUpdate }: SessionTimerProps) {
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [session.status]);
+    }, [session.status, session.id]);
 
     const minutes = Math.floor(timeLeft / 60);
     const seconds = Math.floor(timeLeft % 60);
@@ -46,19 +48,29 @@ export default function SessionTimer({ session, onUpdate }: SessionTimerProps) {
     const handleStop = async () => {
         if (!confirm("¿Terminar sesión?")) return;
         try {
+            setPendingAction('stop');
             await stopSession(session.id);
+            toastSuccess('Sesión finalizada');
             onUpdate();
         } catch (err) {
-            console.error("Failed to stop session:", err);
+            console.error('Failed to stop session:', err);
+            toastApiError(err, 'No se pudo terminar la sesión.');
+        } finally {
+            setPendingAction(null);
         }
     };
 
     const handleAdd = async (amount: number) => {
         try {
+            setPendingAction(amount === 5 ? 'add-5' : 'add-15');
             await addTime(session.id, amount);
+            toastSuccess(`Se añadieron ${amount} minutos`);
             onUpdate();
         } catch (err) {
-            console.error("Failed to add time:", err);
+            console.error('Failed to add time:', err);
+            toastApiError(err, 'No se pudo ampliar la sesión.');
+        } finally {
+            setPendingAction(null);
         }
     };
 
@@ -95,6 +107,7 @@ export default function SessionTimer({ session, onUpdate }: SessionTimerProps) {
             <div className="flex gap-2">
                 <button
                     onClick={handleStop}
+                    disabled={pendingAction !== null}
                     className="flex-1 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/30 rounded px-2 py-1.5 text-xs font-bold flex items-center justify-center gap-1 transition-colors"
                 >
                     <Square size={12} fill="currentColor" /> FIN
@@ -102,6 +115,7 @@ export default function SessionTimer({ session, onUpdate }: SessionTimerProps) {
                 <div className="flex gap-1">
                     <button
                         onClick={() => handleAdd(5)}
+                        disabled={pendingAction !== null}
                         className="bg-gray-700 hover:bg-gray-600 text-[var(--text-secondary)] border border-[var(--border-strong)] rounded px-2 py-1.5 text-xs font-bold transition-colors"
                         title="+5 minutos"
                     >
@@ -109,6 +123,7 @@ export default function SessionTimer({ session, onUpdate }: SessionTimerProps) {
                     </button>
                     <button
                         onClick={() => handleAdd(15)}
+                        disabled={pendingAction !== null}
                         className="bg-gray-700 hover:bg-gray-600 text-[var(--text-secondary)] border border-[var(--border-strong)] rounded px-2 py-1.5 text-xs font-bold transition-colors"
                         title="+15 minutos"
                     >

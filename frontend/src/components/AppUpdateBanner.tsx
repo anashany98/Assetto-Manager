@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, DownloadCloud, Power, RefreshCw, X } from 'lucide-react';
 import { getAppUpdateStatus, restartAppService, runAppUpdate } from '../api/system';
 import { useAuth } from '../context/useAuth';
+import { toast } from 'sonner';
+import { parseApiError } from '../lib/apiError';
 
 const DISMISS_KEY = 'ac_manager_update_banner_dismissed_commit';
 
@@ -27,19 +29,22 @@ export function AppUpdateBanner() {
     const runMutation = useMutation({
         mutationFn: () => runAppUpdate(false),
         onSuccess: () => {
+            toast.success('Actualización iniciada.');
             queryClient.invalidateQueries({ queryKey: ['app-update-status'] });
+        },
+        onError: (error) => {
+            toast.error(parseApiError(error, 'No se pudo iniciar la actualización.'));
         },
     });
 
     const restartMutation = useMutation({
         mutationFn: () => restartAppService(),
         onSuccess: () => {
-            alert('Reinicio programado. La web puede desconectarse en unos segundos.');
+            toast.success('Reinicio programado. La web puede desconectarse en unos segundos.');
             queryClient.invalidateQueries({ queryKey: ['app-update-status'] });
         },
-        onError: (error: any) => {
-            const detail = error?.response?.data?.detail || 'No se pudo programar el reinicio del servicio.';
-            alert(detail);
+        onError: (error) => {
+            toast.error(parseApiError(error, 'No se pudo programar el reinicio del servicio.'));
         },
     });
 

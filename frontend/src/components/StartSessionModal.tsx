@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { API_URL } from '../config';
 import { calculatePrice, getDurationOptions, getPricingConfig } from '../utils/pricing';
+import { toastApiError } from '../lib/apiError';
 
 interface StartSessionModalProps {
     stationId: number;
@@ -29,7 +30,8 @@ export default function StartSessionModal({ stationId, stationName, initialIsVR,
             const res = await axios.get(`${API_URL}/settings/`);
             return Array.isArray(res.data) ? res.data : [];
         },
-        initialData: []
+        initialData: [],
+        staleTime: 60_000,
     });
 
     const pricingConfig = getPricingConfig(settings);
@@ -56,7 +58,9 @@ export default function StartSessionModal({ stationId, stationName, initialIsVR,
             onSuccess();
             onClose();
         } catch (err) {
-            alert("Error al iniciar sesión");
+            console.error('Failed to start session:', err);
+            toastApiError(err, 'Error al iniciar sesión');
+        } finally {
             setLoading(false);
         }
     };
@@ -143,7 +147,7 @@ export default function StartSessionModal({ stationId, stationName, initialIsVR,
                         <div className="relative">
                             <select
                                 value={paymentMethod}
-                                onChange={(e: any) => setPaymentMethod(e.target.value)}
+                                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setPaymentMethod(e.target.value as typeof paymentMethod)}
                                 className="w-full bg-[var(--bg-card)] border border-[var(--border-default)] rounded-xl py-2.5 px-3 text-[var(--text-primary)] focus:ring-2 focus:ring-purple-500 outline-none appearance-none"
                             >
                                 <option value="cash">💵 Efectivo</option>
