@@ -25,6 +25,9 @@ import type { PaymentProvider, PaymentStatus } from '../api/payments';
 import { startSession } from '../api/sessions';
 import IdleVideoBackground from '../components/IdleVideoBackground';
 
+// Refactored hooks
+import { useLobbyData, useScenarioPagination } from './KioskSteps/hooks';
+
 // Wallpaper Background removed for Tablet Kiosk (now on StationDisplay)
 
 // --- SHARED TYPES ---

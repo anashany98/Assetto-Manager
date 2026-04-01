@@ -25,14 +25,20 @@ import { Camera, Cloud, Bot, Shield, type LucideIcon } from 'lucide-react';
 import { LicenseSettings } from '../components/LicenseSettings';
 import WallpaperSettings from '../components/WallpaperSettings';
 import SystemUpdatePanel from '../components/SystemUpdatePanel';
-import {
-    buildPublicKioskLink,
-    getDefaultPublicKioskUrl,
-} from '../utils/kioskSettings';
 import { parseApiError } from '../lib/apiError';
-
-import { calculatePrice, getPricingConfig, type PricingDiscount, type PricingRate } from '../utils/pricing';
 import { isFeatureEnabled, type FeatureFlags } from '../config/features';
+
+// Refactored hooks and components
+import {
+    useStationMutations,
+    useBrandingSettings,
+    usePricingState,
+    useKioskConfig,
+    useStationFilters,
+    useDeployConfig,
+    useDeployMutations,
+} from './SettingsPage/hooks';
+import { BrandingTab } from './SettingsPage/components';
 
 type StationPresetDraft = {
     video?: string;
