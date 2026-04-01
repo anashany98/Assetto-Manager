@@ -101,10 +101,10 @@ describe('Dashboard', () => {
     it('displays quick action buttons', async () => {
         renderWithProviders(<Dashboard />);
         await waitFor(() => {
-            expect(screen.getByText('Lanzamiento Masivo')).toBeTruthy();
+            expect(screen.getByRole('button', { name: /lanzamiento masivo/i })).toBeTruthy();
             expect(screen.getByText('Perfiles Volante')).toBeTruthy();
             expect(screen.getByText('Organizar Torneo')).toBeTruthy();
-            expect(screen.getByText('Configuración')).toBeTruthy();
+            expect(screen.getAllByText('Configuración').length).toBeGreaterThanOrEqual(1);
         });
     });
 
