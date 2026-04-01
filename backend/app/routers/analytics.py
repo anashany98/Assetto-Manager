@@ -57,6 +57,7 @@ async def get_analytics_overview(range_days: int = Query(30, ge=1, le=365), db: 
         func.count(models.Driver.id)
     ).group_by(models.Driver.membership_tier).all()
     tier_distribution = {tier or "unknown": count for tier, count in tier_counts}
+    tier_distribution = dict(tier_distribution)
     for tier in ("bronze", "silver", "gold", "platinum"):
         tier_distribution.setdefault(tier, 0)
 
@@ -132,6 +133,20 @@ async def get_analytics_overview(range_days: int = Query(30, ge=1, le=365), db: 
     hourly_map = {int(row[0]) if row[0] is not None else 0: row[1] for row in peak_hours}
     peak_hours_list = [{"hour": f"{h:02d}:00", "bookings": hourly_map.get(h, 0)} for h in range(24)]
 
+    most_used_row = db.query(
+        models.Station.name,
+        func.count(SessionModel.id).label("count")
+    ).join(
+        SessionModel, SessionModel.station_id == models.Station.id
+    ).filter(
+        SessionModel.station_id.isnot(None)
+    ).group_by(
+        models.Station.id, models.Station.name
+    ).order_by(
+        desc("count")
+    ).first()
+    most_used_station_name = str(most_used_row.name) if most_used_row and most_used_row.name else None
+    
     return {
         "summary": {
             "total_sessions": total_sessions,
@@ -156,7 +171,7 @@ async def get_analytics_overview(range_days: int = Query(30, ge=1, le=365), db: 
         "popular_tracks": popular_tracks,
         "popular_cars": popular_cars,
         "sessions_per_day": sessions_per_day,
-        "peak_hours": peak_hours,
+        "peak_hours": peak_hours_list,
         "total_revenue": db.query(func.sum(SessionModel.price)).filter(
             SessionModel.is_paid == True
         ).scalar() or 0,
@@ -164,18 +179,7 @@ async def get_analytics_overview(range_days: int = Query(30, ge=1, le=365), db: 
             SessionModel.duration_minutes.isnot(None)
         ).scalar() or 0,
         "occupancy_rate": round((sessions_today / max(total_sessions, 1)) * 100, 1) if total_sessions > 0 else 0,
-        "most_used_station_name": (db.query(
-            models.Station.name,
-            func.count(SessionModel.id).label("count")
-        ).join(
-            SessionModel, SessionModel.station_id == models.Station.id
-        ).filter(
-            SessionModel.station_id.isnot(None)
-        ).group_by(
-            models.Station.id, models.Station.name
-        ).order_by(
-            desc("count")
-        ).first() or (None, None))[0]
+        "most_used_station_name": most_used_station_name
     }
 
 @router.get("/revenue")
