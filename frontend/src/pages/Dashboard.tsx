@@ -17,7 +17,9 @@ import {
     Gauge,
     Clock,
     LayoutDashboard,
-    BarChart3
+    BarChart3,
+    HelpCircle,
+    X
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
@@ -28,6 +30,7 @@ import SessionTimer from '../components/SessionTimer';
 import MassLaunchModal from '../components/MassLaunchModal';
 import { FEATURES } from '../config/features';
 import { API_URL } from '../config';
+import { useKeyboardShortcuts, getShortcutLabel } from '../hooks/useKeyboardShortcuts';
 
 type DashboardTab = 'overview' | 'analytics';
 
@@ -79,6 +82,22 @@ export default function Dashboard() {
         queryClient.invalidateQueries({ queryKey: ['active-sessions'] });
     }, [queryClient]);
 
+    const [showShortcuts, setShowShortcuts] = useState(false);
+
+    const refreshData = useCallback(() => {
+        queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+        queryClient.invalidateQueries({ queryKey: ['active-sessions'] });
+    }, [queryClient]);
+
+    useKeyboardShortcuts([
+        { key: '1', action: () => setActiveTab('overview'), description: 'Vista General' },
+        { key: '2', action: () => setActiveTab('analytics'), description: 'Analíticas' },
+        { key: 'l', action: () => setShowLaunchModal(true), description: 'Lanzamiento Masivo' },
+        { key: 'r', ctrlKey: true, action: refreshData, description: 'Actualizar datos' },
+        { key: '?', action: () => setShowShortcuts(prev => !prev), description: 'Mostrar atajos' },
+        { key: 'Escape', action: () => { setShowShortcuts(false); setShowLaunchModal(false); }, description: 'Cerrar modales' },
+    ]);
+
     return (
         <div className="min-h-screen">
             {/* HEADER */}
@@ -100,10 +119,19 @@ export default function Dashboard() {
                         </div>
 
                         {/* Status */}
-                        <div className={`ac-badge ${sessionsCount > 0 ? 'ac-badge-success' : 'bg-[var(--bg-badge)] text-[var(--text-tertiary)]'}`}>
-                            <Activity size={12} className={sessionsCount > 0 ? 'animate-pulse' : ''} />
-                            <span className="hidden sm:inline">{sessionsCount > 0 ? 'Sistema activo' : 'En espera'}</span>
-                            <span className="sm:hidden">{sessionsCount}</span>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setShowShortcuts(prev => !prev)}
+                                className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-badge)] transition-colors"
+                                title="Atajos de teclado"
+                            >
+                                <HelpCircle size={14} />
+                            </button>
+                            <div className={`ac-badge ${sessionsCount > 0 ? 'ac-badge-success' : 'bg-[var(--bg-badge)] text-[var(--text-tertiary)]'}`}>
+                                <Activity size={12} className={sessionsCount > 0 ? 'animate-pulse' : ''} />
+                                <span className="hidden sm:inline">{sessionsCount > 0 ? 'Sistema activo' : 'En espera'}</span>
+                                <span className="sm:hidden">{sessionsCount}</span>
+                            </div>
                         </div>
                     </div>
 
@@ -237,6 +265,37 @@ export default function Dashboard() {
                     </div>
                 )}
             </main>
+
+            {/* Keyboard Shortcuts Help */}
+            {showShortcuts && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowShortcuts(false)}>
+                    <div className="ac-card p-6 max-w-sm w-full mx-4" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-bold text-[var(--text-primary)]">Atajos de Teclado</h3>
+                            <button onClick={() => setShowShortcuts(false)} className="p-1 rounded hover:bg-[var(--bg-badge)] text-[var(--text-tertiary)]">
+                                <X size={16} />
+                            </button>
+                        </div>
+                        <div className="space-y-2">
+                            {[
+                                { keys: '1', desc: 'Vista General' },
+                                { keys: '2', desc: 'Analíticas' },
+                                { keys: 'L', desc: 'Lanzamiento Masivo' },
+                                { keys: getShortcutLabel({ key: 'r', ctrlKey: true, action: () => {} }), desc: 'Actualizar datos' },
+                                { keys: '?', desc: 'Mostrar esta ayuda' },
+                                { keys: 'Esc', desc: 'Cerrar modales' },
+                            ].map((item, i) => (
+                                <div key={i} className="flex items-center justify-between py-1.5">
+                                    <span className="text-sm text-[var(--text-secondary)]">{item.desc}</span>
+                                    <kbd className="px-2 py-0.5 text-xs font-mono bg-[var(--bg-badge)] border border-[var(--border-default)] rounded text-[var(--text-tertiary)]">
+                                        {item.keys}
+                                    </kbd>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Modals */}
             {showLaunchModal && <MassLaunchModal onClose={() => setShowLaunchModal(false)} />}
