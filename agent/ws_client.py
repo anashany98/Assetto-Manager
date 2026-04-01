@@ -8,6 +8,7 @@ import subprocess
 import threading
 import time
 import random
+import requests
 from urllib.parse import urlparse, urlunparse
 from config import AGENT_TOKEN, logger, OBS_HOST, OBS_PORT, OBS_PASSWORD, STREAM_URL
 from scanner import scan_ac_content
@@ -22,6 +23,11 @@ import telemetry # The existing telemetry module for saving results
 from obs_controller import handle_obs_command
 from idle_display import start_idle_display, stop_idle_display
 from local_server import set_local_kiosk_code
+from offline_queue import (
+    get_pending_sessions, get_pending_results, mark_session_synced, mark_result_synced,
+    remove_synced_sessions, remove_synced_results, get_sync_summary, record_offline_event,
+    verify_session_integrity, verify_result_integrity
+)
 
 # ---------------------------------------------------------------------------
 # Reconnection constants
@@ -104,6 +110,9 @@ class AgentWSClient(threading.Thread):
                         "role": "agent",
                         "token": AGENT_TOKEN
                     }))
+
+                    # Sync offline data after reconnect
+                    await self.sync_offline_data()
 
                     tasks = [
                         asyncio.create_task(self.send_loop(websocket), name="send_loop"),
@@ -344,3 +353,107 @@ class AgentWSClient(threading.Thread):
 
         else:
             await self._send_command_ack(websocket, data, status="rejected", detail="Unknown command")
+
+    # -----------------------------------------------------------------------
+    # Offline Data Sync
+    # -----------------------------------------------------------------------
+    async def sync_offline_data(self):
+        """
+        Sync all pending offline sessions and results after reconnecting.
+        Called automatically after WS reconnection.
+        """
+        summary = get_sync_summary()
+        total = summary.get("total_items", 0)
+        if total == 0:
+            return
+
+        logger.info("Syncing %d offline items (%d sessions, %d results)...",
+                     total, summary["sessions"]["count"], summary["results"]["count"])
+        record_offline_event("sync_started", f"Total items: {total}")
+
+        # Get the server base URL for HTTP requests
+        parsed = urlparse(self.server_url)
+        server_base = f"{parsed.scheme}://{parsed.netloc}"
+
+        # Sync sessions first
+        pending_sessions = get_pending_sessions()
+        synced_sessions = 0
+        for session in pending_sessions:
+            offline_id = session.get("offline_session_id")
+            if not offline_id:
+                continue
+
+            # Verify integrity before syncing
+            if not verify_session_integrity(offline_id):
+                logger.warning("Skipping corrupted session: %s", offline_id)
+                mark_session_synced(offline_id)  # Mark as synced to remove bad data
+                continue
+
+            try:
+                # Remove offline-specific fields for the API
+                api_data = {k: v for k, v in session.items()
+                           if k not in ("synced", "synced_at", "checksum")}
+
+                response = requests.post(
+                    f"{server_base}/sessions/sync-offline",
+                    json=api_data,
+                    headers={"X-Agent-Token": AGENT_TOKEN} if AGENT_TOKEN else {},
+                    timeout=30
+                )
+                if response.status_code in (200, 201):
+                    mark_session_synced(offline_id)
+                    synced_sessions += 1
+                    logger.info("Synced session %s (%d/%d)", offline_id,
+                               synced_sessions, len(pending_sessions))
+                else:
+                    logger.warning("Failed to sync session %s: %d %s",
+                                  offline_id, response.status_code, response.text[:200])
+            except Exception as e:
+                logger.error("Error syncing session %s: %s", offline_id, e)
+                break  # Stop on first error - server may be unstable
+
+        # Sync results
+        pending_results = get_pending_results()
+        synced_results = 0
+        for result in pending_results:
+            offline_id = result.get("offline_result_id")
+            if not offline_id:
+                continue
+
+            if not verify_result_integrity(offline_id):
+                logger.warning("Skipping corrupted result: %s", offline_id)
+                mark_result_synced(offline_id)
+                continue
+
+            try:
+                api_data = {k: v for k, v in result.items()
+                           if k not in ("synced", "synced_at", "checksum")}
+
+                response = requests.post(
+                    f"{server_base}/telemetry/session",
+                    json=api_data,
+                    headers={"X-Agent-Token": AGENT_TOKEN} if AGENT_TOKEN else {},
+                    timeout=30
+                )
+                if response.status_code in (200, 201):
+                    mark_result_synced(offline_id)
+                    synced_results += 1
+                    logger.info("Synced result %s (%d/%d)", offline_id,
+                               synced_results, len(pending_results))
+                else:
+                    logger.warning("Failed to sync result %s: %d %s",
+                                  offline_id, response.status_code, response.text[:200])
+            except Exception as e:
+                logger.error("Error syncing result %s: %s", offline_id, e)
+                break
+
+        # Clean up synced items
+        remove_synced_sessions()
+        remove_synced_results()
+
+        record_offline_event("sync_completed",
+                           f"Sessions: {synced_sessions}/{len(pending_sessions)}, "
+                           f"Results: {synced_results}/{len(pending_results)}")
+        logger.info("Offline sync complete: %d/%d sessions, %d/%d results synced",
+                   synced_sessions, len(pending_sessions),
+                   synced_results, len(pending_results))

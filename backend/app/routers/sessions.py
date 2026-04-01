@@ -367,3 +367,49 @@ def sync_offline_sessions(
 
     db.commit()
     return {"synced": len(created_ids), "offline_ids": created_ids}
+
+
+@router.post("/sync-offline")
+def sync_single_offline_session(
+    session_data: dict = Body(...),
+    db: DBSession = Depends(get_db),
+    _auth=Depends(require_agent_token),
+):
+    """Sync a single offline session from an agent."""
+    try:
+        station_id = session_data.get("station_id")
+        if not station_id:
+            raise HTTPException(status_code=400, detail="station_id required")
+
+        start_time = session_data.get("start_time")
+        if isinstance(start_time, str):
+            try:
+                start_time = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
+            except Exception:
+                start_time = datetime.now(timezone.utc)
+        else:
+            start_time = datetime.now(timezone.utc)
+
+        duration = session_data.get("duration_minutes", 15)
+        end_time = start_time + timedelta(minutes=duration)
+
+        db_session = Session(
+            station_id=station_id,
+            driver_name=session_data.get("driver_name", "Guest"),
+            start_time=start_time,
+            end_time=end_time,
+            duration_minutes=duration,
+            price=session_data.get("price", 0.0),
+            is_paid=True,
+            payment_method=session_data.get("payment_method", "cash"),
+            status="completed",
+            notes=f"offline_synced|{session_data.get('offline_session_id', '')}",
+        )
+        db.add(db_session)
+        db.commit()
+        return {"synced": True, "id": db_session.id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to sync offline session: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

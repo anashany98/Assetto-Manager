@@ -1,0 +1,149 @@
+[
+  {
+    "station_id": 1,
+    "driver_name": "TestDriver",
+    "track_name": "monza",
+    "car_model": "ferrari_sf24",
+    "best_lap": 90000,
+    "laps": [
+      {
+        "lap_time": 90000,
+        "sectors": [
+          30000,
+          30000,
+          30000
+        ]
+      }
+    ],
+    "offline_result_id": "result_a8360f6e1934_1775030049",
+    "synced": false,
+    "created_at": 1775030049.9077404,
+    "checksum": "5b423a974a4d2dbd"
+  },
+  {
+    "station_id": 1,
+    "driver_name": "TestDriver",
+    "track_name": "spa",
+    "car_model": "ferrari_sf24",
+    "best_lap": 90000,
+    "laps": [
+      {
+        "lap_time": 90000,
+        "sectors": [
+          30000,
+          30000,
+          30000
+        ]
+      }
+    ],
+    "offline_result_id": "result_df0324a30ad0_1775030049",
+    "synced": false,
+    "created_at": 1775030049.9082432,
+    "checksum": "7a562855a354115e"
+  },
+  {
+    "station_id": 1,
+    "driver_name": "TestDriver",
+    "track_name": "monza",
+    "car_model": "ferrari_sf24",
+    "best_lap": 90000,
+    "laps": [
+      {
+        "lap_time": 90000,
+        "sectors": [
+          30000,
+          30000,
+          30000
+        ]
+      }
+    ],
+    "offline_result_id": "result_0bc51446c9be_1775030049",
+    "synced": false,
+    "created_at": 1775030049.9318738,
+    "checksum": "12ea144ccd9977c7"
+  },
+  {
+    "station_id": 1,
+    "driver_name": "TestDriver",
+    "track_name": "spa",
+    "car_model": "ferrari_sf24",
+    "best_lap": 90000,
+    "laps": [
+      {
+        "lap_time": 90000,
+        "sectors": [
+          30000,
+          30000,
+          30000
+        ]
+      }
+    ],
+    "offline_result_id": "result_afa042e5a14e_1775030049",
+    "synced": false,
+    "created_at": 1775030049.9338732,
+    "checksum": "ace18f921ccbea2b"
+  },
+  {
+    "station_id": 1,
+    "driver_name": "TestDriver",
+    "track_name": "monza",
+    "car_model": "ferrari_sf24",
+    "best_lap": 90000,
+    "laps": [
+      {
+        "lap_time": 90000,
+        "sectors": [
+          30000,
+          30000,
+          30000
+        ]
+      }
+    ],
+    "offline_result_id": "result_dbbfb5b54343_1775030049",
+    "synced": false,
+    "created_at": 1775030049.9434817,
+    "checksum": "ea8b6e5c795452a6"
+  },
+  {
+    "station_id": 1,
+    "driver_name": "TestDriver",
+    "track_name": "monza",
+    "car_model": "ferrari_sf24",
+    "best_lap": 90000,
+    "laps": [
+      {
+        "lap_time": 90000,
+        "sectors": [
+          30000,
+          30000,
+          30000
+        ]
+      }
+    ],
+    "offline_result_id": "result_c12a42846dc1_1775030049",
+    "synced": false,
+    "created_at": 1775030049.9557858,
+    "checksum": "e2119dc5856e8721"
+  },
+  {
+    "station_id": 1,
+    "driver_name": "TestDriver",
+    "track_name": "monza",
+    "car_model": "ferrari_sf24",
+    "best_lap": 90000,
+    "laps": [
+      {
+        "lap_time": 90000,
+        "sectors": [
+          30000,
+          30000,
+          30000
+        ]
+      }
+    ],
+    "offline_result_id": "result_f93cb4c27045_1775030049",
+    "synced": false,
+    "created_at": 1775030049.9673603,
+    "checksum": "e452a043bdb9238b"
+  }
+]
