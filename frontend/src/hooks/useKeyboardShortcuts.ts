@@ -11,7 +11,10 @@ interface ShortcutConfig {
 
 export function useKeyboardShortcuts(shortcuts: ShortcutConfig[]) {
     const shortcutsRef = useRef(shortcuts);
-    shortcutsRef.current = shortcuts;
+
+    useEffect(() => {
+        shortcutsRef.current = shortcuts;
+    });
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
